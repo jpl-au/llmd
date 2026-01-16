@@ -1,0 +1,75 @@
+// revert.go implements the "llmd revert" command for version rollback.
+//
+// Separated from document.go to isolate version management logic including
+// key-based lookup for direct version reference.
+//
+// Design: Revert is forward-moving - it creates a new version with old content
+// rather than deleting newer versions. This preserves complete history and
+// enables audit trails. The 8-char key system allows direct version references
+// without needing to know the document path.
+
+package document
+
+import (
+	"fmt"
+	"io"
+
+	"github.com/jpl-au/llmd/cmd"
+	"github.com/jpl-au/llmd/internal/log"
+	"github.com/jpl-au/llmd/internal/revert"
+	"github.com/spf13/cobra"
+)
+
+func (e *Extension) newRevertCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "revert <path|key> [version]",
+		Short: "Revert a document to a previous version",
+		Long: `Revert a document to a previous version by creating a new version with the old content.
+
+This is a forward-moving operation - it preserves history by creating a new version
+rather than deleting versions.
+
+The target can be specified as:
+  - A path and version number: llmd revert docs/api 3
+  - A key (8-char identifier): llmd revert abc12345`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: e.runRevert,
+	}
+}
+
+func (e *Extension) runRevert(c *cobra.Command, args []string) error {
+	ctx := c.Context()
+	target := args[0]
+	version := 0
+
+	if len(args) == 2 {
+		_, err := fmt.Sscanf(args[1], "%d", &version)
+		if err != nil {
+			return cmd.PrintJSONError(fmt.Errorf("invalid version %q: must be a number", args[1]))
+		}
+	}
+
+	opts := revert.Options{
+		Author:  cmd.Author(),
+		Message: cmd.Message(),
+	}
+
+	w := cmd.Out()
+	if cmd.JSON() {
+		w = io.Discard
+	}
+
+	result, err := revert.Run(ctx, w, e.svc, target, version, opts)
+
+	log.Event("document:revert", "revert").
+		Author(cmd.Author()).
+		Path(result.Path).
+		Version(result.RevertedTo).
+		Detail("new_version", result.NewVersion).
+		Write(err)
+
+	if err != nil {
+		return cmd.PrintJSONError(err)
+	}
+	return cmd.PrintJSON(result)
+}

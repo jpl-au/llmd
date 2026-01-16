@@ -1,0 +1,78 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    # Style & formatting
+    - gofmt
+    - goimports
+    - revive
+
+    # Error handling
+    - errorlint      # correct error wrapping
+    # Note: err113 disabled - dynamic errors are fine for user-facing messages
+
+    # Static analysis
+    - govet
+    - staticcheck
+    - gosimple       # simplification suggestions
+    - ineffassign    # useless assignments
+    - unconvert      # unnecessary type conversions
+
+    # Security
+    - gosec          # security issues
+
+    # Bugs
+    - bodyclose      # HTTP response body must be closed
+    - nilerr         # returning nil when err is not nil
+    - sqlclosecheck  # SQL rows/statements must be closed
+
+    # Code quality
+    - misspell       # typos in comments/strings
+    - nolintlint     # properly formed nolint directives
+    - unparam        # unused function parameters
+
+linters-settings:
+  revive:
+    rules:
+      # Allow unused t/tx params - common in tests and transaction callbacks
+      - name: unused-parameter
+        disabled: false
+        arguments:
+          - allowRegex: "^_|^t$|^tx$"
+
+  gosec:
+    excludes:
+      - G104  # Unhandled errors (too noisy, we handle intentionally ignored errors)
+      - G304  # File path from variable (necessary for our use case)
+      - G306  # WriteFile permissions - 0644 is fine for non-secret config files
+
+  unparam:
+    check-exported: false  # Only check unexported functions
+
+  misspell:
+    locale: UK
+
+issues:
+  exclude-rules:
+    # Allow underscores in test constants for readability (e.g., LLMTestDoc_V1)
+    - path: _test\.go
+      linters:
+        - revive
+      text: "var-naming"
+
+    # Test files are allowed more flexibility
+    - path: _test\.go
+      linters:
+        - gosec       # Test files don't need security hardening
+        - unparam     # Unused params common in test helpers
+        - bodyclose   # Test HTTP clients often don't need cleanup
+
+    # Allow dot imports for testify (common pattern)
+    - path: _test\.go
+      text: "dot-imports"
+
+    # Ignore "error return value not checked" for fmt.Fprint* in CLI output
+    - linters:
+        - errcheck
+      text: "fmt\\.Fprint"
