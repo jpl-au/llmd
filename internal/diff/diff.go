@@ -23,6 +23,7 @@ type Options struct {
 	Version2       int    // Second version to compare
 	IncludeDeleted bool   // Allow diffing deleted documents
 	FileContent    string // Filesystem file content (for -f flag)
+	Colour         bool   // Colourize output
 }
 
 // Differ is the interface for diff operations.
@@ -31,13 +32,13 @@ type Differ interface {
 }
 
 // Run executes a diff operation and writes output to w.
-func Run(ctx context.Context, w io.Writer, svc Differ, path string, opts Options, colour bool) (Result, error) {
+func Run(ctx context.Context, w io.Writer, svc Differ, path string, opts Options) (Result, error) {
 	r, err := svc.Diff(ctx, path, opts)
 	if err != nil {
 		return r, err
 	}
 
-	fmt.Fprint(w, r.Format(colour))
+	fmt.Fprint(w, r.Format(opts.Colour))
 	return r, nil
 }
 
@@ -139,6 +140,9 @@ func ParseVersionRange(s string) (v1, v2 int, err error) {
 	if len(parts) != 2 {
 		return 0, 0, fmt.Errorf("invalid version range %q (expected v1:v2)", s)
 	}
+	if parts[0] == "" || parts[1] == "" {
+		return 0, 0, fmt.Errorf("invalid version range %q (both versions required)", s)
+	}
 	v1, err = strconv.Atoi(parts[0])
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid start version: %w", err)
@@ -146,6 +150,15 @@ func ParseVersionRange(s string) (v1, v2 int, err error) {
 	v2, err = strconv.Atoi(parts[1])
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid end version: %w", err)
+	}
+	if v1 < 1 {
+		return 0, 0, fmt.Errorf("start version must be >= 1, got %d", v1)
+	}
+	if v2 < 1 {
+		return 0, 0, fmt.Errorf("end version must be >= 1, got %d", v2)
+	}
+	if v1 > v2 {
+		return 0, 0, fmt.Errorf("start version %d cannot be greater than end version %d", v1, v2)
 	}
 	return v1, v2, nil
 }

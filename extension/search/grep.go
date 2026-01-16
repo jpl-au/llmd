@@ -60,6 +60,10 @@ func (e *Extension) runGrep(c *cobra.Command, args []string) error {
 	countOnly, _ := c.Flags().GetBool(extension.FlagCount)
 	context, _ := c.Flags().GetInt(extension.FlagContext)
 
+	if context < 0 {
+		return cmd.PrintJSONError(fmt.Errorf("context lines (-C) must be >= 0, got %d", context))
+	}
+
 	opts := grep.Options{
 		Path:          path,
 		IncludeAll:    all,

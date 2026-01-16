@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/jpl-au/llmd/internal/document"
+	"github.com/jpl-au/llmd/internal/repo"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -26,6 +27,16 @@ func Serve(db string) error {
 	slog.SetDefault(logger)
 
 	svc, err := document.New(db)
+	if errors.Is(err, repo.ErrNotInitialised) {
+		// Auto-initialise for MCP: LLMs should be able to start immediately.
+		// Writes will still require author config, but reads and the server itself work.
+		slog.Info("llmd not initialised, auto-initialising")
+		if initErr := document.Init(false, db, false, ""); initErr != nil {
+			return fmt.Errorf("auto-init failed: %w", initErr)
+		}
+		// Retry opening after init
+		svc, err = document.New(db)
+	}
 	if err != nil {
 		return fmt.Errorf("opening document store: %w", err)
 	}

@@ -128,7 +128,7 @@ func (e *Extension) runEditLineRange(ctx context.Context, path, lineRange string
 		w = io.Discard
 	}
 
-	return edit.RunLineRange(ctx, w, e.svc, path, opts, string(replacement))
+	return edit.RunLineRange(ctx, w, e.svc, path, string(replacement), opts)
 }
 
 func (e *Extension) runEditReplace(ctx context.Context, c *cobra.Command, args []string) (edit.Result, error) {

@@ -34,7 +34,7 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, path string, opt
 	var result Result
 
 	// Resolve path or key to get the actual document path
-	doc, err := svc.Resolve(ctx, path, opts.IncludeDeleted)
+	doc, _, err := svc.Resolve(ctx, path, opts.IncludeDeleted)
 	if err != nil {
 		return result, err
 	}

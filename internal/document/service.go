@@ -13,7 +13,7 @@ import (
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/log"
-	"github.com/jpl-au/llmd/internal/path"
+	norm "github.com/jpl-au/llmd/internal/path"
 	"github.com/jpl-au/llmd/internal/repo"
 	"github.com/jpl-au/llmd/internal/store"
 )
@@ -106,8 +106,8 @@ func (s *Service) SetExtensionContext(ctx extension.Context) {
 // normalizePath normalises a document path for consistent storage and lookup.
 // This is the service-layer entry point; store layer independently validates
 // paths for defence-in-depth (protects against direct store access).
-func (s *Service) normalizePath(p string) (string, error) {
-	return path.Normalise(p)
+func (s *Service) normalizePath(path string) (string, error) {
+	return norm.Normalise(path)
 }
 
 // normalizePrefix normalises an optional prefix path. Empty prefixes are
@@ -116,7 +116,7 @@ func (s *Service) normalizePrefix(prefix string) (string, error) {
 	if prefix == "" {
 		return "", nil
 	}
-	return path.Normalise(prefix)
+	return norm.Normalise(prefix)
 }
 
 // fireEvent notifies all registered extension event handlers.

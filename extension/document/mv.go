@@ -36,6 +36,13 @@ func (e *Extension) runMv(c *cobra.Command, args []string) error {
 	ctx := c.Context()
 	src, dst := args[0], args[1]
 
+	if src == "" {
+		return cmd.PrintJSONError(fmt.Errorf("source path cannot be empty"))
+	}
+	if dst == "" {
+		return cmd.PrintJSONError(fmt.Errorf("destination path cannot be empty"))
+	}
+
 	err := e.svc.Move(ctx, src, dst)
 
 	log.Event("document:mv", "move").

@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/jpl-au/llmd/cmd"
+	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/log"
 	"github.com/spf13/cobra"
 )
@@ -23,33 +24,41 @@ type restoreResult struct {
 }
 
 func (e *Extension) newRestoreCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "restore <path|key>",
+	c := &cobra.Command{
+		Use:   "restore <path>",
 		Short: "Restore a deleted document",
 		Long:  `Restore a soft-deleted document by path or key.`,
 		Args:  cobra.ExactArgs(1),
 		RunE:  e.runRestore,
 	}
+	c.Flags().StringP(extension.FlagKey, "k", "", "Restore by version key (8-char identifier)")
+	return c
 }
 
 func (e *Extension) runRestore(c *cobra.Command, args []string) error {
 	ctx := c.Context()
-	p := args[0]
-	key := ""
+	input := args[0]
+	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
 
-	// For 8-char inputs, try path first then key
-	if len(p) == 8 {
-		// Try path first (need includeDeleted=true for restore)
-		_, err := e.svc.Latest(ctx, p, true)
+	var p, key string
+
+	if keyFlag != "" {
+		// Explicit key provided - use it directly
+		doc, err := e.svc.ByKey(ctx, keyFlag)
 		if err != nil {
-			// Path not found, try as key
-			doc, keyErr := e.svc.ByKey(ctx, p)
-			if keyErr != nil {
-				// Neither found, return original error
-				return cmd.PrintJSONError(fmt.Errorf("path or key %q: %w", p, err))
-			}
-			key = p
-			p = doc.Path
+			return cmd.PrintJSONError(fmt.Errorf("key %q: %w", keyFlag, err))
+		}
+		p = doc.Path
+		key = keyFlag
+	} else {
+		// Resolve input as path or key (includeDeleted=true for restore)
+		doc, isKey, err := e.svc.Resolve(ctx, input, true)
+		if err != nil {
+			return cmd.PrintJSONError(fmt.Errorf("%q: %w", input, err))
+		}
+		p = doc.Path
+		if isKey {
+			key = input
 		}
 	}
 

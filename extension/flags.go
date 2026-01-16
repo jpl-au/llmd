@@ -40,6 +40,7 @@ const (
 
 	// String flags
 
+	FlagKey       = "key"        // Explicit version key (8-char identifier)
 	FlagLines     = "lines"      // Line range specification (e.g., "10:20")
 	FlagNew       = "new"        // New text for replacement
 	FlagOld       = "old"        // Old text to find

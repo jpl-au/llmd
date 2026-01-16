@@ -75,9 +75,9 @@ func (s *Service) UnlinkByTag(ctx context.Context, tag string, opts store.LinkOp
 }
 
 // ListLinks returns all links for a document.
-func (s *Service) ListLinks(ctx context.Context, p, tag string, opts store.LinkOptions) ([]store.Link, error) {
+func (s *Service) ListLinks(ctx context.Context, path, tag string, opts store.LinkOptions) ([]store.Link, error) {
 	opts.MaxPath = s.maxPath
-	return s.store.ListLinks(ctx, p, tag, opts)
+	return s.store.ListLinks(ctx, path, tag, opts)
 }
 
 // ListLinksByTag returns all links with a specific tag.
@@ -93,6 +93,6 @@ func (s *Service) ListOrphanLinkPaths(ctx context.Context, opts store.LinkOption
 // DeleteLinksForPath soft-deletes all links involving a document. Enables
 // cleanup when documents are removed or reorganised to maintain referential
 // integrity in the link graph.
-func (s *Service) DeleteLinksForPath(ctx context.Context, p string, opts store.LinkOptions) error {
-	return s.store.DeleteLinksForPath(ctx, p, opts)
+func (s *Service) DeleteLinksForPath(ctx context.Context, path string, opts store.LinkOptions) error {
+	return s.store.DeleteLinksForPath(ctx, path, opts)
 }

@@ -260,3 +260,15 @@ Line 7`
 		env.contains(out, "Line 5")
 	})
 }
+
+func TestCat_VersionValidation(t *testing.T) {
+	t.Run("negative version rejected", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin(readme, "write", "docs/readme")
+
+		_, err := env.runErr("cat", "-v", "-1", "docs/readme")
+		if err == nil {
+			t.Error("Cat(-v -1) should fail")
+		}
+	})
+}

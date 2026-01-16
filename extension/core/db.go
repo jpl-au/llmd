@@ -39,6 +39,7 @@ If no name is given with --local or --share, operates on the default database.`,
 	}
 	c.Flags().BoolP(extension.FlagLocal, "l", false, "Mark database as local")
 	c.Flags().BoolP(extension.FlagShare, "s", false, "Mark database as shared")
+	c.MarkFlagsMutuallyExclusive(extension.FlagLocal, extension.FlagShare)
 	return c
 }
 
@@ -59,11 +60,6 @@ func runDB(c *cobra.Command, args []string) error {
 	llmdDir := ""
 	if dir != "" {
 		llmdDir = filepath.Join(dir, repo.Dir)
-	}
-
-	// Validate flags
-	if local && share {
-		return cmd.PrintJSONError(fmt.Errorf("cannot use --local and --share together"))
 	}
 
 	// No args and no flags: list databases

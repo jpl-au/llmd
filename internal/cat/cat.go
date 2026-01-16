@@ -56,7 +56,7 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, path string, opt
 		doc, err = svc.Version(ctx, path, opts.Version)
 	} else {
 		// Use Resolve to handle both paths and keys
-		doc, err = svc.Resolve(ctx, path, opts.IncludeDeleted)
+		doc, _, err = svc.Resolve(ctx, path, opts.IncludeDeleted)
 	}
 	if err != nil {
 		return result, err

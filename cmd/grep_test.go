@@ -256,6 +256,18 @@ Line 5`
 	})
 }
 
+func TestGrep_ContextValidation(t *testing.T) {
+	t.Run("negative context rejected", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin(apiDoc, "write", "docs/api")
+
+		_, err := env.runErr("grep", "-C", "-1", "test")
+		if err == nil {
+			t.Error("Grep(-C -1) should fail")
+		}
+	})
+}
+
 func TestGrep_Regex(t *testing.T) {
 	t.Run("alternation", func(t *testing.T) {
 		env := newTestEnv(t)

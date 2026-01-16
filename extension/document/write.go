@@ -19,6 +19,7 @@ import (
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/log"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // writeResult contains the outcome of a write operation.
@@ -54,11 +55,18 @@ func (e *Extension) runWrite(c *cobra.Command, args []string) error {
 		}
 		content = string(data)
 	default:
+		if term.IsTerminal(int(os.Stdin.Fd())) {
+			fmt.Fprintln(os.Stderr, "Reading content from stdin (end with Ctrl+D)...")
+		}
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return cmd.PrintJSONError(fmt.Errorf("read stdin: %w", err))
 		}
 		content = string(data)
+	}
+
+	if content == "" {
+		return cmd.PrintJSONError(fmt.Errorf("content is empty"))
 	}
 
 	err := e.svc.Write(ctx, p, content, cmd.Author(), cmd.Message())

@@ -16,8 +16,9 @@ import (
 
 // Options configures a delete operation.
 type Options struct {
-	Recursive bool // Delete all documents under path
-	Version   int  // If > 0, delete only this specific version
+	Recursive bool   // Delete all documents under path
+	Version   int    // If > 0, delete only this specific version
+	Key       string // Explicit version key (overrides path interpretation)
 }
 
 // Result contains the outcome of a delete operation.
@@ -37,29 +38,47 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, path string, opt
 		return result, fmt.Errorf("--version and --recursive cannot be used together")
 	}
 
-	// For simple delete (no version, no recursive), try to resolve as path or key
-	if opts.Version == 0 && !opts.Recursive && len(path) == 8 {
-		// Try path first
-		_, err := svc.Latest(ctx, path, false)
+	// Key flag cannot be combined with recursive
+	if opts.Key != "" && opts.Recursive {
+		return result, fmt.Errorf("--key and --recursive cannot be used together")
+	}
+
+	// Explicit key provided via --key flag - delete that specific version
+	if opts.Key != "" {
+		doc, err := svc.ByKey(ctx, opts.Key)
 		if err != nil {
-			// Path not found, try as key
-			doc, keyErr := svc.ByKey(ctx, path)
-			if keyErr == nil {
-				// Found as key - delete that specific version
-				if err := svc.DeleteVersion(ctx, doc.Path, doc.Version); err != nil {
-					return result, err
-				}
-				result.Path = doc.Path
-				result.Version = doc.Version
-				result.Key = path
-				result.Deleted = []string{doc.Path}
-				fmt.Fprintf(w, "Deleted %s (version %d, key %s)\n", doc.Path, doc.Version, path)
-				return result, nil
-			}
-			// Neither path nor key found - return original path error
+			return result, fmt.Errorf("key %q: %w", opts.Key, err)
+		}
+		if err := svc.DeleteVersion(ctx, doc.Path, doc.Version); err != nil {
 			return result, err
 		}
-		// Path found, continue with normal delete below
+		result.Path = doc.Path
+		result.Version = doc.Version
+		result.Key = opts.Key
+		result.Deleted = []string{doc.Path}
+		fmt.Fprintf(w, "Deleted %s (version %d, key %s)\n", doc.Path, doc.Version, opts.Key)
+		return result, nil
+	}
+
+	// For simple delete (no version, no recursive), resolve as path or key
+	if opts.Version == 0 && !opts.Recursive {
+		doc, isKey, err := svc.Resolve(ctx, path, false)
+		if err != nil {
+			return result, err
+		}
+		if isKey {
+			// Resolved as key - delete that specific version
+			if err := svc.DeleteVersion(ctx, doc.Path, doc.Version); err != nil {
+				return result, err
+			}
+			result.Path = doc.Path
+			result.Version = doc.Version
+			result.Key = path
+			result.Deleted = []string{doc.Path}
+			fmt.Fprintf(w, "Deleted %s (version %d, key %s)\n", doc.Path, doc.Version, path)
+			return result, nil
+		}
+		// Resolved as path, continue with normal delete below
 	}
 
 	if opts.Version > 0 {

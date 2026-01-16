@@ -90,7 +90,8 @@ func (c *Config) Set(key, value string) error {
 	default:
 		return fmt.Errorf("%w: %s", ErrUnknownKey, key)
 	}
-	return nil
+	// Validate bounds after setting - catches out-of-range values immediately
+	return c.Validate()
 }
 
 // All returns all configuration values as a map.

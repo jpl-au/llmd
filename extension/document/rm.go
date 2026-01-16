@@ -22,7 +22,7 @@ import (
 
 func (e *Extension) newRmCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "rm <path|key>",
+		Use:   "rm <path>",
 		Short: "Delete a document",
 		Long:  `Soft-delete a document (recoverable via restore).`,
 		Args:  cobra.ExactArgs(1),
@@ -30,6 +30,7 @@ func (e *Extension) newRmCmd() *cobra.Command {
 	}
 	c.Flags().BoolP(extension.FlagRecursive, "r", false, "Delete all documents under path")
 	c.Flags().Int(extension.FlagVersion, 0, "Delete only this specific version")
+	c.Flags().StringP(extension.FlagKey, "k", "", "Delete by version key (8-char identifier)")
 	return c
 }
 
@@ -37,7 +38,8 @@ func (e *Extension) runRm(c *cobra.Command, args []string) error {
 	ctx := c.Context()
 	recursive, _ := c.Flags().GetBool(extension.FlagRecursive)
 	version, _ := c.Flags().GetInt(extension.FlagVersion)
-	opts := rm.Options{Recursive: recursive, Version: version}
+	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
+	opts := rm.Options{Recursive: recursive, Version: version, Key: keyFlag}
 	p := args[0]
 
 	w := cmd.Out()

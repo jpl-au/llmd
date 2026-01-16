@@ -43,7 +43,7 @@ var rootCmd = &cobra.Command{
 		// Check if command requires author and none is configured
 		cmdName := topLevelCmdName(cmd)
 		if authorRequiredCommands[cmdName] && author == "" {
-			return fmt.Errorf("author not configured\n\nRun: llmd config author.name \"Your Name\"\n\nSee 'llmd guide config' for local vs global options.")
+			return fmt.Errorf("author not configured (checked .llmd/config.yaml and ~/.llmd/config.yaml)\n\nRun: llmd config author.name \"Your Name\"\n\nSee 'llmd guide config' for local vs global options.")
 		}
 
 		// Initialise extensions for commands that need the store

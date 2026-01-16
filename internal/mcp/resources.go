@@ -46,7 +46,7 @@ func (h *handlers) readDocumentResource(ctx context.Context, uri string) ([]mcp.
 		content = doc.Content
 	} else {
 		// Use Resolve to support both paths and keys
-		doc, err := h.svc.Resolve(ctx, path, false)
+		doc, _, err := h.svc.Resolve(ctx, path, false)
 		if err != nil {
 			return nil, err
 		}

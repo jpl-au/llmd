@@ -51,6 +51,9 @@ func (e *Extension) runLs(c *cobra.Command, args []string) error {
 	opts.Reverse, _ = c.Flags().GetBool(extension.FlagReverse)
 
 	sortBy, _ := c.Flags().GetString(extension.FlagSort)
+	if sortBy != "" && sortBy != "name" && sortBy != "time" {
+		return cmd.PrintJSONError(fmt.Errorf("invalid sort field %q: must be 'name' or 'time'", sortBy))
+	}
 	opts.Sort = ls.SortField(sortBy)
 
 	w := cmd.Out()

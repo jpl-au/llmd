@@ -83,8 +83,9 @@ func (e *Extension) runDiff(c *cobra.Command, args []string) error {
 	if cmd.JSON() {
 		w = io.Discard
 	}
+	opts.Colour = !raw
 
-	r, err := diff.Run(ctx, w, e.svc, p, opts, !raw)
+	r, err := diff.Run(ctx, w, e.svc, p, opts)
 
 	log.Event("document:diff", "diff").
 		Author(cmd.Author()).

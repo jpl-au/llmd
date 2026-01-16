@@ -53,7 +53,7 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, path, expr strin
 	}
 
 	// Resolve path or key to get the document
-	doc, err := svc.Resolve(ctx, path, false)
+	doc, _, err := svc.Resolve(ctx, path, false)
 	if err != nil {
 		return result, err
 	}

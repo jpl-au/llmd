@@ -19,17 +19,17 @@ import (
 )
 
 // Edit performs a search/replace edit on a document.
-// p can be a document path or a key.
-func (s *Service) Edit(ctx context.Context, p string, opts edit.Options) error {
-	doc, err := s.Resolve(ctx, p, false)
+// path can be a document path or a key.
+func (s *Service) Edit(ctx context.Context, path string, opts edit.Options) error {
+	doc, _, err := s.Resolve(ctx, path, false)
 	if err != nil {
-		return fmt.Errorf("edit %q: %w", p, err)
+		return fmt.Errorf("edit %q: %w", path, err)
 	}
-	p = doc.Path // Use resolved path
+	path = doc.Path // Use resolved path
 
 	content, err := edit.Replace(doc.Content, opts.Old, opts.New, opts.CaseInsensitive)
 	if err != nil {
-		return fmt.Errorf("edit %q: %w", p, err)
+		return fmt.Errorf("edit %q: %w", path, err)
 	}
 
 	author := opts.Author
@@ -44,28 +44,28 @@ func (s *Service) Edit(ctx context.Context, p string, opts edit.Options) error {
 		MaxContent: s.maxContent,
 	}
 
-	if err := s.store.Write(ctx, p, content, writeOpts); err != nil {
-		return fmt.Errorf("edit %q: write: %w", p, err)
+	if err := s.store.Write(ctx, path, content, writeOpts); err != nil {
+		return fmt.Errorf("edit %q: write: %w", path, err)
 	}
 
-	if err := s.syncWrite(p, content); err != nil {
-		return fmt.Errorf("sync %q: %w", p, err)
+	if err := s.syncWrite(path, content); err != nil {
+		return fmt.Errorf("sync %q: %w", path, err)
 	}
 	return nil
 }
 
 // EditLineRange replaces a range of lines in a document.
-// p can be a document path or a key.
-func (s *Service) EditLineRange(ctx context.Context, p string, opts edit.LineRangeOptions, replacement string) error {
-	doc, err := s.Resolve(ctx, p, false)
+// path can be a document path or a key.
+func (s *Service) EditLineRange(ctx context.Context, path, replacement string, opts edit.LineRangeOptions) error {
+	doc, _, err := s.Resolve(ctx, path, false)
 	if err != nil {
-		return fmt.Errorf("edit lines %q: %w", p, err)
+		return fmt.Errorf("edit lines %q: %w", path, err)
 	}
-	p = doc.Path // Use resolved path
+	path = doc.Path // Use resolved path
 
 	content, err := edit.ReplaceLines(doc.Content, opts.Start, opts.End, replacement)
 	if err != nil {
-		return fmt.Errorf("edit lines %q: %w", p, err)
+		return fmt.Errorf("edit lines %q: %w", path, err)
 	}
 
 	author := opts.Author
@@ -80,12 +80,12 @@ func (s *Service) EditLineRange(ctx context.Context, p string, opts edit.LineRan
 		MaxContent: s.maxContent,
 	}
 
-	if err := s.store.Write(ctx, p, content, writeOpts); err != nil {
-		return fmt.Errorf("edit lines %q: write: %w", p, err)
+	if err := s.store.Write(ctx, path, content, writeOpts); err != nil {
+		return fmt.Errorf("edit lines %q: write: %w", path, err)
 	}
 
-	if err := s.syncWrite(p, content); err != nil {
-		return fmt.Errorf("sync %q: %w", p, err)
+	if err := s.syncWrite(path, content); err != nil {
+		return fmt.Errorf("sync %q: %w", path, err)
 	}
 	return nil
 }

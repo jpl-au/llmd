@@ -59,11 +59,10 @@ type Service interface {
 	// commands like cat, history, tag, and MCP tools. Use Latest for internal
 	// code operating on known paths, such as iteration or post-resolution work.
 	//
-	// Some commands need different behaviour based on input type. For example,
-	// rm deletes a specific version when given a key but soft-deletes the entire
-	// document when given a path. These commands should implement custom resolution
-	// logic rather than using Resolve.
-	Resolve(ctx context.Context, pathOrKey string, includeDeleted bool) (*store.Document, error)
+	// Returns (doc, isKey, err) where isKey indicates whether input resolved as a key.
+	// Commands can use isKey to determine behaviour - e.g., rm deletes a specific
+	// version when isKey is true, but soft-deletes the entire document when false.
+	Resolve(ctx context.Context, value string, includeDeleted bool) (*store.Document, bool, error)
 
 	// List returns documents matching a path prefix.
 	// Use "" for all documents. Set deletedOnly to list only deleted docs.
@@ -113,7 +112,7 @@ type Service interface {
 
 	// EditLineRange replaces a range of lines in a document.
 	// Line numbers are 1-indexed. Creates a new version.
-	EditLineRange(ctx context.Context, path string, opts edit.LineRangeOptions, replacement string) error
+	EditLineRange(ctx context.Context, path, replacement string, opts edit.LineRangeOptions) error
 
 	// Diff compares document versions or against filesystem.
 	// See diff.Options for comparison modes.

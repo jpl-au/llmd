@@ -19,6 +19,7 @@ import (
 type Options struct {
 	Author  string // Who is performing the revert
 	Message string // Custom message (defaults to "Revert to vN" or "Revert to <key>")
+	Key     string // Explicit version key (overrides target interpretation)
 }
 
 // Result contains the outcome of a revert operation.
@@ -43,7 +44,17 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, target string, v
 	var result Result
 	usedKey := false
 
-	if version > 0 {
+	if opts.Key != "" {
+		// Explicit key provided via --key flag
+		doc, err = svc.ByKey(ctx, opts.Key)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return result, fmt.Errorf("key not found: %s", opts.Key)
+			}
+			return result, err
+		}
+		usedKey = true
+	} else if version > 0 {
 		// Path + version provided
 		doc, err = svc.Version(ctx, target, version)
 		if err != nil {
@@ -52,26 +63,22 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, target string, v
 			}
 			return result, err
 		}
-	} else if len(target) == 8 {
-		// Could be path or key - try path first
-		_, pathErr := svc.Latest(ctx, target, false)
-		if pathErr != nil {
-			// Path not found, try as key
-			doc, err = svc.ByKey(ctx, target)
-			if err != nil {
-				if errors.Is(err, store.ErrNotFound) {
-					return result, fmt.Errorf("not found: %s", target)
-				}
-				return result, err
+	} else {
+		// No version - target could be path or key, use Resolve
+		var isKey bool
+		doc, isKey, err = svc.Resolve(ctx, target, false)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return result, fmt.Errorf("not found: %s", target)
 			}
+			return result, err
+		}
+		if isKey {
 			usedKey = true
 		} else {
 			// Found as path but no version specified
 			return result, fmt.Errorf("version required: llmd revert %s <version>", target)
 		}
-	} else {
-		// Path provided but no version - error
-		return result, fmt.Errorf("version required: llmd revert %s <version>", target)
 	}
 
 	// Build the message

@@ -117,7 +117,7 @@ func runImport(c *cobra.Command, args []string) error {
 	}
 
 	if len(result.Paths) == 0 {
-		fmt.Fprintln(cmd.Out(), "No markdown files found")
+		fmt.Fprintf(cmd.Out(), "No markdown files found in %q (expected .md files)\n", src)
 		return nil
 	}
 
@@ -131,7 +131,7 @@ func runImport(c *cobra.Command, args []string) error {
 
 func newExportCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "export <doc-path|key> <filesystem-path>",
+		Use:   "export <doc-path> <filesystem-path>",
 		Short: "Export documents from store to filesystem",
 		Long: `Export documents from the store to filesystem.
 
@@ -141,6 +141,7 @@ Multiple documents (prefix): destination must be a directory`,
 		RunE: runExport,
 	}
 	c.Flags().IntP(extension.FlagVersion, "v", 0, "Export specific version")
+	c.Flags().StringP(extension.FlagKey, "k", "", "Export by version key (8-char identifier)")
 	return c
 }
 
@@ -157,23 +158,27 @@ func runExport(c *cobra.Command, args []string) error {
 		Force: cmd.Force(),
 	}
 	opts.Version, _ = c.Flags().GetInt(extension.FlagVersion)
+	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
 
-	// For 8-char inputs, try path first then key
 	key := ""
-	if len(docPath) == 8 && opts.Version == 0 {
-		// Try path first
-		_, pathErr := svc.Latest(ctx, docPath, false)
-		if pathErr != nil {
-			// Path not found, try as key
-			doc, keyErr := svc.ByKey(ctx, docPath)
-			if keyErr == nil {
-				key = docPath
-				docPath = doc.Path
-				// Export the specific version the key points to
-				opts.Version = doc.Version
-			}
-			// If neither found, let exporter.Run handle the error
+	if keyFlag != "" {
+		// Explicit key provided via --key flag
+		doc, err := svc.ByKey(ctx, keyFlag)
+		if err != nil {
+			return cmd.PrintJSONError(fmt.Errorf("key %q: %w", keyFlag, err))
 		}
+		key = keyFlag
+		docPath = doc.Path
+		opts.Version = doc.Version
+	} else if opts.Version == 0 {
+		// No version specified - try to resolve as path or key
+		doc, isKey, err := svc.Resolve(ctx, docPath, false)
+		if err == nil && isKey {
+			key = docPath
+			docPath = doc.Path
+			opts.Version = doc.Version
+		}
+		// If err or resolved as path, let exporter.Run handle it
 	}
 
 	result, err := exporter.Run(ctx, cmd.Out(), svc, docPath, dest, opts)

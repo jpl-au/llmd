@@ -22,21 +22,21 @@ import (
 )
 
 // Latest retrieves the latest version of a document.
-func (s *Service) Latest(ctx context.Context, p string, includeDeleted bool) (*store.Document, error) {
-	p, err := s.normalizePath(p)
+func (s *Service) Latest(ctx context.Context, path string, includeDeleted bool) (*store.Document, error) {
+	path, err := s.normalizePath(path)
 	if err != nil {
 		return nil, err
 	}
-	return s.store.Latest(ctx, p, includeDeleted)
+	return s.store.Latest(ctx, path, includeDeleted)
 }
 
 // Version retrieves a specific version of a document.
-func (s *Service) Version(ctx context.Context, p string, ver int) (*store.Document, error) {
-	p, err := s.normalizePath(p)
+func (s *Service) Version(ctx context.Context, path string, ver int) (*store.Document, error) {
+	path, err := s.normalizePath(path)
 	if err != nil {
 		return nil, err
 	}
-	return s.store.Version(ctx, p, ver)
+	return s.store.Version(ctx, path, ver)
 }
 
 // ByKey retrieves a document by its unique 8-char key.
@@ -60,11 +60,14 @@ func (s *Service) ByKey(ctx context.Context, key string) (*store.Document, error
 // If input resolves as a key, you get that specific version, which may not be
 // the latest. If it resolves as a path, you get the latest version. This
 // matches user intent since a key is a precise reference to a specific version.
-func (s *Service) Resolve(ctx context.Context, pathOrKey string, includeDeleted bool) (*store.Document, error) {
+//
+// Returns (doc, isKey, err) where isKey indicates whether input resolved as a key.
+func (s *Service) Resolve(ctx context.Context, value string, includeDeleted bool) (*store.Document, bool, error) {
 	// Keys are always exactly 8 characters. Longer or shorter inputs can only
 	// be paths.
-	if len(pathOrKey) != 8 {
-		return s.Latest(ctx, pathOrKey, includeDeleted)
+	if len(value) != 8 {
+		doc, err := s.Latest(ctx, value, includeDeleted)
+		return doc, false, err
 	}
 
 	// For 8-character inputs, check path and key concurrently.
@@ -73,23 +76,23 @@ func (s *Service) Resolve(ctx context.Context, pathOrKey string, includeDeleted 
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		pathDoc, pathErr = s.Latest(ctx, pathOrKey, includeDeleted)
+		pathDoc, pathErr = s.Latest(ctx, value, includeDeleted)
 	})
 	wg.Go(func() {
-		keyDoc, keyErr = s.ByKey(ctx, pathOrKey)
+		keyDoc, keyErr = s.ByKey(ctx, value)
 	})
 	wg.Wait()
 
 	// Path takes precedence. If someone created a document at "my-notes", they
 	// mean that path rather than a key that happens to match.
 	if pathErr == nil {
-		return pathDoc, nil
+		return pathDoc, false, nil
 	}
 	if keyErr == nil {
-		return keyDoc, nil
+		return keyDoc, true, nil
 	}
 	// Both failed. Return path error since that is more intuitive for users.
-	return nil, pathErr
+	return nil, false, pathErr
 }
 
 // List returns documents matching a prefix.
@@ -102,21 +105,21 @@ func (s *Service) List(ctx context.Context, prefix string, includeDeleted, delet
 }
 
 // History returns version history for a document.
-func (s *Service) History(ctx context.Context, p string, limit int, includeDeleted bool) ([]store.Document, error) {
-	p, err := s.normalizePath(p)
+func (s *Service) History(ctx context.Context, path string, limit int, includeDeleted bool) ([]store.Document, error) {
+	path, err := s.normalizePath(path)
 	if err != nil {
 		return nil, err
 	}
-	return s.store.History(ctx, p, limit, includeDeleted)
+	return s.store.History(ctx, path, limit, includeDeleted)
 }
 
 // Exists checks if a document exists without fetching content.
-func (s *Service) Exists(ctx context.Context, p string) (bool, error) {
-	p, err := s.normalizePath(p)
+func (s *Service) Exists(ctx context.Context, path string) (bool, error) {
+	path, err := s.normalizePath(path)
 	if err != nil {
 		return false, err
 	}
-	return s.store.Exists(ctx, p)
+	return s.store.Exists(ctx, path)
 }
 
 // Count returns the number of documents matching a path prefix.
@@ -129,12 +132,12 @@ func (s *Service) Count(ctx context.Context, prefix string) (int64, error) {
 }
 
 // Meta returns document metadata without content.
-func (s *Service) Meta(ctx context.Context, p string) (*store.DocumentMeta, error) {
-	p, err := s.normalizePath(p)
+func (s *Service) Meta(ctx context.Context, path string) (*store.DocumentMeta, error) {
+	path, err := s.normalizePath(path)
 	if err != nil {
 		return nil, err
 	}
-	return s.store.Meta(ctx, p)
+	return s.store.Meta(ctx, path)
 }
 
 // Glob returns document paths matching a glob pattern.
@@ -158,20 +161,20 @@ func (s *Service) Glob(ctx context.Context, pattern string) ([]string, error) {
 }
 
 // Diff compares two versions of a document or two documents.
-func (s *Service) Diff(ctx context.Context, p string, opts diff.Options) (diff.Result, error) {
+func (s *Service) Diff(ctx context.Context, path string, opts diff.Options) (diff.Result, error) {
 	// o = old content, n = new content, ol = old label, nl = new label
 	var o, n, ol, nl string
 	var err error
 
 	switch {
 	case opts.FileContent != "":
-		o, n, ol, nl, err = s.diffWithFile(ctx, p, opts)
+		o, n, ol, nl, err = s.diffWithFile(ctx, path, opts)
 	case opts.Path2 != "":
-		o, n, ol, nl, err = s.diffTwoPaths(ctx, p, opts)
+		o, n, ol, nl, err = s.diffTwoPaths(ctx, path, opts)
 	case opts.Version1 > 0 && opts.Version2 > 0:
-		o, n, ol, nl, err = s.diffVersions(ctx, p, opts)
+		o, n, ol, nl, err = s.diffVersions(ctx, path, opts)
 	default:
-		o, n, ol, nl, err = s.diffPrevious(ctx, p, opts)
+		o, n, ol, nl, err = s.diffPrevious(ctx, path, opts)
 	}
 
 	if err != nil {
@@ -180,7 +183,7 @@ func (s *Service) Diff(ctx context.Context, p string, opts diff.Options) (diff.R
 	return diff.Compute(o, n, ol, nl), nil
 }
 
-func (s *Service) diffWithFile(ctx context.Context, p string, opts diff.Options) (o, n, ol, nl string, err error) {
+func (s *Service) diffWithFile(ctx context.Context, path string, opts diff.Options) (o, n, ol, nl string, err error) {
 	np2, err := s.normalizePath(opts.Path2)
 	if err != nil {
 		return "", "", "", "", err
@@ -189,11 +192,11 @@ func (s *Service) diffWithFile(ctx context.Context, p string, opts diff.Options)
 	if err != nil {
 		return "", "", "", "", fmt.Errorf("reading %s: %w", np2, err)
 	}
-	return opts.FileContent, doc.Content, p, np2 + " (v" + strconv.Itoa(doc.Version) + ")", nil
+	return opts.FileContent, doc.Content, path, np2 + " (v" + strconv.Itoa(doc.Version) + ")", nil
 }
 
-func (s *Service) diffTwoPaths(ctx context.Context, p string, opts diff.Options) (o, n, ol, nl string, err error) {
-	np1, err := s.normalizePath(p)
+func (s *Service) diffTwoPaths(ctx context.Context, path string, opts diff.Options) (o, n, ol, nl string, err error) {
+	np1, err := s.normalizePath(path)
 	if err != nil {
 		return "", "", "", "", err
 	}
@@ -226,8 +229,8 @@ func (s *Service) diffTwoPaths(ctx context.Context, p string, opts diff.Options)
 		np2 + " (v" + strconv.Itoa(d2.Version) + ")", nil
 }
 
-func (s *Service) diffVersions(ctx context.Context, p string, opts diff.Options) (o, n, ol, nl string, err error) {
-	np, err := s.normalizePath(p)
+func (s *Service) diffVersions(ctx context.Context, path string, opts diff.Options) (o, n, ol, nl string, err error) {
+	np, err := s.normalizePath(path)
 	if err != nil {
 		return "", "", "", "", err
 	}
@@ -256,8 +259,8 @@ func (s *Service) diffVersions(ctx context.Context, p string, opts diff.Options)
 		np + " v" + strconv.Itoa(opts.Version2), nil
 }
 
-func (s *Service) diffPrevious(ctx context.Context, p string, opts diff.Options) (o, n, ol, nl string, err error) {
-	np, err := s.normalizePath(p)
+func (s *Service) diffPrevious(ctx context.Context, path string, opts diff.Options) (o, n, ol, nl string, err error) {
+	np, err := s.normalizePath(path)
 	if err != nil {
 		return "", "", "", "", err
 	}
@@ -326,12 +329,12 @@ func (s *Service) DeletedBefore(ctx context.Context, t time.Time, prefix string)
 
 // VersionCount returns the number of versions for a document without loading
 // full history. Enables version management decisions and display.
-func (s *Service) VersionCount(ctx context.Context, p string) (int, error) {
-	p, err := s.normalizePath(p)
+func (s *Service) VersionCount(ctx context.Context, path string) (int, error) {
+	path, err := s.normalizePath(path)
 	if err != nil {
 		return 0, err
 	}
-	return s.store.VersionCount(ctx, p)
+	return s.store.VersionCount(ctx, path)
 }
 
 // ListAuthors returns all distinct authors who have written documents.

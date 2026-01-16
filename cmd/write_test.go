@@ -30,13 +30,13 @@ func TestWrite(t *testing.T) {
 		env.contains(out, "docs/api/v2/endpoints/users")
 	})
 
-	t.Run("empty content", func(t *testing.T) {
+	t.Run("empty content rejected", func(t *testing.T) {
 		env := newTestEnv(t)
 
-		env.runStdin("", "write", "docs/empty")
-
-		out := env.run("cat", "docs/empty")
-		env.equals(out, "")
+		_, err := env.runErr("write", "docs/empty")
+		if err == nil {
+			t.Error("write with empty content should fail")
+		}
 	})
 
 	t.Run("special characters", func(t *testing.T) {

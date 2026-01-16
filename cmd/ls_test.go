@@ -237,4 +237,14 @@ func TestLs_Sort(t *testing.T) {
 		env.contains(out, "bbb")
 		env.contains(out, "ccc")
 	})
+
+	t.Run("invalid sort field rejected", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("content", "write", "test")
+
+		_, err := env.runErr("ls", "-s", "invalid")
+		if err == nil {
+			t.Error("Ls(-s invalid) should fail")
+		}
+	})
 }

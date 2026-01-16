@@ -15,14 +15,15 @@ import (
 	"io"
 
 	"github.com/jpl-au/llmd/cmd"
+	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/log"
 	"github.com/jpl-au/llmd/internal/revert"
 	"github.com/spf13/cobra"
 )
 
 func (e *Extension) newRevertCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "revert <path|key> [version]",
+	c := &cobra.Command{
+		Use:   "revert <path> [version]",
 		Short: "Revert a document to a previous version",
 		Long: `Revert a document to a previous version by creating a new version with the old content.
 
@@ -31,10 +32,12 @@ rather than deleting versions.
 
 The target can be specified as:
   - A path and version number: llmd revert docs/api 3
-  - A key (8-char identifier): llmd revert abc12345`,
+  - A key (8-char identifier): llmd revert --key abc12345`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: e.runRevert,
 	}
+	c.Flags().StringP(extension.FlagKey, "k", "", "Revert to version by key (8-char identifier)")
+	return c
 }
 
 func (e *Extension) runRevert(c *cobra.Command, args []string) error {
@@ -47,11 +50,17 @@ func (e *Extension) runRevert(c *cobra.Command, args []string) error {
 		if err != nil {
 			return cmd.PrintJSONError(fmt.Errorf("invalid version %q: must be a number", args[1]))
 		}
+		if version < 1 {
+			return cmd.PrintJSONError(fmt.Errorf("version must be >= 1, got %d", version))
+		}
 	}
+
+	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
 
 	opts := revert.Options{
 		Author:  cmd.Author(),
 		Message: cmd.Message(),
+		Key:     keyFlag,
 	}
 
 	w := cmd.Out()

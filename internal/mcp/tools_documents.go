@@ -65,7 +65,7 @@ func (h *handlers) readDocumentTool(ctx context.Context, req mcp.CallToolRequest
 		doc, err = h.svc.Version(ctx, path, version)
 	} else {
 		// Use Resolve to support both paths and keys
-		doc, err = h.svc.Resolve(ctx, path, includeDeleted)
+		doc, _, err = h.svc.Resolve(ctx, path, includeDeleted)
 	}
 
 	v := 0
@@ -109,7 +109,7 @@ func (h *handlers) writeDocument(ctx context.Context, req mcp.CallToolRequest) (
 }
 
 // deleteDocument handles llmd_delete tool calls.
-// Supports both paths and 8-character keys.
+// Supports both paths and 8-character keys via Resolve.
 func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	path, err := req.RequireString("path")
 	if err != nil {
@@ -118,26 +118,23 @@ func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) 
 
 	version := getInt(req, "version", 0)
 
-	// For simple delete (no version), try to resolve as path or key
-	if version == 0 && len(path) == 8 {
-		// Try path first
-		_, pathErr := h.svc.Latest(ctx, path, false)
-		if pathErr != nil {
-			// Path not found, try as key
-			doc, keyErr := h.svc.ByKey(ctx, path)
-			if keyErr == nil {
-				// Found as key - delete that specific version
-				err = h.svc.DeleteVersion(ctx, doc.Path, doc.Version)
-				log.Event("mcp:delete_version", "delete").Author("mcp").Path(doc.Path).Version(doc.Version).Detail("key", path).Write(err)
-				if err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
-				}
-				return mcp.NewToolResultText(fmt.Sprintf("deleted %s (version %d, key %s)", doc.Path, doc.Version, path)), nil
-			}
-			// Neither path nor key found - return original path error
-			return mcp.NewToolResultError(pathErr.Error()), nil
+	// For simple delete (no version), resolve as path or key
+	if version == 0 {
+		doc, isKey, err := h.svc.Resolve(ctx, path, false)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
-		// Path found, continue with normal delete below
+		if isKey {
+			// Resolved as key - delete that specific version
+			err = h.svc.DeleteVersion(ctx, doc.Path, doc.Version)
+			log.Event("mcp:delete_version", "delete").Author("mcp").Path(doc.Path).Version(doc.Version).Detail("key", path).Write(err)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			return mcp.NewToolResultText(fmt.Sprintf("deleted %s (version %d, key %s)", doc.Path, doc.Version, path)), nil
+		}
+		// Resolved as path, update path and continue with normal delete below
+		path = doc.Path
 	}
 
 	if version > 0 {
@@ -159,29 +156,24 @@ func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) 
 }
 
 // restoreDocument handles llmd_restore tool calls.
-// Supports both paths and 8-character keys.
+// Supports both paths and 8-character keys via Resolve.
 func (h *handlers) restoreDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
 	}
 
-	key := ""
-	// For 8-char inputs, try path first then key
-	if len(path) == 8 {
-		// Try path first (need includeDeleted=true for restore)
-		_, pathErr := h.svc.Latest(ctx, path, true)
-		if pathErr != nil {
-			// Path not found, try as key
-			doc, keyErr := h.svc.ByKey(ctx, path)
-			if keyErr != nil {
-				// Neither found, return original error
-				return mcp.NewToolResultError(fmt.Sprintf("path or key %q: %v", path, pathErr)), nil
-			}
-			key = path
-			path = doc.Path
-		}
+	// Resolve as path or key (includeDeleted=true for restore)
+	doc, isKey, err := h.svc.Resolve(ctx, path, true)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("%q: %v", path, err)), nil
 	}
+
+	key := ""
+	if isKey {
+		key = path
+	}
+	path = doc.Path
 
 	err = h.svc.Restore(ctx, path)
 
@@ -236,7 +228,7 @@ func (h *handlers) historyDocument(ctx context.Context, req mcp.CallToolRequest)
 	includeDeleted := getBool(req, "include_deleted", false)
 
 	// Resolve path or key to get the actual document path
-	doc, err := h.svc.Resolve(ctx, path, includeDeleted)
+	doc, _, err := h.svc.Resolve(ctx, path, includeDeleted)
 	if err != nil {
 		log.Event("mcp:history", "history").Author("mcp").Path(path).Write(err)
 		return mcp.NewToolResultError(err.Error()), nil

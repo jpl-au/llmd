@@ -78,7 +78,8 @@ func (h *handlers) configSet(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	// Reload config into the running service so new values take effect immediately
 	if err := h.svc.ReloadConfig(); err != nil {
 		log.Event("mcp:config_set", "reload").Author("mcp").Write(err)
-		// Config was saved successfully, but reload failed - log but don't fail the request
+		// Config was saved successfully, but reload failed - warn in response
+		return mcp.NewToolResultText(fmt.Sprintf("%s = %s (warning: reload failed, restart server to apply: %v)", key, value, err)), nil
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("%s = %s", key, value)), nil

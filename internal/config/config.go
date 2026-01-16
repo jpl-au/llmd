@@ -180,6 +180,9 @@ func LoadScope(scope Scope) (*Config, error) {
 	if errors.Is(err, fs.ErrNotExist) {
 		return &Config{path: path, scope: scope}, nil
 	}
+	if errors.Is(err, fs.ErrPermission) {
+		return nil, fmt.Errorf("permission denied reading config file %s: check file permissions", path)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot read config file %s: %w", path, err)
 	}

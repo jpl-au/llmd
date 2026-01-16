@@ -49,6 +49,10 @@ func (e *Extension) runCat(c *cobra.Command, args []string) error {
 	lineRange, _ := c.Flags().GetString(extension.FlagLines)
 	raw, _ := c.Flags().GetBool(extension.FlagRaw)
 
+	if ver < 0 {
+		return cmd.PrintJSONError(fmt.Errorf("version must be >= 0, got %d", ver))
+	}
+
 	opts := cat.Options{
 		Version:        ver,
 		IncludeDeleted: del,
@@ -98,6 +102,8 @@ func (e *Extension) runCat(c *cobra.Command, args []string) error {
 			fmt.Fprint(cmd.Out(), rendered)
 			return nil
 		}
+		// Rendering failed, fall back to raw output with warning
+		fmt.Fprintln(os.Stderr, "warning: markdown rendering failed, showing raw output")
 	}
 
 	result, err = cat.Run(ctx, cmd.Out(), e.svc, p, opts)

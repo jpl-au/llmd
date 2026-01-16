@@ -21,47 +21,47 @@ import (
 
 // Tag adds a label to a document. Verifies the document exists first to prevent
 // orphaned tags. Tags are metadata that persist across document versions.
-// p can be a document path or a key.
-func (s *Service) Tag(ctx context.Context, p, tag string, opts store.TagOptions) error {
+// path can be a document path or a key.
+func (s *Service) Tag(ctx context.Context, path, tag string, opts store.TagOptions) error {
 	opts.MaxPath = s.maxPath
-	doc, err := s.Resolve(ctx, p, true)
+	doc, _, err := s.Resolve(ctx, path, true)
 	if err != nil {
-		return fmt.Errorf("tag %q: document not found: %w", p, err)
+		return fmt.Errorf("tag %q: document not found: %w", path, err)
 	}
-	p = doc.Path // Use resolved path
-	if err := s.store.Tag(ctx, p, tag, opts); err != nil {
-		return fmt.Errorf("tag %q with %q: %w", p, tag, err)
+	path = doc.Path // Use resolved path
+	if err := s.store.Tag(ctx, path, tag, opts); err != nil {
+		return fmt.Errorf("tag %q with %q: %w", path, tag, err)
 	}
-	s.fireEvent(extension.TagEvent{Path: p, Tag: tag, Source: opts.Source, Added: true})
+	s.fireEvent(extension.TagEvent{Path: path, Tag: tag, Source: opts.Source, Added: true})
 	return nil
 }
 
 // Untag removes a label from a document (soft delete). The tag can be restored
 // until vacuum permanently removes it.
-// p can be a document path or a key.
-func (s *Service) Untag(ctx context.Context, p, tag string, opts store.TagOptions) error {
+// path can be a document path or a key.
+func (s *Service) Untag(ctx context.Context, path, tag string, opts store.TagOptions) error {
 	opts.MaxPath = s.maxPath
-	doc, err := s.Resolve(ctx, p, true)
+	doc, _, err := s.Resolve(ctx, path, true)
 	if err != nil {
-		return fmt.Errorf("untag %q: document not found: %w", p, err)
+		return fmt.Errorf("untag %q: document not found: %w", path, err)
 	}
-	p = doc.Path // Use resolved path
-	if err := s.store.Untag(ctx, p, tag, opts); err != nil {
-		return fmt.Errorf("untag %q from %q: %w", tag, p, err)
+	path = doc.Path // Use resolved path
+	if err := s.store.Untag(ctx, path, tag, opts); err != nil {
+		return fmt.Errorf("untag %q from %q: %w", tag, path, err)
 	}
-	s.fireEvent(extension.TagEvent{Path: p, Tag: tag, Source: opts.Source, Added: false})
+	s.fireEvent(extension.TagEvent{Path: path, Tag: tag, Source: opts.Source, Added: false})
 	return nil
 }
 
 // ListTags returns all unique tags. If a path is provided, returns only tags on
 // that document; otherwise returns all tags in the system for discovery/autocomplete.
-func (s *Service) ListTags(ctx context.Context, p string, opts store.TagOptions) ([]string, error) {
-	if p != "" {
+func (s *Service) ListTags(ctx context.Context, path string, opts store.TagOptions) ([]string, error) {
+	if path != "" {
 		// We still validate here because ListTags doesn't take MaxPath explicitly in previous implementation,
 		// but since we updated TagOptions, we can pass it there.
 		opts.MaxPath = s.maxPath
 	}
-	return s.store.ListTags(ctx, p, opts)
+	return s.store.ListTags(ctx, path, opts)
 }
 
 // PathsWithTag returns all document paths that have a specific tag.

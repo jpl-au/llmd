@@ -46,7 +46,7 @@ type Editor interface {
 
 // LineRangeEditor is the interface for line-range edit operations.
 type LineRangeEditor interface {
-	EditLineRange(ctx context.Context, path string, opts LineRangeOptions, replacement string) error
+	EditLineRange(ctx context.Context, path, replacement string, opts LineRangeOptions) error
 }
 
 // Run executes an edit operation (search/replace).
@@ -62,10 +62,10 @@ func Run(ctx context.Context, w io.Writer, svc Editor, path string, opts Options
 }
 
 // RunLineRange executes a line-range edit operation, replacing specified lines.
-func RunLineRange(ctx context.Context, w io.Writer, svc LineRangeEditor, path string, opts LineRangeOptions, replacement string) (Result, error) {
+func RunLineRange(ctx context.Context, w io.Writer, svc LineRangeEditor, path, replacement string, opts LineRangeOptions) (Result, error) {
 	r := Result{Path: path}
 
-	if err := svc.EditLineRange(ctx, path, opts, replacement); err != nil {
+	if err := svc.EditLineRange(ctx, path, replacement, opts); err != nil {
 		return r, err
 	}
 
@@ -99,21 +99,28 @@ func Replace(content, old, newStr string, caseInsensitive bool) (string, error) 
 // The range is inclusive: start:end replaces lines start through end.
 //
 // Boundary behaviour:
-//   - start < 1: returns error
+//   - start == 0: treated as 1 (start of document)
 //   - start > document length: returns error
-//   - end < start: returns error (also covers end < 1 when start >= 1)
-//   - end > document length: silently clamped to document length (permissive,
-//     consistent with cat behaviour - allows "edit lines 5 to end" without
-//     knowing exact line count)
+//   - end == 0: treated as document length (end of document)
+//   - end < start (when both > 0): returns error
+//   - end > document length: silently clamped to document length
 func ReplaceLines(content string, start, end int, replacement string) (string, error) {
+	lines := strings.Split(content, "\n")
+
+	// Handle 0 values (unspecified in open-ended ranges)
+	if start == 0 {
+		start = 1
+	}
+	if end == 0 {
+		end = len(lines)
+	}
+
 	if start < 1 {
 		return "", fmt.Errorf("start line must be >= 1, got %d", start)
 	}
 	if end < start {
 		return "", fmt.Errorf("end line %d cannot be less than start line %d", end, start)
 	}
-
-	lines := strings.Split(content, "\n")
 	if start > len(lines) {
 		return "", fmt.Errorf("start line %d exceeds document length %d", start, len(lines))
 	}
@@ -136,21 +143,41 @@ func ReplaceLines(content string, start, end int, replacement string) (string, e
 	return strings.Join(result, "\n"), nil
 }
 
-// ParseLineRange parses a line range string like "5:10" into start and end integers.
+// ParseLineRange parses a line range string like "5:10", "5:", or ":10".
+// Returns start and end line numbers (1-indexed), where 0 means unspecified.
+// Matches cat's parseLineRange behaviour for consistency.
 func ParseLineRange(s string) (start, end int, err error) {
 	parts := strings.Split(s, ":")
 	if len(parts) != 2 {
 		return 0, 0, fmt.Errorf("%w: %q (expected start:end)", ErrInvalidLineRange, s)
 	}
 
-	start, err = strconv.Atoi(parts[0])
-	if err != nil {
-		return 0, 0, fmt.Errorf("%w: invalid start line: %w", ErrInvalidLineRange, err)
+	if parts[0] == "" && parts[1] == "" {
+		return 0, 0, fmt.Errorf("%w: %q (at least start or end line required)", ErrInvalidLineRange, s)
 	}
 
-	end, err = strconv.Atoi(parts[1])
-	if err != nil {
-		return 0, 0, fmt.Errorf("%w: invalid end line: %w", ErrInvalidLineRange, err)
+	if parts[0] != "" {
+		start, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, 0, fmt.Errorf("%w: invalid start line %q", ErrInvalidLineRange, parts[0])
+		}
+		if start < 1 {
+			return 0, 0, fmt.Errorf("%w: start line must be >= 1, got %d", ErrInvalidLineRange, start)
+		}
+	}
+
+	if parts[1] != "" {
+		end, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, 0, fmt.Errorf("%w: invalid end line %q", ErrInvalidLineRange, parts[1])
+		}
+		if end < 1 {
+			return 0, 0, fmt.Errorf("%w: end line must be >= 1, got %d", ErrInvalidLineRange, end)
+		}
+	}
+
+	if start > 0 && end > 0 && start > end {
+		return 0, 0, fmt.Errorf("%w: start line %d is greater than end line %d", ErrInvalidLineRange, start, end)
 	}
 
 	return start, end, nil
