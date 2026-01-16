@@ -1,0 +1,55 @@
+// Package path provides document path normalisation and validation utilities.
+//
+// All document paths in llmd pass through this package before storage or retrieval.
+// Validation ensures paths are safe for both database storage and filesystem mirroring.
+//
+// Security: Path traversal attacks are blocked by rejecting any path containing "..".
+// Combined with os.OpenRoot in the sync package, this provides defence-in-depth
+// against escaping the document store.
+//
+// Normalisation rules:
+//   - Paths use forward slashes (Windows-compatible)
+//   - No leading or trailing slashes
+//   - No "." or ".." components
+//   - Empty paths are rejected
+package path
+
+import (
+	"errors"
+	"path/filepath"
+	"strings"
+)
+
+// ErrInvalid indicates the provided document path is invalid.
+var ErrInvalid = errors.New("invalid document path")
+
+// ErrTooLong indicates the document path exceeds the configured maximum length.
+var ErrTooLong = errors.New("document path too long")
+
+// Normalise cleans and validates a document path.
+// It ensures paths use forward slashes, have no leading/trailing slashes,
+// and contain no directory traversal sequences.
+func Normalise(p string) (string, error) {
+	if p == "" {
+		return "", ErrInvalid
+	}
+
+	// Clean the path
+	p = filepath.Clean(p)
+	p = strings.TrimPrefix(p, "/")
+	p = strings.TrimSuffix(p, "/")
+
+	// Convert to forward slashes (for Windows compatibility)
+	p = filepath.ToSlash(p)
+
+	// Validate
+	if p == "" || p == "." || p == ".." {
+		return "", ErrInvalid
+	}
+
+	if strings.Contains(p, "..") {
+		return "", ErrInvalid
+	}
+
+	return p, nil
+}
