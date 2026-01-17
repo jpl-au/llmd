@@ -68,7 +68,7 @@ This preserves the full audit trail - you can always see what was reverted and w
 ## Notes
 
 - Creates a new version, doesn't delete existing versions
-- Use `llmd history <path>` to find version numbers or keys
-- Use `llmd cat <path> -v N` to inspect a version before reverting
+- Use `llmd history <path|key>` to find version numbers or keys
+- Use `llmd cat <path|key> -v N` to inspect a version before reverting
 - Fails if the document is deleted (use `llmd restore` first)
 - Keys are 8-character identifiers shown in history output
