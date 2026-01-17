@@ -200,3 +200,37 @@ func TestRevert_MultipleReverts(t *testing.T) {
 	out = env.run("history", "docs/readme")
 	env.contains(out, "v6")
 }
+
+func TestRevert_KeyFlag(t *testing.T) {
+	env := newTestEnv(t)
+	env.runStdin("version 1", "write", "docs/readme")
+	env.runStdin("version 2", "write", "docs/readme")
+
+	// Get the key for version 1
+	out := env.run("cat", "docs/readme", "-v", "1", "-o", "json")
+	keyStart := strings.Index(out, `"key":"`) + 7
+	key := out[keyStart : keyStart+8]
+
+	// Revert using --key flag
+	out = env.run("revert", "--key", key)
+	env.contains(out, "Reverted docs/readme to v1")
+
+	// Verify content
+	out = env.run("cat", "docs/readme")
+	env.equals(out, "version 1")
+}
+
+func TestRevert_VersionValidation(t *testing.T) {
+	env := newTestEnv(t)
+	env.runStdin("content", "write", "docs/readme")
+
+	_, err := env.runErr("revert", "docs/readme", "0")
+	if err == nil {
+		t.Error("Revert(version 0) = nil, want error")
+	}
+
+	_, err = env.runErr("revert", "docs/readme", "-1")
+	if err == nil {
+		t.Error("Revert(version -1) = nil, want error")
+	}
+}

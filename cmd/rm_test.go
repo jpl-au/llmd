@@ -78,3 +78,38 @@ func TestRm_PreservesHistory(t *testing.T) {
 	env.contains(out, "v1")
 	env.contains(out, "v2")
 }
+
+func TestRm_NegativeVersion(t *testing.T) {
+	env := newTestEnv(t)
+	env.runStdin("content", "write", "docs/readme")
+
+	_, err := env.runErr("rm", "docs/readme", "--version", "-1")
+	if err == nil {
+		t.Error("Rm(--version -1) = nil, want error")
+	}
+}
+
+func TestRm_KeyFlag(t *testing.T) {
+	env := newTestEnv(t)
+	env.runStdin("v1", "write", "docs/readme")
+	env.runStdin("v2", "write", "docs/readme")
+
+	// Get the key for version 1
+	out := env.run("cat", "docs/readme", "-v", "1", "-o", "json")
+	keyStart := strings.Index(out, `"key":"`) + 7
+	key := out[keyStart : keyStart+8]
+
+	// Delete specific version using --key flag
+	out = env.run("rm", "--key", key)
+	env.contains(out, "Deleted")
+	env.contains(out, "version 1")
+	env.contains(out, key)
+
+	// Latest version (v2) should still be accessible
+	out = env.run("cat", "docs/readme")
+	env.equals(out, "v2")
+
+	// History should show only v2 as non-deleted
+	out = env.run("history", "docs/readme")
+	env.contains(out, "v2")
+}

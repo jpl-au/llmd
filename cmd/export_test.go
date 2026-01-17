@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -117,6 +118,34 @@ func TestExport_NotFound(t *testing.T) {
 	dst := filepath.Join(env.dir, "output")
 	_, err := env.runErr("export", "docs/nonexistent", dst)
 	assert.Error(t, err)
+}
+
+func TestExport_NegativeVersion(t *testing.T) {
+	env := newTestEnv(t)
+	env.runStdin("content", "write", "docs/readme")
+
+	dst := filepath.Join(env.dir, "output.md")
+	_, err := env.runErr("export", "docs/readme", dst, "-v", "-1")
+	assert.Error(t, err)
+}
+
+func TestExport_KeyFlag(t *testing.T) {
+	env := newTestEnv(t)
+	env.runStdin("version 1", "write", "docs/readme")
+	env.runStdin("version 2", "write", "docs/readme")
+
+	// Get the key for version 1
+	out := env.run("cat", "docs/readme", "-v", "1", "-o", "json")
+	keyStart := strings.Index(out, `"key":"`) + 7
+	key := out[keyStart : keyStart+8]
+
+	// Export using --key flag
+	dst := filepath.Join(env.dir, "exported.md")
+	env.run("export", "--key", key, dst)
+
+	data, err := os.ReadFile(dst)
+	require.NoError(t, err)
+	assert.Equal(t, "version 1", string(data))
 }
 
 func TestExport_ContentIntegrity(t *testing.T) {

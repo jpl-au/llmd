@@ -33,7 +33,7 @@ rather than deleting versions.
 The target can be specified as:
   - A path and version number: llmd revert docs/api 3
   - A key (8-char identifier): llmd revert --key abc12345`,
-		Args: cobra.RangeArgs(1, 2),
+		Args: cobra.MaximumNArgs(2),
 		RunE: e.runRevert,
 	}
 	c.Flags().StringP(extension.FlagKey, "k", "", "Revert to version by key (8-char identifier)")
@@ -42,7 +42,16 @@ The target can be specified as:
 
 func (e *Extension) runRevert(c *cobra.Command, args []string) error {
 	ctx := c.Context()
-	target := args[0]
+	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
+
+	if len(args) == 0 && keyFlag == "" {
+		return cmd.PrintJSONError(fmt.Errorf("requires either a path argument or --key flag"))
+	}
+
+	target := ""
+	if len(args) > 0 {
+		target = args[0]
+	}
 	version := 0
 
 	if len(args) == 2 {
@@ -54,8 +63,6 @@ func (e *Extension) runRevert(c *cobra.Command, args []string) error {
 			return cmd.PrintJSONError(fmt.Errorf("version must be >= 1, got %d", version))
 		}
 	}
-
-	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
 
 	opts := revert.Options{
 		Author:  cmd.Author(),

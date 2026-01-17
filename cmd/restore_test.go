@@ -99,3 +99,20 @@ func TestRestore_DeleteAndRestoreMultiple(t *testing.T) {
 		env.contains(out, "docs/readme")
 	}
 }
+
+func TestRestore_KeyFlag(t *testing.T) {
+	env := newTestEnv(t)
+	env.runStdin("content", "write", "docs/readme")
+	env.run("rm", "docs/readme")
+
+	// Get the key from history
+	out := env.run("history", "docs/readme", "--deleted", "-o", "json")
+	keyStart := strings.Index(out, `"key":"`) + 7
+	key := out[keyStart : keyStart+8]
+
+	// Restore using --key flag
+	env.run("restore", "--key", key)
+
+	out = env.run("ls")
+	env.contains(out, "docs/readme")
+}

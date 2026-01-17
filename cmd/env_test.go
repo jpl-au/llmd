@@ -593,13 +593,3 @@ sync:
 4. **Regular exports**: Back up with ` + "`llmd export`" + `
 `
 
-// Expected diff output fragments for verification
-const (
-	// When diffing V1 to V2, we expect to see these markers
-	ExpectedDiffV1ToV2_Removed = "## Quick Start"
-	ExpectedDiffV1ToV2_Added   = "## Quick Start Guide"
-
-	// When diffing original guide.md to V5, expect complete change
-	ExpectedDiffOriginalToV5_Removed = "# LLMD Guide"
-	ExpectedDiffOriginalToV5_Added   = "# LLMD Reference Manual"
-)

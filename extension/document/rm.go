@@ -25,7 +25,7 @@ func (e *Extension) newRmCmd() *cobra.Command {
 		Use:   "rm <path>",
 		Short: "Delete a document",
 		Long:  `Soft-delete a document (recoverable via restore).`,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE:  e.runRm,
 	}
 	c.Flags().BoolP(extension.FlagRecursive, "r", false, "Delete all documents under path")
@@ -39,8 +39,20 @@ func (e *Extension) runRm(c *cobra.Command, args []string) error {
 	recursive, _ := c.Flags().GetBool(extension.FlagRecursive)
 	version, _ := c.Flags().GetInt(extension.FlagVersion)
 	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
+
+	if len(args) == 0 && keyFlag == "" {
+		return cmd.PrintJSONError(fmt.Errorf("requires either a path argument or --key flag"))
+	}
+
+	if version < 0 {
+		return cmd.PrintJSONError(fmt.Errorf("version must be >= 0, got %d", version))
+	}
+
+	p := ""
+	if len(args) > 0 {
+		p = args[0]
+	}
 	opts := rm.Options{Recursive: recursive, Version: version, Key: keyFlag}
-	p := args[0]
 
 	w := cmd.Out()
 	if cmd.JSON() {

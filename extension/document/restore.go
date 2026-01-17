@@ -28,7 +28,7 @@ func (e *Extension) newRestoreCmd() *cobra.Command {
 		Use:   "restore <path>",
 		Short: "Restore a deleted document",
 		Long:  `Restore a soft-deleted document by path or key.`,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE:  e.runRestore,
 	}
 	c.Flags().StringP(extension.FlagKey, "k", "", "Restore by version key (8-char identifier)")
@@ -37,8 +37,16 @@ func (e *Extension) newRestoreCmd() *cobra.Command {
 
 func (e *Extension) runRestore(c *cobra.Command, args []string) error {
 	ctx := c.Context()
-	input := args[0]
 	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
+
+	if len(args) == 0 && keyFlag == "" {
+		return cmd.PrintJSONError(fmt.Errorf("requires either a path argument or --key flag"))
+	}
+
+	input := ""
+	if len(args) > 0 {
+		input = args[0]
+	}
 
 	var p, key string
 

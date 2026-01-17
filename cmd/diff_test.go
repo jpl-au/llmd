@@ -85,6 +85,16 @@ func TestDiff_Errors(t *testing.T) {
 
 		_, _ = env.runErr("diff", "docs/readme")
 	})
+
+	t.Run("version range v1 greater than v2", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("v1", "write", "docs/readme")
+		env.runStdin("v2", "write", "docs/readme")
+		env.runStdin("v3", "write", "docs/readme")
+
+		_, err := env.runErr("diff", "docs/readme", "-v", "3:1")
+		assert.Error(t, err)
+	})
 }
 
 func TestDiff_Deleted(t *testing.T) {

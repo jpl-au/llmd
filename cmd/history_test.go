@@ -96,3 +96,13 @@ func TestHistory_Deleted(t *testing.T) {
 		env.contains(out, "v2")
 	})
 }
+
+func TestHistory_NegativeLimit(t *testing.T) {
+	env := newTestEnv(t)
+	env.runStdin("content", "write", "docs/readme")
+
+	_, err := env.runErr("history", "docs/readme", "-n", "-1")
+	if err == nil {
+		t.Error("History(-n -1) = nil, want error")
+	}
+}

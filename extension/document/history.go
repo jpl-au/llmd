@@ -44,6 +44,10 @@ func (e *Extension) runHistory(c *cobra.Command, args []string) error {
 	showDiff, _ := c.Flags().GetBool(extension.FlagDiff)
 	p := args[0]
 
+	if limit < 0 {
+		return cmd.PrintJSONError(fmt.Errorf("limit must be >= 0, got %d", limit))
+	}
+
 	opts := history.Options{
 		Limit:          limit,
 		IncludeDeleted: del,

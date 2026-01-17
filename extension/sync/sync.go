@@ -137,7 +137,7 @@ func newExportCmd() *cobra.Command {
 
 Single document: destination can be a file path
 Multiple documents (prefix): destination must be a directory`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.RangeArgs(1, 2),
 		RunE: runExport,
 	}
 	c.Flags().IntP(extension.FlagVersion, "v", 0, "Export specific version")
@@ -147,7 +147,18 @@ Multiple documents (prefix): destination must be a directory`,
 
 func runExport(c *cobra.Command, args []string) error {
 	ctx := c.Context()
-	docPath, dest := args[0], args[1]
+	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
+
+	var docPath, dest string
+	if keyFlag != "" && len(args) == 1 {
+		// --key provided: single arg is destination
+		dest = args[0]
+	} else if len(args) == 2 {
+		// Standard: doc-path and destination
+		docPath, dest = args[0], args[1]
+	} else {
+		return cmd.PrintJSONError(fmt.Errorf("requires <doc-path> <filesystem-path>, or --key <filesystem-path>"))
+	}
 	svc, err := document.New(cmd.DB())
 	if err != nil {
 		return cmd.PrintJSONError(fmt.Errorf("open store: %w", err))
@@ -158,7 +169,10 @@ func runExport(c *cobra.Command, args []string) error {
 		Force: cmd.Force(),
 	}
 	opts.Version, _ = c.Flags().GetInt(extension.FlagVersion)
-	keyFlag, _ := c.Flags().GetString(extension.FlagKey)
+
+	if opts.Version < 0 {
+		return cmd.PrintJSONError(fmt.Errorf("version must be >= 0, got %d", opts.Version))
+	}
 
 	key := ""
 	if keyFlag != "" {
