@@ -45,3 +45,4 @@ llmd vacuum -p docs/old --force
 - Requires `--force` flag or interactive confirmation
 - Affects soft-deleted documents only
 - Use `-n` to preview before running
+- **CLI only** - intentionally excluded from MCP for safety; permanent deletion requires human confirmation

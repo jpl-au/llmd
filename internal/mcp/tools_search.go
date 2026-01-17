@@ -1,24 +1,17 @@
-// tools_search.go implements MCP tools for document search operations.
+// tools_search.go implements MCP tools for finding documents.
 //
-// Separated from tools_documents.go because search operations have different
-// semantics - they return multiple documents and support query languages
-// (FTS5 for search, regex for grep, sed expressions for transformations).
-//
-// Design: Search results are returned as JSON arrays for easy LLM parsing.
-// The grep tool includes match context to help LLMs understand where patterns
-// appear without fetching full documents.
+// These tools help LLMs locate content: FTS5 full-text search, glob pattern
+// matching for paths, and regex grep for content. All return results as JSON
+// arrays for easy parsing.
 
 package mcp
 
 import (
 	"bytes"
 	"context"
-	"fmt"
 
-	"github.com/jpl-au/llmd/internal/diff"
 	"github.com/jpl-au/llmd/internal/grep"
 	"github.com/jpl-au/llmd/internal/log"
-	"github.com/jpl-au/llmd/internal/sed"
 	"github.com/jpl-au/llmd/internal/store"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -65,35 +58,6 @@ func (h *handlers) globDocuments(ctx context.Context, req mcp.CallToolRequest) (
 	return jsonResult(paths)
 }
 
-// diffDocuments handles llmd_diff tool calls.
-func (h *handlers) diffDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	path, err := req.RequireString("path")
-	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
-	}
-
-	opts := diff.Options{
-		Path2:          getString(req, "path2", ""),
-		Version1:       getInt(req, "version1", 0),
-		Version2:       getInt(req, "version2", 0),
-		IncludeDeleted: getBool(req, "include_deleted", false),
-	}
-
-	r, err := h.svc.Diff(ctx, path, opts)
-
-	log.Event("mcp:diff", "diff").Author("mcp").Path(path).Write(err)
-
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	return jsonResult(map[string]string{
-		"old":  r.Old,
-		"new":  r.New,
-		"diff": r.Format(false),
-	})
-}
-
 // grepDocuments handles llmd_grep tool calls.
 func (h *handlers) grepDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	pattern, err := req.RequireString("pattern")
@@ -125,33 +89,4 @@ func (h *handlers) grepDocuments(ctx context.Context, req mcp.CallToolRequest) (
 	}
 
 	return jsonResult(docs)
-}
-
-// sedDocument handles llmd_sed tool calls.
-func (h *handlers) sedDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	path, err := req.RequireString("path")
-	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
-	}
-
-	expr, err := req.RequireString("expression")
-	if err != nil {
-		return mcp.NewToolResultError("expression is required"), nil //nolint:nilerr
-	}
-
-	opts := sed.Options{
-		Author:  getString(req, "author", "mcp"),
-		Message: getString(req, "message", ""),
-	}
-
-	var buf bytes.Buffer
-	_, err = sed.Run(ctx, &buf, h.svc, path, expr, opts)
-
-	log.Event("mcp:sed", "edit").Author(opts.Author).Path(path).Write(err)
-
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	return mcp.NewToolResultText(fmt.Sprintf("edited %s", path)), nil
 }

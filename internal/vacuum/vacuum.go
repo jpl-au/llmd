@@ -1,6 +1,10 @@
 // Package vacuum handles permanent deletion of soft-deleted documents.
 // This is the only way to reclaim storage; soft-deleted items remain
 // until vacuum removes them, providing a recovery window.
+//
+// Design: Vacuum is intentionally CLI-only and not exposed via MCP.
+// Permanent deletion requires human confirmation to prevent accidental
+// data loss from automated agents.
 package vacuum
 
 import (

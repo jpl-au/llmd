@@ -130,7 +130,7 @@ MCP tools provide full document operations:
 |-----------|----------|-------------|
 | `path` | Yes | Document path |
 | `content` | Yes | Document content |
-| `author` | No | Author attribution (default: "mcp") |
+| `author` | Yes | Author attribution |
 | `message` | No | Version message |
 
 #### llmd_delete
@@ -187,7 +187,7 @@ MCP tools provide full document operations:
 | `path` | Yes | Document path or 8-character key |
 | `old` | Yes | Text to find |
 | `new` | No | Text to replace with |
-| `author` | No | Author attribution (default: "mcp") |
+| `author` | Yes | Author attribution |
 | `message` | No | Version message |
 
 #### llmd_glob
@@ -213,7 +213,7 @@ MCP tools provide full document operations:
 |-----------|----------|-------------|
 | `path` | Yes | Document path or 8-character key |
 | `expression` | Yes | Sed expression (e.g., s/old/new/ or s/old/new/g) |
-| `author` | No | Author attribution (default: "mcp") |
+| `author` | Yes | Author attribution |
 | `message` | No | Version message |
 
 #### llmd_tag_add
@@ -259,6 +259,7 @@ MCP tools provide full document operations:
 |-----------|----------|-------------|
 | `path` | Yes | Filesystem path to import from |
 | `prefix` | No | Target path prefix in store |
+| `author` | Yes | Author attribution |
 | `flat` | No | Flatten directory structure |
 | `hidden` | No | Include hidden files/directories |
 | `dry_run` | No | Show what would be imported |
@@ -281,6 +282,7 @@ Examples:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
+| `author` | Yes | Author attribution |
 | `dry_run` | No | Show what would be synced |
 | `message` | No | Commit message for synced documents |
 
@@ -317,4 +319,4 @@ These are particularly useful for MCP client configuration where you can set the
 - The server must be started in a directory with an initialised llmd store
 - All soft deletions are recoverable via `llmd_restore`
 - The `vacuum` command is intentionally excluded for safety (use CLI)
-- Default author for writes via MCP is "mcp"
+- Author is required for all write operations to ensure proper attribution

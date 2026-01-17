@@ -4,9 +4,10 @@
 // These tools mirror the CLI commands (list, cat, write, edit, rm, restore)
 // but return structured JSON for LLM consumption.
 //
-// Design: All tools log operations with "mcp" as the author, creating an
-// audit trail that distinguishes LLM-initiated changes from human CLI usage.
-// Errors return tool results (not Go errors) to give LLMs actionable feedback.
+// Design: Author is required for all write operations to ensure proper
+// attribution in the audit trail, distinguishing between different agents
+// and human CLI usage. Errors return tool results (not Go errors) to give
+// LLMs actionable feedback.
 
 package mcp
 
@@ -94,7 +95,11 @@ func (h *handlers) writeDocument(ctx context.Context, req mcp.CallToolRequest) (
 		return mcp.NewToolResultError("content is required"), nil //nolint:nilerr
 	}
 
-	author := getString(req, "author", "mcp")
+	author, err := req.RequireString("author")
+	if err != nil {
+		return mcp.NewToolResultError("author is required"), nil //nolint:nilerr
+	}
+
 	message := getString(req, "message", "")
 
 	err = h.svc.Write(ctx, path, content, author, message)
@@ -263,10 +268,15 @@ func (h *handlers) editDocument(ctx context.Context, req mcp.CallToolRequest) (*
 		return mcp.NewToolResultError("old is required"), nil //nolint:nilerr
 	}
 
+	author, err := req.RequireString("author")
+	if err != nil {
+		return mcp.NewToolResultError("author is required"), nil //nolint:nilerr
+	}
+
 	opts := edit.Options{
 		Old:     old,
 		New:     getString(req, "new", ""),
-		Author:  getString(req, "author", "mcp"),
+		Author:  author,
 		Message: getString(req, "message", ""),
 	}
 
