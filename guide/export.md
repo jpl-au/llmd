@@ -8,13 +8,14 @@ Export documents from store to filesystem.
 llmd export <doc-path|key> <filesystem-path>
 ```
 
-Accepts either a document path or an 8-character key. When given a key, exports that specific version.
+Accepts either a document path or an 8-character key. You can also use `--key <key>` with a single destination argument.
 
 ## Flags
 
 | Flag | Description |
 |------|-------------|
 | `--force` | Overwrite existing files |
+| `-k, --key` | Export by version key (8-char identifier) |
 | `-v, --version` | Export specific version |
 
 ## Examples
@@ -35,8 +36,11 @@ llmd export docs/ ./output/ --force
 # Export specific version by number
 llmd export docs/readme ./old.md -v 3
 
-# Export specific version by key
+# Export specific version by key (positional)
 llmd export a1b2c3d4 ./old.md
+
+# Export specific version by key (explicit flag)
+llmd export --key a1b2c3d4 ./old.md
 ```
 
 ## Mapping

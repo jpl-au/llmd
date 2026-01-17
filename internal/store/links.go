@@ -41,7 +41,11 @@ func (s *SQLiteStore) Link(ctx context.Context, from, to, tag string, opts LinkO
 	if err != nil {
 		return "", fmt.Errorf("restoring link: %w", err)
 	}
-	if n, _ := result.RowsAffected(); n > 0 {
+	n, err := result.RowsAffected()
+	if err != nil {
+		return "", fmt.Errorf("checking rows affected: %w", err)
+	}
+	if n > 0 {
 		// Restored existing link, return its ID
 		var id string
 		err := s.db.QueryRowContext(ctx, `

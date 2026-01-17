@@ -42,6 +42,13 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, path, dst string
 func exportSingle(ctx context.Context, w io.Writer, svc service.Service, docPath, dst string, opts Options) (Result, error) {
 	var result Result
 
+	// Resolve path or key to get actual document path
+	doc, _, err := svc.Resolve(ctx, docPath, false)
+	if err != nil {
+		return result, fmt.Errorf("resolving document: %w", err)
+	}
+	docPath = doc.Path
+
 	content, err := getContent(ctx, svc, docPath, opts.Version)
 	if err != nil {
 		return result, fmt.Errorf("getting document: %w", err)

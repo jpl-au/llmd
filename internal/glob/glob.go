@@ -12,7 +12,8 @@ import (
 
 // Match reports whether path matches the glob pattern.
 // Supports standard glob patterns (*, ?) plus ** for matching any path segments.
-func Match(pattern, path string) bool {
+// Returns an error if the pattern is malformed.
+func Match(pattern, path string) (bool, error) {
 	// Normalise pattern
 	pattern = strings.TrimSuffix(pattern, ".md")
 	pattern = filepath.ToSlash(pattern)
@@ -25,34 +26,45 @@ func Match(pattern, path string) bool {
 			suffix := strings.TrimPrefix(parts[1], "/")
 
 			if prefix != "" && !strings.HasPrefix(path, prefix) {
-				return false
+				return false, nil
 			}
 			if suffix == "" {
-				return true
+				return true, nil
 			}
 			// Match suffix as a glob pattern against all path segments
 			segments := strings.Split(path, "/")
 			for i := range segments {
 				tail := strings.Join(segments[i:], "/")
-				if m, _ := filepath.Match(suffix, tail); m {
-					return true
+				m, err := filepath.Match(suffix, tail)
+				if err != nil {
+					return false, err
+				}
+				if m {
+					return true, nil
 				}
 				// Also try matching just the segment itself
-				if m, _ := filepath.Match(suffix, segments[i]); m {
-					return true
+				m, err = filepath.Match(suffix, segments[i])
+				if err != nil {
+					return false, err
+				}
+				if m {
+					return true, nil
 				}
 			}
-			return false
+			return false, nil
 		}
 	}
 
 	// Use filepath.Match for simple patterns
-	matched, _ := filepath.Match(pattern, path)
+	matched, err := filepath.Match(pattern, path)
+	if err != nil {
+		return false, err
+	}
 	if matched {
-		return true
+		return true, nil
 	}
 
 	// Try matching just the filename
-	matched, _ = filepath.Match(pattern, filepath.Base(path))
-	return matched
+	matched, err = filepath.Match(pattern, filepath.Base(path))
+	return matched, err
 }

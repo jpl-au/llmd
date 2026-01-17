@@ -89,7 +89,11 @@ func (s *SQLiteStore) Tag(ctx context.Context, path, tag string, opts TagOptions
 	if err != nil {
 		return fmt.Errorf("restoring tag: %w", err)
 	}
-	if n, _ := result.RowsAffected(); n > 0 {
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("checking rows affected: %w", err)
+	}
+	if n > 0 {
 		return nil // Restored existing tag
 	}
 

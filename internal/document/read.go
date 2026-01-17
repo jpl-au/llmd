@@ -153,7 +153,11 @@ func (s *Service) Glob(ctx context.Context, pattern string) ([]string, error) {
 
 	var paths []string
 	for _, p := range all {
-		if glob.Match(pattern, p) {
+		matched, err := glob.Match(pattern, p)
+		if err != nil {
+			return nil, fmt.Errorf("invalid pattern %q: %w", pattern, err)
+		}
+		if matched {
 			paths = append(paths, p)
 		}
 	}
@@ -184,56 +188,47 @@ func (s *Service) Diff(ctx context.Context, path string, opts diff.Options) (dif
 }
 
 func (s *Service) diffWithFile(ctx context.Context, path string, opts diff.Options) (o, n, ol, nl string, err error) {
-	np2, err := s.normalizePath(opts.Path2)
+	// Resolve Path2 (the document path, supports keys and paths)
+	// Note: path is a filesystem path here, used only for labels
+	doc, _, err := s.Resolve(ctx, opts.Path2, opts.IncludeDeleted)
 	if err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", fmt.Errorf("reading %s: %w", opts.Path2, err)
 	}
-	doc, err := s.store.Latest(ctx, np2, opts.IncludeDeleted)
-	if err != nil {
-		return "", "", "", "", fmt.Errorf("reading %s: %w", np2, err)
-	}
-	return opts.FileContent, doc.Content, path, np2 + " (v" + strconv.Itoa(doc.Version) + ")", nil
+	return opts.FileContent, doc.Content, path, doc.Path + " (v" + strconv.Itoa(doc.Version) + ")", nil
 }
 
 func (s *Service) diffTwoPaths(ctx context.Context, path string, opts diff.Options) (o, n, ol, nl string, err error) {
-	np1, err := s.normalizePath(path)
-	if err != nil {
-		return "", "", "", "", err
-	}
-	np2, err := s.normalizePath(opts.Path2)
-	if err != nil {
-		return "", "", "", "", err
-	}
-
-	// Fetch both documents concurrently
+	// Resolve both paths (supports keys and paths)
 	var d1, d2 *store.Document
 	var err1, err2 error
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		d1, err1 = s.store.Latest(ctx, np1, opts.IncludeDeleted)
+		d1, _, err1 = s.Resolve(ctx, path, opts.IncludeDeleted)
 	})
 	wg.Go(func() {
-		d2, err2 = s.store.Latest(ctx, np2, opts.IncludeDeleted)
+		d2, _, err2 = s.Resolve(ctx, opts.Path2, opts.IncludeDeleted)
 	})
 	wg.Wait()
 
 	if err1 != nil {
-		return "", "", "", "", fmt.Errorf("reading %s: %w", np1, err1)
+		return "", "", "", "", fmt.Errorf("reading %s: %w", path, err1)
 	}
 	if err2 != nil {
-		return "", "", "", "", fmt.Errorf("reading %s: %w", np2, err2)
+		return "", "", "", "", fmt.Errorf("reading %s: %w", opts.Path2, err2)
 	}
 	return d1.Content, d2.Content,
-		np1 + " (v" + strconv.Itoa(d1.Version) + ")",
-		np2 + " (v" + strconv.Itoa(d2.Version) + ")", nil
+		d1.Path + " (v" + strconv.Itoa(d1.Version) + ")",
+		d2.Path + " (v" + strconv.Itoa(d2.Version) + ")", nil
 }
 
 func (s *Service) diffVersions(ctx context.Context, path string, opts diff.Options) (o, n, ol, nl string, err error) {
-	np, err := s.normalizePath(path)
+	// Resolve path (supports keys and paths)
+	doc, _, err := s.Resolve(ctx, path, opts.IncludeDeleted)
 	if err != nil {
 		return "", "", "", "", err
 	}
+	np := doc.Path
 
 	// Fetch both versions concurrently
 	var d1, d2 *store.Document
@@ -260,10 +255,13 @@ func (s *Service) diffVersions(ctx context.Context, path string, opts diff.Optio
 }
 
 func (s *Service) diffPrevious(ctx context.Context, path string, opts diff.Options) (o, n, ol, nl string, err error) {
-	np, err := s.normalizePath(path)
+	// Resolve path (supports keys and paths)
+	doc, _, err := s.Resolve(ctx, path, opts.IncludeDeleted)
 	if err != nil {
 		return "", "", "", "", err
 	}
+	np := doc.Path
+
 	docs, err := s.store.History(ctx, np, 2, opts.IncludeDeleted)
 	if err != nil {
 		return "", "", "", "", err

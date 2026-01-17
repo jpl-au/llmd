@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 
@@ -138,7 +139,10 @@ func (h *handlers) getGuide(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 
 	if err != nil {
 		// If topic not found, return list of available topics
-		topics := guide.List()
+		topics, listErr := guide.List()
+		if listErr != nil {
+			return nil, fmt.Errorf("listing guides: %w", listErr)
+		}
 		return jsonResult(map[string]any{
 			"error":            err.Error(),
 			"available_topics": topics,

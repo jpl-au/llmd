@@ -52,10 +52,20 @@ func TestMatch(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.pattern+"_"+tc.path, func(t *testing.T) {
-			got := Match(tc.pattern, tc.path)
+			got, err := Match(tc.pattern, tc.path)
+			if err != nil {
+				t.Fatalf("Match(%q, %q) unexpected error: %v", tc.pattern, tc.path, err)
+			}
 			if got != tc.want {
 				t.Errorf("Match(%q, %q) = %v, want %v", tc.pattern, tc.path, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestMatch_InvalidPattern(t *testing.T) {
+	_, err := Match("[a-", "test")
+	if err == nil {
+		t.Error("Match with invalid pattern should return error")
 	}
 }

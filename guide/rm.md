@@ -9,12 +9,13 @@ llmd rm <path|key>
 llmd rm -r <path>
 ```
 
-Accepts either a document path or an 8-character key. When given a key, deletes only that specific version. When given a path, soft-deletes the entire document.
+Accepts a document path or an 8-character key. When given a key, deletes only that specific version. When given a path, soft-deletes the entire document. You can also use `--key <key>` to explicitly specify a version key.
 
 ## Flags
 
 | Flag | Description |
 |------|-------------|
+| `-k, --key` | Delete by version key (8-char identifier) |
 | `-r, --recursive` | Delete all documents under path |
 | `--version` | Delete only a specific version |
 
@@ -24,8 +25,11 @@ Accepts either a document path or an 8-character key. When given a key, deletes 
 # Delete a document by path
 llmd rm docs/old-readme
 
-# Delete a specific version by key
+# Delete a specific version by key (positional)
 llmd rm a1b2c3d4
+
+# Delete a specific version by key (explicit flag)
+llmd rm --key a1b2c3d4
 
 # Delete all documents under a path
 llmd rm -r docs/archive/

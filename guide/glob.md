@@ -43,3 +43,4 @@ llmd glob -o json
 
 - Queries the database, not filesystem
 - Returns document paths for use with `llmd cat`
+- Invalid patterns (e.g., `[a-`) return an error

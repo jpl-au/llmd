@@ -182,7 +182,7 @@ func (s *Service) Tx(ctx context.Context, fn func(tx *sql.Tx) error) error {
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() { _ = tx.Rollback() }() // no-op after commit
 
 	if err := fn(tx); err != nil {
 		return fmt.Errorf("transaction rolled back: %w", err)

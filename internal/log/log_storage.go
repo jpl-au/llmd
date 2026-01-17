@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -44,12 +45,16 @@ func (l *Logger) log(e Entry) {
 		success = 1
 	}
 
-	_, _ = l.db.Exec(`
+	_, err := l.db.Exec(`
 		INSERT INTO log (ts, project, source, author, action, path, version, success, error, detail)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		time.Now().Unix(), l.project, e.Source, nilIfEmpty(e.Author), e.Action,
 		nilIfEmpty(e.Path), nilIfZero(e.Version), success, nilIfEmpty(e.Error), detail,
 	)
+	if err != nil {
+		// Best-effort logging: don't break main operation, but report failure
+		_, _ = fmt.Fprintf(os.Stderr, "llmd: audit log write failed: %v\n", err)
+	}
 }
 
 // dbPathFunc is the function that returns the database path.
@@ -79,7 +84,11 @@ func DBPath() string {
 // hash creates a project identifier from the directory path, enabling
 // cross-project log queries while preserving privacy.
 func hash(s string) string {
-	h, _ := blake2b.New(8, nil) // 64-bit = 16 hex chars
+	h, err := blake2b.New(8, nil) // 64-bit = 16 hex chars
+	if err != nil {
+		// Should never happen with nil key, but don't silently ignore
+		panic("blake2b.New failed: " + err.Error())
+	}
 	h.Write([]byte(s))
 	return hex.EncodeToString(h.Sum(nil))
 }

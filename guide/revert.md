@@ -9,7 +9,13 @@ llmd revert <path> <version>
 llmd revert <key>
 ```
 
+Revert to a specific version by path and version number, or directly by 8-character key. You can also use `--key <key>` to explicitly specify a version key.
+
 ## Flags
+
+| Flag | Description |
+|------|-------------|
+| `-k, --key` | Revert to version by key (8-char identifier) |
 
 See `llmd guide` for global flags. The default message is "Revert to vN".
 
@@ -22,8 +28,11 @@ llmd history docs/api
 # Revert to version 3
 llmd revert docs/api 3
 
-# Revert using a key (from history output)
+# Revert using a key (positional)
 llmd revert abc12345
+
+# Revert using a key (explicit flag)
+llmd revert --key abc12345
 
 # With custom message
 llmd revert docs/api 3 -m "Rolling back broken changes"

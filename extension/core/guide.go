@@ -40,7 +40,10 @@ func newGuideCmd() *cobra.Command {
 
 			content, err := guide.Get(name)
 			if err != nil {
-				available := guide.List()
+				available, listErr := guide.List()
+				if listErr != nil {
+					return listErr
+				}
 				return cmd.PrintJSONError(fmt.Errorf("guide %q not found. Available: %s", name, strings.Join(available, ", ")))
 			}
 

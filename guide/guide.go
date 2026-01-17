@@ -29,8 +29,11 @@ func Get(name string) (string, error) {
 }
 
 // List returns the available guide page names (without the .md suffix).
-func List() []string {
-	entries, _ := files.ReadDir(".")
+func List() ([]string, error) {
+	entries, err := files.ReadDir(".")
+	if err != nil {
+		return nil, err
+	}
 	var names []string
 	for _, e := range entries {
 		name := e.Name()
@@ -38,5 +41,5 @@ func List() []string {
 			names = append(names, name[:len(name)-3]) // strip .md
 		}
 	}
-	return names
+	return names, nil
 }

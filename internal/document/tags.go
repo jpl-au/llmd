@@ -55,11 +55,16 @@ func (s *Service) Untag(ctx context.Context, path, tag string, opts store.TagOpt
 
 // ListTags returns all unique tags. If a path is provided, returns only tags on
 // that document; otherwise returns all tags in the system for discovery/autocomplete.
+// path can be a document path or a key.
 func (s *Service) ListTags(ctx context.Context, path string, opts store.TagOptions) ([]string, error) {
 	if path != "" {
-		// We still validate here because ListTags doesn't take MaxPath explicitly in previous implementation,
-		// but since we updated TagOptions, we can pass it there.
 		opts.MaxPath = s.maxPath
+		// Resolve path or key to get actual document path
+		doc, _, err := s.Resolve(ctx, path, true)
+		if err != nil {
+			return nil, fmt.Errorf("list tags %q: document not found: %w", path, err)
+		}
+		path = doc.Path
 	}
 	return s.store.ListTags(ctx, path, opts)
 }
@@ -74,10 +79,9 @@ func (s *Service) PathsWithTag(ctx context.Context, tag string, opts store.TagOp
 // hierarchical path filtering with label-based filtering for targeted queries.
 func (s *Service) ListByTag(ctx context.Context, prefix, tag string, includeDeleted, deletedOnly bool, opts store.TagOptions) ([]store.Document, error) {
 	if prefix != "" {
-		// ListByTag logic modification
+		// Enforce path length limit for prefix filtering.
 		opts.MaxPath = s.maxPath
-		// Validate prefix using validate if needed, or rely on store query being safe (parameterized).
-		// However, validate.Path(p, 0) was just checking for null bytes etc.
+		// Validate prefix structure (null bytes, traversal) before query.
 		if _, err := validate.Path(prefix, 0); err != nil {
 			return nil, err
 		}

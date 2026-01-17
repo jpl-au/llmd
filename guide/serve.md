@@ -174,7 +174,7 @@ MCP tools provide full document operations:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Document path |
+| `path` | Yes | Document path or 8-character key |
 | `path2` | No | Second document (for comparing two documents) |
 | `version1` | No | First version to compare |
 | `version2` | No | Second version to compare |
@@ -220,21 +220,21 @@ MCP tools provide full document operations:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Document path |
+| `path` | Yes | Document path or 8-character key |
 | `tag` | Yes | Tag to add |
 
 #### llmd_tag_remove
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Document path |
+| `path` | Yes | Document path or 8-character key |
 | `tag` | Yes | Tag to remove |
 
 #### llmd_tags
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | No | Document path (list all if empty) |
+| `path` | No | Document path or 8-character key (list all if empty) |
 
 #### llmd_link
 
@@ -267,10 +267,15 @@ MCP tools provide full document operations:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Document path or prefix |
+| `path` | Yes | Document path, 8-character key, or prefix (ending with /) |
 | `dest` | Yes | Filesystem destination path |
 | `version` | No | Export specific version |
 | `force` | No | Overwrite existing files |
+
+Examples:
+- `path: "docs/readme"` - exports single document by path
+- `path: "a1b2c3d4"` - exports single document by key
+- `path: "docs/"` - exports all documents under `docs/` prefix
 
 #### llmd_sync
 
