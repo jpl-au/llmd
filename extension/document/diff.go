@@ -79,6 +79,16 @@ func (e *Extension) runDiff(c *cobra.Command, args []string) error {
 	}
 
 	ctx := c.Context()
+
+	// Resolve path or key to get actual document path for logging
+	// (only when not using -f flag, where path is a filesystem file)
+	logPath := path
+	if !isFile {
+		if doc, _, resolveErr := e.svc.Resolve(ctx, path, del); resolveErr == nil {
+			logPath = doc.Path
+		}
+	}
+
 	w := cmd.Out()
 	if cmd.JSON() {
 		w = io.Discard
@@ -89,7 +99,7 @@ func (e *Extension) runDiff(c *cobra.Command, args []string) error {
 
 	log.Event("document:diff", "diff").
 		Author(cmd.Author()).
-		Path(path).
+		Path(logPath).
 		Write(err)
 
 	if err != nil {

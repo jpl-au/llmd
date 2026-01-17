@@ -27,6 +27,14 @@ type Result struct {
 func Add(ctx context.Context, w io.Writer, svc service.Service, path, tag string) (Result, error) {
 	result := Result{Path: path, Tag: tag, Action: "add"}
 
+	// Resolve path or key to get actual document path
+	doc, _, err := svc.Resolve(ctx, path, true)
+	if err != nil {
+		return result, err
+	}
+	path = doc.Path
+	result.Path = path
+
 	if err := svc.Tag(ctx, path, tag, store.NewTagOptions()); err != nil {
 		return result, err
 	}
@@ -43,6 +51,14 @@ func Add(ctx context.Context, w io.Writer, svc service.Service, path, tag string
 func Remove(ctx context.Context, w io.Writer, svc service.Service, path, tag string) (Result, error) {
 	result := Result{Path: path, Tag: tag, Action: "remove"}
 
+	// Resolve path or key to get actual document path
+	doc, _, err := svc.Resolve(ctx, path, true)
+	if err != nil {
+		return result, err
+	}
+	path = doc.Path
+	result.Path = path
+
 	if err := svc.Untag(ctx, path, tag, store.NewTagOptions()); err != nil {
 		return result, err
 	}
@@ -58,6 +74,16 @@ func Remove(ctx context.Context, w io.Writer, svc service.Service, path, tag str
 // List lists tags for a document or all tags if path is empty.
 func List(ctx context.Context, w io.Writer, svc service.Service, path string) (Result, error) {
 	result := Result{Path: path}
+
+	// Resolve path or key to get actual document path (if path provided)
+	if path != "" {
+		doc, _, err := svc.Resolve(ctx, path, true)
+		if err != nil {
+			return result, err
+		}
+		path = doc.Path
+		result.Path = path
+	}
 
 	tags, err := svc.ListTags(ctx, path, store.NewTagOptions())
 	if err != nil {

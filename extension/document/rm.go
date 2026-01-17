@@ -63,7 +63,7 @@ func (e *Extension) runRm(c *cobra.Command, args []string) error {
 
 	log.Event("document:rm", "delete").
 		Author(cmd.Author()).
-		Path(path).
+		Path(result.Path).
 		Detail("count", len(result.Deleted)).
 		Write(err)
 

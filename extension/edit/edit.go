@@ -86,6 +86,13 @@ func (e *Extension) runEdit(c *cobra.Command, args []string) error {
 	lineRange, _ := c.Flags().GetString(extension.FlagLines)
 	path := args[0]
 
+	// Resolve path or key to get actual document path for logging
+	doc, _, resolveErr := e.svc.Resolve(ctx, path, false)
+	logPath := path
+	if resolveErr == nil {
+		logPath = doc.Path
+	}
+
 	var result edit.Result
 	var err error
 	if lineRange != "" {
@@ -96,7 +103,7 @@ func (e *Extension) runEdit(c *cobra.Command, args []string) error {
 
 	log.Event("edit:edit", "edit").
 		Author(cmd.Author()).
-		Path(path).
+		Path(logPath).
 		Write(err)
 
 	if err != nil {
@@ -203,7 +210,7 @@ func (e *Extension) runSed(c *cobra.Command, args []string) error {
 
 	log.Event("edit:sed", "edit").
 		Author(cmd.Author()).
-		Path(path).
+		Path(result.Path).
 		Write(err)
 
 	if err != nil {

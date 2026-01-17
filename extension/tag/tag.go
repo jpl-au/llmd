@@ -181,7 +181,7 @@ func (e *Extension) runTagAdd(c *cobra.Command, args []string) error {
 
 	log.Event("tag:add", "tag").
 		Author(cmd.Author()).
-		Path(path).
+		Path(result.Path).
 		Detail("tag", t).
 		Write(err)
 
@@ -203,7 +203,7 @@ func (e *Extension) runTagRm(c *cobra.Command, args []string) error {
 
 	log.Event("tag:rm", "untag").
 		Author(cmd.Author()).
-		Path(path).
+		Path(result.Path).
 		Detail("tag", t).
 		Write(err)
 
@@ -229,7 +229,7 @@ func (e *Extension) runTagLs(c *cobra.Command, args []string) error {
 
 	log.Event("tag:ls", "list_tags").
 		Author(cmd.Author()).
-		Path(path).
+		Path(result.Path).
 		Write(err)
 
 	if err != nil {
