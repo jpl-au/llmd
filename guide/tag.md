@@ -7,7 +7,7 @@ Manage document tags for semantic categorisation.
 ```bash
 llmd tag add <path|key> <tag>
 llmd tag rm <path|key> <tag>
-llmd tag ls [path]
+llmd tag ls [path|key]
 ```
 
 The `add` and `rm` subcommands accept either a document path or an 8-character key.

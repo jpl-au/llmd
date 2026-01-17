@@ -5,9 +5,11 @@ Show differences between document versions or two documents.
 ## Usage
 
 ```bash
-llmd diff <path> [path2]
-llmd diff <path> -v <v1:v2>
+llmd diff <path|key> [path2]
+llmd diff <path|key> -v <v1:v2>
 ```
+
+Accepts either a document path or an 8-character key for the first argument.
 
 ## Examples
 

@@ -81,9 +81,9 @@ Escalating to a human with good context is better than spinning indefinitely.
 
 | Command | Purpose |
 |---------|---------|
-| `llmd cat <path>` | Read a document |
-| `llmd cat <path> -v N` | Read specific version |
-| `llmd cat <path> -o json` | Read with metadata |
+| `llmd cat <path\|key>` | Read a document |
+| `llmd cat <path\|key> -v N` | Read specific version |
+| `llmd cat <path\|key> -o json` | Read with metadata |
 | `llmd ls` | List all documents |
 | `llmd ls <prefix>` | List under a path |
 | `llmd ls -t` | Tree view |
@@ -95,8 +95,8 @@ Escalating to a human with good context is better than spinning indefinitely.
 | Command | Purpose |
 |---------|---------|
 | `echo "..." \| llmd write <path>` | Create/overwrite document |
-| `llmd edit <path> "old" "new"` | Search and replace |
-| `llmd edit <path> -l 5:10 < new.txt` | Replace line range |
+| `llmd edit <path\|key> "old" "new"` | Search and replace |
+| `llmd edit <path\|key> -l 5:10 < new.txt` | Replace line range |
 
 Always use `-a` to identify yourself:
 
@@ -109,25 +109,25 @@ llmd edit docs/notes "draft" "final" -a claude -m "Finalised"
 
 | Command | Purpose |
 |---------|---------|
-| `llmd history <path>` | Show all versions |
-| `llmd diff <path>` | Compare latest vs previous |
-| `llmd diff <path> -v 1:3` | Compare specific versions |
+| `llmd history <path\|key>` | Show all versions |
+| `llmd diff <path\|key>` | Compare latest vs previous |
+| `llmd diff <path\|key> -v 1:3` | Compare specific versions |
 
 ### Organisation
 
 | Command | Purpose |
 |---------|---------|
 | `llmd mv <old> <new>` | Move/rename |
-| `llmd rm <path>` | Soft delete |
-| `llmd restore <path>` | Restore deleted |
+| `llmd rm <path\|key>` | Soft delete |
+| `llmd restore <path\|key>` | Restore deleted |
 
 ### Tagging
 
 | Command | Purpose |
 |---------|---------|
-| `llmd tag add <path> <tag>` | Add tag |
-| `llmd tag rm <path> <tag>` | Remove tag |
-| `llmd tag ls [path]` | List tags |
+| `llmd tag add <path\|key> <tag>` | Add tag |
+| `llmd tag rm <path\|key> <tag>` | Remove tag |
+| `llmd tag ls [path\|key]` | List tags |
 | `llmd ls --tag <tag>` | Filter by tag |
 
 ## Example: Working Session
