@@ -171,53 +171,53 @@ func (e *Extension) newTagLsCmd() *cobra.Command {
 
 func (e *Extension) runTagAdd(c *cobra.Command, args []string) error {
 	ctx := c.Context()
-	p, t := args[0], args[1]
+	path, t := args[0], args[1]
 	w := cmd.Out()
 	if cmd.JSON() {
 		w = io.Discard
 	}
 
-	result, err := tag.Add(ctx, w, e.svc, p, t)
+	result, err := tag.Add(ctx, w, e.svc, path, t)
 
 	log.Event("tag:add", "tag").
 		Author(cmd.Author()).
-		Path(p).
+		Path(path).
 		Detail("tag", t).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("tag add %q %q: %w", p, t, err))
+		return cmd.PrintJSONError(fmt.Errorf("tag add %q %q: %w", path, t, err))
 	}
 	return cmd.PrintJSON(result)
 }
 
 func (e *Extension) runTagRm(c *cobra.Command, args []string) error {
 	ctx := c.Context()
-	p, t := args[0], args[1]
+	path, t := args[0], args[1]
 	w := cmd.Out()
 	if cmd.JSON() {
 		w = io.Discard
 	}
 
-	result, err := tag.Remove(ctx, w, e.svc, p, t)
+	result, err := tag.Remove(ctx, w, e.svc, path, t)
 
 	log.Event("tag:rm", "untag").
 		Author(cmd.Author()).
-		Path(p).
+		Path(path).
 		Detail("tag", t).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("tag rm %q %q: %w", p, t, err))
+		return cmd.PrintJSONError(fmt.Errorf("tag rm %q %q: %w", path, t, err))
 	}
 	return cmd.PrintJSON(result)
 }
 
 func (e *Extension) runTagLs(c *cobra.Command, args []string) error {
 	ctx := c.Context()
-	p := ""
+	path := ""
 	if len(args) > 0 {
-		p = args[0]
+		path = args[0]
 	}
 
 	w := cmd.Out()
@@ -225,15 +225,15 @@ func (e *Extension) runTagLs(c *cobra.Command, args []string) error {
 		w = io.Discard
 	}
 
-	result, err := tag.List(ctx, w, e.svc, p)
+	result, err := tag.List(ctx, w, e.svc, path)
 
 	log.Event("tag:ls", "list_tags").
 		Author(cmd.Author()).
-		Path(p).
+		Path(path).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("tag ls %q: %w", p, err))
+		return cmd.PrintJSONError(fmt.Errorf("tag ls %q: %w", path, err))
 	}
 	return cmd.PrintJSON(result)
 }

@@ -42,7 +42,7 @@ func (e *Extension) runHistory(c *cobra.Command, args []string) error {
 	limit, _ := c.Flags().GetInt(extension.FlagLimit)
 	del, _ := c.Flags().GetBool(extension.FlagDeleted)
 	showDiff, _ := c.Flags().GetBool(extension.FlagDiff)
-	p := args[0]
+	path := args[0]
 
 	if limit < 0 {
 		return cmd.PrintJSONError(fmt.Errorf("limit must be >= 0, got %d", limit))
@@ -60,16 +60,20 @@ func (e *Extension) runHistory(c *cobra.Command, args []string) error {
 		w = io.Discard
 	}
 
-	result, err := history.Run(ctx, w, e.svc, p, opts)
+	result, err := history.Run(ctx, w, e.svc, path, opts)
 
+	logPath := path
+	if len(result.Versions) > 0 {
+		logPath = result.Versions[0].Path
+	}
 	log.Event("document:history", "history").
 		Author(cmd.Author()).
-		Path(p).
+		Path(logPath).
 		Detail("count", len(result.Versions)).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("history %q: %w", p, err))
+		return cmd.PrintJSONError(fmt.Errorf("history %q: %w", path, err))
 	}
 
 	if cmd.JSON() {

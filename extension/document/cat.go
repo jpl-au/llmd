@@ -70,12 +70,16 @@ func (e *Extension) runCat(c *cobra.Command, args []string) error {
 		opts.EndLine = end
 	}
 
-	p := args[0]
+	path := args[0]
 	var result cat.Result
 	var err error
 
 	defer func() {
-		b := log.Event("document:cat", "read").Author(cmd.Author()).Path(p)
+		logPath := path
+		if result.Document != nil {
+			logPath = result.Document.Path
+		}
+		b := log.Event("document:cat", "read").Author(cmd.Author()).Path(logPath)
 		if result.Document != nil {
 			b = b.Version(result.Document.Version)
 		}
@@ -83,9 +87,9 @@ func (e *Extension) runCat(c *cobra.Command, args []string) error {
 	}()
 
 	if cmd.JSON() {
-		result, err = cat.Run(ctx, io.Discard, e.svc, p, opts)
+		result, err = cat.Run(ctx, io.Discard, e.svc, path, opts)
 		if err != nil {
-			return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", p, err))
+			return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", path, err))
 		}
 		return cmd.PrintJSON(result.Document.ToJSON(true))
 	}
@@ -93,9 +97,9 @@ func (e *Extension) runCat(c *cobra.Command, args []string) error {
 	// Render with glamour if TTY and not --raw
 	if !raw && term.IsTerminal(int(os.Stdout.Fd())) {
 		var buf bytes.Buffer
-		result, err = cat.Run(ctx, &buf, e.svc, p, opts)
+		result, err = cat.Run(ctx, &buf, e.svc, path, opts)
 		if err != nil {
-			return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", p, err))
+			return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", path, err))
 		}
 		rendered, renderErr := glamour.Render(buf.String(), "dark")
 		if renderErr == nil {
@@ -106,9 +110,9 @@ func (e *Extension) runCat(c *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "warning: markdown rendering failed, showing raw output")
 	}
 
-	result, err = cat.Run(ctx, cmd.Out(), e.svc, p, opts)
+	result, err = cat.Run(ctx, cmd.Out(), e.svc, path, opts)
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", p, err))
+		return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", path, err))
 	}
 	return nil
 }

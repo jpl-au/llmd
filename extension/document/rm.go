@@ -48,9 +48,9 @@ func (e *Extension) runRm(c *cobra.Command, args []string) error {
 		return cmd.PrintJSONError(fmt.Errorf("version must be >= 0, got %d", version))
 	}
 
-	p := ""
+	path := ""
 	if len(args) > 0 {
-		p = args[0]
+		path = args[0]
 	}
 	opts := rm.Options{Recursive: recursive, Version: version, Key: keyFlag}
 
@@ -59,16 +59,16 @@ func (e *Extension) runRm(c *cobra.Command, args []string) error {
 		w = io.Discard
 	}
 
-	result, err := rm.Run(ctx, w, e.svc, p, opts)
+	result, err := rm.Run(ctx, w, e.svc, path, opts)
 
 	log.Event("document:rm", "delete").
 		Author(cmd.Author()).
-		Path(p).
+		Path(path).
 		Detail("count", len(result.Deleted)).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("rm %q: %w", p, err))
+		return cmd.PrintJSONError(fmt.Errorf("rm %q: %w", path, err))
 	}
 	return cmd.PrintJSON(result)
 }

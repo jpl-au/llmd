@@ -48,7 +48,7 @@ func (e *Extension) runRestore(c *cobra.Command, args []string) error {
 		input = args[0]
 	}
 
-	var p, key string
+	var path, key string
 
 	if keyFlag != "" {
 		// Explicit key provided - use it directly
@@ -56,7 +56,7 @@ func (e *Extension) runRestore(c *cobra.Command, args []string) error {
 		if err != nil {
 			return cmd.PrintJSONError(fmt.Errorf("key %q: %w", keyFlag, err))
 		}
-		p = doc.Path
+		path = doc.Path
 		key = keyFlag
 	} else {
 		// Resolve input as path or key (includeDeleted=true for restore)
@@ -64,29 +64,29 @@ func (e *Extension) runRestore(c *cobra.Command, args []string) error {
 		if err != nil {
 			return cmd.PrintJSONError(fmt.Errorf("%q: %w", input, err))
 		}
-		p = doc.Path
+		path = doc.Path
 		if isKey {
 			key = input
 		}
 	}
 
-	err := e.svc.Restore(ctx, p)
+	err := e.svc.Restore(ctx, path)
 
 	log.Event("document:restore", "restore").
 		Author(cmd.Author()).
-		Path(p).
+		Path(path).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("restore %q: %w", p, err))
+		return cmd.PrintJSONError(fmt.Errorf("restore %q: %w", path, err))
 	}
 
 	if !cmd.JSON() {
 		if key != "" {
-			fmt.Fprintf(cmd.Out(), "Restored %s (from key %s)\n", p, key)
+			fmt.Fprintf(cmd.Out(), "Restored %s (from key %s)\n", path, key)
 		} else {
-			fmt.Fprintf(cmd.Out(), "Restored %s\n", p)
+			fmt.Fprintf(cmd.Out(), "Restored %s\n", path)
 		}
 	}
-	return cmd.PrintJSON(restoreResult{Path: p, Key: key})
+	return cmd.PrintJSON(restoreResult{Path: path, Key: key})
 }

@@ -84,23 +84,23 @@ Line range mode (replaces lines with stdin):
 func (e *Extension) runEdit(c *cobra.Command, args []string) error {
 	ctx := c.Context()
 	lineRange, _ := c.Flags().GetString(extension.FlagLines)
-	p := args[0]
+	path := args[0]
 
 	var result edit.Result
 	var err error
 	if lineRange != "" {
-		result, err = e.runEditLineRange(ctx, p, lineRange)
+		result, err = e.runEditLineRange(ctx, path, lineRange)
 	} else {
 		result, err = e.runEditReplace(ctx, c, args)
 	}
 
 	log.Event("edit:edit", "edit").
 		Author(cmd.Author()).
-		Path(p).
+		Path(path).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("edit %q: %w", p, err))
+		return cmd.PrintJSONError(fmt.Errorf("edit %q: %w", path, err))
 	}
 	return cmd.PrintJSON(result)
 }

@@ -41,7 +41,7 @@ func (e *Extension) newWriteCmd() *cobra.Command {
 
 func (e *Extension) runWrite(c *cobra.Command, args []string) error {
 	ctx := c.Context()
-	p := args[0]
+	path := args[0]
 	var content string
 
 	file, _ := c.Flags().GetString(extension.FlagFile)
@@ -69,19 +69,19 @@ func (e *Extension) runWrite(c *cobra.Command, args []string) error {
 		return cmd.PrintJSONError(fmt.Errorf("content is empty"))
 	}
 
-	err := e.svc.Write(ctx, p, content, cmd.Author(), cmd.Message())
+	err := e.svc.Write(ctx, path, content, cmd.Author(), cmd.Message())
 
 	log.Event("document:write", "write").
 		Author(cmd.Author()).
-		Path(p).
+		Path(path).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("write %q: %w", p, err))
+		return cmd.PrintJSONError(fmt.Errorf("write %q: %w", path, err))
 	}
 
 	if !cmd.JSON() {
-		fmt.Fprintf(cmd.Out(), "Wrote %s\n", p)
+		fmt.Fprintf(cmd.Out(), "Wrote %s\n", path)
 	}
-	return cmd.PrintJSON(writeResult{Path: p})
+	return cmd.PrintJSON(writeResult{Path: path})
 }

@@ -49,7 +49,7 @@ func (e *Extension) runDiff(c *cobra.Command, args []string) error {
 	del, _ := c.Flags().GetBool(extension.FlagDeleted)
 	isFile, _ := c.Flags().GetBool(extension.FlagFile)
 	raw, _ := c.Flags().GetBool(extension.FlagRaw)
-	p := args[0]
+	path := args[0]
 
 	var opts diff.Options
 	var err error
@@ -71,9 +71,9 @@ func (e *Extension) runDiff(c *cobra.Command, args []string) error {
 		if opts.Path2 == "" {
 			return cmd.PrintJSONError(fmt.Errorf("-f/--file requires two arguments: llmd diff -f <file> <doc-path>"))
 		}
-		b, err := os.ReadFile(p)
+		b, err := os.ReadFile(path)
 		if err != nil {
-			return cmd.PrintJSONError(fmt.Errorf("reading file %s: %w", p, err))
+			return cmd.PrintJSONError(fmt.Errorf("reading file %s: %w", path, err))
 		}
 		opts.FileContent = string(b)
 	}
@@ -85,15 +85,15 @@ func (e *Extension) runDiff(c *cobra.Command, args []string) error {
 	}
 	opts.Colour = !raw
 
-	r, err := diff.Run(ctx, w, e.svc, p, opts)
+	r, err := diff.Run(ctx, w, e.svc, path, opts)
 
 	log.Event("document:diff", "diff").
 		Author(cmd.Author()).
-		Path(p).
+		Path(path).
 		Write(err)
 
 	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("diff %q: %w", p, err))
+		return cmd.PrintJSONError(fmt.Errorf("diff %q: %w", path, err))
 	}
 
 	return cmd.PrintJSON(map[string]string{
