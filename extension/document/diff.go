@@ -25,7 +25,7 @@ import (
 
 func (e *Extension) newDiffCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "diff <path> [doc-path]",
+		Use:   "diff <path|key> [doc-path]",
 		Short: "Show differences between document versions",
 		Long: `Show differences between document versions or two documents.
 

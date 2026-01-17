@@ -25,7 +25,7 @@ type restoreResult struct {
 
 func (e *Extension) newRestoreCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "restore <path>",
+		Use:   "restore <path|key>",
 		Short: "Restore a deleted document",
 		Long:  `Restore a soft-deleted document by path or key.`,
 		Args:  cobra.MaximumNArgs(1),

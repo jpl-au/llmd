@@ -22,7 +22,7 @@ import (
 
 func (e *Extension) newRmCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "rm <path>",
+		Use:   "rm <path|key>",
 		Short: "Delete a document",
 		Long:  `Soft-delete a document (recoverable via restore).`,
 		Args:  cobra.MaximumNArgs(1),

@@ -162,7 +162,7 @@ func (e *Extension) newTagRmCmd() *cobra.Command {
 
 func (e *Extension) newTagLsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "ls [path]",
+		Use:   "ls [path|key]",
 		Short: "List tags for a document (or all tags if path omitted)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE:  e.runTagLs,

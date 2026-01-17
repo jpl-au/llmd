@@ -27,7 +27,7 @@ import (
 
 func (e *Extension) newCatCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "cat <path>",
+		Use:   "cat <path|key>",
 		Short: "Read a document",
 		Long:  `Output the contents of a document to stdout.`,
 		Args:  cobra.ExactArgs(1),
