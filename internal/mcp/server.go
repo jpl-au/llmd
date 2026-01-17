@@ -129,6 +129,8 @@ func registerTools(s *server.MCPServer, h *handlers) {
 			mcp.WithBoolean("include_deleted", mcp.Description("Include soft-deleted documents")),
 			mcp.WithBoolean("deleted_only", mcp.Description("Show only deleted documents")),
 			mcp.WithString("tag", mcp.Description("Filter by tag")),
+			mcp.WithString("sort", mcp.Description("Sort by: 'name' (alphabetical) or 'time' (newest first)")),
+			mcp.WithBoolean("reverse", mcp.Description("Reverse sort order")),
 		),
 		h.listDocuments,
 	)

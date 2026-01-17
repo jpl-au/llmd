@@ -122,6 +122,9 @@ MCP tools provide full document operations:
 | `prefix` | No | Filter by path prefix |
 | `include_deleted` | No | Include soft-deleted documents |
 | `deleted_only` | No | Show only deleted documents |
+| `tag` | No | Filter by tag |
+| `sort` | No | Sort by: 'name' (alphabetical) or 'time' (newest first) |
+| `reverse` | No | Reverse sort order |
 
 #### llmd_read
 

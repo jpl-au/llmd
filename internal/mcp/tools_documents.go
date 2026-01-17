@@ -14,45 +14,47 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/jpl-au/llmd/internal/edit"
 	"github.com/jpl-au/llmd/internal/log"
+	"github.com/jpl-au/llmd/internal/ls"
 	"github.com/jpl-au/llmd/internal/store"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
 // listDocuments handles llmd_list tool calls.
+// Uses internal/ls.Run() for consistency with CLI, including sort support.
 func (h *handlers) listDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if err := h.requireInit(); err != nil {
 		return err, nil
 	}
 
-	prefix := getString(req, "prefix", "")
-	includeDeleted := getBool(req, "include_deleted", false)
-	deletedOnly := getBool(req, "deleted_only", false)
-	tag := getString(req, "tag", "")
-
-	var docs []store.Document
-	var err error
-
-	if tag != "" {
-		docs, err = h.svc.ListByTag(ctx, prefix, tag, includeDeleted, deletedOnly, store.NewTagOptions())
-	} else {
-		docs, err = h.svc.List(ctx, prefix, includeDeleted, deletedOnly)
+	opts := ls.Options{
+		Prefix:      getString(req, "prefix", ""),
+		IncludeAll:  getBool(req, "include_deleted", false),
+		DeletedOnly: getBool(req, "deleted_only", false),
+		Tag:         getString(req, "tag", ""),
+		Reverse:     getBool(req, "reverse", false),
 	}
+
+	// Validate and set sort field
+	sortBy := getString(req, "sort", "")
+	if sortBy != "" && sortBy != "name" && sortBy != "time" {
+		return mcp.NewToolResultError(fmt.Sprintf("invalid sort field %q: must be 'name' or 'time'", sortBy)), nil
+	}
+	opts.Sort = ls.SortField(sortBy)
+
+	// Run ls with io.Discard - we only need the result, not text output
+	result, err := ls.Run(ctx, io.Discard, h.svc, opts)
+
+	log.Event("mcp:list", "list").Author("mcp").Path(opts.Prefix).Detail("tag", opts.Tag).Detail("sort", sortBy).Detail("count", result.Count()).Write(err)
+
 	if err != nil {
-		log.Event("mcp:list", "list").Author("mcp").Path(prefix).Detail("tag", tag).Write(err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	log.Event("mcp:list", "list").Author("mcp").Path(prefix).Detail("count", len(docs)).Write(nil)
-
-	result := make([]store.DocJSON, len(docs))
-	for i := range docs {
-		result[i] = docs[i].ToJSON(false)
-	}
-
-	return jsonResult(result)
+	return jsonResult(result.ToJSON())
 }
 
 // readDocumentTool handles llmd_read tool calls.
