@@ -37,3 +37,4 @@ Use 'llmd guide <command>' for command-specific help.
 
 - Use `llmd guide` for comprehensive documentation
 - Use `llmd guide <command>` for detailed help on specific commands
+- Via MCP: if tools return "store not initialised", call `llmd_init` first

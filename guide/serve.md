@@ -81,6 +81,7 @@ MCP tools provide full document operations:
 
 | Tool | Description |
 |------|-------------|
+| `llmd_init` | Initialise a new store (call first if not initialised) |
 | `llmd_list` | List documents |
 | `llmd_read` | Read document content |
 | `llmd_write` | Create or update document |
@@ -107,6 +108,12 @@ MCP tools provide full document operations:
 | `llmd_guide` | Get help/guide content |
 
 ### Tool Parameters
+
+#### llmd_init
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `local` | No | If true, database is gitignored (not committed to version control) |
 
 #### llmd_list
 
@@ -316,7 +323,9 @@ These are particularly useful for MCP client configuration where you can set the
 
 ## Notes
 
-- The server must be started in a directory with an initialised llmd store
+- The server starts successfully even without an initialised store
+- If the store is not initialised, tools return "store not initialised - call llmd_init first"
+- Use `llmd_init` to create a store; use `local: true` to gitignore the database
 - All soft deletions are recoverable via `llmd_restore`
 - The `vacuum` command is intentionally excluded for safety (use CLI)
 - Author is required for all write operations to ensure proper attribution

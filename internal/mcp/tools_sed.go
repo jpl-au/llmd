@@ -17,6 +17,10 @@ import (
 
 // sedDocument handles llmd_sed tool calls.
 func (h *handlers) sedDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr

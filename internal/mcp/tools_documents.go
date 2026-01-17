@@ -23,6 +23,10 @@ import (
 
 // listDocuments handles llmd_list tool calls.
 func (h *handlers) listDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	prefix := getString(req, "prefix", "")
 	includeDeleted := getBool(req, "include_deleted", false)
 	deletedOnly := getBool(req, "deleted_only", false)
@@ -53,6 +57,10 @@ func (h *handlers) listDocuments(ctx context.Context, req mcp.CallToolRequest) (
 
 // readDocumentTool handles llmd_read tool calls.
 func (h *handlers) readDocumentTool(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
@@ -85,6 +93,10 @@ func (h *handlers) readDocumentTool(ctx context.Context, req mcp.CallToolRequest
 
 // writeDocument handles llmd_write tool calls.
 func (h *handlers) writeDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
@@ -116,6 +128,10 @@ func (h *handlers) writeDocument(ctx context.Context, req mcp.CallToolRequest) (
 // deleteDocument handles llmd_delete tool calls.
 // Supports both paths and 8-character keys via Resolve.
 func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
@@ -163,6 +179,10 @@ func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) 
 // restoreDocument handles llmd_restore tool calls.
 // Supports both paths and 8-character keys via Resolve.
 func (h *handlers) restoreDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
@@ -200,6 +220,10 @@ func (h *handlers) restoreDocument(ctx context.Context, req mcp.CallToolRequest)
 
 // moveDocument handles llmd_move tool calls.
 func (h *handlers) moveDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	from, err := req.RequireString("from")
 	if err != nil {
 		return mcp.NewToolResultError("from is required"), nil //nolint:nilerr
@@ -224,6 +248,10 @@ func (h *handlers) moveDocument(ctx context.Context, req mcp.CallToolRequest) (*
 // historyDocument handles llmd_history tool calls.
 // Supports both paths and 8-character keys.
 func (h *handlers) historyDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
@@ -258,6 +286,10 @@ func (h *handlers) historyDocument(ctx context.Context, req mcp.CallToolRequest)
 
 // editDocument handles llmd_edit tool calls.
 func (h *handlers) editDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr

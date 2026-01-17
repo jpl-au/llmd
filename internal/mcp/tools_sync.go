@@ -20,6 +20,10 @@ import (
 
 // syncFiles handles llmd_sync tool calls.
 func (h *handlers) syncFiles(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	dir := h.svc.FilesDir()
 	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
 		return mcp.NewToolResultText("no files directory found"), nil

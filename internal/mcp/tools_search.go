@@ -18,6 +18,10 @@ import (
 
 // searchDocuments handles llmd_search tool calls.
 func (h *handlers) searchDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	query, err := req.RequireString("query")
 	if err != nil {
 		return mcp.NewToolResultError("query is required"), nil //nolint:nilerr
@@ -45,6 +49,10 @@ func (h *handlers) searchDocuments(ctx context.Context, req mcp.CallToolRequest)
 
 // globDocuments handles llmd_glob tool calls.
 func (h *handlers) globDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	pattern := getString(req, "pattern", "")
 
 	paths, err := h.svc.Glob(ctx, pattern)
@@ -60,6 +68,10 @@ func (h *handlers) globDocuments(ctx context.Context, req mcp.CallToolRequest) (
 
 // grepDocuments handles llmd_grep tool calls.
 func (h *handlers) grepDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	pattern, err := req.RequireString("pattern")
 	if err != nil {
 		return mcp.NewToolResultError("pattern is required"), nil //nolint:nilerr

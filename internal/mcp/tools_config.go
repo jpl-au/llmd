@@ -21,6 +21,10 @@ import (
 
 // configGet handles llmd_config_get tool calls.
 func (h *handlers) configGet(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) { //nolint:revive // ctx for future use
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Event("mcp:config_get", "get").Author("mcp").Write(err)
@@ -46,6 +50,10 @@ func (h *handlers) configGet(ctx context.Context, req mcp.CallToolRequest) (*mcp
 
 // configSet handles llmd_config_set tool calls.
 func (h *handlers) configSet(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) { //nolint:revive // ctx for future use
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	key, err := req.RequireString("key")
 	if err != nil {
 		return mcp.NewToolResultError("key is required"), nil //nolint:nilerr

@@ -20,6 +20,10 @@ import (
 
 // tagAdd handles llmd_tag_add tool calls.
 func (h *handlers) tagAdd(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
@@ -42,6 +46,10 @@ func (h *handlers) tagAdd(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 
 // tagRemove handles llmd_tag_remove tool calls.
 func (h *handlers) tagRemove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path, err := req.RequireString("path")
 	if err != nil {
 		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
@@ -64,6 +72,10 @@ func (h *handlers) tagRemove(ctx context.Context, req mcp.CallToolRequest) (*mcp
 
 // listTags handles llmd_tags tool calls.
 func (h *handlers) listTags(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	path := getString(req, "path", "")
 
 	tags, err := h.svc.ListTags(ctx, path, store.NewTagOptions())

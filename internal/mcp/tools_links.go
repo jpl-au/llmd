@@ -20,6 +20,10 @@ import (
 
 // linkDocuments handles llmd_link tool calls.
 func (h *handlers) linkDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	from := getString(req, "from", "")
 	to := getString(req, "to", "")
 	tag := getString(req, "tag", "")
@@ -90,6 +94,10 @@ func (h *handlers) linkDocuments(ctx context.Context, req mcp.CallToolRequest) (
 
 // unlinkDocuments handles llmd_unlink tool calls.
 func (h *handlers) unlinkDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if err := h.requireInit(); err != nil {
+		return err, nil
+	}
+
 	id := getString(req, "id", "")
 	tag := getString(req, "tag", "")
 

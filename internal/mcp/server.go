@@ -6,7 +6,6 @@ package mcp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -19,28 +18,36 @@ import (
 // Version is advertised to clients for capability negotiation.
 const Version = "1.0.0"
 
+// ErrNotInitialised is returned by tools when the store has not been initialised.
+// The LLM should call llmd_init to create a store before using other tools.
+const ErrNotInitialised = "store not initialised - call llmd_init first"
+
 // Serve starts the MCP server over stdio, enabling LLM integration.
 // Uses stdio transport for compatibility with Claude Desktop and other MCP clients.
+//
+// Design: The server starts successfully even if no store exists. This allows
+// LLMs to call llmd_init to create a store, rather than failing with an opaque
+// error. Tools that require a store return ErrNotInitialised with clear guidance.
 func Serve(db string) error {
 	// Log to stderr; stdout is reserved for MCP JSON-RPC messages
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	slog.SetDefault(logger)
 
+	h := &handlers{db: db}
+
+	// Try to open existing store; nil service is OK (uninitialised mode)
 	svc, err := document.New(db)
-	if errors.Is(err, repo.ErrNotInitialised) {
-		// Auto-initialise for MCP: LLMs should be able to start immediately.
-		// Writes will still require author config, but reads and the server itself work.
-		slog.Info("llmd not initialised, auto-initialising")
-		if initErr := document.Init(false, db, false, ""); initErr != nil {
-			return fmt.Errorf("auto-init failed: %w", initErr)
-		}
-		// Retry opening after init
-		svc, err = document.New(db)
+	if err != nil && !errors.Is(err, repo.ErrNotInitialised) {
+		// Real error (not just uninitialised)
+		slog.Error("failed to open store", "error", err)
+		return err
 	}
-	if err != nil {
-		return fmt.Errorf("opening document store: %w", err)
+	if err == nil {
+		h.svc = svc
+		defer svc.Close()
+	} else {
+		slog.Info("llmd not initialised, starting in uninitialised mode - call llmd_init to create store")
 	}
-	defer svc.Close()
 
 	s := server.NewMCPServer(
 		"llmd",
@@ -48,8 +55,6 @@ func Serve(db string) error {
 		server.WithResourceCapabilities(true, false),
 		server.WithToolCapabilities(true),
 	)
-
-	h := &handlers{svc: svc}
 
 	registerResources(s, h)
 	registerTools(s, h)
@@ -65,8 +70,19 @@ func Serve(db string) error {
 }
 
 // handlers provides MCP request handlers with access to the document store.
+// The svc field may be nil if the store has not been initialised.
 type handlers struct {
-	svc *document.Service
+	db  string            // database name for init
+	svc *document.Service // nil if not initialised
+}
+
+// requireInit returns an error result if the store is not initialised.
+// Tools that require a store should call this first.
+func (h *handlers) requireInit() *mcp.CallToolResult {
+	if h.svc == nil {
+		return mcp.NewToolResultError(ErrNotInitialised)
+	}
+	return nil
 }
 
 // registerResources adds URI-based resource access for direct document reading.
@@ -96,6 +112,15 @@ func registerResources(s *server.MCPServer, h *handlers) {
 
 // registerTools exposes llmd operations as MCP tools for LLM invocation.
 func registerTools(s *server.MCPServer, h *handlers) {
+	// Init - works without existing store
+	s.AddTool(
+		mcp.NewTool("llmd_init",
+			mcp.WithDescription("Initialise a new llmd document store. Call this first if other tools return 'store not initialised'."),
+			mcp.WithBoolean("local", mcp.Description("If true, database is gitignored (not committed to version control)")),
+		),
+		h.initStore,
+	)
+
 	// List documents
 	s.AddTool(
 		mcp.NewTool("llmd_list",

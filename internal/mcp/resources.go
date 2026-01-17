@@ -31,6 +31,10 @@ var (
 
 // readDocumentResource reads a document and returns it as resource contents.
 func (h *handlers) readDocumentResource(ctx context.Context, uri string) ([]mcp.ResourceContents, error) {
+	if h.svc == nil {
+		return nil, errors.New(ErrNotInitialised)
+	}
+
 	// Parse URI: llmd://documents/{path} or llmd://documents/{path}/v/{version}
 	path, version, err := parseDocumentURI(uri)
 	if err != nil {
