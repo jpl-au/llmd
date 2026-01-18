@@ -17,23 +17,24 @@ import (
 
 // sedDocument handles llmd_sed tool calls.
 func (h *handlers) sedDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	path, err := req.RequireString("path")
 	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("path is required"), nil
 	}
 
 	expr, err := req.RequireString("expression")
 	if err != nil {
-		return mcp.NewToolResultError("expression is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("expression is required"), nil
 	}
 
 	author, err := req.RequireString("author")
 	if err != nil {
-		return mcp.NewToolResultError("author is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("author is required"), nil
 	}
 
 	opts := sed.Options{
@@ -41,11 +42,11 @@ func (h *handlers) sedDocument(ctx context.Context, req mcp.CallToolRequest) (*m
 		Message: getString(req, "message", ""),
 	}
 
+	l := log.Event("mcp:sed", "edit").Author(opts.Author).Path(path)
+	defer func() { l.Write(err) }()
+
 	var buf bytes.Buffer
 	_, err = sed.Run(ctx, &buf, h.svc, path, expr, opts)
-
-	log.Event("mcp:sed", "edit").Author(opts.Author).Path(path).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

@@ -116,6 +116,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 	s.AddTool(
 		mcp.NewTool("llmd_init",
 			mcp.WithDescription("Initialise a new llmd document store. Call this first if other tools return 'store not initialised'."),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 			mcp.WithBoolean("local", mcp.Description("If true, database is gitignored (not committed to version control)")),
 		),
 		h.initStore,
@@ -163,6 +164,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 		mcp.NewTool("llmd_delete",
 			mcp.WithDescription("Soft delete a document (recoverable via llmd_restore)"),
 			mcp.WithString("path", mcp.Required(), mcp.Description("Document path")),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 			mcp.WithNumber("version", mcp.Description("Delete only this specific version (default: all versions)")),
 		),
 		h.deleteDocument,
@@ -173,6 +175,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 		mcp.NewTool("llmd_restore",
 			mcp.WithDescription("Restore a soft-deleted document"),
 			mcp.WithString("path", mcp.Required(), mcp.Description("Document path")),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 		),
 		h.restoreDocument,
 	)
@@ -183,6 +186,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 			mcp.WithDescription("Move/rename a document"),
 			mcp.WithString("from", mcp.Required(), mcp.Description("Source path")),
 			mcp.WithString("to", mcp.Required(), mcp.Description("Destination path")),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 		),
 		h.moveDocument,
 	)
@@ -258,6 +262,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 	s.AddTool(
 		mcp.NewTool("llmd_config_set",
 			mcp.WithDescription("Set a configuration value"),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 			mcp.WithString("key", mcp.Required(), mcp.Description("Config key (author.name, author.email, sync.files)")),
 			mcp.WithString("value", mcp.Required(), mcp.Description("Value to set")),
 		),
@@ -315,6 +320,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 			mcp.WithDescription("Add a tag to a document"),
 			mcp.WithString("path", mcp.Required(), mcp.Description("Document path")),
 			mcp.WithString("tag", mcp.Required(), mcp.Description("Tag to add")),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 		),
 		h.tagAdd,
 	)
@@ -325,6 +331,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 			mcp.WithDescription("Remove a tag from a document"),
 			mcp.WithString("path", mcp.Required(), mcp.Description("Document path")),
 			mcp.WithString("tag", mcp.Required(), mcp.Description("Tag to remove")),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 		),
 		h.tagRemove,
 	)
@@ -371,6 +378,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 			mcp.WithString("from", mcp.Description("Source document path (required for creating)")),
 			mcp.WithString("to", mcp.Description("Target document path (required for creating)")),
 			mcp.WithString("tag", mcp.Description("Link tag for categorisation")),
+			mcp.WithString("author", mcp.Description("Author attribution (required for creating)")),
 			mcp.WithBoolean("list", mcp.Description("List links for 'from' path")),
 			mcp.WithBoolean("orphan", mcp.Description("List documents with no links")),
 		),
@@ -381,6 +389,7 @@ func registerTools(s *server.MCPServer, h *handlers) {
 	s.AddTool(
 		mcp.NewTool("llmd_unlink",
 			mcp.WithDescription("Remove a link by ID or all links with a tag"),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 			mcp.WithString("id", mcp.Description("Link ID to remove")),
 			mcp.WithString("tag", mcp.Description("Remove all links with this tag")),
 		),

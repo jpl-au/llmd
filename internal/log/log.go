@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -42,8 +43,17 @@ type Entry struct {
 	Source  string         // e.g., "document:cat", "mcp:llmd_read"
 	Author  string         // who performed the action
 	Action  string         // verb: read, write, delete, etc.
-	Path    string         // document path when applicable
-	Version int            // document version when applicable
+	Path    string         // input: document path requested
+	Version int            // input: document version requested
+
+	// Output fields - populated after operation succeeds
+	ResolvedPath  string // output: resolved/canonical path (if different from input)
+	ResultVersion int    // output: version created or accessed
+
+	// Timing
+	Start int64 // unix timestamp when Event() called
+	End   int64 // unix timestamp when Write() called
+
 	Success bool           // whether operation succeeded
 	Error   string         // error message if failed
 	Detail  map[string]any // additional operation-specific data
@@ -76,6 +86,7 @@ func Event(source, action string) *Builder {
 		entry: Entry{
 			Source: source,
 			Action: action,
+			Start:  time.Now().Unix(),
 		},
 	}
 }
@@ -106,16 +117,41 @@ func (b *Builder) Path(path string) *Builder {
 	return b
 }
 
-// Version sets the document version involved in this operation.
+// Version sets the input document version for this operation.
 //
-// Typically used for read operations to record which version was accessed,
-// or write operations to record the new version created.
+// Use for operations where the user specified a version to access.
 //
 // Example:
 //
-//	log.Event("document:cat", "read").Path(p).Version(doc.Version)
+//	log.Event("document:cat", "read").Path(p).Version(requestedVersion)
 func (b *Builder) Version(version int) *Builder {
 	b.entry.Version = version
+	return b
+}
+
+// Resolved sets the resolved/canonical path (output).
+//
+// Use when the actual path differs from input, such as when a key
+// is resolved to a path, or when path normalization changes the path.
+//
+// Example:
+//
+//	l.Resolved(result.Path)  // After confirming success
+func (b *Builder) Resolved(path string) *Builder {
+	b.entry.ResolvedPath = path
+	return b
+}
+
+// ResultVersion sets the version that resulted from the operation (output).
+//
+// For writes: the new version created.
+// For reads: the version that was actually accessed.
+//
+// Example:
+//
+//	l.ResultVersion(newDoc.Version)  // After confirming success
+func (b *Builder) ResultVersion(version int) *Builder {
+	b.entry.ResultVersion = version
 	return b
 }
 
@@ -153,6 +189,7 @@ func (b *Builder) Detail(key string, value any) *Builder {
 //		return err
 //	}
 func (b *Builder) Write(err error) {
+	b.entry.End = time.Now().Unix()
 	b.entry.Success = err == nil
 	if err != nil {
 		b.entry.Error = err.Error()

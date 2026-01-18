@@ -15,13 +15,14 @@ import (
 
 // diffDocuments handles llmd_diff tool calls.
 func (h *handlers) diffDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	path, err := req.RequireString("path")
 	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("path is required"), nil
 	}
 
 	opts := diff.Options{
@@ -30,11 +31,12 @@ func (h *handlers) diffDocuments(ctx context.Context, req mcp.CallToolRequest) (
 		Version2:       getInt(req, "version2", 0),
 		IncludeDeleted: getBool(req, "include_deleted", false),
 	}
+	author := getString(req, "author", "mcp")
+
+	l := log.Event("mcp:diff", "diff").Author(author).Path(path)
+	defer func() { l.Write(err) }()
 
 	r, err := h.svc.Diff(ctx, path, opts)
-
-	log.Event("mcp:diff", "diff").Author("mcp").Path(path).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

@@ -69,18 +69,19 @@ func runVacuum(c *cobra.Command, _ []string) error {
 	}
 
 	if dryRun {
-		result, err := vacuum.Run(ctx, cmd.Out(), svc, opts)
-
-		log.Event("core:vacuum", "vacuum").
+		l := log.Event("core:vacuum", "vacuum").
 			Author(cmd.Author()).
 			Path(prefix).
-			Detail("dry_run", true).
-			Detail("count", result.Deleted).
-			Write(err)
+			Detail("dry_run", true)
 
+		result, err := vacuum.Run(ctx, cmd.Out(), svc, opts)
 		if err != nil {
+			l.Write(err)
 			return cmd.PrintJSONError(fmt.Errorf("vacuum dry run: %w", err))
 		}
+
+		l.Detail("count", result.Deleted).Write(nil)
+
 		return nil
 	}
 
@@ -98,17 +99,17 @@ func runVacuum(c *cobra.Command, _ []string) error {
 		}
 	}
 
-	result, err := vacuum.Run(ctx, cmd.Out(), svc, opts)
-
-	log.Event("core:vacuum", "vacuum").
+	l := log.Event("core:vacuum", "vacuum").
 		Author(cmd.Author()).
-		Path(prefix).
-		Detail("count", result.Deleted).
-		Write(err)
+		Path(prefix)
 
+	result, err := vacuum.Run(ctx, cmd.Out(), svc, opts)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("vacuum: %w", err))
 	}
+
+	l.Detail("count", result.Deleted).Write(nil)
 
 	// Vacuum extension tables (extensions with custom tables implement Vacuumable)
 	cfg, err := config.Load()

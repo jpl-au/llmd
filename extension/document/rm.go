@@ -59,16 +59,21 @@ func (e *Extension) runRm(c *cobra.Command, args []string) error {
 		w = io.Discard
 	}
 
-	result, err := rm.Run(ctx, w, e.svc, path, opts)
-
-	log.Event("document:rm", "delete").
+	l := log.Event("document:rm", "delete").
 		Author(cmd.Author()).
-		Path(result.Path).
-		Detail("count", len(result.Deleted)).
-		Write(err)
+		Path(path).
+		Detail("key", keyFlag).
+		Detail("recursive", recursive)
 
+	result, err := rm.Run(ctx, w, e.svc, path, opts)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("rm %q: %w", path, err))
 	}
+
+	l.Resolved(result.Path).
+		Detail("count", len(result.Deleted)).
+		Write(nil)
+
 	return cmd.PrintJSON(result)
 }

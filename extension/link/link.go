@@ -102,10 +102,7 @@ func (e *Extension) handleDocumentDelete(extCtx extension.Context, ev extension.
 	// so we use context.Background() here. This is acceptable for cleanup
 	// operations that shouldn't be cancelled.
 	if err := extCtx.Service().DeleteLinksForPath(context.Background(), ev.Path, store.NewLinkOptions()); err != nil {
-		// Log the error but don't propagate it. The document deletion already
-		// succeeded - we don't want link cleanup failure to appear as a document
-		// deletion failure to the user. The links will be cleaned up eventually
-		// by vacuum or manual intervention.
+		// Log and propagate the error so the user is aware of the failure.
 		log.Event("link:cleanup", "event").
 			Path(ev.Path).
 			Detail("trigger", "document_delete").
@@ -177,14 +174,30 @@ func (e *Extension) runLink(c *cobra.Command, args []string) error {
 }
 
 // createLinks establishes bidirectional links between a source document and multiple targets.
+// Arguments can be document paths or keys - both are resolved to paths before linking.
 func (e *Extension) createLinks(ctx context.Context, from string, targets []string, tag string) error {
+	// Resolve 'from' which could be a path or key
+	fromDoc, _, err := e.svc.Resolve(ctx, from, false)
+	if err != nil {
+		return cmd.PrintJSONError(fmt.Errorf("resolve %q: %w", from, err))
+	}
+	from = fromDoc.Path
+
 	var ids []string
+	var resolvedTargets []string
 	for _, to := range targets {
+		// Resolve 'to' which could be a path or key
+		toDoc, _, err := e.svc.Resolve(ctx, to, false)
+		if err != nil {
+			return cmd.PrintJSONError(fmt.Errorf("resolve %q: %w", to, err))
+		}
+		to = toDoc.Path
 		id, err := e.svc.Link(ctx, from, to, tag, store.NewLinkOptions())
 		if err != nil {
 			return cmd.PrintJSONError(fmt.Errorf("link %q to %q: %w", from, to, err))
 		}
 		ids = append(ids, id)
+		resolvedTargets = append(resolvedTargets, to)
 
 		log.Event("link:create", "link").
 			Author(cmd.Author()).
@@ -206,7 +219,7 @@ func (e *Extension) createLinks(ctx context.Context, from string, targets []stri
 	if cmd.JSON() {
 		return cmd.PrintJSON(map[string]any{
 			"from":    from,
-			"targets": targets,
+			"targets": resolvedTargets,
 			"tag":     tag,
 			"ids":     ids,
 		})
@@ -215,7 +228,15 @@ func (e *Extension) createLinks(ctx context.Context, from string, targets []stri
 }
 
 // listLinks displays all links connected to a document, optionally filtered by tag.
+// The path argument can be a document path or key.
 func (e *Extension) listLinks(ctx context.Context, path, tag string) error {
+	// Resolve path which could be a path or key
+	doc, _, err := e.svc.Resolve(ctx, path, false)
+	if err != nil {
+		return cmd.PrintJSONError(fmt.Errorf("resolve %q: %w", path, err))
+	}
+	path = doc.Path
+
 	links, err := e.svc.ListLinks(ctx, path, tag, store.NewLinkOptions())
 	if err != nil {
 		return cmd.PrintJSONError(fmt.Errorf("list links for %q: %w", path, err))

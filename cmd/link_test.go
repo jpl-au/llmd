@@ -136,4 +136,68 @@ func TestLink(t *testing.T) {
 		env.contains(out, `"from_path"`)
 		env.contains(out, `"to_path"`)
 	})
+
+	t.Run("link by key", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("doc 1", "write", "docs/one")
+		env.runStdin("doc 2", "write", "docs/two")
+
+		// Get keys from cat -o json
+		out := env.run("cat", "docs/one", "-o", "json")
+		keyStart := strings.Index(out, `"key":"`) + 7
+		key1 := out[keyStart : keyStart+8]
+
+		out = env.run("cat", "docs/two", "-o", "json")
+		keyStart = strings.Index(out, `"key":"`) + 7
+		key2 := out[keyStart : keyStart+8]
+
+		// Link using keys
+		out = env.run("link", key1, key2)
+		env.contains(out, "docs/one")
+		env.contains(out, "docs/two")
+		env.contains(out, "->")
+
+		// Verify link exists
+		out = env.run("link", "--list", "docs/one")
+		env.contains(out, "docs/two")
+	})
+
+	t.Run("link mixed keys and paths", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("doc 1", "write", "docs/one")
+		env.runStdin("doc 2", "write", "docs/two")
+		env.runStdin("doc 3", "write", "docs/three")
+
+		// Get key for docs/one
+		out := env.run("cat", "docs/one", "-o", "json")
+		keyStart := strings.Index(out, `"key":"`) + 7
+		key1 := out[keyStart : keyStart+8]
+
+		// Link key to paths
+		out = env.run("link", key1, "docs/two", "docs/three")
+		env.contains(out, "docs/one")
+		env.contains(out, "docs/two")
+		env.contains(out, "docs/three")
+
+		// Verify links exist
+		out = env.run("link", "--list", "docs/one")
+		env.contains(out, "docs/two")
+		env.contains(out, "docs/three")
+	})
+
+	t.Run("list links by key", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("doc 1", "write", "docs/one")
+		env.runStdin("doc 2", "write", "docs/two")
+		env.run("link", "docs/one", "docs/two")
+
+		// Get key for docs/one
+		out := env.run("cat", "docs/one", "-o", "json")
+		keyStart := strings.Index(out, `"key":"`) + 7
+		key1 := out[keyStart : keyStart+8]
+
+		// List links using key
+		out = env.run("link", "--list", key1)
+		env.contains(out, "docs/two")
+	})
 }

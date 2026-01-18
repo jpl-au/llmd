@@ -50,6 +50,11 @@ func (e *Extension) runFind(c *cobra.Command, args []string) error {
 		PathsOnly:   pathsOnly,
 	}
 
+	l := log.Event("search:find", "search").
+		Author(cmd.Author()).
+		Path(prefix).
+		Detail("query", query)
+
 	var result find.Result
 	var err error
 
@@ -59,16 +64,12 @@ func (e *Extension) runFind(c *cobra.Command, args []string) error {
 		result, err = find.Run(ctx, cmd.Out(), e.svc, query, opts)
 	}
 
-	log.Event("search:find", "search").
-		Author(cmd.Author()).
-		Path(prefix).
-		Detail("query", query).
-		Detail("count", len(result.Documents)).
-		Write(err)
-
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("find %q: %w", query, err))
 	}
+
+	l.Detail("count", len(result.Documents)).Write(nil)
 
 	if cmd.JSON() {
 		items := make([]store.DocJSON, len(result.Documents))

@@ -20,12 +20,18 @@ func (h *handlers) initStore(ctx context.Context, req mcp.CallToolRequest) (*mcp
 		return mcp.NewToolResultError("store already initialised"), nil
 	}
 
+	var err error
+	author, err := req.RequireString("author")
+	if err != nil {
+		return mcp.NewToolResultError("author is required"), nil
+	}
+
 	local := getBool(req, "local", false)
 
-	err := document.Init(false, h.db, local, "")
+	l := log.Event("mcp:init", "init").Author(author).Detail("local", local)
+	defer func() { l.Write(err) }()
 
-	log.Event("mcp:init", "init").Author("mcp").Detail("local", local).Write(err)
-
+	err = document.Init(false, h.db, local, "")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

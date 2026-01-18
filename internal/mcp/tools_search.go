@@ -18,63 +18,72 @@ import (
 
 // searchDocuments handles llmd_search tool calls.
 func (h *handlers) searchDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	query, err := req.RequireString("query")
 	if err != nil {
-		return mcp.NewToolResultError("query is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("query is required"), nil
 	}
 
 	prefix := getString(req, "prefix", "")
 	includeDeleted := getBool(req, "include_deleted", false)
 	deletedOnly := getBool(req, "deleted_only", false)
+	author := getString(req, "author", "mcp")
+
+	l := log.Event("mcp:search", "search").Author(author).Path(prefix).Detail("query", query)
+	defer func() { l.Write(err) }()
 
 	docs, err := h.svc.Search(ctx, query, prefix, includeDeleted, deletedOnly)
-
-	log.Event("mcp:search", "search").Author("mcp").Path(prefix).Detail("query", query).Detail("count", len(docs)).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	result := make([]store.DocJSON, len(docs))
+	l.Detail("count", len(docs))
+
+	searchResult := make([]store.DocJSON, len(docs))
 	for i := range docs {
-		result[i] = docs[i].ToJSON(true)
+		searchResult[i] = docs[i].ToJSON(true)
 	}
 
-	return jsonResult(result)
+	return jsonResult(searchResult)
 }
 
 // globDocuments handles llmd_glob tool calls.
 func (h *handlers) globDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	pattern := getString(req, "pattern", "")
+	author := getString(req, "author", "mcp")
+
+	l := log.Event("mcp:glob", "list").Author(author).Detail("pattern", pattern)
+	defer func() { l.Write(err) }()
 
 	paths, err := h.svc.Glob(ctx, pattern)
-
-	log.Event("mcp:glob", "list").Author("mcp").Detail("pattern", pattern).Detail("count", len(paths)).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
+
+	l.Detail("count", len(paths))
 
 	return jsonResult(paths)
 }
 
 // grepDocuments handles llmd_grep tool calls.
 func (h *handlers) grepDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	pattern, err := req.RequireString("pattern")
 	if err != nil {
-		return mcp.NewToolResultError("pattern is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("pattern is required"), nil
 	}
 
 	opts := grep.Options{
@@ -85,19 +94,22 @@ func (h *handlers) grepDocuments(ctx context.Context, req mcp.CallToolRequest) (
 		IgnoreCase:    getBool(req, "ignore_case", false),
 		MaxLineLength: h.svc.MaxLineLength(),
 	}
+	author := getString(req, "author", "mcp")
+
+	l := log.Event("mcp:grep", "search").Author(author).Path(opts.Path).Detail("pattern", pattern)
+	defer func() { l.Write(err) }()
 
 	var buf bytes.Buffer
-	result, err := grep.Run(ctx, &buf, h.svc, pattern, opts)
-
-	log.Event("mcp:grep", "search").Author("mcp").Path(opts.Path).Detail("pattern", pattern).Detail("count", len(result.Documents)).Write(err)
-
+	grepResult, err := grep.Run(ctx, &buf, h.svc, pattern, opts)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	docs := make([]store.DocJSON, len(result.Documents))
-	for i := range result.Documents {
-		docs[i] = result.Documents[i].ToJSON(true)
+	l.Detail("count", len(grepResult.Documents))
+
+	docs := make([]store.DocJSON, len(grepResult.Documents))
+	for i := range grepResult.Documents {
+		docs[i] = grepResult.Documents[i].ToJSON(true)
 	}
 
 	return jsonResult(docs)

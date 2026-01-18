@@ -5,19 +5,27 @@ Create and manage bidirectional links between documents.
 ## Usage
 
 ```bash
-llmd link <document> [documents...]
-llmd link --list <document>
+llmd link <document|key> [documents|keys...]
+llmd link --list <document|key>
 llmd link --orphan
 llmd unlink <id>
 llmd unlink --tag <tag>
 ```
 
+Documents can be specified by path or by their 8-character key.
+
 ## Examples
 
 ```bash
-# Link two documents
+# Link two documents by path
 llmd link docs/api docs/auth
 # Output: a1b2c3d4  docs/api -> docs/auth
+
+# Link using keys (from llmd ls output)
+llmd link abc12345 def67890
+
+# Mix paths and keys
+llmd link abc12345 docs/config docs/utils
 
 # Link one document to multiple others
 llmd link docs/main docs/config docs/utils
@@ -30,6 +38,9 @@ llmd link --list docs/api
 # Output:
 # a1b2c3d4  docs/auth
 # x9y8z7w6  docs/config [depends-on]
+
+# List links using a key
+llmd link --list abc12345
 
 # List all links with a specific tag
 llmd link --list --tag depends-on
@@ -83,7 +94,8 @@ JSON output:
 
 ## Notes
 
-- Each link has a unique 8-character ID
+- Documents can be specified by path or 8-character key
+- Each link has a unique 8-character ID (distinct from document keys)
 - Use `llmd link --list` to see IDs, then `llmd unlink <id>` to remove
 - Use `llmd unlink --tag` to remove all links with a tag at once
 - Links are soft-deleted (recoverable until vacuum)

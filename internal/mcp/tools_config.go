@@ -21,26 +21,36 @@ import (
 
 // configGet handles llmd_config_get tool calls.
 func (h *handlers) configGet(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) { //nolint:revive // ctx for future use
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
+
+	var err error
+	author := getString(req, "author", "mcp")
+	key := getString(req, "key", "")
+
+	// Determine action based on whether key is provided
+	action := "get"
+	if key == "" {
+		action = "list"
+	}
+
+	l := log.Event("mcp:config_get", action).Author(author)
+	if key != "" {
+		l.Detail("key", key)
+	}
+	defer func() { l.Write(err) }()
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Event("mcp:config_get", "get").Author("mcp").Write(err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	key := getString(req, "key", "")
 	if key == "" {
-		log.Event("mcp:config_get", "list").Author("mcp").Write(nil)
 		return jsonResult(cfg.All())
 	}
 
 	v, err := cfg.Get(key)
-
-	log.Event("mcp:config_get", "get").Author("mcp").Detail("key", key).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
@@ -50,44 +60,51 @@ func (h *handlers) configGet(ctx context.Context, req mcp.CallToolRequest) (*mcp
 
 // configSet handles llmd_config_set tool calls.
 func (h *handlers) configSet(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) { //nolint:revive // ctx for future use
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
+	}
+
+	var err error
+	author, err := req.RequireString("author")
+	if err != nil {
+		return mcp.NewToolResultError("author is required"), nil
 	}
 
 	key, err := req.RequireString("key")
 	if err != nil {
-		return mcp.NewToolResultError("key is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("key is required"), nil
 	}
 
 	value, err := req.RequireString("value")
 	if err != nil {
-		return mcp.NewToolResultError("value is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("value is required"), nil
 	}
+
+	// Note: value intentionally not logged to avoid leaking sensitive config (API keys, tokens)
+	l := log.Event("mcp:config_set", "set").Author(author).Detail("key", key)
+	defer func() { l.Write(err) }()
 
 	cfg, err := config.Load()
 	if err != nil {
-		log.Event("mcp:config_set", "set").Author("mcp").Detail("key", key).Detail("value", value).Write(err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	if err := cfg.Set(key, value); err != nil {
-		log.Event("mcp:config_set", "set").Author("mcp").Detail("key", key).Detail("value", value).Write(err)
+	err = cfg.Set(key, value)
+	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	err = cfg.Save()
-
-	log.Event("mcp:config_set", "set").Author("mcp").Detail("key", key).Detail("value", value).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	// Reload config into the running service so new values take effect immediately
-	if err := h.svc.ReloadConfig(); err != nil {
-		log.Event("mcp:config_set", "reload").Author("mcp").Write(err)
+	if reloadErr := h.svc.ReloadConfig(); reloadErr != nil {
 		// Config was saved successfully, but reload failed - warn in response
-		return mcp.NewToolResultText(fmt.Sprintf("%s = %s (warning: reload failed, restart server to apply: %v)", key, value, err)), nil
+		// Log the reload failure separately (err stays nil for the main operation)
+		log.Event("mcp:config_set", "reload").Author(author).Detail("key", key).Write(reloadErr)
+		return mcp.NewToolResultText(fmt.Sprintf("%s = %s (warning: reload failed, restart server to apply: %v)", key, value, reloadErr)), nil
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("%s = %s", key, value)), nil

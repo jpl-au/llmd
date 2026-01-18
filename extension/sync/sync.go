@@ -104,17 +104,17 @@ func runImport(c *cobra.Command, args []string) error {
 		defer svc.Close()
 	}
 
-	result, err := importer.Run(ctx, cmd.Out(), svc, src, opts)
-
-	log.Event("sync:import", "import").
+	l := log.Event("sync:import", "import").
 		Author(cmd.Author()).
-		Detail("source", src).
-		Detail("count", result.Imported).
-		Write(err)
+		Detail("source", src)
 
+	result, err := importer.Run(ctx, cmd.Out(), svc, src, opts)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("import %q: %w", src, err))
 	}
+
+	l.Detail("count", result.Imported).Write(nil)
 
 	if len(result.Paths) == 0 {
 		fmt.Fprintf(cmd.Out(), "No markdown files found in %q (expected .md files)\n", src)
@@ -195,21 +195,21 @@ func runExport(c *cobra.Command, args []string) error {
 		// If err or resolved as path, let exporter.Run handle it
 	}
 
-	result, err := exporter.Run(ctx, cmd.Out(), svc, docPath, dest, opts)
-
-	logEvent := log.Event("sync:export", "export").
+	l := log.Event("sync:export", "export").
 		Author(cmd.Author()).
 		Path(docPath).
-		Detail("dest", dest).
-		Detail("count", result.Exported)
+		Detail("dest", dest)
 	if key != "" {
-		logEvent.Detail("key", key)
+		l.Detail("key", key)
 	}
-	logEvent.Write(err)
 
+	result, err := exporter.Run(ctx, cmd.Out(), svc, docPath, dest, opts)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("export %q to %q: %w", docPath, dest, err))
 	}
+
+	l.Detail("count", result.Exported).Write(nil)
 
 	if result.Exported > 1 {
 		fmt.Fprintf(cmd.Out(), "\nExported %d file(s)\n", result.Exported)
@@ -266,17 +266,18 @@ func runSync(c *cobra.Command, _ []string) error {
 	}
 	opts.DryRun, _ = c.Flags().GetBool(extension.FlagDryRun)
 
+	l := log.Event("sync:sync", "sync").
+		Author(cmd.Author())
+
 	result, err := sync.Run(ctx, cmd.Out(), svc, dir, db, opts)
-
-	log.Event("sync:sync", "sync").
-		Author(cmd.Author()).
-		Detail("added", result.Added).
-		Detail("updated", result.Updated).
-		Write(err)
-
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("sync: %w", err))
 	}
+
+	l.Detail("added", result.Added).
+		Detail("updated", result.Updated).
+		Write(nil)
 
 	total := result.Updated + result.Added
 	if total == 0 {

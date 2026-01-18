@@ -33,6 +33,6 @@ llmd unlink --tag depends-on
 
 ## Notes
 
-- Use `llmd link --list <document>` to see link IDs
+- Use `llmd link --list <document|key>` to see link IDs
 - Links are soft-deleted (recoverable until vacuum)
 - See `llmd guide link` for creating links

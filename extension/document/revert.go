@@ -75,17 +75,21 @@ func (e *Extension) runRevert(c *cobra.Command, args []string) error {
 		w = io.Discard
 	}
 
-	result, err := revert.Run(ctx, w, e.svc, target, version, opts)
-
-	log.Event("document:revert", "revert").
+	l := log.Event("document:revert", "revert").
 		Author(cmd.Author()).
-		Path(result.Path).
-		Version(result.RevertedTo).
-		Detail("new_version", result.NewVersion).
-		Write(err)
+		Path(target).
+		Version(version).
+		Detail("key", keyFlag)
 
+	result, err := revert.Run(ctx, w, e.svc, target, version, opts)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(err)
 	}
+
+	l.Resolved(result.Path).
+		ResultVersion(result.NewVersion).
+		Write(nil)
+
 	return cmd.PrintJSON(result)
 }

@@ -76,18 +76,18 @@ func (e *Extension) runGrep(c *cobra.Command, args []string) error {
 		MaxLineLength: e.cfg.MaxLineLength(),
 	}
 
-	result, err := grep.Run(ctx, cmd.Out(), e.svc, pattern, opts)
-
-	log.Event("search:grep", "search").
+	l := log.Event("search:grep", "search").
 		Author(cmd.Author()).
 		Path(path).
-		Detail("pattern", pattern).
-		Detail("count", len(result.Documents)).
-		Write(err)
+		Detail("pattern", pattern)
 
+	result, err := grep.Run(ctx, cmd.Out(), e.svc, pattern, opts)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("grep %q: %w", pattern, err))
 	}
+
+	l.Detail("count", len(result.Documents)).Write(nil)
 
 	if cmd.JSON() {
 		items := make([]store.DocJSON, len(result.Documents))

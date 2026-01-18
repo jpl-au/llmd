@@ -42,17 +42,17 @@ func (e *Extension) runGlob(c *cobra.Command, args []string) error {
 		pattern = args[0]
 	}
 
-	paths, err := e.svc.Glob(ctx, pattern)
-
-	log.Event("search:glob", "list").
+	l := log.Event("search:glob", "list").
 		Author(cmd.Author()).
-		Detail("pattern", pattern).
-		Detail("count", len(paths)).
-		Write(err)
+		Detail("pattern", pattern)
 
+	paths, err := e.svc.Glob(ctx, pattern)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("glob %q: %w", pattern, err))
 	}
+
+	l.Detail("count", len(paths)).Write(nil)
 
 	if cmd.JSON() {
 		return cmd.PrintJSON(paths)

@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"golang.org/x/crypto/blake2b"
 	_ "modernc.org/sqlite"
@@ -46,10 +45,13 @@ func (l *Logger) log(e Entry) {
 	}
 
 	_, err := l.db.Exec(`
-		INSERT INTO log (ts, project, source, author, action, path, version, success, error, detail)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		time.Now().Unix(), l.project, e.Source, nilIfEmpty(e.Author), e.Action,
-		nilIfEmpty(e.Path), nilIfZero(e.Version), success, nilIfEmpty(e.Error), detail,
+		INSERT INTO log (start, end, project, source, author, action, path, version,
+		                 resolved_path, result_version, success, error, detail)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.Start, e.End, l.project, e.Source, nilIfEmpty(e.Author), e.Action,
+		nilIfEmpty(e.Path), nilIfZero(e.Version),
+		nilIfEmpty(e.ResolvedPath), nilIfZero(e.ResultVersion),
+		success, nilIfEmpty(e.Error), detail,
 	)
 	if err != nil {
 		// Best-effort logging: don't break main operation, but report failure
@@ -97,23 +99,34 @@ func hash(s string) string {
 func migrate(db *sql.DB) error {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS log (
-			id      INTEGER PRIMARY KEY AUTOINCREMENT,
-			ts      INTEGER NOT NULL,
-			project TEXT NOT NULL,
-			source  TEXT NOT NULL,
-			author  TEXT,
-			action  TEXT NOT NULL,
-			path    TEXT,
-			version INTEGER,
-			success INTEGER NOT NULL,
-			error   TEXT,
-			detail  TEXT
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			start          INTEGER NOT NULL,
+			end            INTEGER NOT NULL,
+			project        TEXT NOT NULL,
+			source         TEXT NOT NULL,
+			author         TEXT,
+			action         TEXT NOT NULL,
+			path           TEXT,
+			version        INTEGER,
+			resolved_path  TEXT,
+			result_version INTEGER,
+			success        INTEGER NOT NULL,
+			error          TEXT,
+			detail         TEXT
 		);
-		CREATE INDEX IF NOT EXISTS idx_log_ts ON log(ts);
+		CREATE INDEX IF NOT EXISTS idx_log_start ON log(start);
 		CREATE INDEX IF NOT EXISTS idx_log_project ON log(project);
 		CREATE INDEX IF NOT EXISTS idx_log_source ON log(source);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Add columns for existing databases (ignore errors if columns exist)
+	db.Exec(`ALTER TABLE log ADD COLUMN start INTEGER`)
+	db.Exec(`ALTER TABLE log ADD COLUMN end INTEGER`)
+
+	return nil
 }
 
 // nilIfEmpty returns nil for empty strings, reducing NULL checks in queries.

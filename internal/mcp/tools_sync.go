@@ -20,29 +20,32 @@ import (
 
 // syncFiles handles llmd_sync tool calls.
 func (h *handlers) syncFiles(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
 	dir := h.svc.FilesDir()
-	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
+	if _, statErr := os.Stat(dir); errors.Is(statErr, fs.ErrNotExist) {
 		return mcp.NewToolResultText("no files directory found"), nil
 	}
 
+	var err error
+	author, err := req.RequireString("author")
+	if err != nil {
+		return mcp.NewToolResultError("author is required"), nil
+	}
+
+	l := log.Event("mcp:sync", "sync").Author(author)
+	defer func() { l.Write(err) }()
+
 	docs, err := h.svc.List(ctx, "", false, false)
 	if err != nil {
-		log.Event("mcp:sync", "sync").Author("mcp").Write(err)
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	db := make(map[string]string, len(docs))
 	for _, d := range docs {
 		db[d.Path] = d.Content
-	}
-
-	author, err := req.RequireString("author")
-	if err != nil {
-		return mcp.NewToolResultError("author is required"), nil //nolint:nilerr
 	}
 
 	opts := sync.Options{
@@ -52,17 +55,16 @@ func (h *handlers) syncFiles(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	}
 
 	var buf bytes.Buffer
-	result, err := sync.Run(ctx, &buf, h.svc, dir, db, opts)
-
-	log.Event("mcp:sync", "sync").Author(author).Detail("added", result.Added).Detail("updated", result.Updated).Write(err)
-
+	syncResult, err := sync.Run(ctx, &buf, h.svc, dir, db, opts)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
+	l.Detail("added", syncResult.Added).Detail("updated", syncResult.Updated)
+
 	return jsonResult(map[string]any{
-		"updated": result.Updated,
-		"added":   result.Added,
+		"updated": syncResult.Updated,
+		"added":   syncResult.Added,
 		"dry_run": opts.DryRun,
 	})
 }

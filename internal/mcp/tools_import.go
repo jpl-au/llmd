@@ -18,18 +18,19 @@ import (
 
 // importFiles handles llmd_import tool calls.
 func (h *handlers) importFiles(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	path, err := req.RequireString("path")
 	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("path is required"), nil
 	}
 
 	author, err := req.RequireString("author")
 	if err != nil {
-		return mcp.NewToolResultError("author is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("author is required"), nil
 	}
 
 	opts := importer.Options{
@@ -40,18 +41,20 @@ func (h *handlers) importFiles(ctx context.Context, req mcp.CallToolRequest) (*m
 		Author: author,
 	}
 
+	l := log.Event("mcp:import", "import").Author(author).Detail("source", path)
+	defer func() { l.Write(err) }()
+
 	var buf bytes.Buffer
-	result, err := importer.Run(ctx, &buf, h.svc, path, opts)
-
-	log.Event("mcp:import", "import").Author(author).Detail("source", path).Detail("count", result.Imported).Write(err)
-
+	importResult, err := importer.Run(ctx, &buf, h.svc, path, opts)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
+	l.Detail("count", importResult.Imported)
+
 	return jsonResult(map[string]any{
-		"imported": result.Imported,
-		"paths":    result.Paths,
+		"imported": importResult.Imported,
+		"paths":    importResult.Paths,
 		"dry_run":  opts.DryRun,
 	})
 }

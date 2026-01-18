@@ -66,7 +66,6 @@ func (e *Extension) runLs(c *cobra.Command, args []string) error {
 	log.Event("document:ls", "list").
 		Author(cmd.Author()).
 		Path(opts.Prefix).
-		Detail("count", result.Count()).
 		Write(err)
 
 	if err != nil {

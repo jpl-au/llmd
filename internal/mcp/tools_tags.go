@@ -20,23 +20,28 @@ import (
 
 // tagAdd handles llmd_tag_add tool calls.
 func (h *handlers) tagAdd(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	path, err := req.RequireString("path")
 	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("path is required"), nil
 	}
 	tag, err := req.RequireString("tag")
 	if err != nil {
-		return mcp.NewToolResultError("tag is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("tag is required"), nil
+	}
+	author, err := req.RequireString("author")
+	if err != nil {
+		return mcp.NewToolResultError("author is required"), nil
 	}
 
+	l := log.Event("mcp:tag_add", "tag").Author(author).Path(path).Detail("tag", tag)
+	defer func() { l.Write(err) }()
+
 	err = h.svc.Tag(ctx, path, tag, store.NewTagOptions())
-
-	log.Event("mcp:tag_add", "tag").Author("mcp").Path(path).Detail("tag", tag).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
@@ -46,23 +51,28 @@ func (h *handlers) tagAdd(ctx context.Context, req mcp.CallToolRequest) (*mcp.Ca
 
 // tagRemove handles llmd_tag_remove tool calls.
 func (h *handlers) tagRemove(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	path, err := req.RequireString("path")
 	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("path is required"), nil
 	}
 	tag, err := req.RequireString("tag")
 	if err != nil {
-		return mcp.NewToolResultError("tag is required"), nil //nolint:nilerr
+		return mcp.NewToolResultError("tag is required"), nil
+	}
+	author, err := req.RequireString("author")
+	if err != nil {
+		return mcp.NewToolResultError("author is required"), nil
 	}
 
+	l := log.Event("mcp:tag_remove", "untag").Author(author).Path(path).Detail("tag", tag)
+	defer func() { l.Write(err) }()
+
 	err = h.svc.Untag(ctx, path, tag, store.NewTagOptions())
-
-	log.Event("mcp:tag_remove", "untag").Author("mcp").Path(path).Detail("tag", tag).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
@@ -72,16 +82,18 @@ func (h *handlers) tagRemove(ctx context.Context, req mcp.CallToolRequest) (*mcp
 
 // listTags handles llmd_tags tool calls.
 func (h *handlers) listTags(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	path := getString(req, "path", "")
+	author := getString(req, "author", "mcp")
+
+	l := log.Event("mcp:tags", "list_tags").Author(author).Path(path)
+	defer func() { l.Write(err) }()
 
 	tags, err := h.svc.ListTags(ctx, path, store.NewTagOptions())
-
-	log.Event("mcp:tags", "list_tags").Author("mcp").Path(path).Write(err)
-
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

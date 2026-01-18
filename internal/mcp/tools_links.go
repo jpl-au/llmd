@@ -20,23 +20,29 @@ import (
 
 // linkDocuments handles llmd_link tool calls.
 func (h *handlers) linkDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
 	}
 
+	var err error
 	from := getString(req, "from", "")
 	to := getString(req, "to", "")
 	tag := getString(req, "tag", "")
 	list := getBool(req, "list", false)
 	orphan := getBool(req, "orphan", false)
+	author := getString(req, "author", "mcp") // Optional for list operations, required for create
 
 	// List orphans
 	if orphan {
-		paths, err := h.svc.ListOrphanLinkPaths(ctx, store.NewLinkOptions())
-		log.Event("mcp:link", "list").Author("mcp").Detail("orphan", true).Detail("count", len(paths)).Write(err)
+		l := log.Event("mcp:link", "list").Author(author).Detail("orphan", true)
+		defer func() { l.Write(err) }()
+
+		var paths []string
+		paths, err = h.svc.ListOrphanLinkPaths(ctx, store.NewLinkOptions())
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		l.Detail("count", len(paths))
 		return jsonResult(paths)
 	}
 
@@ -48,41 +54,59 @@ func (h *handlers) linkDocuments(ctx context.Context, req mcp.CallToolRequest) (
 
 		// List by tag only
 		if from == "" {
-			links, err := h.svc.ListLinksByTag(ctx, tag, store.NewLinkOptions())
-			log.Event("mcp:link", "list").Author("mcp").Detail("tag", tag).Detail("count", len(links)).Write(err)
+			l := log.Event("mcp:link", "list").Author(author).Detail("tag", tag)
+			defer func() { l.Write(err) }()
+
+			var links []store.Link
+			links, err = h.svc.ListLinksByTag(ctx, tag, store.NewLinkOptions())
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+			l.Detail("count", len(links))
 			js := make([]store.LinkJSON, len(links))
-			for i, l := range links {
-				js[i] = l.ToJSON()
+			for i, lnk := range links {
+				js[i] = lnk.ToJSON()
 			}
 			return jsonResult(js)
 		}
 
 		// List for path
-		links, err := h.svc.ListLinks(ctx, from, tag, store.NewLinkOptions())
-		log.Event("mcp:link", "list").Author("mcp").Path(from).Detail("tag", tag).Detail("count", len(links)).Write(err)
+		l := log.Event("mcp:link", "list").Author(author).Path(from).Detail("tag", tag)
+		defer func() { l.Write(err) }()
+
+		var links []store.Link
+		links, err = h.svc.ListLinks(ctx, from, tag, store.NewLinkOptions())
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		l.Detail("count", len(links))
 		js := make([]store.LinkJSON, len(links))
-		for i, l := range links {
-			js[i] = l.ToJSON()
+		for i, lnk := range links {
+			js[i] = lnk.ToJSON()
 		}
 		return jsonResult(js)
 	}
 
-	// Create link
+	// Create link - author is required (must not be default)
 	if from == "" || to == "" {
 		return mcp.NewToolResultError("from and to are required for creating links"), nil
 	}
 
+	if author == "mcp" {
+		// Check if author was explicitly provided or just defaulted
+		if _, err := req.RequireString("author"); err != nil {
+			return mcp.NewToolResultError("author is required for creating links"), nil
+		}
+	}
+
+	l := log.Event("mcp:link", "link").Author(author).Path(from).Detail("to", to).Detail("tag", tag)
+	defer func() { l.Write(err) }()
+
 	id, err := h.svc.Link(ctx, from, to, tag, store.NewLinkOptions())
-	log.Event("mcp:link", "link").Author("mcp").Path(from).Detail("to", to).Detail("tag", tag).Detail("id", id).Write(err)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
+	l.Detail("id", id)
 
 	return jsonResult(map[string]any{
 		"id":   id,
@@ -94,8 +118,14 @@ func (h *handlers) linkDocuments(ctx context.Context, req mcp.CallToolRequest) (
 
 // unlinkDocuments handles llmd_unlink tool calls.
 func (h *handlers) unlinkDocuments(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	if err := h.requireInit(); err != nil {
-		return err, nil
+	if result := h.requireInit(); result != nil {
+		return result, nil
+	}
+
+	var err error
+	author, err := req.RequireString("author")
+	if err != nil {
+		return mcp.NewToolResultError("author is required"), nil
 	}
 
 	id := getString(req, "id", "")
@@ -103,11 +133,15 @@ func (h *handlers) unlinkDocuments(ctx context.Context, req mcp.CallToolRequest)
 
 	// Remove by tag
 	if tag != "" {
-		n, err := h.svc.UnlinkByTag(ctx, tag, store.NewLinkOptions())
-		log.Event("mcp:unlink", "unlink").Author("mcp").Detail("tag", tag).Detail("count", n).Write(err)
+		l := log.Event("mcp:unlink", "unlink").Author(author).Detail("tag", tag)
+		defer func() { l.Write(err) }()
+
+		var n int64
+		n, err = h.svc.UnlinkByTag(ctx, tag, store.NewLinkOptions())
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
+		l.Detail("count", n)
 		return jsonResult(map[string]any{
 			"tag":   tag,
 			"count": n,
@@ -119,8 +153,10 @@ func (h *handlers) unlinkDocuments(ctx context.Context, req mcp.CallToolRequest)
 		return mcp.NewToolResultError("id or tag is required"), nil
 	}
 
-	err := h.svc.UnlinkByID(ctx, id)
-	log.Event("mcp:unlink", "unlink").Author("mcp").Detail("id", id).Write(err)
+	l := log.Event("mcp:unlink", "unlink").Author(author).Detail("id", id)
+	defer func() { l.Write(err) }()
+
+	err = h.svc.UnlinkByID(ctx, id)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

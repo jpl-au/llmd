@@ -60,21 +60,18 @@ func (e *Extension) runHistory(c *cobra.Command, args []string) error {
 		w = io.Discard
 	}
 
-	result, err := history.Run(ctx, w, e.svc, path, opts)
-
-	logPath := path
-	if len(result.Versions) > 0 {
-		logPath = result.Versions[0].Path
-	}
-	log.Event("document:history", "history").
+	l := log.Event("document:history", "history").
 		Author(cmd.Author()).
-		Path(logPath).
-		Detail("count", len(result.Versions)).
-		Write(err)
+		Path(path)
 
+	result, err := history.Run(ctx, w, e.svc, path, opts)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("history %q: %w", path, err))
 	}
+
+	l.Detail("count", len(result.Versions)).
+		Write(nil)
 
 	if cmd.JSON() {
 		out := make([]store.DocJSON, len(result.Versions))

@@ -86,12 +86,9 @@ func (e *Extension) runEdit(c *cobra.Command, args []string) error {
 	lineRange, _ := c.Flags().GetString(extension.FlagLines)
 	path := args[0]
 
-	// Resolve path or key to get actual document path for logging
-	doc, _, resolveErr := e.svc.Resolve(ctx, path, false)
-	logPath := path
-	if resolveErr == nil {
-		logPath = doc.Path
-	}
+	l := log.Event("edit:edit", "edit").
+		Author(cmd.Author()).
+		Path(path)
 
 	var result edit.Result
 	var err error
@@ -101,14 +98,13 @@ func (e *Extension) runEdit(c *cobra.Command, args []string) error {
 		result, err = e.runEditReplace(ctx, c, args)
 	}
 
-	log.Event("edit:edit", "edit").
-		Author(cmd.Author()).
-		Path(logPath).
-		Write(err)
-
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("edit %q: %w", path, err))
 	}
+
+	l.Resolved(result.Path).Write(nil)
+
 	return cmd.PrintJSON(result)
 }
 
@@ -206,15 +202,17 @@ func (e *Extension) runSed(c *cobra.Command, args []string) error {
 		w = io.Discard
 	}
 
-	result, err := sed.Run(ctx, w, e.svc, path, expr, opts)
-
-	log.Event("edit:sed", "edit").
+	l := log.Event("edit:sed", "edit").
 		Author(cmd.Author()).
-		Path(result.Path).
-		Write(err)
+		Path(path)
 
+	result, err := sed.Run(ctx, w, e.svc, path, expr, opts)
 	if err != nil {
+		l.Write(err)
 		return cmd.PrintJSONError(fmt.Errorf("sed %q: %w", path, err))
 	}
+
+	l.Resolved(result.Path).Write(nil)
+
 	return cmd.PrintJSON(result)
 }
