@@ -40,11 +40,11 @@ var (
 
 // Entry represents a single log entry.
 type Entry struct {
-	Source  string         // e.g., "document:cat", "mcp:llmd_read"
-	Author  string         // who performed the action
-	Action  string         // verb: read, write, delete, etc.
-	Path    string         // input: document path requested
-	Version int            // input: document version requested
+	Source  string // e.g., "document:cat", "mcp:llmd_read"
+	Author  string // who performed the action
+	Action  string // verb: read, write, delete, etc.
+	Path    string // input: document path requested
+	Version int    // input: document version requested
 
 	// Output fields - populated after operation succeeds
 	ResolvedPath  string // output: resolved/canonical path (if different from input)

@@ -154,11 +154,6 @@ func GlobalPath() string {
 	return filepath.Join(home, ".llmd", "config.yaml")
 }
 
-// Path returns the local config path (for backwards compatibility).
-func Path() string {
-	return LocalPath()
-}
-
 // Load reads configuration: uses local if it exists, otherwise global.
 func Load() (*Config, error) {
 	// Check if local config exists

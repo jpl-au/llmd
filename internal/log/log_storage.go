@@ -118,15 +118,7 @@ func migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_log_project ON log(project);
 		CREATE INDEX IF NOT EXISTS idx_log_source ON log(source);
 	`)
-	if err != nil {
-		return err
-	}
-
-	// Add columns for existing databases (ignore errors if columns exist)
-	db.Exec(`ALTER TABLE log ADD COLUMN start INTEGER`)
-	db.Exec(`ALTER TABLE log ADD COLUMN end INTEGER`)
-
-	return nil
+	return err
 }
 
 // nilIfEmpty returns nil for empty strings, reducing NULL checks in queries.

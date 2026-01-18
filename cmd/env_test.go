@@ -594,4 +594,3 @@ sync:
 3. **Write descriptive messages**: Use ` + "`-m`" + ` for important changes
 4. **Regular exports**: Back up with ` + "`llmd export`" + `
 `
-

@@ -59,8 +59,8 @@ type DocMatch struct {
 
 // Result contains the outcome of a grep operation.
 type Result struct {
-	Documents []store.Document // For backwards compatibility
-	Hits      []DocMatch       // Detailed match info
+	Documents []store.Document // Matching documents
+	Hits      []DocMatch       // Detailed match info with line numbers
 }
 
 // Run searches documents for a regex pattern and writes output to w.
