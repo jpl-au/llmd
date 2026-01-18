@@ -180,12 +180,12 @@ func registerTools(s *server.MCPServer, h *handlers) {
 		h.restoreDocument,
 	)
 
-	// Move document
+	// Move document(s)
 	s.AddTool(
 		mcp.NewTool("llmd_move",
-			mcp.WithDescription("Move/rename a document"),
-			mcp.WithString("from", mcp.Required(), mcp.Description("Source path")),
-			mcp.WithString("to", mcp.Required(), mcp.Description("Destination path")),
+			mcp.WithDescription("Move/rename documents. With multiple sources or dest ending in /, moves into prefix."),
+			mcp.WithArray("sources", mcp.Required(), mcp.Description("Source paths to move"), mcp.WithStringItems()),
+			mcp.WithString("dest", mcp.Required(), mcp.Description("Destination path or prefix (trailing / for prefix mode)")),
 			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 		),
 		h.moveDocument,

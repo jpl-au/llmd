@@ -26,6 +26,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path"
+	"strings"
 
 	"github.com/jpl-au/llmd/internal/edit"
 	"github.com/jpl-au/llmd/internal/log"
@@ -322,31 +324,30 @@ func (h *handlers) restoreDocument(ctx context.Context, req mcp.CallToolRequest)
 
 // moveDocument handles llmd_move tool calls.
 //
-// Renames or relocates a document within the store. This is a metadata-only
-// operation that updates the document's path without creating a new version
-// or modifying content. All version history is preserved under the new path.
+// Renames or relocates documents within the store. This is a metadata-only
+// operation that updates document paths without creating new versions or
+// modifying content. All version history is preserved under the new paths.
 //
-// Both from and to are required parameters - there's no sensible default for
-// a rename operation. Author is required for the audit trail.
+// Supports Unix mv semantics: with multiple sources or a destination ending
+// in /, the destination is treated as a prefix and sources are moved under it
+// preserving their base names (docs/readme -> archive/readme). With a single
+// source and no trailing slash, it's a simple rename.
 //
-// Unlike Unix mv, this doesn't support moving multiple sources to a directory;
-// each move is a single source-to-destination operation. This simplicity avoids
-// ambiguity about what happens when paths conflict or when the destination
-// exists.
+// The response format adapts to the request: single source returns a plain
+// object with from/to, while multiple sources return an array of results.
 func (h *handlers) moveDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if result := h.requireInit(); result != nil {
 		return result, nil
 	}
 
-	var err error
-	from, err := req.RequireString("from")
-	if err != nil {
-		return mcp.NewToolResultError("from is required"), nil
+	sources := getStrings(req, "sources")
+	if len(sources) == 0 {
+		return mcp.NewToolResultError("sources is required"), nil
 	}
 
-	to, err := req.RequireString("to")
+	dest, err := req.RequireString("dest")
 	if err != nil {
-		return mcp.NewToolResultError("to is required"), nil
+		return mcp.NewToolResultError("dest is required"), nil
 	}
 
 	author, err := req.RequireString("author")
@@ -354,15 +355,49 @@ func (h *handlers) moveDocument(ctx context.Context, req mcp.CallToolRequest) (*
 		return mcp.NewToolResultError("author is required"), nil
 	}
 
-	l := log.Event("mcp:move", "move").Author(author).Path(from).Detail("from", from).Detail("to", to)
-	defer func() { l.Write(err) }()
+	// Determine if this is "move into prefix" mode:
+	// - Multiple sources always require prefix mode
+	// - Trailing slash signals prefix mode even with single source
+	prefixMode := len(sources) > 1 || strings.HasSuffix(dest, "/")
+	destPrefix := strings.TrimSuffix(dest, "/")
 
-	err = h.svc.Move(ctx, from, to)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+	l := log.Event("mcp:move", "move").Author(author)
+	if len(sources) == 1 {
+		l.Path(sources[0])
+	} else {
+		l.Detail("sources", sources)
+	}
+	l.Detail("dest", dest)
+	defer func() { l.Detail("count", len(sources)).Write(nil) }()
+
+	type moveResult struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+	}
+	var results []moveResult
+
+	for _, src := range sources {
+		var target string
+		if prefixMode {
+			// Move into prefix: docs/readme -> archive/readme
+			base := path.Base(src)
+			target = path.Join(destPrefix, base)
+		} else {
+			// Direct rename
+			target = dest
+		}
+
+		if err := h.svc.Move(ctx, src, target); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("move %s: %v", src, err)), nil
+		}
+		results = append(results, moveResult{From: src, To: target})
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("moved %s -> %s", from, to)), nil
+	// Return single object for single move, array for multiple
+	if len(results) == 1 {
+		return jsonResult(results[0])
+	}
+	return jsonResult(results)
 }
 
 // historyDocument handles llmd_history tool calls.

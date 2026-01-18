@@ -162,8 +162,11 @@ Returns a single document object for one path, or an array for multiple paths.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `from` | Yes | Source path |
-| `to` | Yes | Destination path |
+| `sources` | Yes | Array of source paths to move |
+| `dest` | Yes | Destination path or prefix (trailing / for prefix mode) |
+| `author` | Yes | Author attribution |
+
+With multiple sources or `dest` ending in `/`, sources are moved under the prefix preserving base names. Returns a single object for one source, or an array for multiple.
 
 #### llmd_search
 
