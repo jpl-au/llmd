@@ -134,6 +134,7 @@ func (e *Extension) newLinkCmd() *cobra.Command {
   llmd link --tag depends-on a b   # link with a tag
   llmd link --list doc             # list links for a document
   llmd link --orphan               # find documents with no links`,
+		Args: cobra.ArbitraryArgs,
 		RunE: e.runLink,
 	}
 	c.Flags().StringP(extension.FlagTag, "t", "", "Link tag (optional categorisation)")
@@ -330,6 +331,7 @@ func (e *Extension) newUnlinkCmd() *cobra.Command {
 
   llmd unlink a1b2c3d4          # remove link by ID
   llmd unlink --tag depends-on  # remove all links with tag`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: e.runUnlink,
 	}
 	c.Flags().StringP(extension.FlagTag, "t", "", "Remove all links with this tag")
