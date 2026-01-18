@@ -199,6 +199,6 @@ LLMD_DIR=/path/to/.llmd llmd ls
 
 ## Document Paths
 
-- No `.md` extension: `docs/readme` not `docs/readme.md`
+- Omit `.md` extension (recommended): `docs/readme` not `docs/readme.md`
 - Forward slashes: `docs/api/auth`
 - No leading slash: `docs/readme` not `/docs/readme`

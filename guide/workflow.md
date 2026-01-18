@@ -176,12 +176,12 @@ llmd edit project/status "Phase: research" "Phase: complete" -a claude
 
 ## Document Conventions
 
-Paths use forward slashes, no extension, no leading slash:
+Paths use forward slashes, omit extension (recommended), no leading slash:
 
 ```
-docs/api/auth       (correct)
-docs/api/auth.md    (wrong)
-/docs/api/auth      (wrong)
+docs/api/auth       (recommended)
+docs/api/auth.md    (works, but not recommended)
+/docs/api/auth      (wrong - no leading slash)
 ```
 
 Use `-o json` when you need structured output for parsing.
