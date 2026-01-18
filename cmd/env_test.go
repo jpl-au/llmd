@@ -93,9 +93,8 @@ type testEnv struct {
 
 // newTestEnv creates a temporary directory with an initialised llmd store.
 //
-// Note: init no longer creates config. Config is managed separately via
-// "llmd config". This follows the git model where init just creates the
-// repository structure.
+// The test environment is fully isolated: it configures a local author
+// so tests don't depend on or modify the user's global config.
 func newTestEnv(t *testing.T) *testEnv {
 	t.Helper()
 
@@ -104,8 +103,11 @@ func newTestEnv(t *testing.T) *testEnv {
 
 	env := &testEnv{t: t, dir: dir, binary: binary}
 
-	// Initialise the store - note: no longer sets author here
+	// Initialise the store
 	env.run("init")
+
+	// Configure test author locally - ensures test isolation from user's global config
+	env.run("config", "author.name", "test", "--local")
 
 	return env
 }

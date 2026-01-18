@@ -19,6 +19,7 @@ import (
 	"os"
 	"slices"
 
+	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/log"
 	"github.com/spf13/cobra"
 )
@@ -43,7 +44,8 @@ var rootCmd = &cobra.Command{
 		// Check if command requires author and none is configured
 		cmdName := topLevelCmdName(cmd)
 		if authorRequiredCommands[cmdName] && author == "" {
-			return fmt.Errorf("author not configured (checked .llmd/config.yaml and ~/.llmd/config.yaml)\n\nRun: llmd config author.name \"Your Name\"\n\nSee 'llmd guide config' for local vs global options.")
+			return fmt.Errorf("author not configured (checked %s and %s)\n\nRun: llmd config author.name \"Your Name\"\n\nSee 'llmd guide config' for local vs global options.",
+				config.LocalPath(), config.GlobalPath())
 		}
 
 		// Initialise extensions for commands that need the store

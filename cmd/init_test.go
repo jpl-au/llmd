@@ -178,6 +178,12 @@ func TestInit_DB(t *testing.T) {
 		out, err = cmd.CombinedOutput()
 		require.NoError(t, err, "init --db other failed: %s", out)
 
+		// Configure test author locally
+		cmd = exec.Command(binary, "config", "author.name", "test", "--local")
+		cmd.Dir = dir
+		out, err = cmd.CombinedOutput()
+		require.NoError(t, err, "config author failed: %s", out)
+
 		// Write to default database
 		cmd = exec.Command(binary, "write", "default-doc")
 		cmd.Dir = dir
