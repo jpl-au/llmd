@@ -13,85 +13,16 @@
 //   - No "." or ".." components
 //   - Empty paths are rejected
 //   - .md extension is stripped (docs/readme.md becomes docs/readme)
+//
+// Platform-specific handling: The Normalise and Direct functions are implemented
+// separately for Windows and Unix systems (see path_windows.go, path_unix.go).
+// This ensures correct backslash handling on each platform.
 package path
 
-import (
-	"errors"
-	"path/filepath"
-	"strings"
-)
+import "errors"
 
 // ErrInvalid indicates the provided document path is invalid.
 var ErrInvalid = errors.New("invalid document path")
 
 // ErrTooLong indicates the document path exceeds the configured maximum length.
 var ErrTooLong = errors.New("document path too long")
-
-// Normalise cleans and validates a document path.
-// It ensures paths use forward slashes, have no leading/trailing slashes,
-// and contain no directory traversal sequences.
-func Normalise(p string) (string, error) {
-	if p == "" {
-		return "", ErrInvalid
-	}
-
-	// Clean the path and convert to forward slashes
-	p = filepath.Clean(p)
-	p = filepath.ToSlash(p)
-
-	// Remove leading/trailing slashes (must be after ToSlash for Windows)
-	p = strings.TrimPrefix(p, "/")
-	p = strings.TrimSuffix(p, "/")
-
-	// Strip .md extension (case-insensitive)
-	if len(p) > 3 && strings.EqualFold(p[len(p)-3:], ".md") {
-		p = p[:len(p)-3]
-	}
-
-	// Validate
-	if p == "" || p == "." || p == ".." {
-		return "", ErrInvalid
-	}
-
-	if strings.Contains(p, "..") {
-		return "", ErrInvalid
-	}
-
-	return p, nil
-}
-
-// Direct reports whether path is a direct child of prefix.
-// Both paths should use forward slashes. The prefix is normalised
-// (backslashes converted, trailing slash removed) to handle raw user input.
-//
-// Examples (prefix="docs"):
-//   - "docs/readme" -> true (direct child)
-//   - "docs/api/auth" -> false (nested)
-//   - "docs" -> true (exact match)
-//
-// Examples (prefix=""):
-//   - "readme" -> true (top level)
-//   - "docs/readme" -> false (nested)
-func Direct(path, prefix string) bool {
-	// Normalise prefix for cross-platform compatibility
-	prefix = filepath.ToSlash(prefix)
-	prefix = strings.TrimSuffix(prefix, "/")
-
-	// Exact match
-	if path == prefix {
-		return true
-	}
-
-	// Get remainder after prefix
-	var remainder string
-	if prefix == "" {
-		remainder = path
-	} else if strings.HasPrefix(path, prefix+"/") {
-		remainder = path[len(prefix)+1:]
-	} else {
-		return false
-	}
-
-	// Direct child = no "/" in the remainder
-	return !strings.Contains(remainder, "/")
-}

@@ -170,14 +170,27 @@ func registerTools(s *server.MCPServer, h *handlers) {
 		h.deleteDocument,
 	)
 
-	// Restore document
+	// Restore document(s)
 	s.AddTool(
 		mcp.NewTool("llmd_restore",
-			mcp.WithDescription("Restore a soft-deleted document"),
-			mcp.WithString("path", mcp.Required(), mcp.Description("Document path")),
+			mcp.WithDescription("Restore soft-deleted documents"),
+			mcp.WithArray("paths", mcp.Required(), mcp.Description("Document paths to restore"), mcp.WithStringItems()),
 			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
 		),
 		h.restoreDocument,
+	)
+
+	// Revert document to previous version
+	s.AddTool(
+		mcp.NewTool("llmd_revert",
+			mcp.WithDescription("Revert a document to a previous version (creates new version with old content)"),
+			mcp.WithString("path", mcp.Description("Document path (required unless using key)")),
+			mcp.WithNumber("version", mcp.Description("Version number to revert to")),
+			mcp.WithString("key", mcp.Description("Version key (8-char identifier) to revert to")),
+			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
+			mcp.WithString("message", mcp.Description("Custom commit message")),
+		),
+		h.revertDocument,
 	)
 
 	// Move document(s)

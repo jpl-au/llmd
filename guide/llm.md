@@ -57,7 +57,8 @@ Commands work like standard filesystem/unix tools:
 | `sed` | Sed-style substitution |
 | `diff` | Compare versions |
 | `history` | Show version history |
-| `restore` | Restore deleted document |
+| `restore` | Restore deleted documents |
+| `revert` | Revert to previous version |
 | `tag` | Manage document tags |
 
 ### Common Patterns

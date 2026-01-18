@@ -85,9 +85,10 @@ MCP tools provide full document operations:
 | `llmd_list` | List documents |
 | `llmd_read` | Read document content |
 | `llmd_write` | Create or update document |
-| `llmd_delete` | Soft delete document |
-| `llmd_restore` | Restore deleted document |
-| `llmd_move` | Move/rename document |
+| `llmd_delete` | Soft delete documents |
+| `llmd_restore` | Restore deleted documents |
+| `llmd_revert` | Revert document to previous version |
+| `llmd_move` | Move/rename documents |
 | `llmd_search` | Full-text search (FTS5) |
 | `llmd_grep` | Regex pattern search |
 | `llmd_history` | Get version history |
@@ -159,7 +160,22 @@ Returns text confirmation for single path, or JSON array for multiple paths.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Document path or 8-character key |
+| `paths` | Yes | Array of document paths to restore |
+| `author` | Yes | Author attribution |
+
+Returns text confirmation for single path, or JSON array for multiple paths.
+
+#### llmd_revert
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `path` | No | Document path (required unless using key) |
+| `version` | No | Version number to revert to |
+| `key` | No | Version key (8-char identifier) to revert to |
+| `author` | Yes | Author attribution |
+| `message` | No | Custom commit message |
+
+Creates a new version with the content from the specified old version. Either `key` or `path`+`version` is required.
 
 #### llmd_move
 

@@ -282,26 +282,21 @@ func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) 
 
 // restoreDocument handles llmd_restore tool calls.
 //
-// Restores a soft-deleted document, making it visible again in normal listings
-// and readable without the include_deleted flag. This is the counterpart to
-// deleteDocument's soft delete behaviour.
+// Restores one or more soft-deleted documents, making them visible again in
+// normal listings. This is the counterpart to deleteDocument's soft delete.
 //
-// The path parameter accepts both document paths and 8-character keys, using
-// Resolve with includeDeleted=true since we're specifically trying to find a
-// deleted document. The function logs both the input (path or key) and the
-// resolved path to maintain clear audit trails.
-//
-// Author is required to track who restored the document, completing the audit
-// trail: we know who deleted it and who brought it back.
+// Each path is resolved (supporting both document paths and 8-character keys)
+// with includeDeleted=true since we're specifically trying to find deleted
+// documents. The response format adapts: single path returns text confirmation,
+// multiple paths return a JSON array of results.
 func (h *handlers) restoreDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if result := h.requireInit(); result != nil {
 		return result, nil
 	}
 
-	var err error
-	path, err := req.RequireString("path")
-	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil
+	paths := getStrings(req, "paths")
+	if len(paths) == 0 {
+		return mcp.NewToolResultError("paths is required"), nil
 	}
 
 	author, err := req.RequireString("author")
@@ -309,35 +304,156 @@ func (h *handlers) restoreDocument(ctx context.Context, req mcp.CallToolRequest)
 		return mcp.NewToolResultError("author is required"), nil
 	}
 
-	inputPath := path
-	l := log.Event("mcp:restore", "restore").Author(author).Path(inputPath)
-	defer func() { l.Write(err) }()
+	l := log.Event("mcp:restore", "restore").Author(author)
+	if len(paths) == 1 {
+		l.Path(paths[0])
+	} else {
+		l.Detail("paths", paths)
+	}
+	defer func() { l.Detail("count", len(paths)).Write(nil) }()
 
-	// Resolve as path or key (includeDeleted=true for restore)
-	doc, isKey, err := h.svc.Resolve(ctx, path, true)
+	// Single path mode
+	if len(paths) == 1 {
+		inputPath := paths[0]
+		doc, isKey, err := h.svc.Resolve(ctx, inputPath, true)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("%q: %v", inputPath, err)), nil
+		}
+
+		if isKey {
+			l.Detail("key", inputPath)
+		}
+		if inputPath != doc.Path {
+			l.Resolved(doc.Path)
+		}
+
+		if err := h.svc.Restore(ctx, doc.Path); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		if isKey {
+			return mcp.NewToolResultText(fmt.Sprintf("restored %s (from key %s)", doc.Path, inputPath)), nil
+		}
+		return mcp.NewToolResultText(fmt.Sprintf("restored %s", doc.Path)), nil
+	}
+
+	// Multiple paths mode
+	type restoreResult struct {
+		Path string `json:"path"`
+		Key  string `json:"key,omitempty"`
+	}
+	var results []restoreResult
+
+	for _, inputPath := range paths {
+		doc, isKey, err := h.svc.Resolve(ctx, inputPath, true)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("%q: %v", inputPath, err)), nil
+		}
+
+		if err := h.svc.Restore(ctx, doc.Path); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("restore %s: %v", doc.Path, err)), nil
+		}
+
+		result := restoreResult{Path: doc.Path}
+		if isKey {
+			result.Key = inputPath
+		}
+		results = append(results, result)
+	}
+
+	return jsonResult(results)
+}
+
+// revertDocument handles llmd_revert tool calls.
+//
+// Reverts a document to a previous version by creating a new version with the
+// old content. This is a forward-moving operation that preserves complete
+// history - you can see when a revert happened and even revert a revert.
+//
+// The target version can be specified by:
+//   - path + version number: revert docs/api to version 3
+//   - key: revert to the specific version identified by the 8-char key
+//
+// Author is required as this creates a new version in the document's history.
+func (h *handlers) revertDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if result := h.requireInit(); result != nil {
+		return result, nil
+	}
+
+	author, err := req.RequireString("author")
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("%q: %v", path, err)), nil
+		return mcp.NewToolResultError("author is required"), nil
 	}
 
-	key := ""
-	if isKey {
-		key = path
-		l.Detail("key", key)
+	path := getString(req, "path", "")
+	version := getInt(req, "version", 0)
+	key := getString(req, "key", "")
+	message := getString(req, "message", "")
+
+	// Validate: need either key or (path + version)
+	if key == "" && path == "" {
+		return mcp.NewToolResultError("either 'key' or 'path' is required"), nil
 	}
-	path = doc.Path
-	if path != inputPath {
-		l.Resolved(path)
+	if key == "" && version == 0 {
+		return mcp.NewToolResultError("either 'key' or 'version' is required"), nil
 	}
 
-	err = h.svc.Restore(ctx, path)
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
+	l := log.Event("mcp:revert", "revert").Author(author).Path(path).Version(version).Detail("key", key)
+	defer func() { l.Write(nil) }()
+
+	var doc *store.Document
 
 	if key != "" {
-		return mcp.NewToolResultText(fmt.Sprintf("restored %s (from key %s)", path, key)), nil
+		// Revert by key
+		doc, err = h.svc.ByKey(ctx, key)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("key %q: %v", key, err)), nil
+		}
+	} else {
+		// Revert by path + version
+		doc, err = h.svc.Version(ctx, path, version)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("version %d of %q: %v", version, path, err)), nil
+		}
 	}
-	return mcp.NewToolResultText(fmt.Sprintf("restored %s", path)), nil
+
+	// Build message if not provided
+	if message == "" {
+		if key != "" {
+			message = fmt.Sprintf("Revert to %s", key)
+		} else {
+			message = fmt.Sprintf("Revert to v%d", version)
+		}
+	}
+
+	// Write old content as new version
+	if err := h.svc.Write(ctx, doc.Path, doc.Content, author, message); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("write reverted content: %v", err)), nil
+	}
+
+	// Get new version number
+	newDoc, err := h.svc.Latest(ctx, doc.Path, false)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("get new version: %v", err)), nil
+	}
+
+	l.Resolved(doc.Path).ResultVersion(newDoc.Version)
+
+	type revertResult struct {
+		Path       string `json:"path"`
+		RevertedTo int    `json:"reverted_to"`
+		NewVersion int    `json:"new_version"`
+		Key        string `json:"key,omitempty"`
+		Message    string `json:"message"`
+	}
+
+	return jsonResult(revertResult{
+		Path:       doc.Path,
+		RevertedTo: doc.Version,
+		NewVersion: newDoc.Version,
+		Key:        doc.Key,
+		Message:    message,
+	})
 }
 
 // moveDocument handles llmd_move tool calls.

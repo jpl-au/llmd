@@ -116,3 +116,85 @@ func TestRestore_KeyFlag(t *testing.T) {
 	out = env.run("ls", "-R")
 	env.contains(out, "docs/readme")
 }
+
+func TestRestore_MultipleFiles(t *testing.T) {
+	t.Run("restore multiple paths", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("content a", "write", "docs/a")
+		env.runStdin("content b", "write", "docs/b")
+		env.runStdin("content c", "write", "docs/c")
+		env.run("rm", "docs/a", "docs/b", "docs/c")
+
+		// Verify all deleted
+		out := env.run("ls", "-R")
+		if strings.Contains(out, "docs/a") || strings.Contains(out, "docs/b") || strings.Contains(out, "docs/c") {
+			t.Error("Documents still visible after rm")
+		}
+
+		// Restore all at once
+		env.run("restore", "docs/a", "docs/b", "docs/c")
+
+		// Verify all restored
+		out = env.run("ls", "-R")
+		env.contains(out, "docs/a")
+		env.contains(out, "docs/b")
+		env.contains(out, "docs/c")
+
+		// Verify content preserved
+		env.equals(env.run("cat", "docs/a"), "content a")
+		env.equals(env.run("cat", "docs/b"), "content b")
+		env.equals(env.run("cat", "docs/c"), "content c")
+	})
+
+	t.Run("JSON returns array for multiple", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("one", "write", "docs/one")
+		env.runStdin("two", "write", "docs/two")
+		env.run("rm", "docs/one", "docs/two")
+
+		out := env.run("restore", "docs/one", "docs/two", "-o", "json")
+
+		// Should be an array
+		if !strings.HasPrefix(strings.TrimSpace(out), "[") {
+			t.Errorf("Restore JSON multiple files should return array, got: %s", out[:50])
+		}
+		env.contains(out, "docs/one")
+		env.contains(out, "docs/two")
+	})
+
+	t.Run("JSON returns object for single", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("content", "write", "docs/file")
+		env.run("rm", "docs/file")
+
+		out := env.run("restore", "docs/file", "-o", "json")
+
+		// Should be an object, not array
+		if !strings.HasPrefix(strings.TrimSpace(out), "{") {
+			t.Errorf("Restore JSON single file should return object, got: %s", out[:50])
+		}
+	})
+
+	t.Run("fails on first missing", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("exists", "write", "docs/exists")
+		env.run("rm", "docs/exists")
+
+		_, err := env.runErr("restore", "docs/exists", "docs/missing")
+		if err == nil {
+			t.Error("Restore with missing file should fail")
+		}
+	})
+
+	t.Run("key flag rejected with multiple paths", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("a", "write", "docs/a")
+		env.runStdin("b", "write", "docs/b")
+		env.run("rm", "docs/a", "docs/b")
+
+		_, err := env.runErr("restore", "--key", "abcd1234", "docs/a", "docs/b")
+		if err == nil {
+			t.Error("Restore --key with multiple paths should fail")
+		}
+	})
+}
