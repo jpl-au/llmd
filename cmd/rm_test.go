@@ -113,3 +113,85 @@ func TestRm_KeyFlag(t *testing.T) {
 	out = env.run("history", "docs/readme")
 	env.contains(out, "v2")
 }
+
+func TestRm_MultipleFiles(t *testing.T) {
+	t.Run("delete multiple paths", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("content a", "write", "docs/a")
+		env.runStdin("content b", "write", "docs/b")
+		env.runStdin("content c", "write", "docs/c")
+
+		env.run("rm", "docs/a", "docs/b", "docs/c")
+
+		// All should be deleted
+		out := env.run("ls", "-R")
+		if strings.Contains(out, "docs/a") || strings.Contains(out, "docs/b") || strings.Contains(out, "docs/c") {
+			t.Error("Rm() documents still visible")
+		}
+
+		// All should be in deleted list
+		out = env.run("ls", "-R", "-D")
+		env.contains(out, "docs/a")
+		env.contains(out, "docs/b")
+		env.contains(out, "docs/c")
+	})
+
+	t.Run("JSON returns array for multiple", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("one", "write", "docs/one")
+		env.runStdin("two", "write", "docs/two")
+
+		out := env.run("rm", "docs/one", "docs/two", "-o", "json")
+
+		// Should be an array
+		if !strings.HasPrefix(strings.TrimSpace(out), "[") {
+			t.Errorf("Rm JSON multiple files should return array, got: %s", out[:50])
+		}
+		env.contains(out, "docs/one")
+		env.contains(out, "docs/two")
+	})
+
+	t.Run("JSON returns object for single", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("content", "write", "docs/file")
+
+		out := env.run("rm", "docs/file", "-o", "json")
+
+		// Should be an object, not array
+		if !strings.HasPrefix(strings.TrimSpace(out), "{") {
+			t.Errorf("Rm JSON single file should return object, got: %s", out[:50])
+		}
+	})
+
+	t.Run("fails on first missing", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("exists", "write", "docs/exists")
+
+		_, err := env.runErr("rm", "docs/exists", "docs/missing")
+		if err == nil {
+			t.Error("Rm with missing file should fail")
+		}
+	})
+
+	t.Run("key flag rejected with multiple paths", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("a", "write", "docs/a")
+		env.runStdin("b", "write", "docs/b")
+
+		_, err := env.runErr("rm", "--key", "abcd1234", "docs/a", "docs/b")
+		if err == nil {
+			t.Error("Rm --key with multiple paths should fail")
+		}
+	})
+
+	t.Run("version flag rejected with multiple paths", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("a", "write", "docs/a")
+		env.runStdin("b", "write", "docs/b")
+
+		_, err := env.runErr("rm", "--version", "1", "docs/a", "docs/b")
+		if err == nil {
+			t.Error("Rm --version with multiple paths should fail")
+		}
+	})
+}

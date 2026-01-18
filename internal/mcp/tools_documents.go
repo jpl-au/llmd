@@ -187,27 +187,24 @@ func (h *handlers) writeDocument(ctx context.Context, req mcp.CallToolRequest) (
 
 // deleteDocument handles llmd_delete tool calls.
 //
-// Supports two deletion modes: soft delete of an entire document (the common
-// case) or hard delete of a specific version. Soft deletes are recoverable via
-// llmd_restore; version deletes are permanent and typically used for cleanup.
+// Supports soft deletion of one or more documents, with all deletions being
+// recoverable via llmd_restore. When a single path is provided and it resolves
+// to an 8-character key, that specific version is hard-deleted instead.
 //
-// The path parameter accepts either document paths or 8-character version keys.
-// When given a key, the function resolves it to find the specific version and
-// deletes just that version. This distinction is important: "delete by path"
-// soft-deletes the document, while "delete by key" hard-deletes that version.
+// The version parameter restricts deletion to a specific version number and
+// only works with a single path (returns an error if used with multiple paths).
+// This prevents accidental mass deletion of specific versions across documents.
 //
-// The author parameter is required for audit trail purposes, even though
-// deletion is technically destructive - knowing who deleted what is valuable
-// for debugging and potential recovery discussions.
+// The response format adapts to the request: single path returns a plain text
+// confirmation, while multiple paths return a JSON array of deletion results.
 func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if result := h.requireInit(); result != nil {
 		return result, nil
 	}
 
-	var err error
-	path, err := req.RequireString("path")
-	if err != nil {
-		return mcp.NewToolResultError("path is required"), nil
+	paths := getStrings(req, "paths")
+	if len(paths) == 0 {
+		return mcp.NewToolResultError("paths is required"), nil
 	}
 
 	author, err := req.RequireString("author")
@@ -216,50 +213,71 @@ func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) 
 	}
 
 	version := getInt(req, "version", 0)
-	inputPath := path // preserve original input for logging
 
-	l := log.Event("mcp:delete", "delete").Author(author).Path(inputPath)
-	defer func() { l.Write(err) }()
+	// Version flag only works with single path
+	if len(paths) > 1 && version > 0 {
+		return mcp.NewToolResultError("version parameter cannot be used with multiple paths"), nil
+	}
 
-	// For simple delete (no version), resolve as path or key
-	if version == 0 {
-		var doc *store.Document
-		var isKey bool
-		doc, isKey, err = h.svc.Resolve(ctx, path, false)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		if isKey {
-			// Resolved as key - delete that specific version
-			l.Resolved(doc.Path).Version(doc.Version).Detail("key", path)
-			err = h.svc.DeleteVersion(ctx, doc.Path, doc.Version)
+	l := log.Event("mcp:delete", "delete").Author(author)
+	if len(paths) == 1 {
+		l.Path(paths[0])
+	} else {
+		l.Detail("paths", paths)
+	}
+	defer func() { l.Detail("count", len(paths)).Write(nil) }()
+
+	// Single path mode: preserve existing key resolution and version logic
+	if len(paths) == 1 {
+		inputPath := paths[0]
+
+		// For simple delete (no version), resolve as path or key
+		if version == 0 {
+			doc, isKey, err := h.svc.Resolve(ctx, inputPath, false)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			return mcp.NewToolResultText(fmt.Sprintf("deleted %s (version %d, key %s)", doc.Path, doc.Version, path)), nil
+			if isKey {
+				// Resolved as key - delete that specific version
+				l.Resolved(doc.Path).Version(doc.Version).Detail("key", inputPath)
+				if err := h.svc.DeleteVersion(ctx, doc.Path, doc.Version); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+				return mcp.NewToolResultText(fmt.Sprintf("deleted %s (version %d, key %s)", doc.Path, doc.Version, inputPath)), nil
+			}
+			// Resolved as path
+			if inputPath != doc.Path {
+				l.Resolved(doc.Path)
+			}
+			if err := h.svc.Delete(ctx, doc.Path); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			return mcp.NewToolResultText(fmt.Sprintf("deleted %s", doc.Path)), nil
 		}
-		// Resolved as path, update path and continue with normal delete below
-		path = doc.Path
-	}
 
-	if path != inputPath {
-		l.Resolved(path)
-	}
-	if version > 0 {
+		// Version-specific deletion
 		l.Version(version)
-		err = h.svc.DeleteVersion(ctx, path, version)
-	} else {
-		err = h.svc.Delete(ctx, path)
+		if err := h.svc.DeleteVersion(ctx, inputPath, version); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(fmt.Sprintf("deleted %s (version %d)", inputPath, version)), nil
 	}
 
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+	// Multiple paths mode
+	type deleteResult struct {
+		Path    string `json:"path"`
+		Deleted bool   `json:"deleted"`
+	}
+	var results []deleteResult
+
+	for _, p := range paths {
+		if err := h.svc.Delete(ctx, p); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("delete %s: %v", p, err)), nil
+		}
+		results = append(results, deleteResult{Path: p, Deleted: true})
 	}
 
-	if version > 0 {
-		return mcp.NewToolResultText(fmt.Sprintf("deleted %s (version %d)", path, version)), nil
-	}
-	return mcp.NewToolResultText(fmt.Sprintf("deleted %s", path)), nil
+	return jsonResult(results)
 }
 
 // restoreDocument handles llmd_restore tool calls.

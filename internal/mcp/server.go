@@ -159,13 +159,13 @@ func registerTools(s *server.MCPServer, h *handlers) {
 		h.writeDocument,
 	)
 
-	// Delete document
+	// Delete document(s)
 	s.AddTool(
 		mcp.NewTool("llmd_delete",
-			mcp.WithDescription("Soft delete a document (recoverable via llmd_restore)"),
-			mcp.WithString("path", mcp.Required(), mcp.Description("Document path")),
+			mcp.WithDescription("Soft delete documents (recoverable via llmd_restore). Version param only works with single path."),
+			mcp.WithArray("paths", mcp.Required(), mcp.Description("Document paths to delete"), mcp.WithStringItems()),
 			mcp.WithString("author", mcp.Required(), mcp.Description("Author attribution")),
-			mcp.WithNumber("version", mcp.Description("Delete only this specific version (default: all versions)")),
+			mcp.WithNumber("version", mcp.Description("Delete only this specific version (single path only)")),
 		),
 		h.deleteDocument,
 	)

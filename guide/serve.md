@@ -149,8 +149,11 @@ Returns a single document object for one path, or an array for multiple paths.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Document path or 8-character key |
-| `version` | No | Delete only this specific version |
+| `paths` | Yes | Array of document paths to delete |
+| `author` | Yes | Author attribution |
+| `version` | No | Delete only this specific version (single path only) |
+
+Returns text confirmation for single path, or JSON array for multiple paths.
 
 #### llmd_restore
 

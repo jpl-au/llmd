@@ -1,15 +1,15 @@
 # llmd rm
 
-Soft delete a document (recoverable).
+Soft delete documents (recoverable).
 
 ## Usage
 
 ```bash
-llmd rm <path|key>
+llmd rm <path|key>...
 llmd rm -r <path>
 ```
 
-Accepts a document path or an 8-character key. When given a key, deletes only that specific version. When given a path, soft-deletes the entire document. You can also use `--key <key>` to explicitly specify a version key.
+Accepts document paths or 8-character keys. When given a key, deletes only that specific version. When given a path, soft-deletes the entire document. Multiple paths can be specified to delete several documents at once.
 
 ## Flags
 
@@ -19,11 +19,16 @@ Accepts a document path or an 8-character key. When given a key, deletes only th
 | `-r, --recursive` | Delete all documents under path |
 | `--version` | Delete only a specific version |
 
+Note: `--key` and `--version` flags only work with a single path.
+
 ## Examples
 
 ```bash
 # Delete a document by path
 llmd rm docs/old-readme
+
+# Delete multiple documents
+llmd rm docs/a docs/b docs/c
 
 # Delete a specific version by key (positional)
 llmd rm a1b2c3d4
@@ -36,6 +41,9 @@ llmd rm -r docs/archive/
 
 # Delete a specific version by path and version number
 llmd rm --version 3 docs/api
+
+# JSON output (single returns object, multiple returns array)
+llmd rm docs/a docs/b -o json
 
 # View deleted documents
 llmd ls -D
@@ -51,3 +59,4 @@ llmd restore docs/old-readme
 - Use `llmd vacuum` to permanently delete
 - No confirmation required (soft delete is the safety net)
 - Use `-r` to delete all documents under a path prefix
+- Single path returns object, multiple paths return array (JSON output)
