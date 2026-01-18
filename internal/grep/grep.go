@@ -20,6 +20,7 @@ import (
 // Options configures a grep operation.
 type Options struct {
 	Path        string // Scope search to path prefix
+	Recursive   bool   // Search subdirectories (-r flag)
 	IncludeAll  bool   // Include deleted documents
 	DeletedOnly bool   // Search only deleted documents
 	PathsOnly   bool   // Only output paths (-l flag)
@@ -81,6 +82,11 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, pattern string, 
 	docs, err := svc.List(ctx, opts.Path, opts.IncludeAll, opts.DeletedOnly)
 	if err != nil {
 		return result, err
+	}
+
+	// Filter to direct children only when not recursive
+	if !opts.Recursive {
+		docs = filterDirectChildren(docs, opts.Path)
 	}
 
 	// Match each document
@@ -185,4 +191,50 @@ func matchLines(re *regexp.Regexp, content string, invert bool, maxLineLength in
 		return matches, err
 	}
 	return matches, nil
+}
+
+// filterDirectChildren returns only documents that are direct children of the
+// given path prefix, not nested subdirectories. This emulates non-recursive
+// grep behavior.
+//
+// Examples (with path="docs"):
+//   - "docs/readme" -> included (direct child)
+//   - "docs/api/auth" -> excluded (nested)
+//
+// Examples (with path=""):
+//   - "readme" -> included (top level)
+//   - "docs/readme" -> excluded (nested)
+//
+// Examples (with path="docs/api" - exact document path):
+//   - "docs/api" -> included (exact match)
+func filterDirectChildren(docs []store.Document, pathPrefix string) []store.Document {
+	var filtered []store.Document
+
+	// Normalise prefix: remove trailing slash
+	prefix := strings.TrimSuffix(pathPrefix, "/")
+
+	for _, doc := range docs {
+		// Case 1: Exact match (searching specific document)
+		if doc.Path == prefix {
+			filtered = append(filtered, doc)
+			continue
+		}
+
+		// Case 2: Directory search - get the part after the prefix
+		var remainder string
+		if prefix == "" {
+			remainder = doc.Path
+		} else if strings.HasPrefix(doc.Path, prefix+"/") {
+			remainder = doc.Path[len(prefix)+1:]
+		} else {
+			continue // doesn't match prefix
+		}
+
+		// Direct child = no "/" in the remainder
+		if !strings.Contains(remainder, "/") {
+			filtered = append(filtered, doc)
+		}
+	}
+
+	return filtered
 }

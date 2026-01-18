@@ -12,6 +12,7 @@
 //   - No leading or trailing slashes
 //   - No "." or ".." components
 //   - Empty paths are rejected
+//   - .md extension is stripped (docs/readme.md becomes docs/readme)
 package path
 
 import (
@@ -34,13 +35,17 @@ func Normalise(p string) (string, error) {
 		return "", ErrInvalid
 	}
 
-	// Clean the path
+	// Clean the path and convert to forward slashes
 	p = filepath.Clean(p)
+	p = filepath.ToSlash(p)
+
+	// Remove leading/trailing slashes (must be after ToSlash for Windows)
 	p = strings.TrimPrefix(p, "/")
 	p = strings.TrimSuffix(p, "/")
 
-	// Convert to forward slashes (for Windows compatibility)
-	p = filepath.ToSlash(p)
+	// Strip .md extension (case-insensitive)
+	p = strings.TrimSuffix(p, ".md")
+	p = strings.TrimSuffix(p, ".MD")
 
 	// Validate
 	if p == "" || p == "." || p == ".." {

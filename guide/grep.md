@@ -42,7 +42,7 @@ llmd grep -C 2 "error" docs/        # 2 lines before and after
 # Count matches per document
 llmd grep -c "TODO"
 
-# Recursive (always enabled, for compatibility)
+# Search recursively in subdirectories
 llmd grep -r "TODO" docs/
 
 # JSON output
@@ -58,7 +58,7 @@ llmd grep "TODO" -o json
 | `-c, --count` | Only print count of matches per document |
 | `-C, --context` | Print N lines of context around matches |
 | `-l, --files-with-matches` | Only output paths of matching files |
-| `-r, --recursive` | Search recursively (always enabled) |
+| `-r, --recursive` | Search subdirectories recursively |
 | `-D, --deleted` | Search deleted documents only |
 | `-A, --all` | Search all documents (including deleted) |
 
@@ -82,5 +82,6 @@ docs/api:17:The API returns standard HTTP error codes
 - Uses Go regular expression syntax (RE2)
 - Case-sensitive by default, use `-i` for case-insensitive
 - Path argument scopes search to that prefix
-- Search is always recursive (single document store)
+- Without `-r`, only searches direct children
+- With `-r`, searches all nested paths recursively
 - For full-text search (FTS5), use `llmd find` instead

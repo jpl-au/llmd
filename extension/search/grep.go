@@ -38,7 +38,7 @@ For full-text search (FTS5), use 'llmd find' instead.`,
 	c.Flags().BoolP(extension.FlagInvertMatch, "v", false, "Select non-matching lines")
 	c.Flags().BoolP(extension.FlagCount, "c", false, "Only print count of matches per document")
 	c.Flags().IntP(extension.FlagContext, "C", 0, "Print N lines of context around matches")
-	c.Flags().BoolP(extension.FlagRecursive, "r", false, "Search recursively (always enabled, accepted for compatibility)")
+	c.Flags().BoolP(extension.FlagRecursive, "r", false, "Search subdirectories recursively")
 	c.Flags().BoolP(extension.FlagDeleted, "D", false, "Search deleted documents only")
 	c.Flags().BoolP(extension.FlagAll, "A", false, "Search all documents (including deleted)")
 	return c
@@ -59,6 +59,7 @@ func (e *Extension) runGrep(c *cobra.Command, args []string) error {
 	invert, _ := c.Flags().GetBool(extension.FlagInvertMatch)
 	countOnly, _ := c.Flags().GetBool(extension.FlagCount)
 	context, _ := c.Flags().GetInt(extension.FlagContext)
+	recursive, _ := c.Flags().GetBool(extension.FlagRecursive)
 
 	if context < 0 {
 		return cmd.PrintJSONError(fmt.Errorf("context lines (-C) must be >= 0, got %d", context))
@@ -66,6 +67,7 @@ func (e *Extension) runGrep(c *cobra.Command, args []string) error {
 
 	opts := grep.Options{
 		Path:          path,
+		Recursive:     recursive,
 		IncludeAll:    all,
 		DeletedOnly:   del,
 		PathsOnly:     pathsOnly,
