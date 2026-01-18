@@ -1,6 +1,6 @@
 # llmd llm
 
-Show LLM documentation hints and command discovery.
+Getting started guide for LLMs to discover available commands.
 
 ## Usage
 
@@ -11,6 +11,11 @@ llmd llm
 ## Description
 
 Outputs a quick reference of available commands for LLM integration. This helps LLMs discover what operations are available without reading the full guide.
+
+## MCP
+
+The easiest way for an LLM to get started is through the MCP server. Use
+`llmd guide serve` to understand how to use commands.
 
 ## Output
 
@@ -29,12 +34,18 @@ Additional commands:
   sync      Sync filesystem changes to store
   serve     Start MCP server
 
-Use 'llmd guide' for full documentation.
-Use 'llmd guide <command>' for command-specific help.
+Always use -a for author attribution on writes:
+  echo "content" | llmd write path -a "claude-code"
+  llmd edit path "old" "new" -a "claude-code"
+
+Getting help:
+  llmd guide                # full documentation
+  llmd guide <command>      # help for specific command
+  llmd guide serve          # MCP server setup and tools
+  llmd guide workflow       # Common workflow patterns are described here
+
+Using via MCP (Model Context Protocol):
+  - If tools return "store not initialised", call llmd_init first
+  - All write tools require 'author' parameter
+  - Run 'llmd guide serve' for full MCP tool reference
 ```
-
-## Notes
-
-- Use `llmd guide` for comprehensive documentation
-- Use `llmd guide <command>` for detailed help on specific commands
-- Via MCP: if tools return "store not initialised", call `llmd_init` first

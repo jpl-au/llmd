@@ -382,7 +382,7 @@ func TestLLM_SearchAndReplaceChain(t *testing.T) {
 		{"documentation system", "document management platform", "claude", "Refined terminology"},
 
 		// Branding changes
-		{"LLMD Guide", "LLMD User Manual", "claude", "Updated title"},
+		{"llmd Guide", "LLMD User Manual", "claude", "Updated title"},
 		{"LLMD User Manual", "LLMD Documentation Portal", "claude", "Rebranded"},
 
 		// Technical updates
@@ -413,7 +413,7 @@ func TestLLM_SearchAndReplaceChain(t *testing.T) {
 	// Verify original is unchanged
 	v1 := env.run("cat", "-v", "1", "docs/guide")
 	env.contains(v1, "document store")
-	env.contains(v1, "LLMD Guide")
+	env.contains(v1, "llmd Guide")
 	env.contains(v1, "llmd init")
 	env.contains(v1, "Quick Start")
 	env.contains(v1, "For LLMs")
@@ -443,7 +443,7 @@ func TestLLM_LineRangeLargeReplacement(t *testing.T) {
 	env.contains(v2Content, "## Available Commands")
 	env.contains(v2Content, "### Core Commands")
 	// Header should still be there
-	env.contains(v2Content, "# LLMD Guide")
+	env.contains(v2Content, "# llmd Guide")
 	// End sections should still be there
 	env.contains(v2Content, "## Document Paths")
 

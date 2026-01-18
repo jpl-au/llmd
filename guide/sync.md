@@ -33,3 +33,4 @@ Documents are mirrored to `.llmd/` when `sync.files` is enabled. If someone edit
 - The database is the source of truth
 - `llmd sync` is a recovery mechanism, not the normal workflow
 - Normal workflow: use `llmd write` and `llmd edit`
+- LLMs should always use `-a` flag to identify themselves

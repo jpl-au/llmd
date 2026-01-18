@@ -24,7 +24,7 @@ import (
 func newInitCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "init",
-		Short: "Initialise a new LLMD store",
+		Short: "Initialise a new llmd store",
 		Long: `Creates a .llmd/llmd.db database in the current directory.
 
 Use --db to create additional databases:
@@ -76,6 +76,6 @@ func runInit(c *cobra.Command, _ []string) error {
 	if dir != "" {
 		loc = dir + "/.llmd/" + dbFile
 	}
-	fmt.Fprintf(cmd.Out(), "Initialised LLMD store in %s\n", loc)
+	fmt.Fprintf(cmd.Out(), "Initialised llmd store in %s\n", loc)
 	return nil
 }

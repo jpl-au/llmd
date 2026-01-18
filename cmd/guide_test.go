@@ -7,7 +7,7 @@ func TestGuide(t *testing.T) {
 		env := newTestEnv(t)
 
 		out := env.run("guide")
-		env.contains(out, "LLMD Guide")
+		env.contains(out, "llmd Guide")
 		env.contains(out, "Quick Start")
 		env.contains(out, "Commands")
 	})

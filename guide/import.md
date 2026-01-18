@@ -55,3 +55,4 @@ Filesystem:           Database:
 - Strips `.md` extension from paths
 - Skips hidden files/directories by default
 - Use `-n` to preview before importing
+- LLMs should always use `-a` flag to identify themselves

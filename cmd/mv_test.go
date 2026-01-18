@@ -69,7 +69,7 @@ func TestMv(t *testing.T) {
 		}
 
 		content := env.run("cat", "archive/old-guide")
-		env.contains(content, "LLMD Guide")
+		env.contains(content, "llmd Guide")
 	})
 }
 

@@ -1,6 +1,6 @@
 # llmd init
 
-Initialise a new LLMD store in the current directory.
+Initialise a new llmd store in the current directory.
 
 ## Usage
 

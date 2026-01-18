@@ -129,7 +129,7 @@ More content in the replaced section.`
 		result := env.run("cat", "docs/guide")
 		env.contains(result, "## Replaced Section")
 		env.contains(result, "line range editing")
-		env.contains(result, "LLMD Guide")
+		env.contains(result, "llmd Guide")
 	})
 }
 
@@ -217,7 +217,7 @@ func TestEdit_MixedEditsAndSeds(t *testing.T) {
 	guide := testGuideContent()
 	env.runStdin(guide, "write", "docs/guide")
 
-	env.run("edit", "docs/guide", "LLMD Guide", "Documentation Guide")
+	env.run("edit", "docs/guide", "llmd Guide", "Documentation Guide")
 	env.run("sed", "-i", "s/llmd/llmd-cli/g", "docs/guide")
 	env.run("edit", "docs/guide", "Quick Start", "Getting Started")
 	env.run("sed", "-i", "s/version/ver/", "docs/guide")
@@ -271,7 +271,7 @@ Create and modify documents with these commands:`
 	env.contains(content, "### Writing Documents")
 	env.contains(content, "llmd cat docs/readme -v 3")
 	// Verify other sections still intact
-	env.contains(content, "# LLMD Guide")
+	env.contains(content, "# llmd Guide")
 	env.contains(content, "## Commands")
 	env.contains(content, "## For LLMs")
 
@@ -314,7 +314,7 @@ func TestEdit_LLM_MultipleSequentialLineRanges(t *testing.T) {
 
 	// Verify we can retrieve original version
 	v1 := env.run("cat", "-v", "1", "docs/guide")
-	env.contains(v1, "# LLMD Guide")
+	env.contains(v1, "# llmd Guide")
 	env.contains(v1, "## Quick Start")
 }
 
@@ -327,7 +327,7 @@ func TestEdit_LLM_VersionIntegrityAfterManyEdits(t *testing.T) {
 	edits := []struct {
 		old, new, author string
 	}{
-		{"LLMD Guide", "LLMD Manual", "edit-1"},
+		{"llmd Guide", "LLMD Manual", "edit-1"},
 		{"Quick Start", "Getting Started", "edit-2"},
 		{"document store", "documentation system", "edit-3"},
 		{"filesystem", "file system", "edit-4"},
@@ -357,7 +357,7 @@ func TestEdit_LLM_VersionIntegrityAfterManyEdits(t *testing.T) {
 
 	// Verify intermediate versions are intact
 	v1 := env.run("cat", "-v", "1", "docs/guide")
-	env.contains(v1, "LLMD Guide")
+	env.contains(v1, "llmd Guide")
 	env.contains(v1, "Quick Start")
 	env.contains(v1, "For LLMs")
 
@@ -454,7 +454,7 @@ llmd history docs/readme
 
 	// Original still accessible
 	v1 := env.run("cat", "-v", "1", "docs/guide")
-	env.contains(v1, "# LLMD Guide")
+	env.contains(v1, "# llmd Guide")
 	env.contains(v1, "## Quick Start")
 
 	// History shows both versions
@@ -516,7 +516,7 @@ func TestEdit_LLM_RealisticWorkflow(t *testing.T) {
 
 	// Step 2: LLM reads and searches the document
 	content := env.run("cat", "docs/guide")
-	env.contains(content, "LLMD Guide")
+	env.contains(content, "llmd Guide")
 
 	grepOut := env.run("grep", "init", "docs/guide")
 	env.contains(grepOut, "docs/guide")
@@ -920,7 +920,7 @@ func TestEdit_LLM_RapidSequentialEdits(t *testing.T) {
 
 	// Verify we can still access early versions
 	v1 := env.run("cat", "-v", "1", "docs/guide")
-	env.contains(v1, "LLMD Guide")
+	env.contains(v1, "llmd Guide")
 	env.contains(v1, "Quick Start")
 
 	v10 := env.run("cat", "-v", "10", "docs/guide")
@@ -981,7 +981,7 @@ More new content.
 
 	// Original still accessible
 	v1 := env.run("cat", "-v", "1", "docs/guide")
-	env.contains(v1, "# LLMD Guide")
+	env.contains(v1, "# llmd Guide")
 	env.contains(v1, "## Quick Start")
 
 	history := env.run("history", "docs/guide")

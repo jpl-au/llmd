@@ -2,6 +2,18 @@
 
 How to use llmd effectively as an autonomous workspace.
 
+## Author Attribution
+
+**Always use `-a` to identify yourself on every write operation:**
+
+```bash
+echo "content" | llmd write docs/notes -a "claude-code"
+llmd edit docs/notes "old" "new" -a "claude-code"
+llmd sed -i 's/foo/bar/' docs/notes -a "claude-code"
+```
+
+This creates an audit trail showing who changed what. Without `-a`, changes cannot be attributed to you.
+
 ## Why llmd
 
 llmd provides a single document store that keeps your work organised without littering files across the filesystem. All documents, versions, and history live in one database. This makes it ideal for:

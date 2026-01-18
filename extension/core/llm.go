@@ -3,42 +3,43 @@
 // Separated from extension.go to isolate LLM-specific documentation that
 // helps AI assistants discover available commands and usage patterns.
 //
-// Design: This is a simple static output command - it prints command hints
-// designed for LLM context windows. Unlike "guide" which provides full
-// documentation, "llm" provides concise discoverability hints that fit
-// in system prompts or tool descriptions.
+// Design: Reads from guide/llm.md to avoid duplicating content. The guide
+// file is the single source of truth for LLM onboarding documentation.
 
 package core
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/jpl-au/llmd/cmd"
+	"github.com/jpl-au/llmd/guide"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func newLlmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "llm",
-		Short: "Show LLM documentation hints",
-		Long:  `Outputs documentation hints for LLM integration and discoverability.`,
-		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Fprintln(cmd.Out(), `Commands work like standard filesystem/unix tools:
-  ls, cat, rm, mv, grep, find, sed, diff, history
+		Short: "Getting started guide for LLMs",
+		Long:  `Quick reference for LLMs to discover available commands and usage patterns.`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			content, err := guide.Get("llm")
+			if err != nil {
+				return cmd.PrintJSONError(err)
+			}
 
-Additional commands:
-  write     Write stdin to document
-  edit      Search/replace or line-range edit
-  tag       Manage document tags
-  glob      List paths matching pattern
-  restore   Restore deleted document
-  import    Import from filesystem
-  export    Export to filesystem
-  sync      Sync filesystem changes to store
-  serve     Start MCP server
+			if term.IsTerminal(int(os.Stdout.Fd())) {
+				rendered, err := glamour.Render(content, "dark")
+				if err == nil {
+					fmt.Fprint(cmd.Out(), rendered)
+					return nil
+				}
+			}
 
-Use 'llmd guide' for full documentation.
-Use 'llmd guide <command>' for command-specific help.`)
+			fmt.Fprint(cmd.Out(), content)
+			return nil
 		},
 	}
 }

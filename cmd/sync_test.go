@@ -84,5 +84,5 @@ func TestSync_DryRun(t *testing.T) {
 	if content == modifiedContent {
 		t.Error("Sync(-n) synced changes, want dry run only")
 	}
-	env.contains(content, "LLMD Guide")
+	env.contains(content, "llmd Guide")
 }

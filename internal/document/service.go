@@ -63,7 +63,7 @@ func New(db string) (*Service, error) {
 	}, nil
 }
 
-// Init initialises a new LLMD store.
+// Init initialises a new llmd store.
 // If dir is empty, uses current directory; otherwise uses dir.
 // The db parameter specifies which database to create (empty for default).
 // If local is true, the database is added to .gitignore (not committed).

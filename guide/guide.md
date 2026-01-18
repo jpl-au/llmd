@@ -1,4 +1,4 @@
-# LLMD Guide
+# llmd Guide
 
 A document store that declutters your filesystem. Stores documents in `.llmd/llmd.db` with versioning, search, and history.
 
@@ -41,7 +41,7 @@ Run `llmd guide <command>` for detailed help on any command.
 | `sync` | Sync filesystem changes to database |
 | `vacuum` | Permanently delete soft-deleted docs |
 | `serve` | Start MCP server for LLM integration |
-| `llm` | Show LLM documentation hints |
+| `llm` | Getting started guide for LLMs |
 
 ## Command Usage
 

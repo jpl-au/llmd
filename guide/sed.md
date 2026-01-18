@@ -54,3 +54,4 @@ See `llmd guide` for global flags.
 - Only substitution (`s`) commands are supported
 - Without `g` flag, replaces first occurrence only
 - Creates a new version of the document
+- LLMs should always use `-a` flag to identify themselves

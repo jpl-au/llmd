@@ -331,4 +331,4 @@ These are particularly useful for MCP client configuration where you can set the
 - Use `llmd_init` to create a store; use `local: true` to gitignore the database
 - All soft deletions are recoverable via `llmd_restore`
 - The `vacuum` command is intentionally excluded for safety (use CLI)
-- Author is required for all write operations to ensure proper attribution
+- **Author is required for all write operations** (`llmd_write`, `llmd_edit`, `llmd_sed`, `llmd_import`, `llmd_sync`) - always provide your identifier (e.g., "claude-code") to maintain an audit trail

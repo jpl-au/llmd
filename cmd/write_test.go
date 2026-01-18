@@ -207,7 +207,7 @@ More different content here.
 
 	// Verify all versions accessible
 	v1 := env.run("cat", "-v", "1", "docs/guide")
-	env.contains(v1, "# LLMD Guide")
+	env.contains(v1, "# llmd Guide")
 	env.contains(v1, "## Quick Start")
 
 	v2 := env.run("cat", "-v", "2", "docs/guide")
