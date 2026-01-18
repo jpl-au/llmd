@@ -136,11 +136,11 @@ func registerTools(s *server.MCPServer, h *handlers) {
 		h.listDocuments,
 	)
 
-	// Read document
+	// Read document(s)
 	s.AddTool(
 		mcp.NewTool("llmd_read",
-			mcp.WithDescription("Read a document's content"),
-			mcp.WithString("path", mcp.Required(), mcp.Description("Document path")),
+			mcp.WithDescription("Read one or more documents"),
+			mcp.WithArray("paths", mcp.Required(), mcp.Description("Document paths"), mcp.WithStringItems()),
 			mcp.WithNumber("version", mcp.Description("Specific version to read (default: latest)")),
 			mcp.WithBoolean("include_deleted", mcp.Description("Allow reading deleted documents")),
 		),

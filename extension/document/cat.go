@@ -27,10 +27,10 @@ import (
 
 func (e *Extension) newCatCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "cat <path|key>",
+		Use:   "cat <path|key>...",
 		Short: "Read a document",
-		Long:  `Output the contents of a document to stdout.`,
-		Args:  cobra.ExactArgs(1),
+		Long:  `Output the contents of one or more documents to stdout.`,
+		Args:  cobra.MinimumNArgs(1),
 		RunE:  e.runCat,
 	}
 	c.Flags().IntP(extension.FlagVersion, "v", 0, "Read specific version")
@@ -70,37 +70,43 @@ func (e *Extension) runCat(c *cobra.Command, args []string) error {
 		opts.EndLine = end
 	}
 
-	path := args[0]
-	var result cat.Result
-	var err error
-
+	var paths []string
+	l := log.Event("document:cat", "read").Author(cmd.Author())
 	defer func() {
-		logPath := path
-		if result.Document != nil {
-			logPath = result.Document.Path
+		if len(paths) == 1 {
+			l.Path(paths[0])
+		} else {
+			l.Detail("paths", paths)
 		}
-		b := log.Event("document:cat", "read").Author(cmd.Author()).Path(logPath)
-		if result.Document != nil {
-			b = b.Version(result.Document.Version)
-		}
-		b.Write(err)
+		l.Detail("count", len(paths)).Write(nil)
 	}()
 
+	// JSON mode: return array of documents
 	if cmd.JSON() {
-		result, err = cat.Run(ctx, io.Discard, e.svc, path, opts)
-		if err != nil {
-			return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", path, err))
+		var docs []any
+		for _, path := range args {
+			result, err := cat.Run(ctx, io.Discard, e.svc, path, opts)
+			if err != nil {
+				return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", path, err))
+			}
+			paths = append(paths, result.Document.Path)
+			docs = append(docs, result.Document.ToJSON(true))
 		}
-		return cmd.PrintJSON(result.Document.ToJSON(true))
+		// Return single object for single file, array for multiple
+		if len(docs) == 1 {
+			return cmd.PrintJSON(docs[0])
+		}
+		return cmd.PrintJSON(docs)
 	}
 
-	// Render with glamour if TTY and not --raw
-	if !raw && term.IsTerminal(int(os.Stdout.Fd())) {
+	// Single file with TTY: use glamour rendering
+	if len(args) == 1 && !raw && term.IsTerminal(int(os.Stdout.Fd())) {
 		var buf bytes.Buffer
-		result, err = cat.Run(ctx, &buf, e.svc, path, opts)
+		result, err := cat.Run(ctx, &buf, e.svc, args[0], opts)
 		if err != nil {
-			return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", path, err))
+			return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", args[0], err))
 		}
+		paths = append(paths, result.Document.Path)
 		rendered, renderErr := glamour.Render(buf.String(), "dark")
 		if renderErr == nil {
 			fmt.Fprint(cmd.Out(), rendered)
@@ -110,9 +116,13 @@ func (e *Extension) runCat(c *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "warning: markdown rendering failed, showing raw output")
 	}
 
-	result, err = cat.Run(ctx, cmd.Out(), e.svc, path, opts)
-	if err != nil {
-		return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", path, err))
+	// Multiple files or raw mode: concatenate output
+	for _, path := range args {
+		result, err := cat.Run(ctx, cmd.Out(), e.svc, path, opts)
+		if err != nil {
+			return cmd.PrintJSONError(fmt.Errorf("cat %q: %w", path, err))
+		}
+		paths = append(paths, result.Document.Path)
 	}
 	return nil
 }

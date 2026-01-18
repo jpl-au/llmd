@@ -1,14 +1,14 @@
 # llmd cat
 
-Read a document to stdout.
+Read one or more documents to stdout.
 
 ## Usage
 
 ```bash
-llmd cat <path|key>
+llmd cat <path|key>...
 ```
 
-Accepts either a document path or an 8-character key. Keys are shown in `llmd ls` and `llmd history` output.
+Accepts document paths or 8-character keys. Keys are shown in `llmd ls` and `llmd history` output. Multiple files are concatenated in order.
 
 ## Flags
 
@@ -57,9 +57,17 @@ llmd cat docs/readme | grep "TODO"
 
 # Output raw markdown (no rendering)
 llmd cat --raw docs/readme
+
+# Read multiple files (concatenated)
+llmd cat docs/intro docs/setup docs/usage
+
+# Multiple files with JSON output (returns array)
+llmd cat docs/a docs/b -o json
 ```
 
 ## JSON Output
+
+Single file returns an object:
 
 ```json
 {
@@ -73,11 +81,21 @@ llmd cat --raw docs/readme
 }
 ```
 
+Multiple files return an array:
+
+```json
+[
+  {"key": "a1b2c3d4", "path": "docs/a", "content": "...", ...},
+  {"key": "e5f6g7h8", "path": "docs/b", "content": "...", ...}
+]
+```
+
 ## Notes
 
-- Returns exit code 1 if document not found
+- Returns exit code 1 if any document is not found
+- Multiple files are output in the order specified
 - Use `-D` to read soft-deleted documents
-- Use `-v` to access any historical version
-- Output is rendered as formatted markdown when in a terminal (TTY)
-- Output is raw markdown when piped or redirected (for LLM consumption)
+- Use `-v` to access any historical version (applies to all files)
+- Output is rendered as formatted markdown when reading a single file in a terminal
+- Output is raw markdown when reading multiple files, piping, or redirecting
 - Use `--raw` to force raw markdown output in a terminal

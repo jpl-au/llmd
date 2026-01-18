@@ -44,8 +44,9 @@ func Normalise(p string) (string, error) {
 	p = strings.TrimSuffix(p, "/")
 
 	// Strip .md extension (case-insensitive)
-	p = strings.TrimSuffix(p, ".md")
-	p = strings.TrimSuffix(p, ".MD")
+	if len(p) > 3 && strings.EqualFold(p[len(p)-3:], ".md") {
+		p = p[:len(p)-3]
+	}
 
 	// Validate
 	if p == "" || p == "." || p == ".." {
@@ -57,4 +58,40 @@ func Normalise(p string) (string, error) {
 	}
 
 	return p, nil
+}
+
+// Direct reports whether path is a direct child of prefix.
+// Both paths should use forward slashes. The prefix is normalised
+// (backslashes converted, trailing slash removed) to handle raw user input.
+//
+// Examples (prefix="docs"):
+//   - "docs/readme" -> true (direct child)
+//   - "docs/api/auth" -> false (nested)
+//   - "docs" -> true (exact match)
+//
+// Examples (prefix=""):
+//   - "readme" -> true (top level)
+//   - "docs/readme" -> false (nested)
+func Direct(path, prefix string) bool {
+	// Normalise prefix for cross-platform compatibility
+	prefix = filepath.ToSlash(prefix)
+	prefix = strings.TrimSuffix(prefix, "/")
+
+	// Exact match
+	if path == prefix {
+		return true
+	}
+
+	// Get remainder after prefix
+	var remainder string
+	if prefix == "" {
+		remainder = path
+	} else if strings.HasPrefix(path, prefix+"/") {
+		remainder = path[len(prefix)+1:]
+	} else {
+		return false
+	}
+
+	// Direct child = no "/" in the remainder
+	return !strings.Contains(remainder, "/")
 }

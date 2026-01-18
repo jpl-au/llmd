@@ -272,3 +272,52 @@ func TestCat_VersionValidation(t *testing.T) {
 		}
 	})
 }
+
+func TestCat_MultipleFiles(t *testing.T) {
+	t.Run("concatenates output", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("Content of file A", "write", "docs/a")
+		env.runStdin("Content of file B", "write", "docs/b")
+		env.runStdin("Content of file C", "write", "docs/c")
+
+		out := env.run("cat", "docs/a", "docs/b", "docs/c")
+		env.contains(out, "Content of file A")
+		env.contains(out, "Content of file B")
+		env.contains(out, "Content of file C")
+	})
+
+	t.Run("JSON returns array for multiple files", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("File one", "write", "docs/one")
+		env.runStdin("File two", "write", "docs/two")
+
+		out := env.run("cat", "-o", "json", "docs/one", "docs/two")
+		// Should be an array
+		if !strings.HasPrefix(strings.TrimSpace(out), "[") {
+			t.Errorf("Cat JSON multiple files should return array, got: %s", out[:50])
+		}
+		env.contains(out, "File one")
+		env.contains(out, "File two")
+	})
+
+	t.Run("JSON returns object for single file", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("Single file", "write", "docs/single")
+
+		out := env.run("cat", "-o", "json", "docs/single")
+		// Should be an object, not array
+		if !strings.HasPrefix(strings.TrimSpace(out), "{") {
+			t.Errorf("Cat JSON single file should return object, got: %s", out[:50])
+		}
+	})
+
+	t.Run("fails on first missing file", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("Exists", "write", "docs/exists")
+
+		_, err := env.runErr("cat", "docs/exists", "docs/missing")
+		if err == nil {
+			t.Error("Cat with missing file should fail")
+		}
+	})
+}

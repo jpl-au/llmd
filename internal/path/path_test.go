@@ -12,6 +12,8 @@ func TestNormalise(t *testing.T) {
 		{"docs/readme", "docs/readme", false},
 		{"docs/readme.md", "docs/readme", false},
 		{"docs/readme.MD", "docs/readme", false},
+		{"docs/readme.Md", "docs/readme", false},
+		{"docs/readme.mD", "docs/readme", false},
 
 		// Nested paths
 		{"docs/api/auth.md", "docs/api/auth", false},
@@ -39,6 +41,46 @@ func TestNormalise(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("Normalise(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDirect(t *testing.T) {
+	tests := []struct {
+		path   string
+		prefix string
+		want   bool
+	}{
+		// Direct children of "docs"
+		{"docs/readme", "docs", true},
+		{"docs/api", "docs", true},
+		{"docs/api/auth", "docs", false}, // nested
+
+		// Exact match
+		{"docs", "docs", true},
+
+		// Top-level (empty prefix)
+		{"readme", "", true},
+		{"docs/readme", "", false}, // nested
+
+		// Trailing slash in prefix
+		{"docs/readme", "docs/", true},
+
+		// Windows backslash in prefix (cross-platform)
+		{"docs/readme", "docs\\", true},
+		{"docs/api/auth", "docs\\api", true},
+
+		// No match
+		{"notes/meeting", "docs", false},
+	}
+
+	for _, tt := range tests {
+		name := tt.path + "_" + tt.prefix
+		t.Run(name, func(t *testing.T) {
+			got := Direct(tt.path, tt.prefix)
+			if got != tt.want {
+				t.Errorf("Direct(%q, %q) = %v, want %v", tt.path, tt.prefix, got, tt.want)
 			}
 		})
 	}

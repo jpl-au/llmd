@@ -130,9 +130,11 @@ MCP tools provide full document operations:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `path` | Yes | Document path or 8-character key |
+| `paths` | Yes | Array of document paths or 8-character keys |
 | `version` | No | Specific version (default: latest) |
 | `include_deleted` | No | Allow reading deleted documents |
+
+Returns a single document object for one path, or an array for multiple paths.
 
 #### llmd_write
 

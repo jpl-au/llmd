@@ -18,10 +18,10 @@ import (
 	"context"
 	"io"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/jpl-au/llmd/internal/format"
+	"github.com/jpl-au/llmd/internal/path"
 	"github.com/jpl-au/llmd/internal/service"
 	"github.com/jpl-au/llmd/internal/store"
 )
@@ -123,7 +123,13 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, opts Options) (R
 
 	// Filter to direct children only when not recursive
 	if !opts.Recursive {
-		docs = direct(docs, opts.Prefix)
+		var filtered []store.Document
+		for _, d := range docs {
+			if path.Direct(d.Path, opts.Prefix) {
+				filtered = append(filtered, d)
+			}
+		}
+		docs = filtered
 	}
 
 	if opts.Tag != "" {
@@ -207,7 +213,13 @@ func runLong(ctx context.Context, w io.Writer, svc service.Service, opts Options
 
 	// Filter to direct children only when not recursive
 	if !opts.Recursive {
-		metas = directMeta(metas, opts.Prefix)
+		var filtered []store.DocumentMeta
+		for _, m := range metas {
+			if path.Direct(m.Path, opts.Prefix) {
+				filtered = append(filtered, m)
+			}
+		}
+		metas = filtered
 	}
 
 	// Filter to deleted only if requested
@@ -272,79 +284,4 @@ func runLong(ctx context.Context, w io.Writer, svc service.Service, opts Options
 	result.Metas = metas
 	err = format.LongMeta(w, metas)
 	return result, err
-}
-
-// direct returns only documents that are direct children of the
-// given path prefix, not nested subdirectories. This emulates non-recursive
-// ls behavior.
-//
-// Examples (with prefix="docs"):
-//   - "docs/readme" -> included (direct child)
-//   - "docs/api/auth" -> excluded (nested)
-//
-// Examples (with prefix=""):
-//   - "readme" -> included (top level)
-//   - "docs/readme" -> excluded (nested)
-//
-// Examples (with prefix="docs/api" - exact document path):
-//   - "docs/api" -> included (exact match)
-func direct(docs []store.Document, pathPrefix string) []store.Document {
-	var filtered []store.Document
-
-	// Normalise prefix: remove trailing slash
-	prefix := strings.TrimSuffix(pathPrefix, "/")
-
-	for _, doc := range docs {
-		// Case 1: Exact match (listing specific document)
-		if doc.Path == prefix {
-			filtered = append(filtered, doc)
-			continue
-		}
-
-		// Case 2: Directory listing - get the part after the prefix
-		var remainder string
-		if prefix == "" {
-			remainder = doc.Path
-		} else if strings.HasPrefix(doc.Path, prefix+"/") {
-			remainder = doc.Path[len(prefix)+1:]
-		} else {
-			continue // doesn't match prefix
-		}
-
-		// Direct child = no "/" in the remainder
-		if !strings.Contains(remainder, "/") {
-			filtered = append(filtered, doc)
-		}
-	}
-
-	return filtered
-}
-
-// directMeta is like direct but for DocumentMeta.
-func directMeta(metas []store.DocumentMeta, pathPrefix string) []store.DocumentMeta {
-	var filtered []store.DocumentMeta
-
-	prefix := strings.TrimSuffix(pathPrefix, "/")
-
-	for _, m := range metas {
-		if m.Path == prefix {
-			filtered = append(filtered, m)
-			continue
-		}
-
-		var remainder string
-		if prefix == "" {
-			remainder = m.Path
-		} else if strings.HasPrefix(m.Path, prefix+"/") {
-			remainder = m.Path[len(prefix)+1:]
-		} else {
-			continue
-		}
-
-		if !strings.Contains(remainder, "/") {
-			filtered = append(filtered, m)
-		}
-	}
-
-	return filtered
 }
