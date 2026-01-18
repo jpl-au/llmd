@@ -74,7 +74,7 @@ func (h *handlers) listDocuments(ctx context.Context, req mcp.CallToolRequest) (
 	// Run ls with io.Discard - we only need the result, not text output
 	lsResult, err := ls.Run(ctx, io.Discard, h.svc, opts)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError(fmt.Sprintf("list documents: %v", err)), nil
 	}
 
 	l.Detail("count", lsResult.Count())
@@ -128,7 +128,7 @@ func (h *handlers) readDocumentTool(ctx context.Context, req mcp.CallToolRequest
 			doc, _, err = h.svc.Resolve(ctx, path, includeDeleted)
 		}
 		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+			return mcp.NewToolResultError(fmt.Sprintf("read %q: %v", path, err)), nil
 		}
 		docs = append(docs, doc.ToJSON(true))
 	}
@@ -179,7 +179,7 @@ func (h *handlers) writeDocument(ctx context.Context, req mcp.CallToolRequest) (
 
 	err = h.svc.Write(ctx, path, content, author, message)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError(fmt.Sprintf("write %q: %v", path, err)), nil
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("wrote %s", path)), nil
@@ -235,13 +235,13 @@ func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) 
 		if version == 0 {
 			doc, isKey, err := h.svc.Resolve(ctx, inputPath, false)
 			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+				return mcp.NewToolResultError(fmt.Sprintf("delete %q: %v", inputPath, err)), nil
 			}
 			if isKey {
 				// Resolved as key - delete that specific version
 				l.Resolved(doc.Path).Version(doc.Version).Detail("key", inputPath)
 				if err := h.svc.DeleteVersion(ctx, doc.Path, doc.Version); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
+					return mcp.NewToolResultError(fmt.Sprintf("delete version: %v", err)), nil
 				}
 				return mcp.NewToolResultText(fmt.Sprintf("deleted %s (version %d, key %s)", doc.Path, doc.Version, inputPath)), nil
 			}
@@ -250,7 +250,7 @@ func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) 
 				l.Resolved(doc.Path)
 			}
 			if err := h.svc.Delete(ctx, doc.Path); err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+				return mcp.NewToolResultError(fmt.Sprintf("delete: %v", err)), nil
 			}
 			return mcp.NewToolResultText(fmt.Sprintf("deleted %s", doc.Path)), nil
 		}
@@ -258,7 +258,7 @@ func (h *handlers) deleteDocument(ctx context.Context, req mcp.CallToolRequest) 
 		// Version-specific deletion
 		l.Version(version)
 		if err := h.svc.DeleteVersion(ctx, inputPath, version); err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+			return mcp.NewToolResultError(fmt.Sprintf("delete %q version %d: %v", inputPath, version, err)), nil
 		}
 		return mcp.NewToolResultText(fmt.Sprintf("deleted %s (version %d)", inputPath, version)), nil
 	}
@@ -328,7 +328,7 @@ func (h *handlers) restoreDocument(ctx context.Context, req mcp.CallToolRequest)
 		}
 
 		if err := h.svc.Restore(ctx, doc.Path); err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+			return mcp.NewToolResultError(fmt.Sprintf("restore %q: %v", doc.Path, err)), nil
 		}
 
 		if isKey {
@@ -570,14 +570,14 @@ func (h *handlers) historyDocument(ctx context.Context, req mcp.CallToolRequest)
 	// Resolve path or key to get the actual document path
 	doc, _, err := h.svc.Resolve(ctx, path, includeDeleted)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError(fmt.Sprintf("history %q: %v", path, err)), nil
 	}
 	resolvedPath := doc.Path
 
 	docs, err := h.svc.History(ctx, resolvedPath, limit, includeDeleted)
 	if err != nil {
 		l.Resolved(resolvedPath)
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError(fmt.Sprintf("history %q: %v", resolvedPath, err)), nil
 	}
 
 	l.Resolved(resolvedPath).Detail("count", len(docs))
@@ -638,7 +638,7 @@ func (h *handlers) editDocument(ctx context.Context, req mcp.CallToolRequest) (*
 
 	err = h.svc.Edit(ctx, path, opts)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return mcp.NewToolResultError(fmt.Sprintf("edit %q: %v", path, err)), nil
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("edited %s", path)), nil
