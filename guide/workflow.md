@@ -176,11 +176,11 @@ llmd edit project/status "Phase: research" "Phase: complete" -a claude
 
 ## Document Conventions
 
-Paths use forward slashes, omit extension (recommended), no leading slash:
+Paths use forward slashes, no leading slash. The `.md` extension is automatically stripped:
 
 ```
-docs/api/auth       (recommended)
-docs/api/auth.md    (works, but not recommended)
+docs/api/auth       (stored path)
+docs/api/auth.md    (automatically becomes docs/api/auth)
 /docs/api/auth      (wrong - no leading slash)
 ```
 

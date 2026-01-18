@@ -12,14 +12,14 @@ func TestRestore(t *testing.T) {
 		env.runStdin(content, "write", "docs/readme")
 		env.run("rm", "docs/readme")
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		if strings.Contains(out, "docs/readme") {
 			t.Error("Rm() doc still visible, want deleted")
 		}
 
 		env.run("restore", "docs/readme")
 
-		out = env.run("ls")
+		out = env.run("ls", "-R")
 		env.contains(out, "docs/readme")
 
 		out = env.run("cat", "docs/readme")
@@ -89,13 +89,13 @@ func TestRestore_DeleteAndRestoreMultiple(t *testing.T) {
 
 	for i := range 3 {
 		env.run("rm", "docs/readme")
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		if strings.Contains(out, "docs/readme") {
 			t.Errorf("iteration %d: doc still visible after rm", i)
 		}
 
 		env.run("restore", "docs/readme")
-		out = env.run("ls")
+		out = env.run("ls", "-R")
 		env.contains(out, "docs/readme")
 	}
 }
@@ -113,6 +113,6 @@ func TestRestore_KeyFlag(t *testing.T) {
 	// Restore using --key flag
 	env.run("restore", "--key", key)
 
-	out = env.run("ls")
+	out = env.run("ls", "-R")
 	env.contains(out, "docs/readme")
 }

@@ -28,7 +28,7 @@ func TestMv(t *testing.T) {
 
 		env.run("mv", "docs/README", "docs/readme")
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		env.contains(out, "docs/readme")
 		if strings.Contains(out, "docs/README") {
 			t.Error("Mv() old name still visible, want removed")
@@ -42,7 +42,7 @@ func TestMv(t *testing.T) {
 
 		env.run("mv", "docs/api/readme", "archive/old-api")
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		if strings.Contains(out, "docs/api/readme") {
 			t.Error("Mv() old path still visible, want removed")
 		}

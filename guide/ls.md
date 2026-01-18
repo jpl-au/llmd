@@ -8,16 +8,17 @@ List documents in the store.
 llmd ls [prefix]
 ```
 
-The optional `prefix` filters documents by path prefix (e.g., `docs/` lists all documents under `docs/`). This is a prefix match, not a specific path lookup.
+The optional `prefix` filters documents by path prefix (e.g., `docs/` lists direct children under `docs/`). By default, only direct children are shown. Use `-R` to list all nested documents recursively.
 
 ## Flags
 
 | Flag | Description |
 |------|-------------|
+| `-R, --recursive` | List subdirectories recursively |
 | `-l, --long` | Long format (version, key, size, date, author) |
 | `-t, --tree` | Display as tree |
 | `-s, --sort` | Sort by: `name`, `time` |
-| `-R, --reverse` | Reverse sort order |
+| `-r, --reverse` | Reverse sort order |
 | `-D, --deleted` | Show deleted documents only |
 | `-A, --all` | Show all (including deleted) |
 | `--tag` | Filter by tag |
@@ -52,7 +53,10 @@ llmd ls -s name
 llmd ls -s time
 
 # Sort by time (oldest first)
-llmd ls -s time -R
+llmd ls -s time -r
+
+# List all documents recursively
+llmd ls -R
 
 # JSON output
 llmd ls -o json

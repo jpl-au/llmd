@@ -11,12 +11,12 @@ func TestVacuum(t *testing.T) {
 		env.runStdin("content", "write", "docs/readme")
 		env.run("rm", "docs/readme")
 
-		out := env.run("ls", "-D")
+		out := env.run("ls", "-R", "-D")
 		env.contains(out, "docs/readme")
 
 		env.run("vacuum", "--force")
 
-		out = env.run("ls", "-D")
+		out = env.run("ls", "-R", "-D")
 		if strings.Contains(out, "docs/readme") {
 			t.Error("Vacuum() doc still in deleted, want permanently removed")
 		}
@@ -30,10 +30,10 @@ func TestVacuum(t *testing.T) {
 
 		env.run("vacuum", "--force")
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		env.contains(out, "docs/active")
 
-		out = env.run("ls", "-D")
+		out = env.run("ls", "-R", "-D")
 		if strings.Contains(out, "docs/deleted") {
 			t.Error("Vacuum() deleted doc still present, want removed")
 		}
@@ -59,7 +59,7 @@ func TestVacuum(t *testing.T) {
 
 		env.run("vacuum", "--force")
 
-		out := env.run("ls", "-A")
+		out := env.run("ls", "-R", "-A")
 		env.contains(out, "docs/c")
 		if strings.Contains(out, "docs/a") || strings.Contains(out, "docs/b") {
 			t.Error("Vacuum() some deleted docs still present, want all removed")
@@ -74,7 +74,7 @@ func TestVacuum_DryRun(t *testing.T) {
 
 	env.run("vacuum", "--dry-run")
 
-	out := env.run("ls", "-D")
+	out := env.run("ls", "-R", "-D")
 	env.contains(out, "docs/readme")
 }
 
@@ -102,14 +102,14 @@ func TestVacuum_OlderThan(t *testing.T) {
 	env.run("rm", "docs/guide")
 	env.run("rm", "docs/api")
 
-	out := env.run("ls", "-D")
+	out := env.run("ls", "-R", "-D")
 	env.contains(out, "docs/guide")
 	env.contains(out, "docs/api")
 
 	// Just deleted, so --older-than 1d should not delete
 	env.run("vacuum", "--force", "--older-than", "1d")
 
-	out = env.run("ls", "-D")
+	out = env.run("ls", "-R", "-D")
 	env.contains(out, "docs/guide")
 	env.contains(out, "docs/api")
 }
@@ -145,13 +145,13 @@ func TestVacuum_Path(t *testing.T) {
 	env.run("rm", "docs/guide")
 	env.run("rm", "notes/meeting")
 
-	out := env.run("ls", "-D")
+	out := env.run("ls", "-R", "-D")
 	env.contains(out, "docs/guide")
 	env.contains(out, "notes/meeting")
 
 	env.run("vacuum", "--force", "-p", "docs/")
 
-	out = env.run("ls", "-D")
+	out = env.run("ls", "-R", "-D")
 	if strings.Contains(out, "docs/guide") {
 		t.Error("Vacuum(-p docs/) did not remove docs/guide")
 	}

@@ -1,5 +1,6 @@
 # Binary
 llmd
+llmd.exe
 
 # Test artifacts
 *.test
@@ -13,6 +14,7 @@ llmd
 
 # Claude Code
 .claude/
+nul
 
 # OS
 .DS_Store

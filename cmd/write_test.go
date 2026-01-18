@@ -26,7 +26,7 @@ func TestWrite(t *testing.T) {
 		out := env.run("cat", "docs/api/v2/endpoints/users")
 		env.equals(out, content)
 
-		out = env.run("ls", "docs/api/")
+		out = env.run("ls", "-R", "docs/api/")
 		env.contains(out, "docs/api/v2/endpoints/users")
 	})
 

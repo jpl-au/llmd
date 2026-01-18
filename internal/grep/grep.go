@@ -86,7 +86,7 @@ func Run(ctx context.Context, w io.Writer, svc service.Service, pattern string, 
 
 	// Filter to direct children only when not recursive
 	if !opts.Recursive {
-		docs = filterDirectChildren(docs, opts.Path)
+		docs = direct(docs, opts.Path)
 	}
 
 	// Match each document
@@ -193,7 +193,7 @@ func matchLines(re *regexp.Regexp, content string, invert bool, maxLineLength in
 	return matches, nil
 }
 
-// filterDirectChildren returns only documents that are direct children of the
+// direct returns only documents that are direct children of the
 // given path prefix, not nested subdirectories. This emulates non-recursive
 // grep behavior.
 //
@@ -207,7 +207,7 @@ func matchLines(re *regexp.Regexp, content string, invert bool, maxLineLength in
 //
 // Examples (with path="docs/api" - exact document path):
 //   - "docs/api" -> included (exact match)
-func filterDirectChildren(docs []store.Document, pathPrefix string) []store.Document {
+func direct(docs []store.Document, pathPrefix string) []store.Document {
 	var filtered []store.Document
 
 	// Normalise prefix: remove trailing slash

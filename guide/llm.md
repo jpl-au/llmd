@@ -84,7 +84,7 @@ llmd diff docs/readme -v 1:3     # compare versions
 
 ### Document Paths
 
-- Omit `.md` extension (recommended): `docs/readme` not `docs/readme.md`
+- `.md` extension is automatically stripped: `docs/readme.md` becomes `docs/readme`
 - Forward slashes: `docs/api/auth`
 - No leading slash: `docs/readme` not `/docs/readme`
 

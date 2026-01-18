@@ -33,7 +33,8 @@ func (e *Extension) newLsCmd() *cobra.Command {
 	c.Flags().BoolP(extension.FlagLong, "l", false, "Long format with metadata")
 	c.Flags().String(extension.FlagTag, "", "Filter by tag")
 	c.Flags().StringP(extension.FlagSort, "s", "", "Sort by: name, time")
-	c.Flags().BoolP(extension.FlagReverse, "R", false, "Reverse sort order")
+	c.Flags().BoolP(extension.FlagRecursive, "R", false, "List subdirectories recursively")
+	c.Flags().BoolP(extension.FlagReverse, "r", false, "Reverse sort order")
 	return c
 }
 
@@ -43,6 +44,7 @@ func (e *Extension) runLs(c *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		opts.Prefix = args[0]
 	}
+	opts.Recursive, _ = c.Flags().GetBool(extension.FlagRecursive)
 	opts.IncludeAll, _ = c.Flags().GetBool(extension.FlagAll)
 	opts.DeletedOnly, _ = c.Flags().GetBool(extension.FlagDeleted)
 	opts.Tree, _ = c.Flags().GetBool(extension.FlagTree)

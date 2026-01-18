@@ -12,12 +12,12 @@ func TestRm(t *testing.T) {
 
 		env.run("rm", "docs/readme")
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		if strings.Contains(out, "docs/readme") {
 			t.Error("Rm() doc still visible, want deleted")
 		}
 
-		out = env.run("ls", "-D")
+		out = env.run("ls", "-R", "-D")
 		env.contains(out, "docs/readme")
 	})
 
@@ -60,7 +60,7 @@ func TestRm_Recursive(t *testing.T) {
 
 	env.run("rm", "-r", "docs/api/")
 
-	out := env.run("ls")
+	out := env.run("ls", "-R")
 	if strings.Contains(out, "docs/api") {
 		t.Error("Rm(-r) api docs still visible, want deleted")
 	}

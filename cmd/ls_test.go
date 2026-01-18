@@ -5,6 +5,57 @@ import (
 	"testing"
 )
 
+func TestLs_Recursive(t *testing.T) {
+	t.Run("without -R only shows direct children", func(t *testing.T) {
+		env := newTestEnv(t)
+		// Create top-level doc and nested doc
+		env.runStdin("top level content", "write", "readme")
+		env.runStdin("nested content", "write", "docs/api")
+
+		// Without -R, should only find top-level doc
+		out := env.run("ls")
+		env.contains(out, "readme")
+		if strings.Contains(out, "docs/api") {
+			t.Error("Ls without -R found nested doc, want only direct children")
+		}
+	})
+
+	t.Run("with -R shows all nested documents", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("top level content", "write", "readme")
+		env.runStdin("nested content", "write", "docs/api")
+
+		// With -R, should find both
+		out := env.run("ls", "-R")
+		env.contains(out, "readme")
+		env.contains(out, "docs/api")
+	})
+
+	t.Run("without -R with path prefix shows direct children of prefix", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("api content", "write", "docs/api")
+		env.runStdin("nested meeting", "write", "docs/notes/meeting")
+
+		// Without -R, docs/ should only find docs/api, not docs/notes/meeting
+		out := env.run("ls", "docs/")
+		env.contains(out, "docs/api")
+		if strings.Contains(out, "docs/notes/meeting") {
+			t.Error("Ls docs/ without -R found deeply nested doc")
+		}
+	})
+
+	t.Run("with -R and path prefix shows all under prefix", func(t *testing.T) {
+		env := newTestEnv(t)
+		env.runStdin("api content", "write", "docs/api")
+		env.runStdin("nested meeting", "write", "docs/notes/meeting")
+
+		// With -R, should find both under docs/
+		out := env.run("ls", "-R", "docs/")
+		env.contains(out, "docs/api")
+		env.contains(out, "docs/notes/meeting")
+	})
+}
+
 func TestLs(t *testing.T) {
 	t.Run("empty store", func(t *testing.T) {
 		env := newTestEnv(t)
@@ -21,7 +72,7 @@ func TestLs(t *testing.T) {
 		env.runStdin("content 2", "write", "docs/api")
 		env.runStdin("content 3", "write", "notes/meeting")
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		env.contains(out, "docs/readme")
 		env.contains(out, "docs/api")
 		env.contains(out, "notes/meeting")
@@ -33,7 +84,7 @@ func TestLs(t *testing.T) {
 		env.runStdin("content", "write", "docs/api")
 		env.runStdin("content", "write", "notes/meeting")
 
-		out := env.run("ls", "docs/")
+		out := env.run("ls", "-R", "docs/")
 		env.contains(out, "docs/readme")
 		env.contains(out, "docs/api")
 		if strings.Contains(out, "notes/meeting") {
@@ -45,7 +96,7 @@ func TestLs(t *testing.T) {
 		env := newTestEnv(t)
 		env.runStdin("content", "write", "docs/readme")
 
-		out := env.run("ls", "-o", "json")
+		out := env.run("ls", "-R", "-o", "json")
 		env.contains(out, `"path"`)
 		env.contains(out, "docs/readme")
 	})
@@ -56,7 +107,7 @@ func TestLs_Formats(t *testing.T) {
 		env := newTestEnv(t)
 		env.runStdin("content", "write", "docs/readme", "-a", "alice")
 
-		out := env.run("ls", "-l")
+		out := env.run("ls", "-R", "-l")
 		env.contains(out, "docs/readme")
 		env.contains(out, "alice")
 	})
@@ -67,7 +118,7 @@ func TestLs_Formats(t *testing.T) {
 		env.runStdin("content", "write", "docs/api/users")
 		env.runStdin("content", "write", "docs/readme")
 
-		out := env.run("ls", "-t")
+		out := env.run("ls", "-R", "-t")
 		env.contains(out, "docs")
 	})
 }
@@ -79,45 +130,41 @@ func TestLs_Deleted(t *testing.T) {
 	env.run("rm", "docs/old")
 
 	tests := []struct {
-		name        string
-		flag        string
-		wantMatch   []string
-		wantNoMatch []string
+		name    string
+		flags   []string
+		want    []string
+		exclude []string
 	}{
 		{
-			name:        "default excludes deleted",
-			flag:        "",
-			wantMatch:   []string{"docs/readme"},
-			wantNoMatch: []string{"docs/old"},
+			name:    "default excludes deleted",
+			flags:   []string{"-R"},
+			want:    []string{"docs/readme"},
+			exclude: []string{"docs/old"},
 		},
 		{
-			name:        "-D shows only deleted",
-			flag:        "-D",
-			wantMatch:   []string{"docs/old"},
-			wantNoMatch: []string{"docs/readme"},
+			name:    "-D shows only deleted",
+			flags:   []string{"-R", "-D"},
+			want:    []string{"docs/old"},
+			exclude: []string{"docs/readme"},
 		},
 		{
-			name:      "-A shows all",
-			flag:      "-A",
-			wantMatch: []string{"docs/readme", "docs/old"},
+			name:  "-A shows all",
+			flags: []string{"-R", "-A"},
+			want:  []string{"docs/readme", "docs/old"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var out string
-			if tc.flag == "" {
-				out = env.run("ls")
-			} else {
-				out = env.run("ls", tc.flag)
-			}
+			args := append([]string{"ls"}, tc.flags...)
+			out := env.run(args...)
 
-			for _, want := range tc.wantMatch {
+			for _, want := range tc.want {
 				env.contains(out, want)
 			}
-			for _, noWant := range tc.wantNoMatch {
-				if strings.Contains(out, noWant) {
-					t.Errorf("Ls(%s) contains %q, want excluded", tc.flag, noWant)
+			for _, s := range tc.exclude {
+				if strings.Contains(out, s) {
+					t.Errorf("Ls(%v) contains %q, want excluded", tc.flags, s)
 				}
 			}
 		})
@@ -137,35 +184,35 @@ func TestLs_Tag(t *testing.T) {
 	env.run("tag", "add", "notes/meeting", "draft")
 
 	tests := []struct {
-		name        string
-		tag         string
-		wantMatch   []string
-		wantNoMatch []string
+		name    string
+		tag     string
+		want    []string
+		exclude []string
 	}{
 		{
-			name:        "filter by important",
-			tag:         "important",
-			wantMatch:   []string{"docs/guide", "docs/api"},
-			wantNoMatch: []string{"notes/meeting"},
+			name:    "filter by important",
+			tag:     "important",
+			want:    []string{"docs/guide", "docs/api"},
+			exclude: []string{"notes/meeting"},
 		},
 		{
-			name:        "filter by draft",
-			tag:         "draft",
-			wantMatch:   []string{"notes/meeting"},
-			wantNoMatch: []string{"docs/guide", "docs/api"},
+			name:    "filter by draft",
+			tag:     "draft",
+			want:    []string{"notes/meeting"},
+			exclude: []string{"docs/guide", "docs/api"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			out := env.run("ls", "--tag", tc.tag)
+			out := env.run("ls", "-R", "--tag", tc.tag)
 
-			for _, want := range tc.wantMatch {
+			for _, want := range tc.want {
 				env.contains(out, want)
 			}
-			for _, noWant := range tc.wantNoMatch {
-				if strings.Contains(out, noWant) {
-					t.Errorf("Ls(--tag %s) contains %q, want excluded", tc.tag, noWant)
+			for _, s := range tc.exclude {
+				if strings.Contains(out, s) {
+					t.Errorf("Ls(--tag %s) contains %q, want excluded", tc.tag, s)
 				}
 			}
 		})
@@ -198,15 +245,15 @@ func TestLs_Sort(t *testing.T) {
 		env.runStdin("content", "write", "apple")
 		env.runStdin("content", "write", "middle")
 
-		out := env.run("ls", "-s", "name", "-R")
+		out := env.run("ls", "-R", "-s", "name", "-r")
 		lines := strings.Split(strings.TrimSpace(out), "\n")
 		if len(lines) >= 3 {
 			// Format is "KEY  PATH", check that paths are in reverse alphabetical order
 			if !strings.HasSuffix(lines[0], "zebra") {
-				t.Errorf("Ls(-s name -R) first = %q, want to end with zebra", lines[0])
+				t.Errorf("Ls(-s name -r) first = %q, want to end with zebra", lines[0])
 			}
 			if !strings.HasSuffix(lines[2], "apple") {
-				t.Errorf("Ls(-s name -R) last = %q, want to end with apple", lines[2])
+				t.Errorf("Ls(-s name -r) last = %q, want to end with apple", lines[2])
 			}
 		}
 	})
@@ -232,7 +279,7 @@ func TestLs_Sort(t *testing.T) {
 		env.runStdin("content", "write", "ccc")
 
 		// Time reverse sort should return documents (order may vary if same timestamp)
-		out := env.run("ls", "-s", "time", "-R")
+		out := env.run("ls", "-R", "-s", "time", "-r")
 		env.contains(out, "aaa")
 		env.contains(out, "bbb")
 		env.contains(out, "ccc")

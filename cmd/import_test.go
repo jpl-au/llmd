@@ -54,7 +54,7 @@ func TestImport(t *testing.T) {
 
 		env.run("import", src)
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		env.contains(out, "docs/api/v2/endpoints")
 	})
 
@@ -68,7 +68,7 @@ func TestImport(t *testing.T) {
 
 		env.run("import", src, "-t", "imported/")
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		env.contains(out, "imported/readme")
 	})
 }
@@ -121,7 +121,7 @@ func TestImport_Filters(t *testing.T) {
 
 		env.run("import", src, "-H")
 
-		out := env.run("ls")
+		out := env.run("ls", "-R")
 		env.contains(out, "visible")
 		env.contains(out, "secret")
 	})

@@ -344,7 +344,7 @@ func TestLLM_MultipleDocumentsSimultaneous(t *testing.T) {
 	}
 
 	// List all documents
-	lsResult := env.run("ls", "docs/")
+	lsResult := env.run("ls", "-R", "docs/")
 	env.contains(lsResult, "docs/api/overview")
 	env.contains(lsResult, "docs/api/auth")
 	env.contains(lsResult, "docs/guides/quickstart")
