@@ -1,0 +1,4 @@
+# llmd - ignore mirrored files and local config
+# Database files (*.db) are the source of truth and should be committed
+*.md
+config.yaml
