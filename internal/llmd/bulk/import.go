@@ -8,14 +8,15 @@ import (
 	"strings"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
-	"github.com/jpl-au/llmd/pkg/model/document"
+	"github.com/jpl-au/llmd/internal/llmd/hash"
 )
 
 // ImportResult contains the results of an import operation.
 type ImportResult struct {
-	Imported []string // Paths that were imported
-	Skipped  []string // Paths that were skipped (unchanged)
-	Errors   []ImportError
+	Created []string // New documents added to store
+	Updated []string // Existing documents got new version
+	Skipped []string // Content identical, no change made
+	Errors  []ImportError
 }
 
 // ImportError records an error for a specific path.
@@ -23,6 +24,15 @@ type ImportError struct {
 	Path string
 	Err  error
 }
+
+// importStatus indicates the result of importing a single file.
+type importStatus int
+
+const (
+	statusCreated importStatus = iota
+	statusUpdated
+	statusSkipped
+)
 
 // Import imports markdown files from filesystem into the store.
 func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*ImportResult, error) {
@@ -39,13 +49,11 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 
 	if !info.IsDir() {
 		// Single file
-		doc, err := b.importFile(ctx, path, "", opts)
+		storePath, status, err := b.importFile(ctx, path, "", opts)
 		if err != nil {
 			result.Errors = append(result.Errors, ImportError{Path: path, Err: err})
-		} else if doc != nil {
-			result.Imported = append(result.Imported, doc.Path)
 		} else {
-			result.Skipped = append(result.Skipped, path)
+			b.recordStatus(result, storePath, status)
 		}
 		return result, nil
 	}
@@ -75,13 +83,11 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 			return nil
 		}
 
-		doc, err := b.importFile(ctx, p, base, opts)
+		storePath, status, err := b.importFile(ctx, p, base, opts)
 		if err != nil {
 			result.Errors = append(result.Errors, ImportError{Path: p, Err: err})
-		} else if doc != nil {
-			result.Imported = append(result.Imported, doc.Path)
 		} else {
-			result.Skipped = append(result.Skipped, p)
+			b.recordStatus(result, storePath, status)
 		}
 
 		return nil
@@ -94,10 +100,21 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 	return result, nil
 }
 
-func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOptions) (*document.Document, error) {
+func (b *Bulk) recordStatus(result *ImportResult, path string, status importStatus) {
+	switch status {
+	case statusCreated:
+		result.Created = append(result.Created, path)
+	case statusUpdated:
+		result.Updated = append(result.Updated, path)
+	case statusSkipped:
+		result.Skipped = append(result.Skipped, path)
+	}
+}
+
+func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOptions) (string, importStatus, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return "", 0, err
 	}
 
 	// Determine store path
@@ -121,11 +138,42 @@ func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOpt
 		storePath = strings.TrimSuffix(opts.Prefix, "/") + "/" + storePath
 	}
 
-	if opts.DryRun {
-		return &document.Document{Path: storePath}, nil
+	contentStr := string(content)
+	contentHash := hash.XXH3(contentStr)
+
+	// Check if document already exists
+	exists, err := b.docs.Exists(ctx, storePath)
+	if err != nil {
+		return "", 0, err
 	}
 
-	return b.docs.Write(ctx, storePath, string(content), documents.WriteOptions{
+	if exists && !opts.Force {
+		// Read current version to compare hash
+		doc, err := b.docs.Read(ctx, storePath)
+		if err != nil {
+			return "", 0, err
+		}
+		if doc.Hash == contentHash {
+			return storePath, statusSkipped, nil
+		}
+	}
+
+	if opts.DryRun {
+		if exists {
+			return storePath, statusUpdated, nil
+		}
+		return storePath, statusCreated, nil
+	}
+
+	_, err = b.docs.Write(ctx, storePath, contentStr, documents.WriteOptions{
 		WriteContext: opts.WriteContext,
 	})
+	if err != nil {
+		return "", 0, err
+	}
+
+	if exists {
+		return storePath, statusUpdated, nil
+	}
+	return storePath, statusCreated, nil
 }

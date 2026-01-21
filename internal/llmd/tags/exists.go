@@ -5,7 +5,7 @@ import (
 )
 
 // Exists checks if a tag exists on a document.
-// value can be a document path or 9-char key.
+// value can be a document path or key.
 func (t *Tags) Exists(ctx context.Context, value, name string) (bool, error) {
 	if err := Validate(name); err != nil {
 		return false, err
@@ -21,7 +21,7 @@ func (t *Tags) Exists(ctx context.Context, value, name string) (bool, error) {
 	err = t.db.QueryRowContext(ctx, `
 		SELECT EXISTS(
 			SELECT 1 FROM entities
-			WHERE namespace = ? AND path = ? AND json_extract(value, '$.tag') = ?
+			WHERE namespace = ? AND relation = ? AND json_extract(value, '$.tag') = ?
 			  AND deleted_at IS NULL
 		)
 	`, namespace, doc.Path, name).Scan(&exists)

@@ -7,10 +7,10 @@ import (
 
 // FindOptions configures the Find operation.
 type FindOptions struct {
-	PathPrefix string // limit results to paths with this prefix
+	RelationPrefix string // limit results to relations with this prefix
 }
 
-// Find returns all document paths that have the specified tag.
+// Find returns all document paths (relations) that have the specified tag.
 func (t *Tags) Find(ctx context.Context, name string, opts ...FindOptions) ([]string, error) {
 	if err := Validate(name); err != nil {
 		return nil, err
@@ -24,22 +24,22 @@ func (t *Tags) Find(ctx context.Context, name string, opts ...FindOptions) ([]st
 	var query string
 	var args []any
 
-	if opt.PathPrefix != "" {
+	if opt.RelationPrefix != "" {
 		query = `
-			SELECT DISTINCT path
+			SELECT DISTINCT relation
 			FROM entities
 			WHERE namespace = ? AND json_extract(value, '$.tag') = ?
-			  AND path LIKE ? AND deleted_at IS NULL
-			ORDER BY path
+			  AND relation LIKE ? AND deleted_at IS NULL
+			ORDER BY relation
 		`
-		args = []any{namespace, name, opt.PathPrefix + "%"}
+		args = []any{namespace, name, opt.RelationPrefix + "%"}
 	} else {
 		query = `
-			SELECT DISTINCT path
+			SELECT DISTINCT relation
 			FROM entities
 			WHERE namespace = ? AND json_extract(value, '$.tag') = ?
 			  AND deleted_at IS NULL
-			ORDER BY path
+			ORDER BY relation
 		`
 		args = []any{namespace, name}
 	}
@@ -50,14 +50,14 @@ func (t *Tags) Find(ctx context.Context, name string, opts ...FindOptions) ([]st
 	}
 	defer rows.Close()
 
-	var paths []string
+	var relations []string
 	for rows.Next() {
-		var path string
-		if err := rows.Scan(&path); err != nil {
-			return nil, fmt.Errorf("scanning path: %w", err)
+		var relation string
+		if err := rows.Scan(&relation); err != nil {
+			return nil, fmt.Errorf("scanning relation: %w", err)
 		}
-		paths = append(paths, path)
+		relations = append(relations, relation)
 	}
 
-	return paths, rows.Err()
+	return relations, rows.Err()
 }

@@ -36,7 +36,7 @@ func TestPurge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
-	if len(links) != 1 || links[0].To != "docs/c" {
+	if len(links) != 1 || links[0].Value.To != "docs/c" {
 		t.Errorf("List() = %v, want [docs/c]", links)
 	}
 }

@@ -81,8 +81,8 @@ func TestList_Outgoing(t *testing.T) {
 	if len(list) != 1 {
 		t.Errorf("List() returned %d links, want 1", len(list))
 	}
-	if list[0].To != "docs/models" {
-		t.Errorf("Link To = %q, want %q", list[0].To, "docs/models")
+	if list[0].Value.To != "docs/models" {
+		t.Errorf("Link Value.To = %q, want %q", list[0].Value.To, "docs/models")
 	}
 }
 
@@ -106,8 +106,8 @@ func TestList_Incoming(t *testing.T) {
 	if len(list) != 1 {
 		t.Errorf("List() returned %d links, want 1", len(list))
 	}
-	if list[0].From != "docs/api" {
-		t.Errorf("Link From = %q, want %q", list[0].From, "docs/api")
+	if list[0].Relation != "docs/api" {
+		t.Errorf("Link Relation = %q, want %q", list[0].Relation, "docs/api")
 	}
 }
 

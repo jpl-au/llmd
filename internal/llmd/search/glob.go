@@ -14,6 +14,11 @@ func (s *Search) Glob(ctx context.Context, pattern string, opts ...Options) ([]s
 		opt = opts[0]
 	}
 
+	// Validate pattern
+	if err := validateGlob(pattern); err != nil {
+		return nil, err
+	}
+
 	// Get all document paths (latest versions only)
 	query := `
 		SELECT DISTINCT path FROM content
@@ -60,6 +65,17 @@ func matchGlob(pattern, path string) bool {
 	// Use filepath.Match for simple patterns
 	matched, _ := filepath.Match(pattern, path)
 	return matched
+}
+
+// validateGlob checks if a glob pattern is valid.
+func validateGlob(pattern string) error {
+	// Remove ** for validation since filepath.Match doesn't support it
+	test := strings.ReplaceAll(pattern, "**", "*")
+	_, err := filepath.Match(test, "")
+	if err != nil {
+		return ErrInvalidGlob
+	}
+	return nil
 }
 
 // matchDoublestar handles ** glob patterns.

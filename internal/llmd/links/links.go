@@ -1,4 +1,8 @@
 // Package links provides document linking operations.
+//
+// Links are stored in the entities table with namespace "core:link".
+// The Relation field holds the source document path (FROM).
+// The Value field holds JSON with the target path and optional label.
 package links
 
 import (

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/internal/llmd/entities"
 	"github.com/jpl-au/llmd/internal/llmd/history"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/search"
@@ -24,6 +25,7 @@ type Store struct {
 	Bulk      *bulk.Bulk
 	Tags      *tags.Tags
 	Links     *links.Links
+	Entities  *entities.Entities
 
 	db   *sql.DB
 	path string
@@ -71,6 +73,7 @@ func Open(path string) (*Store, error) {
 	s.Bulk = bulk.New(s.Documents)
 	s.Tags = tags.New(db, s.Documents)
 	s.Links = links.New(db, s.Documents)
+	s.Entities = entities.New(db)
 
 	return s, nil
 }
@@ -99,6 +102,7 @@ func OpenMemory() (*Store, error) {
 	s.Bulk = bulk.New(s.Documents)
 	s.Tags = tags.New(db, s.Documents)
 	s.Links = links.New(db, s.Documents)
+	s.Entities = entities.New(db)
 
 	return s, nil
 }

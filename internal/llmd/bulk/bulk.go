@@ -2,7 +2,16 @@
 package bulk
 
 import (
+	"errors"
+
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+)
+
+// Errors returned by bulk operations.
+var (
+	ErrImportFailed = errors.New("import failed")
+	ErrExportFailed = errors.New("export failed")
+	ErrPathNotDir   = errors.New("path is not a directory")
 )
 
 // Bulk provides batch operations.

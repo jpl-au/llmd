@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/pkg/model/tag"
 )
 
 // Add adds a tag to a document.
-// value can be a document path or 9-char key.
+// value can be a document path or key.
 // Returns ErrExists if the tag already exists on the document.
 func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.Tag, error) {
 	if err := Validate(name); err != nil {
@@ -27,10 +28,10 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 	if err != nil {
 		return nil, err
 	}
-	path := doc.Path
+	relation := doc.Path
 
 	// Check if tag already exists (latest non-deleted)
-	existing, err := t.find(ctx, path, name)
+	existing, err := t.find(ctx, relation, name)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
@@ -41,48 +42,46 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 	now := time.Now().UnixMilli()
 	k := key.Generate()
 
-	data, err := json.Marshal(map[string]string{"tag": name})
+	tagValue := tag.Value{Tag: name}
+	data, err := json.Marshal(tagValue)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling tag: %w", err)
 	}
 
-	result, err := t.db.ExecContext(ctx, `
-		INSERT INTO entities (key, namespace, path, value, author, source, created_at)
+	_, err = t.db.ExecContext(ctx, `
+		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, path, string(data), opts.Author, opts.Source, now)
+	`, k, namespace, relation, string(data), opts.Author, opts.Source, now)
 
 	if err != nil {
 		return nil, fmt.Errorf("inserting tag: %w", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("getting insert id: %w", err)
-	}
-
 	return &tag.Tag{
-		ID:        id,
-		Key:       k,
-		Path:      path,
-		Tag:       name,
-		Author:    opts.Author,
-		Source:    opts.Source,
-		CreatedAt: now,
+		Key:      k,
+		Relation: relation,
+		Value:    tagValue,
+		Provenance: core.Provenance{
+			Author:    opts.Author,
+			Source:    opts.Source,
+			CreatedAt: now,
+		},
 	}, nil
 }
 
 // find retrieves a specific tag if it exists and is not deleted.
-func (t *Tags) find(ctx context.Context, path, name string) (*tag.Tag, error) {
+func (t *Tags) find(ctx context.Context, relation, name string) (*tag.Tag, error) {
 	var tg tag.Tag
-	var value string
+	var valueStr string
 	var deletedAt sql.NullInt64
 
 	err := t.db.QueryRowContext(ctx, `
-		SELECT id, key, path, value, author, source, created_at, deleted_at
+		SELECT key, relation, value, author, source, created_at, deleted_at
 		FROM entities
-		WHERE namespace = ? AND path = ? AND json_extract(value, '$.tag') = ?
+		WHERE namespace = ? AND relation = ? AND json_extract(value, '$.tag') = ?
+		AND deleted_at IS NULL
 		ORDER BY created_at DESC LIMIT 1
-	`, namespace, path, name).Scan(&tg.ID, &tg.Key, &tg.Path, &value, &tg.Author, &tg.Source, &tg.CreatedAt, &deletedAt)
+	`, namespace, relation, name).Scan(&tg.Key, &tg.Relation, &valueStr, &tg.Author, &tg.Source, &tg.CreatedAt, &deletedAt)
 
 	if err != nil {
 		return nil, err
@@ -92,11 +91,9 @@ func (t *Tags) find(ctx context.Context, path, name string) (*tag.Tag, error) {
 		return nil, sql.ErrNoRows
 	}
 
-	var v map[string]string
-	if err := json.Unmarshal([]byte(value), &v); err != nil {
+	if err := json.Unmarshal([]byte(valueStr), &tg.Value); err != nil {
 		return nil, err
 	}
-	tg.Tag = v["tag"]
 
 	return &tg, nil
 }

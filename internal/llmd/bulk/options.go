@@ -9,10 +9,11 @@ type ImportOptions struct {
 	Flatten bool   // Flatten directory structure
 	Hidden  bool   // Include hidden files/directories
 	DryRun  bool   // Show what would be imported without importing
+	Force   bool   // Import even if content is unchanged
 }
 
 // ExportOptions configures an export operation.
 type ExportOptions struct {
-	Force   bool // Overwrite existing files
-	Version *int // Export specific version (for single doc)
+	Overwrite bool // Overwrite existing files
+	Version   *int // Export specific version (for single doc)
 }

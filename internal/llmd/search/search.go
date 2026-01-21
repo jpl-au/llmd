@@ -9,6 +9,7 @@ import (
 var (
 	ErrInvalidQuery   = errors.New("invalid FTS query")
 	ErrInvalidPattern = errors.New("invalid regex pattern")
+	ErrInvalidGlob    = errors.New("invalid glob pattern")
 )
 
 // Search provides search operations.

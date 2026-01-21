@@ -20,11 +20,11 @@ func TestAdd(t *testing.T) {
 		t.Fatalf("Add() error = %v", err)
 	}
 
-	if link.From != "docs/api" {
-		t.Errorf("From = %q, want %q", link.From, "docs/api")
+	if link.Relation != "docs/api" {
+		t.Errorf("Relation = %q, want %q", link.Relation, "docs/api")
 	}
-	if link.To != "docs/models" {
-		t.Errorf("To = %q, want %q", link.To, "docs/models")
+	if link.Value.To != "docs/models" {
+		t.Errorf("Value.To = %q, want %q", link.Value.To, "docs/models")
 	}
 	if len(link.Key) != 9 {
 		t.Errorf("Key length = %d, want 9", len(link.Key))
@@ -46,8 +46,8 @@ func TestAdd_WithLabel(t *testing.T) {
 		t.Fatalf("Add() error = %v", err)
 	}
 
-	if link.Label != "requires" {
-		t.Errorf("Label = %q, want %q", link.Label, "requires")
+	if link.Value.Label != "requires" {
+		t.Errorf("Value.Label = %q, want %q", link.Value.Label, "requires")
 	}
 }
 
@@ -63,11 +63,11 @@ func TestAdd_ByKey(t *testing.T) {
 		t.Fatalf("Add() error = %v", err)
 	}
 
-	if link.From != "docs/api" {
-		t.Errorf("From = %q, want %q", link.From, "docs/api")
+	if link.Relation != "docs/api" {
+		t.Errorf("Relation = %q, want %q", link.Relation, "docs/api")
 	}
-	if link.To != "docs/models" {
-		t.Errorf("To = %q, want %q", link.To, "docs/models")
+	if link.Value.To != "docs/models" {
+		t.Errorf("Value.To = %q, want %q", link.Value.To, "docs/models")
 	}
 }
 

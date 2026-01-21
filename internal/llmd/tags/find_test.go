@@ -37,7 +37,7 @@ func TestFind(t *testing.T) {
 	}
 }
 
-func TestFind_WithPathPrefix(t *testing.T) {
+func TestFind_WithRelationPrefix(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
@@ -49,7 +49,7 @@ func TestFind_WithPathPrefix(t *testing.T) {
 	s.Tags.Add(ctx, "docs/b", "important", testOpts())
 	s.Tags.Add(ctx, "notes/c", "important", testOpts())
 
-	paths, err := s.Tags.Find(ctx, "important", tags.FindOptions{PathPrefix: "docs/"})
+	paths, err := s.Tags.Find(ctx, "important", tags.FindOptions{RelationPrefix: "docs/"})
 	if err != nil {
 		t.Fatalf("Find() error = %v", err)
 	}

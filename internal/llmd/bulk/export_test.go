@@ -123,7 +123,7 @@ func TestExport_SkipsExisting(t *testing.T) {
 	}
 }
 
-func TestExport_Force(t *testing.T) {
+func TestExport_Overwrite(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
@@ -133,7 +133,7 @@ func TestExport_Force(t *testing.T) {
 	dest := filepath.Join(dir, "readme.md")
 	os.WriteFile(dest, []byte("existing"), 0644)
 
-	result, err := s.Bulk.Export(ctx, "readme", dest, bulk.ExportOptions{Force: true})
+	result, err := s.Bulk.Export(ctx, "readme", dest, bulk.ExportOptions{Overwrite: true})
 	if err != nil {
 		t.Fatalf("Export() error = %v", err)
 	}

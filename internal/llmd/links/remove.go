@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/jpl-au/llmd/pkg/model/link"
 )
 
 // Remove removes a link between two documents.
 // If opts.Label is empty, removes all links from→to.
-// from and to can be document paths or 9-char keys.
+// from and to can be document paths or keys.
 func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error {
 	// Resolve both documents
 	fromDoc, err := l.docs.Resolve(ctx, from)
@@ -21,15 +23,15 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 		return fmt.Errorf("resolving to: %w", err)
 	}
 
-	fromPath := fromDoc.Path
+	relation := fromDoc.Path
 	toPath := toDoc.Path
 
 	// Find matching links
 	rows, err := l.db.QueryContext(ctx, `
 		SELECT key, value
 		FROM entities
-		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
-	`, namespace, fromPath)
+		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
+	`, namespace, relation)
 	if err != nil {
 		return fmt.Errorf("querying links: %w", err)
 	}
@@ -37,19 +39,19 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 
 	var keysToDelete []string
 	for rows.Next() {
-		var k, value string
-		if err := rows.Scan(&k, &value); err != nil {
+		var k, valueStr string
+		if err := rows.Scan(&k, &valueStr); err != nil {
 			return fmt.Errorf("scanning link: %w", err)
 		}
 
-		var v map[string]string
-		if err := json.Unmarshal([]byte(value), &v); err != nil {
+		var v link.Value
+		if err := json.Unmarshal([]byte(valueStr), &v); err != nil {
 			return fmt.Errorf("unmarshaling link: %w", err)
 		}
 
 		// Match by target, and optionally by label
-		if v["to"] == toPath {
-			if opts.Label == "" || v["label"] == opts.Label {
+		if v.To == toPath {
+			if opts.Label == "" || v.Label == opts.Label {
 				keysToDelete = append(keysToDelete, k)
 			}
 		}

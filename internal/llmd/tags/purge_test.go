@@ -33,7 +33,7 @@ func TestPurge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
-	if len(tags) != 1 || tags[0].Tag != "draft" {
+	if len(tags) != 1 || tags[0].Value.Tag != "draft" {
 		t.Errorf("List() = %v, want [draft]", tags)
 	}
 }

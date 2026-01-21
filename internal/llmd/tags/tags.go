@@ -1,4 +1,8 @@
 // Package tags provides document tagging operations.
+//
+// Tags are stored in the entities table with namespace "core:tag".
+// The Relation field holds the document path being tagged.
+// The Value field holds JSON with the tag name.
 package tags
 
 import (

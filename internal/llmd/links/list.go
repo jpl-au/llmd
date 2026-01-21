@@ -9,7 +9,7 @@ import (
 )
 
 // List returns links for a document.
-// value can be a document path or 9-char key.
+// value can be a document path or key.
 // opts.Direction controls which links to return (Outgoing, Incoming, or Both).
 func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link.Link, error) {
 	var opt Options
@@ -22,7 +22,7 @@ func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link
 	if err != nil {
 		return nil, err
 	}
-	path := doc.Path
+	relation := doc.Path
 
 	// Default to Outgoing if not specified
 	dir := opt.Direction
@@ -34,7 +34,7 @@ func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link
 
 	// Get outgoing links (from this document)
 	if dir == Outgoing || dir == Both {
-		outgoing, err := l.outgoing(ctx, path)
+		outgoing, err := l.outgoing(ctx, relation)
 		if err != nil {
 			return nil, err
 		}
@@ -43,7 +43,7 @@ func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link
 
 	// Get incoming links (to this document)
 	if dir == Incoming || dir == Both {
-		incoming, err := l.incoming(ctx, path)
+		incoming, err := l.incoming(ctx, relation)
 		if err != nil {
 			return nil, err
 		}
@@ -54,56 +54,52 @@ func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link
 }
 
 // outgoing returns links where this document is the source.
-func (l *Links) outgoing(ctx context.Context, path string) ([]link.Link, error) {
+func (l *Links) outgoing(ctx context.Context, relation string) ([]link.Link, error) {
 	rows, err := l.db.QueryContext(ctx, `
-		SELECT id, key, path, value, author, source, created_at
+		SELECT key, relation, value, author, source, created_at
 		FROM entities
-		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
+		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
 		ORDER BY created_at DESC
-	`, namespace, path)
+	`, namespace, relation)
 	if err != nil {
 		return nil, fmt.Errorf("querying outgoing links: %w", err)
 	}
 	defer rows.Close()
 
-	return scan(rows)
+	return scanLinks(rows)
 }
 
 // incoming returns links where this document is the target.
-func (l *Links) incoming(ctx context.Context, path string) ([]link.Link, error) {
+func (l *Links) incoming(ctx context.Context, toPath string) ([]link.Link, error) {
 	rows, err := l.db.QueryContext(ctx, `
-		SELECT id, key, path, value, author, source, created_at
+		SELECT key, relation, value, author, source, created_at
 		FROM entities
 		WHERE namespace = ? AND deleted_at IS NULL
 		  AND json_extract(value, '$.to') = ?
 		ORDER BY created_at DESC
-	`, namespace, path)
+	`, namespace, toPath)
 	if err != nil {
 		return nil, fmt.Errorf("querying incoming links: %w", err)
 	}
 	defer rows.Close()
 
-	return scan(rows)
+	return scanLinks(rows)
 }
 
-func scan(rows interface{ Next() bool; Scan(...any) error; Err() error }) ([]link.Link, error) {
+func scanLinks(rows interface{ Next() bool; Scan(...any) error; Err() error }) ([]link.Link, error) {
 	var links []link.Link
 
 	for rows.Next() {
 		var lk link.Link
-		var value string
+		var valueStr string
 
-		if err := rows.Scan(&lk.ID, &lk.Key, &lk.From, &value, &lk.Author, &lk.Source, &lk.CreatedAt); err != nil {
+		if err := rows.Scan(&lk.Key, &lk.Relation, &valueStr, &lk.Author, &lk.Source, &lk.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning link: %w", err)
 		}
 
-		var v map[string]string
-		if err := json.Unmarshal([]byte(value), &v); err != nil {
+		if err := json.Unmarshal([]byte(valueStr), &lk.Value); err != nil {
 			return nil, fmt.Errorf("unmarshaling link: %w", err)
 		}
-
-		lk.To = v["to"]
-		lk.Label = v["label"]
 
 		links = append(links, lk)
 	}

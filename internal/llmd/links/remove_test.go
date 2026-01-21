@@ -57,8 +57,8 @@ func TestRemove_WithLabel(t *testing.T) {
 	if len(list) != 1 {
 		t.Errorf("List() returned %d links, want 1", len(list))
 	}
-	if list[0].Label != "related" {
-		t.Errorf("Remaining link label = %q, want %q", list[0].Label, "related")
+	if list[0].Value.Label != "related" {
+		t.Errorf("Remaining link Value.Label = %q, want %q", list[0].Value.Label, "related")
 	}
 }
 

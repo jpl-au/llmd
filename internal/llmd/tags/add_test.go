@@ -18,11 +18,11 @@ func TestAdd(t *testing.T) {
 		t.Fatalf("Add() error = %v", err)
 	}
 
-	if tag.Tag != "important" {
-		t.Errorf("Tag = %q, want %q", tag.Tag, "important")
+	if tag.Value.Tag != "important" {
+		t.Errorf("Value.Tag = %q, want %q", tag.Value.Tag, "important")
 	}
-	if tag.Path != "docs/readme" {
-		t.Errorf("Path = %q, want %q", tag.Path, "docs/readme")
+	if tag.Relation != "docs/readme" {
+		t.Errorf("Relation = %q, want %q", tag.Relation, "docs/readme")
 	}
 	if len(tag.Key) != 9 {
 		t.Errorf("Key length = %d, want 9", len(tag.Key))
@@ -41,8 +41,8 @@ func TestAdd_ByKey(t *testing.T) {
 		t.Fatalf("Add() error = %v", err)
 	}
 
-	if tag.Path != "docs/readme" {
-		t.Errorf("Path = %q, want %q", tag.Path, "docs/readme")
+	if tag.Relation != "docs/readme" {
+		t.Errorf("Relation = %q, want %q", tag.Relation, "docs/readme")
 	}
 }
 

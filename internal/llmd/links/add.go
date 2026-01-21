@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/pkg/model/link"
 )
 
 // Add creates a link between two documents.
-// from and to can be document paths or 9-char keys.
+// from and to can be document paths or keys.
 func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.Link, error) {
 	// Resolve both documents
 	fromDoc, err := l.docs.Resolve(ctx, from)
@@ -23,16 +24,16 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 		return nil, fmt.Errorf("resolving to: %w", err)
 	}
 
-	fromPath := fromDoc.Path
+	relation := fromDoc.Path // FROM document becomes the relation
 	toPath := toDoc.Path
 
 	// Check for self-link
-	if fromPath == toPath {
+	if relation == toPath {
 		return nil, ErrSelfLink
 	}
 
 	// Check if link already exists
-	existing, err := l.find(ctx, fromPath, toPath, opts.Label)
+	existing, err := l.find(ctx, relation, toPath, opts.Label)
 	if err != nil {
 		return nil, err
 	}
@@ -41,10 +42,11 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 	}
 
 	// Create link value
-	value, err := json.Marshal(map[string]string{
-		"to":    toPath,
-		"label": opts.Label,
-	})
+	linkValue := link.Value{
+		To:    toPath,
+		Label: opts.Label,
+	}
+	data, err := json.Marshal(linkValue)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling link: %w", err)
 	}
@@ -52,38 +54,33 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 	now := time.Now().UnixMilli()
 	k := key.Generate()
 
-	result, err := l.db.ExecContext(ctx, `
-		INSERT INTO entities (key, namespace, path, value, author, source, created_at)
+	_, err = l.db.ExecContext(ctx, `
+		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, fromPath, string(value), opts.Author, opts.Source, now)
+	`, k, namespace, relation, string(data), opts.Author, opts.Source, now)
 	if err != nil {
 		return nil, fmt.Errorf("inserting link: %w", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("getting insert id: %w", err)
-	}
-
 	return &link.Link{
-		ID:        id,
-		Key:       k,
-		From:      fromPath,
-		To:        toPath,
-		Label:     opts.Label,
-		Author:    opts.Author,
-		Source:    opts.Source,
-		CreatedAt: now,
+		Key:      k,
+		Relation: relation,
+		Value:    linkValue,
+		Provenance: core.Provenance{
+			Author:    opts.Author,
+			Source:    opts.Source,
+			CreatedAt: now,
+		},
 	}, nil
 }
 
 // find checks if a link already exists.
-func (l *Links) find(ctx context.Context, from, to, label string) (*link.Link, error) {
+func (l *Links) find(ctx context.Context, relation, to, label string) (*link.Link, error) {
 	rows, err := l.db.QueryContext(ctx, `
-		SELECT id, key, path, value, author, source, created_at
+		SELECT key, relation, value, author, source, created_at
 		FROM entities
-		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
-	`, namespace, from)
+		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
+	`, namespace, relation)
 	if err != nil {
 		return nil, fmt.Errorf("querying links: %w", err)
 	}
@@ -91,21 +88,17 @@ func (l *Links) find(ctx context.Context, from, to, label string) (*link.Link, e
 
 	for rows.Next() {
 		var lk link.Link
-		var value string
+		var valueStr string
 
-		if err := rows.Scan(&lk.ID, &lk.Key, &lk.From, &value, &lk.Author, &lk.Source, &lk.CreatedAt); err != nil {
+		if err := rows.Scan(&lk.Key, &lk.Relation, &valueStr, &lk.Author, &lk.Source, &lk.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scanning link: %w", err)
 		}
 
-		var v map[string]string
-		if err := json.Unmarshal([]byte(value), &v); err != nil {
+		if err := json.Unmarshal([]byte(valueStr), &lk.Value); err != nil {
 			return nil, fmt.Errorf("unmarshaling link: %w", err)
 		}
 
-		lk.To = v["to"]
-		lk.Label = v["label"]
-
-		if lk.To == to && lk.Label == label {
+		if lk.Value.To == to && lk.Value.Label == label {
 			return &lk, nil
 		}
 	}

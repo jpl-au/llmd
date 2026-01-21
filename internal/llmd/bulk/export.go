@@ -24,8 +24,16 @@ type ExportError struct {
 }
 
 // Export exports documents from store to filesystem.
-// If path ends with /, exports all docs with that prefix.
-// Otherwise exports a single document.
+//
+// Path modes:
+//   - Single document: "docs/readme" exports one document
+//   - Prefix (batch): "docs/" exports all documents under that prefix
+//
+// The prefix mode (path ending with /) exports all matching documents,
+// preserving their relative paths under the destination directory.
+// For example, exporting "api/" to "./out" would write:
+//   - api/users    -> ./out/users.md
+//   - api/v2/auth  -> ./out/v2/auth.md
 func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions) (*ExportResult, error) {
 	result := &ExportResult{}
 
@@ -83,7 +91,7 @@ func (b *Bulk) exportOne(ctx context.Context, src, dest string, opts ExportOptio
 	}
 
 	// Check if file exists
-	if !opts.Force {
+	if !opts.Overwrite {
 		if _, err := os.Stat(dest); err == nil {
 			return os.ErrExist
 		}

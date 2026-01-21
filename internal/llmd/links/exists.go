@@ -7,7 +7,7 @@ import (
 
 // Exists checks if a link exists between two documents.
 // If label is empty, checks for any link from→to.
-// from and to can be document paths or 9-char keys.
+// from and to can be document paths or keys.
 func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (bool, error) {
 	var opt Options
 	if len(opts) > 0 {
@@ -29,7 +29,7 @@ func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (b
 		err = l.db.QueryRowContext(ctx, `
 			SELECT EXISTS(
 				SELECT 1 FROM entities
-				WHERE namespace = ? AND path = ?
+				WHERE namespace = ? AND relation = ?
 				  AND json_extract(value, '$.to') = ?
 				  AND json_extract(value, '$.label') = ?
 				  AND deleted_at IS NULL
@@ -39,7 +39,7 @@ func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (b
 		err = l.db.QueryRowContext(ctx, `
 			SELECT EXISTS(
 				SELECT 1 FROM entities
-				WHERE namespace = ? AND path = ?
+				WHERE namespace = ? AND relation = ?
 				  AND json_extract(value, '$.to') = ?
 				  AND deleted_at IS NULL
 			)
