@@ -10,7 +10,11 @@ import (
 
 const namespace = "core:tag"
 
-var ErrNotFound = errors.New("tag not found")
+var (
+	ErrNotFound = errors.New("tag not found")
+	ErrExists   = errors.New("tag already exists")
+	ErrInvalid  = errors.New("invalid tag name")
+)
 
 // Tags provides tag operations.
 type Tags struct {

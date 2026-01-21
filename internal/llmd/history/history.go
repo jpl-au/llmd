@@ -4,6 +4,8 @@ package history
 import (
 	"database/sql"
 	"errors"
+
+	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 const namespace = "core:document"
@@ -17,10 +19,11 @@ var (
 
 // History provides version history operations.
 type History struct {
-	db *sql.DB
+	db   *sql.DB
+	docs *documents.Documents
 }
 
 // New creates a new History instance.
-func New(db *sql.DB) *History {
-	return &History{db: db}
+func New(db *sql.DB, docs *documents.Documents) *History {
+	return &History{db: db, docs: docs}
 }

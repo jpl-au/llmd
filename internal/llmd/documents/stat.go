@@ -94,7 +94,7 @@ func (d *Documents) statByKey(ctx context.Context, key string) (*Stat, error) {
 	}
 
 	stat.Resolved = document.ResolvedKey
-	return finishStat(&stat, message, mime, meta, deletedAt)
+	return finish(&stat, message, mime, meta, deletedAt)
 }
 
 func (d *Documents) statByPath(ctx context.Context, path string) (*Stat, error) {
@@ -123,10 +123,10 @@ func (d *Documents) statByPath(ctx context.Context, path string) (*Stat, error) 
 	}
 
 	stat.Resolved = document.ResolvedPath
-	return finishStat(&stat, message, mime, meta, deletedAt)
+	return finish(&stat, message, mime, meta, deletedAt)
 }
 
-func finishStat(stat *Stat, message, mime, meta sql.NullString, deletedAt sql.NullInt64) (*Stat, error) {
+func finish(stat *Stat, message, mime, meta sql.NullString, deletedAt sql.NullInt64) (*Stat, error) {
 	if message.Valid {
 		stat.Message = message.String
 	}

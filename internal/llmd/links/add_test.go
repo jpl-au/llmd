@@ -92,11 +92,11 @@ func TestAdd_Duplicate(t *testing.T) {
 
 	link1, _ := s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
 	link2, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
-	if err != nil {
-		t.Fatalf("Add() error = %v", err)
-	}
 
-	// Should return existing link
+	// Should return existing link with ErrExists
+	if !errors.Is(err, links.ErrExists) {
+		t.Fatalf("Add() error = %v, want ErrExists", err)
+	}
 	if link2.Key != link1.Key {
 		t.Errorf("Duplicate add should return existing link")
 	}

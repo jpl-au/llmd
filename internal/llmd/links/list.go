@@ -9,16 +9,16 @@ import (
 )
 
 // List returns links for a document.
-// pathOrKey can be a document path or 9-char key.
+// value can be a document path or 9-char key.
 // opts.Direction controls which links to return (Outgoing, Incoming, or Both).
-func (l *Links) List(ctx context.Context, pathOrKey string, opts ...Options) ([]link.Link, error) {
+func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link.Link, error) {
 	var opt Options
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
 
 	// Resolve document
-	doc, err := l.docs.Resolve(ctx, pathOrKey)
+	doc, err := l.docs.Resolve(ctx, value)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (l *Links) List(ctx context.Context, pathOrKey string, opts ...Options) ([]
 
 	// Get outgoing links (from this document)
 	if dir == Outgoing || dir == Both {
-		outgoing, err := l.listOutgoing(ctx, path)
+		outgoing, err := l.outgoing(ctx, path)
 		if err != nil {
 			return nil, err
 		}
@@ -43,7 +43,7 @@ func (l *Links) List(ctx context.Context, pathOrKey string, opts ...Options) ([]
 
 	// Get incoming links (to this document)
 	if dir == Incoming || dir == Both {
-		incoming, err := l.listIncoming(ctx, path)
+		incoming, err := l.incoming(ctx, path)
 		if err != nil {
 			return nil, err
 		}
@@ -53,8 +53,8 @@ func (l *Links) List(ctx context.Context, pathOrKey string, opts ...Options) ([]
 	return links, nil
 }
 
-// listOutgoing returns links where this document is the source.
-func (l *Links) listOutgoing(ctx context.Context, path string) ([]link.Link, error) {
+// outgoing returns links where this document is the source.
+func (l *Links) outgoing(ctx context.Context, path string) ([]link.Link, error) {
 	rows, err := l.db.QueryContext(ctx, `
 		SELECT id, key, path, value, author, source, created_at
 		FROM entities
@@ -66,11 +66,11 @@ func (l *Links) listOutgoing(ctx context.Context, path string) ([]link.Link, err
 	}
 	defer rows.Close()
 
-	return scanLinks(rows)
+	return scan(rows)
 }
 
-// listIncoming returns links where this document is the target.
-func (l *Links) listIncoming(ctx context.Context, path string) ([]link.Link, error) {
+// incoming returns links where this document is the target.
+func (l *Links) incoming(ctx context.Context, path string) ([]link.Link, error) {
 	rows, err := l.db.QueryContext(ctx, `
 		SELECT id, key, path, value, author, source, created_at
 		FROM entities
@@ -83,10 +83,10 @@ func (l *Links) listIncoming(ctx context.Context, path string) ([]link.Link, err
 	}
 	defer rows.Close()
 
-	return scanLinks(rows)
+	return scan(rows)
 }
 
-func scanLinks(rows interface{ Next() bool; Scan(...any) error; Err() error }) ([]link.Link, error) {
+func scan(rows interface{ Next() bool; Scan(...any) error; Err() error }) ([]link.Link, error) {
 	var links []link.Link
 
 	for rows.Next() {

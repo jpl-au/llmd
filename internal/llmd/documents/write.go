@@ -24,7 +24,7 @@ func (d *Documents) Write(ctx context.Context, path, content string, opts WriteO
 	}
 
 	now := time.Now().UnixMilli()
-	s := hash.Blake2b(content)
+	s := hash.XXH3(content)
 
 	// Check if content is unchanged from latest version
 	var latest string
@@ -95,7 +95,7 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 	}
 
 	now := time.Now().UnixMilli()
-	s := hash.Blake2b(content)
+	s := hash.XXH3(content)
 
 	// Check if content is unchanged from latest version
 	var latest string

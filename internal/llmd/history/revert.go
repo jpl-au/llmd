@@ -21,7 +21,7 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 	}
 
 	// Get the content of the version to revert to
-	content, err := h.getVersionContent(ctx, path, version)
+	content, err := h.content(ctx, path, version)
 	if err != nil {
 		return nil, fmt.Errorf("getting version %d: %w", version, err)
 	}
@@ -45,10 +45,10 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 		ORDER BY version DESC LIMIT 1
 	`, namespace, path).Scan(&latest)
 
-	s := hash.Blake2b(content)
+	s := hash.XXH3(content)
 	if err == nil && latest == s {
 		// Content unchanged, return existing
-		return h.readLatest(ctx, path)
+		return h.latest(ctx, path)
 	}
 
 	// Compute metadata
@@ -96,8 +96,8 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 	}, nil
 }
 
-// getVersionContent retrieves the content of a specific version.
-func (h *History) getVersionContent(ctx context.Context, path string, version int) (string, error) {
+// content retrieves the content of a specific version.
+func (h *History) content(ctx context.Context, path string, version int) (string, error) {
 	var content string
 	err := h.db.QueryRowContext(ctx, `
 		SELECT content FROM content
@@ -113,8 +113,8 @@ func (h *History) getVersionContent(ctx context.Context, path string, version in
 	return content, nil
 }
 
-// readLatest reads the latest version of a document.
-func (h *History) readLatest(ctx context.Context, path string) (*document.Document, error) {
+// latest reads the latest version of a document.
+func (h *History) latest(ctx context.Context, path string) (*document.Document, error) {
 	var doc document.Document
 	var meta, message, mime sql.NullString
 	var deletedAt sql.NullInt64

@@ -3,6 +3,8 @@ package tags_test
 import (
 	"context"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd/tags"
 )
 
 func TestAdd(t *testing.T) {
@@ -52,11 +54,11 @@ func TestAdd_Duplicate(t *testing.T) {
 
 	tag1, _ := s.Tags.Add(ctx, "docs/readme", "important", testOpts())
 	tag2, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts())
-	if err != nil {
-		t.Fatalf("Add() error = %v", err)
-	}
 
-	// Should return existing tag
+	// Should return existing tag with ErrExists
+	if err != tags.ErrExists {
+		t.Fatalf("Add() error = %v, want ErrExists", err)
+	}
 	if tag2.Key != tag1.Key {
 		t.Errorf("Duplicate add should return existing tag")
 	}

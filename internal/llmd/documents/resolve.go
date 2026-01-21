@@ -35,7 +35,7 @@ func (d *Documents) Resolve(ctx context.Context, value string) (*document.Docume
 		fsDoc = &document.Document{
 			Path:     value,
 			Content:  s,
-			Hash:     hash.Blake2b(s),
+			Hash:     hash.XXH3(s),
 			Meta:     meta.Compute(s),
 			MIME:     mime,
 			Source:   "filesystem",

@@ -7,19 +7,19 @@ import (
 
 // Exists checks if a link exists between two documents.
 // If label is empty, checks for any link from→to.
-// fromPathOrKey and toPathOrKey can be document paths or 9-char keys.
-func (l *Links) Exists(ctx context.Context, fromPathOrKey, toPathOrKey string, opts ...Options) (bool, error) {
+// from and to can be document paths or 9-char keys.
+func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (bool, error) {
 	var opt Options
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
 
 	// Resolve both documents
-	fromDoc, err := l.docs.Resolve(ctx, fromPathOrKey)
+	fromDoc, err := l.docs.Resolve(ctx, from)
 	if err != nil {
 		return false, fmt.Errorf("resolving from: %w", err)
 	}
-	toDoc, err := l.docs.Resolve(ctx, toPathOrKey)
+	toDoc, err := l.docs.Resolve(ctx, to)
 	if err != nil {
 		return false, fmt.Errorf("resolving to: %w", err)
 	}

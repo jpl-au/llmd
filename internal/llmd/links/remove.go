@@ -9,14 +9,14 @@ import (
 
 // Remove removes a link between two documents.
 // If opts.Label is empty, removes all links from→to.
-// fromPathOrKey and toPathOrKey can be document paths or 9-char keys.
-func (l *Links) Remove(ctx context.Context, fromPathOrKey, toPathOrKey string, opts Options) error {
+// from and to can be document paths or 9-char keys.
+func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error {
 	// Resolve both documents
-	fromDoc, err := l.docs.Resolve(ctx, fromPathOrKey)
+	fromDoc, err := l.docs.Resolve(ctx, from)
 	if err != nil {
 		return fmt.Errorf("resolving from: %w", err)
 	}
-	toDoc, err := l.docs.Resolve(ctx, toPathOrKey)
+	toDoc, err := l.docs.Resolve(ctx, to)
 	if err != nil {
 		return fmt.Errorf("resolving to: %w", err)
 	}

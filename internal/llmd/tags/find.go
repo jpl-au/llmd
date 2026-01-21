@@ -11,7 +11,11 @@ type FindOptions struct {
 }
 
 // Find returns all document paths that have the specified tag.
-func (t *Tags) Find(ctx context.Context, tagName string, opts ...FindOptions) ([]string, error) {
+func (t *Tags) Find(ctx context.Context, name string, opts ...FindOptions) ([]string, error) {
+	if err := Validate(name); err != nil {
+		return nil, err
+	}
+
 	var opt FindOptions
 	if len(opts) > 0 {
 		opt = opts[0]
@@ -28,7 +32,7 @@ func (t *Tags) Find(ctx context.Context, tagName string, opts ...FindOptions) ([
 			  AND path LIKE ? AND deleted_at IS NULL
 			ORDER BY path
 		`
-		args = []any{namespace, tagName, opt.PathPrefix + "%"}
+		args = []any{namespace, name, opt.PathPrefix + "%"}
 	} else {
 		query = `
 			SELECT DISTINCT path
@@ -37,7 +41,7 @@ func (t *Tags) Find(ctx context.Context, tagName string, opts ...FindOptions) ([
 			  AND deleted_at IS NULL
 			ORDER BY path
 		`
-		args = []any{namespace, tagName}
+		args = []any{namespace, name}
 	}
 
 	rows, err := t.db.QueryContext(ctx, query, args...)

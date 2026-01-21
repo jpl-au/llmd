@@ -3,10 +3,6 @@ package history_test
 import (
 	"context"
 	"testing"
-
-	"github.com/jpl-au/llmd/internal/llmd/documents"
-	"github.com/jpl-au/llmd/internal/llmd/history"
-	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
 func TestDiff(t *testing.T) {
@@ -17,50 +13,54 @@ func TestDiff(t *testing.T) {
 	s.Documents.Write(ctx, "docs/readme", "first version", opts)
 	s.Documents.Write(ctx, "docs/readme", "second version", opts)
 
-	v1, v2 := 1, 2
-	doc1, _ := s.Documents.Read(ctx, "docs/readme", documents.ReadOptions{Version: &v1})
-	doc2, _ := s.Documents.Read(ctx, "docs/readme", documents.ReadOptions{Version: &v2})
+	// Get keys for specific versions
+	versions, _ := s.History.List(ctx, "docs/readme")
+	v1Key := versions[1].Key // older version
+	v2Key := versions[0].Key // newer version
 
-	result := history.Diff(doc1, doc2)
-
-	if result.Doc1.Content != "first version" {
-		t.Errorf("Doc1.Content = %q, want %q", result.Doc1.Content, "first version")
+	result, err := s.History.Diff(ctx, v1Key, v2Key)
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
 	}
-	if result.Doc2.Content != "second version" {
-		t.Errorf("Doc2.Content = %q, want %q", result.Doc2.Content, "second version")
+
+	if result.A.Content != "first version" {
+		t.Errorf("A.Content = %q, want %q", result.A.Content, "first version")
+	}
+	if result.B.Content != "second version" {
+		t.Errorf("B.Content = %q, want %q", result.B.Content, "second version")
 	}
 }
 
-func TestDiff_WithLatest(t *testing.T) {
+func TestDiff_ByPath(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 	opts := testWriteOpts()
 
-	s.Documents.Write(ctx, "docs/readme", "first version", opts)
-	s.Documents.Write(ctx, "docs/readme", "latest version", opts)
+	s.Documents.Write(ctx, "docs/readme", "readme content", opts)
+	s.Documents.Write(ctx, "docs/api", "api content", opts)
 
-	v1 := 1
-	doc1, _ := s.Documents.Read(ctx, "docs/readme", documents.ReadOptions{Version: &v1})
-	doc2, _ := s.Documents.Read(ctx, "docs/readme")
-
-	result := history.Diff(doc1, doc2)
-
-	if result.Doc1.Content != "first version" {
-		t.Errorf("Doc1.Content = %q, want %q", result.Doc1.Content, "first version")
+	result, err := s.History.Diff(ctx, "docs/readme", "docs/api")
+	if err != nil {
+		t.Fatalf("Diff() error = %v", err)
 	}
-	if result.Doc2.Content != "latest version" {
-		t.Errorf("Doc2.Content = %q, want %q", result.Doc2.Content, "latest version")
+
+	if result.A.Content != "readme content" {
+		t.Errorf("A.Content = %q, want %q", result.A.Content, "readme content")
+	}
+	if result.B.Content != "api content" {
+		t.Errorf("B.Content = %q, want %q", result.B.Content, "api content")
 	}
 }
 
-func TestDiff_NilDoc(t *testing.T) {
-	doc := &document.Document{Content: "hello"}
-	result := history.Diff(doc, nil)
+func TestDiff_NotFound(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	opts := testWriteOpts()
 
-	if result.Doc1.Content != "hello" {
-		t.Errorf("Doc1.Content = %q, want %q", result.Doc1.Content, "hello")
-	}
-	if result.Doc2 != nil {
-		t.Errorf("Doc2 = %v, want nil", result.Doc2)
+	s.Documents.Write(ctx, "docs/readme", "content", opts)
+
+	_, err := s.History.Diff(ctx, "docs/readme", "docs/nonexistent")
+	if err == nil {
+		t.Error("Diff() expected error for nonexistent document")
 	}
 }

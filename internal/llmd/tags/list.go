@@ -9,10 +9,10 @@ import (
 )
 
 // List returns all tags for a document.
-// pathOrKey can be a document path or 9-char key.
-func (t *Tags) List(ctx context.Context, pathOrKey string, opts ...Options) ([]tag.Tag, error) {
+// value can be a document path or 9-char key.
+func (t *Tags) List(ctx context.Context, value string, opts ...Options) ([]tag.Tag, error) {
 	// Resolve to get actual document path
-	doc, err := t.docs.Resolve(ctx, pathOrKey)
+	doc, err := t.docs.Resolve(ctx, value)
 	if err != nil {
 		return nil, err
 	}
@@ -29,35 +29,36 @@ func (t *Tags) List(ctx context.Context, pathOrKey string, opts ...Options) ([]t
 	}
 	defer rows.Close()
 
-	return scanTags(rows)
+	return scan(rows)
 }
 
-// ListAll returns all unique tag names across the store.
-func (t *Tags) ListAll(ctx context.Context) ([]string, error) {
+// ListAll returns all unique tags across the store with document counts.
+func (t *Tags) ListAll(ctx context.Context) ([]tag.Info, error) {
 	rows, err := t.db.QueryContext(ctx, `
-		SELECT DISTINCT json_extract(value, '$.tag') as tag_name
+		SELECT json_extract(value, '$.tag') as name, COUNT(DISTINCT path) as count
 		FROM entities
 		WHERE namespace = ? AND deleted_at IS NULL
-		ORDER BY tag_name
+		GROUP BY name
+		ORDER BY name
 	`, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("querying all tags: %w", err)
 	}
 	defer rows.Close()
 
-	var tags []string
+	var tags []tag.Info
 	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
+		var info tag.Info
+		if err := rows.Scan(&info.Name, &info.Count); err != nil {
 			return nil, fmt.Errorf("scanning tag: %w", err)
 		}
-		tags = append(tags, name)
+		tags = append(tags, info)
 	}
 
 	return tags, rows.Err()
 }
 
-func scanTags(rows interface{ Next() bool; Scan(...any) error; Err() error }) ([]tag.Tag, error) {
+func scan(rows interface{ Next() bool; Scan(...any) error; Err() error }) ([]tag.Tag, error) {
 	var tags []tag.Tag
 
 	for rows.Next() {

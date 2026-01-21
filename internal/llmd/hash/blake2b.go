@@ -1,4 +1,3 @@
-// Package hash provides content hashing.
 package hash
 
 import (

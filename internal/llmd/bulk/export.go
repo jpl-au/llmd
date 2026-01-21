@@ -75,26 +75,26 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 	return result, nil
 }
 
-func (b *Bulk) exportOne(ctx context.Context, docPath, fsPath string, opts ExportOptions) error {
+func (b *Bulk) exportOne(ctx context.Context, src, dest string, opts ExportOptions) error {
 	// Read document
-	doc, err := b.docs.Read(ctx, docPath, documents.ReadOptions{Version: opts.Version})
+	doc, err := b.docs.Read(ctx, src, documents.ReadOptions{Version: opts.Version})
 	if err != nil {
 		return err
 	}
 
 	// Check if file exists
 	if !opts.Force {
-		if _, err := os.Stat(fsPath); err == nil {
+		if _, err := os.Stat(dest); err == nil {
 			return os.ErrExist
 		}
 	}
 
 	// Ensure directory exists
-	dir := filepath.Dir(fsPath)
+	dir := filepath.Dir(dest)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("creating directory: %w", err)
 	}
 
 	// Write file
-	return os.WriteFile(fsPath, []byte(doc.Content), 0644)
+	return os.WriteFile(dest, []byte(doc.Content), 0644)
 }

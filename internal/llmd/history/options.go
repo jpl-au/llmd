@@ -12,3 +12,8 @@ type ListOptions struct {
 type RevertOptions struct {
 	core.WriteContext
 }
+
+// DiffOptions configures a diff operation.
+type DiffOptions struct {
+	Context int // lines of context around changes (0 = default)
+}

@@ -30,10 +30,10 @@ type Store struct {
 }
 
 // Open opens or creates a store at the given path.
-// If path is empty, it looks for .llmd/store.db in the current directory.
+// If path is empty, it looks for .llmd/llmd.db in the current directory.
 func Open(path string) (*Store, error) {
 	if path == "" {
-		path = filepath.Join(".llmd", "store.db")
+		path = filepath.Join(".llmd", "llmd.db")
 	}
 
 	// Ensure directory exists
@@ -66,7 +66,7 @@ func Open(path string) (*Store, error) {
 
 	// Initialize sub-components
 	s.Documents = documents.New(db)
-	s.History = history.New(db)
+	s.History = history.New(db, s.Documents)
 	s.Search = search.New(db)
 	s.Bulk = bulk.New(s.Documents)
 	s.Tags = tags.New(db, s.Documents)
@@ -94,7 +94,7 @@ func OpenMemory() (*Store, error) {
 
 	// Initialize sub-components
 	s.Documents = documents.New(db)
-	s.History = history.New(db)
+	s.History = history.New(db, s.Documents)
 	s.Search = search.New(db)
 	s.Bulk = bulk.New(s.Documents)
 	s.Tags = tags.New(db, s.Documents)
@@ -104,8 +104,19 @@ func OpenMemory() (*Store, error) {
 }
 
 // Close closes the store.
+// Checkpoints WAL before closing to clean up -wal and -shm files.
 func (s *Store) Close() error {
+	if s.path != ":memory:" {
+		_ = s.Checkpoint() // best effort, still close even if checkpoint fails
+	}
 	return s.db.Close()
+}
+
+// Checkpoint writes WAL data to the main database file and truncates the WAL.
+// This removes the -wal and -shm files if no other connections exist.
+func (s *Store) Checkpoint() error {
+	_, err := s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	return err
 }
 
 // Path returns the path to the store database.

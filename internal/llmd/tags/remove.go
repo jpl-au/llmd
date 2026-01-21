@@ -7,14 +7,17 @@ import (
 )
 
 // Remove removes a tag from a document (soft-delete).
-// pathOrKey can be a document path or 9-char key.
-func (t *Tags) Remove(ctx context.Context, pathOrKey, tagName string, opts Options) error {
+// value can be a document path or 9-char key.
+func (t *Tags) Remove(ctx context.Context, value, name string, opts Options) error {
+	if err := Validate(name); err != nil {
+		return err
+	}
 	if err := opts.Validate(); err != nil {
 		return err
 	}
 
 	// Resolve to get actual document path
-	doc, err := t.docs.Resolve(ctx, pathOrKey)
+	doc, err := t.docs.Resolve(ctx, value)
 	if err != nil {
 		return err
 	}
@@ -26,7 +29,7 @@ func (t *Tags) Remove(ctx context.Context, pathOrKey, tagName string, opts Optio
 		UPDATE entities SET deleted_at = ?
 		WHERE namespace = ? AND path = ? AND json_extract(value, '$.tag') = ?
 		  AND deleted_at IS NULL
-	`, now, namespace, path, tagName)
+	`, now, namespace, path, name)
 
 	if err != nil {
 		return fmt.Errorf("removing tag: %w", err)

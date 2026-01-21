@@ -12,33 +12,36 @@ import (
 )
 
 // Add adds a tag to a document.
-// pathOrKey can be a document path or 9-char key.
-// If the tag already exists on the document, returns the existing tag.
-func (t *Tags) Add(ctx context.Context, pathOrKey, tagName string, opts Options) (*tag.Tag, error) {
+// value can be a document path or 9-char key.
+// Returns ErrExists if the tag already exists on the document.
+func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.Tag, error) {
+	if err := Validate(name); err != nil {
+		return nil, err
+	}
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
 
 	// Resolve to get actual document path
-	doc, err := t.docs.Resolve(ctx, pathOrKey)
+	doc, err := t.docs.Resolve(ctx, value)
 	if err != nil {
 		return nil, err
 	}
 	path := doc.Path
 
 	// Check if tag already exists (latest non-deleted)
-	existing, err := t.get(ctx, path, tagName)
+	existing, err := t.find(ctx, path, name)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
 	if existing != nil {
-		return existing, nil
+		return existing, ErrExists
 	}
 
 	now := time.Now().UnixMilli()
 	k := key.Generate()
 
-	value, err := json.Marshal(map[string]string{"tag": tagName})
+	data, err := json.Marshal(map[string]string{"tag": name})
 	if err != nil {
 		return nil, fmt.Errorf("marshaling tag: %w", err)
 	}
@@ -46,7 +49,7 @@ func (t *Tags) Add(ctx context.Context, pathOrKey, tagName string, opts Options)
 	result, err := t.db.ExecContext(ctx, `
 		INSERT INTO entities (key, namespace, path, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, path, string(value), opts.Author, opts.Source, now)
+	`, k, namespace, path, string(data), opts.Author, opts.Source, now)
 
 	if err != nil {
 		return nil, fmt.Errorf("inserting tag: %w", err)
@@ -61,15 +64,15 @@ func (t *Tags) Add(ctx context.Context, pathOrKey, tagName string, opts Options)
 		ID:        id,
 		Key:       k,
 		Path:      path,
-		Tag:       tagName,
+		Tag:       name,
 		Author:    opts.Author,
 		Source:    opts.Source,
 		CreatedAt: now,
 	}, nil
 }
 
-// get retrieves a specific tag if it exists and is not deleted.
-func (t *Tags) get(ctx context.Context, path, tagName string) (*tag.Tag, error) {
+// find retrieves a specific tag if it exists and is not deleted.
+func (t *Tags) find(ctx context.Context, path, name string) (*tag.Tag, error) {
 	var tg tag.Tag
 	var value string
 	var deletedAt sql.NullInt64
@@ -79,7 +82,7 @@ func (t *Tags) get(ctx context.Context, path, tagName string) (*tag.Tag, error) 
 		FROM entities
 		WHERE namespace = ? AND path = ? AND json_extract(value, '$.tag') = ?
 		ORDER BY created_at DESC LIMIT 1
-	`, namespace, path, tagName).Scan(&tg.ID, &tg.Key, &tg.Path, &value, &tg.Author, &tg.Source, &tg.CreatedAt, &deletedAt)
+	`, namespace, path, name).Scan(&tg.ID, &tg.Key, &tg.Path, &value, &tg.Author, &tg.Source, &tg.CreatedAt, &deletedAt)
 
 	if err != nil {
 		return nil, err

@@ -58,10 +58,10 @@ func (s *Search) FullText(ctx context.Context, query string, opts ...Options) ([
 	}
 	defer rows.Close()
 
-	return scanDocs(rows)
+	return scan(rows)
 }
 
-func scanDocs(rows *sql.Rows) ([]document.Document, error) {
+func scan(rows *sql.Rows) ([]document.Document, error) {
 	var results []document.Document
 
 	for rows.Next() {

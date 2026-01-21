@@ -11,3 +11,9 @@ type Tag struct {
 	Source    string
 	CreatedAt int64
 }
+
+// Info represents tag metadata with usage count.
+type Info struct {
+	Name  string
+	Count int // number of documents with this tag
+}

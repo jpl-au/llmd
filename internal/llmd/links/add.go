@@ -11,14 +11,14 @@ import (
 )
 
 // Add creates a link between two documents.
-// fromPathOrKey and toPathOrKey can be document paths or 9-char keys.
-func (l *Links) Add(ctx context.Context, fromPathOrKey, toPathOrKey string, opts Options) (*link.Link, error) {
+// from and to can be document paths or 9-char keys.
+func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.Link, error) {
 	// Resolve both documents
-	fromDoc, err := l.docs.Resolve(ctx, fromPathOrKey)
+	fromDoc, err := l.docs.Resolve(ctx, from)
 	if err != nil {
 		return nil, fmt.Errorf("resolving from: %w", err)
 	}
-	toDoc, err := l.docs.Resolve(ctx, toPathOrKey)
+	toDoc, err := l.docs.Resolve(ctx, to)
 	if err != nil {
 		return nil, fmt.Errorf("resolving to: %w", err)
 	}
@@ -32,12 +32,12 @@ func (l *Links) Add(ctx context.Context, fromPathOrKey, toPathOrKey string, opts
 	}
 
 	// Check if link already exists
-	existing, err := l.findLink(ctx, fromPath, toPath, opts.Label)
+	existing, err := l.find(ctx, fromPath, toPath, opts.Label)
 	if err != nil {
 		return nil, err
 	}
 	if existing != nil {
-		return existing, nil
+		return existing, ErrExists
 	}
 
 	// Create link value
@@ -77,8 +77,8 @@ func (l *Links) Add(ctx context.Context, fromPathOrKey, toPathOrKey string, opts
 	}, nil
 }
 
-// findLink checks if a link already exists.
-func (l *Links) findLink(ctx context.Context, from, to, label string) (*link.Link, error) {
+// find checks if a link already exists.
+func (l *Links) find(ctx context.Context, from, to, label string) (*link.Link, error) {
 	rows, err := l.db.QueryContext(ctx, `
 		SELECT id, key, path, value, author, source, created_at
 		FROM entities
