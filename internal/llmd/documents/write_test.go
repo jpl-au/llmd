@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/llmd/core"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func TestWrite(t *testing.T) {
@@ -89,7 +89,7 @@ func TestWrite_RequiresAuthor(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := s.Documents.Write(ctx, "docs/readme", "content", documents.WriteOptions{
-		WriteContext: core.WriteContext{Source: "cli"},
+		Origin: core.Origin{Source: "cli"},
 	})
 	if err == nil {
 		t.Error("Write() without author should fail")
@@ -101,7 +101,7 @@ func TestWrite_RequiresSource(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := s.Documents.Write(ctx, "docs/readme", "content", documents.WriteOptions{
-		WriteContext: core.WriteContext{Author: "test"},
+		Origin: core.Origin{Author: "test"},
 	})
 	if err == nil {
 		t.Error("Write() without source should fail")

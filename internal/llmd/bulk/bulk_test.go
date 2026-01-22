@@ -5,7 +5,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
-	"github.com/jpl-au/llmd/internal/llmd/core"
+	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func testStore(t *testing.T) *llmd.Store {
@@ -19,5 +19,5 @@ func testStore(t *testing.T) *llmd.Store {
 }
 
 func testImportOpts() bulk.ImportOptions {
-	return bulk.ImportOptions{WriteContext: core.WriteContext{Author: "test", Source: "cli"}}
+	return bulk.ImportOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
 }

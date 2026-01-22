@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
-	"github.com/jpl-au/llmd/internal/llmd/core"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
+	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func testStore(t *testing.T) *llmd.Store {
@@ -20,12 +20,12 @@ func testStore(t *testing.T) *llmd.Store {
 
 func testWriteOpts() entities.WriteOptions {
 	return entities.WriteOptions{
-		WriteContext: core.WriteContext{Author: "test", Source: "cli"},
+		Origin: core.Origin{Author: "test", Source: "cli"},
 	}
 }
 
 func testDeleteOpts() entities.DeleteOptions {
 	return entities.DeleteOptions{
-		WriteContext: core.WriteContext{Author: "test", Source: "cli"},
+		Origin: core.Origin{Author: "test", Source: "cli"},
 	}
 }

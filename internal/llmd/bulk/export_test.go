@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
-	"github.com/jpl-au/llmd/internal/llmd/core"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func testWriteOpts() documents.WriteOptions {
-	return documents.WriteOptions{WriteContext: core.WriteContext{Author: "test", Source: "cli"}}
+	return documents.WriteOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
 }
 
 func TestExport_SingleDoc(t *testing.T) {

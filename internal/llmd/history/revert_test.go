@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/llmd/core"
 	"github.com/jpl-au/llmd/internal/llmd/history"
+	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func TestRevert(t *testing.T) {
@@ -80,7 +80,7 @@ func TestRevert_RequiresAuthor(t *testing.T) {
 	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
 
 	_, err := s.History.Revert(ctx, "docs/readme", 1, history.RevertOptions{
-		WriteContext: core.WriteContext{Source: "cli"},
+		Origin: core.Origin{Source: "cli"},
 	})
 	if err == nil {
 		t.Error("Revert() without author should fail")

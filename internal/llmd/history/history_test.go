@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
-	"github.com/jpl-au/llmd/internal/llmd/core"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/history"
+	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func testStore(t *testing.T) *llmd.Store {
@@ -20,9 +20,9 @@ func testStore(t *testing.T) *llmd.Store {
 }
 
 func testWriteOpts() documents.WriteOptions {
-	return documents.WriteOptions{WriteContext: core.WriteContext{Author: "test", Source: "cli"}}
+	return documents.WriteOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
 }
 
 func testRevertOpts() history.RevertOptions {
-	return history.RevertOptions{WriteContext: core.WriteContext{Author: "test", Source: "cli"}}
+	return history.RevertOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
 }
