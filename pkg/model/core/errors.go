@@ -2,7 +2,7 @@ package core
 
 import "errors"
 
-// Common errors for write operations.
+// Common validation errors for Origin.
 var (
 	ErrAuthorRequired = errors.New("author is required")
 	ErrSourceRequired = errors.New("source is required")

@@ -28,5 +28,5 @@ func (d *Documents) Copy(ctx context.Context, src, dst string, opts CopyOptions)
 	}
 
 	// Write to destination
-	return d.Write(ctx, dst, doc.Content, WriteOptions{WriteContext: opts.WriteContext})
+	return d.Write(ctx, dst, doc.Content, WriteOptions{Origin: opts.Origin})
 }

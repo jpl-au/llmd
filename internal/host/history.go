@@ -9,7 +9,7 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/jpl-au/llmd/internal/llmd/core"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/internal/llmd/history"
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
@@ -75,7 +75,7 @@ func (h *HostFuncs) HistoryDiff(ctx context.Context, req *hostpb.DiffRequest) (*
 // Returns the new document state.
 func (h *HostFuncs) HistoryRevert(ctx context.Context, req *hostpb.RevertRequest) (*hostpb.Document, error) {
 	opts := history.RevertOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},

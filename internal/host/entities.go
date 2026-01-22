@@ -12,7 +12,7 @@ package host
 import (
 	"context"
 
-	"github.com/jpl-au/llmd/internal/llmd/core"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
@@ -66,7 +66,7 @@ func (h *HostFuncs) EntityRead(ctx context.Context, req *hostpb.EntityRequest) (
 // value. A unique key is generated for the entity. Returns the created entity.
 func (h *HostFuncs) EntityWrite(ctx context.Context, req *hostpb.EntityWriteRequest) (*hostpb.Entity, error) {
 	opts := entities.WriteOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},
@@ -93,7 +93,7 @@ func (h *HostFuncs) EntityWrite(ctx context.Context, req *hostpb.EntityWriteRequ
 // Deletion is permanent.
 func (h *HostFuncs) EntityDelete(ctx context.Context, req *hostpb.EntityRequest) (*hostpb.Empty, error) {
 	opts := entities.DeleteOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: "plugin",
 			Source: "plugin",
 		},

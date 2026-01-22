@@ -10,7 +10,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/jpl-au/llmd/internal/llmd/core"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	hostpb "github.com/jpl-au/llmd/proto/host"
@@ -23,7 +23,7 @@ import (
 // this is a no-op. Returns the created or existing link.
 func (h *HostFuncs) LinkAdd(ctx context.Context, req *hostpb.LinkRequest) (*hostpb.Link, error) {
 	opts := links.Options{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},
@@ -57,7 +57,7 @@ func (h *HostFuncs) LinkAdd(ctx context.Context, req *hostpb.LinkRequest) (*host
 // LinkAdd or LinkList call. Returns an error if the link doesn't exist.
 func (h *HostFuncs) LinkRemove(ctx context.Context, req *hostpb.UnlinkRequest) (*hostpb.Empty, error) {
 	opts := entities.DeleteOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},

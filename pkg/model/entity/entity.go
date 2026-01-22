@@ -94,8 +94,12 @@ type Entity struct {
 	// At the entity level, this is a raw JSON string.
 	Value string
 
-	// Provenance tracks who created this entity, from where, and when.
-	core.Provenance
+	// Origin tracks who created this entity and from where.
+	core.Origin
+
+	// CreatedAt is the Unix timestamp (milliseconds) when created.
+	// Set automatically at INSERT time.
+	CreatedAt int64
 
 	// DeletedAt is the Unix timestamp when soft-deleted, or nil if active.
 	// Soft-deleted entities are excluded from normal queries but remain in

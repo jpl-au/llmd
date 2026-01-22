@@ -1,6 +1,6 @@
 package links
 
-import "github.com/jpl-au/llmd/internal/llmd/core"
+import "github.com/jpl-au/llmd/pkg/model/core"
 
 // Direction specifies which links to return.
 type Direction int
@@ -13,7 +13,7 @@ const (
 
 // Options configures link operations.
 type Options struct {
-	core.WriteContext
+	core.Origin
 	Label     string    // link label (e.g., "related", "depends-on")
 	Direction Direction // for List: which direction to query
 }

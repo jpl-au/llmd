@@ -42,5 +42,5 @@ func (d *Documents) Edit(ctx context.Context, path, old, new string, opts EditOp
 		result = b.String()
 	}
 
-	return d.Write(ctx, path, result, WriteOptions{WriteContext: opts.WriteContext})
+	return d.Write(ctx, path, result, WriteOptions{Origin: opts.Origin})
 }

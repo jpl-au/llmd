@@ -1,6 +1,6 @@
 package history
 
-import "github.com/jpl-au/llmd/internal/llmd/core"
+import "github.com/jpl-au/llmd/pkg/model/core"
 
 // ListOptions configures a list operation.
 type ListOptions struct {
@@ -10,7 +10,7 @@ type ListOptions struct {
 
 // RevertOptions configures a revert operation.
 type RevertOptions struct {
-	core.WriteContext
+	core.Origin
 }
 
 // DiffOptions configures a diff operation.

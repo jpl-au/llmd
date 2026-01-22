@@ -35,10 +35,10 @@ func (e *Entities) Write(ctx context.Context, namespace, value string, opts Writ
 		Namespace: namespace,
 		Relation:  opts.Relation,
 		Value:     value,
-		Provenance: core.Provenance{
-			Author:    opts.Author,
-			Source:    opts.Source,
-			CreatedAt: now,
+		Origin: core.Origin{
+			Author: opts.Author,
+			Source: opts.Source,
 		},
+		CreatedAt: now,
 	}, nil
 }

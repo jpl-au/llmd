@@ -6,42 +6,37 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jpl-au/llmd/internal/cli"
 	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/internal/llmd"
-	"github.com/jpl-au/llmd/internal/version"
 )
 
 func main() {
-	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
+	os.Exit(run())
 }
 
-func run() error {
+func run() int {
 	ctx := context.Background()
-
-	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version" || os.Args[1] == "-v") {
-		version.Print()
-		return nil
-	}
 
 	store, err := llmd.Open("")
 	if err != nil {
-		return fmt.Errorf("opening store: %w", err)
+		fmt.Fprintf(os.Stderr, "error: opening store: %v\n", err)
+		return cli.ExitError
 	}
 	defer store.Close()
 
 	h, err := host.New(ctx, store)
 	if err != nil {
-		return fmt.Errorf("creating host: %w", err)
+		fmt.Fprintf(os.Stderr, "error: creating host: %v\n", err)
+		return cli.ExitError
 	}
 	defer h.Close(ctx)
 
 	if err := h.LoadPlugins(ctx); err != nil {
-		return fmt.Errorf("loading plugins: %w", err)
+		fmt.Fprintf(os.Stderr, "error: loading plugins: %v\n", err)
+		return cli.ExitError
 	}
 
-	// TODO: CLI routing
-	return nil
+	c := cli.New(h)
+	return c.Run(ctx, os.Args[1:])
 }

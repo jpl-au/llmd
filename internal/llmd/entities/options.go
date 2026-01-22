@@ -1,16 +1,16 @@
 package entities
 
-import "github.com/jpl-au/llmd/internal/llmd/core"
+import "github.com/jpl-au/llmd/pkg/model/core"
 
 // WriteOptions configures a write operation.
 type WriteOptions struct {
-	core.WriteContext
+	core.Origin
 	Relation string // Optional relation (key, path, or identifier)
 }
 
 // DeleteOptions configures a delete operation.
 type DeleteOptions struct {
-	core.WriteContext
+	core.Origin
 }
 
 // ListOptions configures a list operation.

@@ -53,7 +53,7 @@ type Value struct {
 
 // Tag represents a tag attached to a document.
 //
-// A Tag combines entity metadata (Key, Provenance) with tag-specific data
+// A Tag combines entity metadata (Key, Origin) with tag-specific data
 // (Relation for the document path, Value for the tag name).
 // Tags are immutable once created - to change a tag, remove and re-add it.
 type Tag struct {
@@ -67,8 +67,11 @@ type Tag struct {
 	// Value contains the tag name, decoded from the entity's JSON value.
 	Value Value
 
-	// Provenance tracks who created this tag, from where, and when.
-	core.Provenance
+	// Origin tracks who created this tag and from where.
+	core.Origin
+
+	// CreatedAt is the Unix timestamp (milliseconds) when created.
+	CreatedAt int64
 }
 
 // Info represents tag metadata with usage count.

@@ -11,7 +11,7 @@ package host
 import (
 	"context"
 
-	"github.com/jpl-au/llmd/internal/llmd/core"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
@@ -50,7 +50,7 @@ func (h *HostFuncs) DocumentRead(ctx context.Context, req *hostpb.ReadRequest) (
 // is created. The author and message are recorded in the version history.
 func (h *HostFuncs) DocumentWrite(ctx context.Context, req *hostpb.WriteRequest) (*hostpb.Document, error) {
 	opts := documents.WriteOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author:  req.Author,
 			Source:  "plugin",
 			Message: req.Message,
@@ -79,7 +79,7 @@ func (h *HostFuncs) DocumentWrite(ctx context.Context, req *hostpb.WriteRequest)
 // is not found in the document.
 func (h *HostFuncs) DocumentEdit(ctx context.Context, req *hostpb.EditRequest) (*hostpb.Document, error) {
 	opts := documents.EditOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author:  req.Author,
 			Source:  "plugin",
 			Message: req.Message,
@@ -108,7 +108,7 @@ func (h *HostFuncs) DocumentEdit(ctx context.Context, req *hostpb.EditRequest) (
 // version history.
 func (h *HostFuncs) DocumentDelete(ctx context.Context, req *hostpb.DeleteRequest) (*hostpb.Empty, error) {
 	opts := documents.DeleteOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},
@@ -128,7 +128,7 @@ func (h *HostFuncs) DocumentDelete(ctx context.Context, req *hostpb.DeleteReques
 // exist or is not deleted.
 func (h *HostFuncs) DocumentRestore(ctx context.Context, req *hostpb.RestoreRequest) (*hostpb.Document, error) {
 	opts := documents.RestoreOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},
@@ -191,7 +191,7 @@ func (h *HostFuncs) DocumentList(ctx context.Context, req *hostpb.ListRequest) (
 // the source doesn't exist or the destination already exists.
 func (h *HostFuncs) DocumentMove(ctx context.Context, req *hostpb.MoveRequest) (*hostpb.Document, error) {
 	opts := documents.MoveOptions{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},

@@ -61,11 +61,11 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 		Key:      k,
 		Relation: relation,
 		Value:    tagValue,
-		Provenance: core.Provenance{
-			Author:    opts.Author,
-			Source:    opts.Source,
-			CreatedAt: now,
+		Origin: core.Origin{
+			Author: opts.Author,
+			Source: opts.Source,
 		},
+		CreatedAt: now,
 	}, nil
 }
 

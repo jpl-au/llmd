@@ -60,6 +60,7 @@ message CommandRequest {
   repeated string args = 2;
   map<string, string> flags = 3;
   ExecutionContext context = 4;
+  bytes stdin = 5;
 }
 
 message ExecutionContext {

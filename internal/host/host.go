@@ -274,12 +274,13 @@ func (h *Host) loadPluginFromBytes(ctx context.Context, name string, wasmBytes [
 // ExecuteCommand finds and executes a command by name.
 //
 // The command is looked up in the registered commands and forwarded to the
-// appropriate plugin. The args slice contains positional arguments, and the
-// flags map contains parsed flag values.
+// appropriate plugin. The args slice contains positional arguments, the
+// flags map contains parsed flag values, stdin contains any piped input,
+// and author identifies who is executing the command.
 //
 // Returns the command's output string on success, or an error if the command
 // is not found or execution fails.
-func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, flags map[string]any) (string, error) {
+func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, flags map[string]any, stdin []byte, author string) (string, error) {
 	cmd, ok := h.commands[name]
 	if !ok {
 		return "", fmt.Errorf("unknown command: %s", name)
@@ -296,9 +297,10 @@ func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, f
 		Command: name,
 		Args:    args,
 		Flags:   flagsStr,
+		Stdin:   stdin,
 		Context: &plugin.ExecutionContext{
 			Interface: plugin.Interface_INTERFACE_CLI,
-			Author:    "user",
+			Author:    author,
 		},
 	})
 	if err != nil {

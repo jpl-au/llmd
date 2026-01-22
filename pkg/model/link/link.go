@@ -75,7 +75,7 @@ type Value struct {
 
 // Link represents a directional relationship between two documents.
 //
-// A Link combines entity metadata (Key, Provenance) with link-specific data
+// A Link combines entity metadata (Key, Origin) with link-specific data
 // (Relation for source path, Value for target and label).
 // Links are immutable once created - to change a link, remove and re-add it.
 type Link struct {
@@ -90,6 +90,9 @@ type Link struct {
 	// decoded from the entity's JSON value.
 	Value Value
 
-	// Provenance tracks who created this link, from where, and when.
-	core.Provenance
+	// Origin tracks who created this link and from where.
+	core.Origin
+
+	// CreatedAt is the Unix timestamp (milliseconds) when created.
+	CreatedAt int64
 }

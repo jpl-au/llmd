@@ -17,6 +17,54 @@ import (
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
 
+// Host provides access to llmd host operations from within a plugin.
+//
+// This variable is initialised automatically when the plugin loads.
+// All operations go through the host, ensuring proper access control,
+// auditing, and consistency.
+var Host HostAPI
+
+// HostAPI defines the operations available to plugins.
+//
+// This interface provides access to the llmd document store and related
+// functionality. All methods are safe to call from any goroutine.
+//
+// Document paths use forward slashes and should not start with a slash
+// (e.g., "notes/todo" not "/notes/todo").
+type HostAPI interface {
+	// Read retrieves a document's content by path.
+	Read(path string) ([]byte, error)
+
+	// Write creates or updates a document.
+	Write(path string, content []byte, author, message string) error
+
+	// Delete soft-deletes a document.
+	Delete(path string, author string) error
+
+	// List returns document paths matching the prefix.
+	List(prefix string) ([]string, error)
+
+	// Search performs a full-text search across all documents.
+	Search(query string) ([]SearchResult, error)
+
+	// Grep searches documents using a regular expression pattern.
+	Grep(pattern string) ([]GrepResult, error)
+}
+
+// SearchResult represents a full-text search result.
+type SearchResult struct {
+	Path    string
+	Snippet string
+	Score   float32
+}
+
+// GrepResult represents a regular expression search result.
+type GrepResult struct {
+	Path    string
+	Line    int
+	Content string
+}
+
 // hostAPIImpl implements HostAPI using the proto-generated host client.
 //
 // This type wraps the proto-generated client and provides the higher-level

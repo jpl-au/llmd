@@ -9,7 +9,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/jpl-au/llmd/internal/llmd/core"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
@@ -20,7 +20,7 @@ import (
 // is recorded in the version history with the specified author.
 func (h *HostFuncs) TagAdd(ctx context.Context, req *hostpb.TagRequest) (*hostpb.Empty, error) {
 	opts := tags.Options{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},
@@ -40,7 +40,7 @@ func (h *HostFuncs) TagAdd(ctx context.Context, req *hostpb.TagRequest) (*hostpb
 // is recorded in the version history with the specified author.
 func (h *HostFuncs) TagRemove(ctx context.Context, req *hostpb.TagRequest) (*hostpb.Empty, error) {
 	opts := tags.Options{
-		WriteContext: core.WriteContext{
+		Origin: core.Origin{
 			Author: req.Author,
 			Source: "plugin",
 		},

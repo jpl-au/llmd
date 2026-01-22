@@ -166,7 +166,7 @@ func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOpt
 	}
 
 	_, err = b.docs.Write(ctx, storePath, contentStr, documents.WriteOptions{
-		WriteContext: opts.WriteContext,
+		Origin: opts.Origin,
 	})
 	if err != nil {
 		return "", 0, err

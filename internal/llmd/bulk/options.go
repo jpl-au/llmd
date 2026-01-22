@@ -1,10 +1,10 @@
 package bulk
 
-import "github.com/jpl-au/llmd/internal/llmd/core"
+import "github.com/jpl-au/llmd/pkg/model/core"
 
 // ImportOptions configures an import operation.
 type ImportOptions struct {
-	core.WriteContext
+	core.Origin
 	Prefix  string // Target path prefix in store
 	Flatten bool   // Flatten directory structure
 	Hidden  bool   // Include hidden files/directories

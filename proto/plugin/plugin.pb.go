@@ -298,6 +298,7 @@ type CommandRequest struct {
 	Args    []string          `protobuf:"bytes,2,rep,name=args,proto3" json:"args,omitempty"`
 	Flags   map[string]string `protobuf:"bytes,3,rep,name=flags,proto3" json:"flags,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Context *ExecutionContext `protobuf:"bytes,4,opt,name=context,proto3" json:"context,omitempty"`
+	Stdin   []byte            `protobuf:"bytes,5,opt,name=stdin,proto3" json:"stdin,omitempty"`
 }
 
 func (x *CommandRequest) ProtoReflect() protoreflect.Message {
@@ -328,6 +329,13 @@ func (x *CommandRequest) GetFlags() map[string]string {
 func (x *CommandRequest) GetContext() *ExecutionContext {
 	if x != nil {
 		return x.Context
+	}
+	return nil
+}
+
+func (x *CommandRequest) GetStdin() []byte {
+	if x != nil {
+		return x.Stdin
 	}
 	return nil
 }

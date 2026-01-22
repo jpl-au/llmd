@@ -66,11 +66,11 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 		Key:      k,
 		Relation: relation,
 		Value:    linkValue,
-		Provenance: core.Provenance{
-			Author:    opts.Author,
-			Source:    opts.Source,
-			CreatedAt: now,
+		Origin: core.Origin{
+			Author: opts.Author,
+			Source: opts.Source,
 		},
+		CreatedAt: now,
 	}, nil
 }
 
