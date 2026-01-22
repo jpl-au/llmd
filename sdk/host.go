@@ -38,6 +38,9 @@ type HostAPI interface {
 	// Write creates or updates a document.
 	Write(path string, content []byte, author, message string) error
 
+	// Edit performs a search/replace on a document.
+	Edit(path, old, new, author, message string) error
+
 	// Delete soft-deletes a document.
 	Delete(path string, author string) error
 
@@ -101,6 +104,19 @@ func (h *hostAPIImpl) Write(path string, content []byte, author, message string)
 	_, err := h.client.DocumentWrite(context.Background(), &hostpb.WriteRequest{
 		Path:    path,
 		Content: content,
+		Author:  author,
+		Message: message,
+	})
+	return err
+}
+
+// Edit performs a search/replace on a document.
+// The old text must exist in the document. A new version is created with the replacement.
+func (h *hostAPIImpl) Edit(path, old, new, author, message string) error {
+	_, err := h.client.DocumentEdit(context.Background(), &hostpb.EditRequest{
+		Path:    path,
+		OldText: old,
+		NewText: new,
 		Author:  author,
 		Message: message,
 	})

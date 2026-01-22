@@ -64,9 +64,11 @@ func (p *CorePlugin) Manifest() sdk.Manifest {
 		Description: "Core llmd commands",
 		Commands: []sdk.Command{
 			commands.Cat,
-			commands.Ls,
-			commands.Write,
+			commands.Edit,
 			commands.Grep,
+			commands.Ls,
+			commands.Rm,
+			commands.Write,
 		},
 	}
 }
@@ -83,12 +85,16 @@ func (p *CorePlugin) ExecuteCommand(ctx sdk.Context, cmd string, args []string, 
 	switch cmd {
 	case "cat":
 		return commands.ExecCat(ctx, args, flags)
-	case "ls":
-		return commands.ExecLs(ctx, args, flags)
-	case "write":
-		return commands.ExecWrite(ctx, args, flags)
+	case "edit":
+		return commands.ExecEdit(ctx, args, flags)
 	case "grep":
 		return commands.ExecGrep(ctx, args, flags)
+	case "ls":
+		return commands.ExecLs(ctx, args, flags)
+	case "rm":
+		return commands.ExecRm(ctx, args, flags)
+	case "write":
+		return commands.ExecWrite(ctx, args, flags)
 	default:
 		return nil, sdk.ErrUnknownCommand{Command: cmd}
 	}

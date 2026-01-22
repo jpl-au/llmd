@@ -8,9 +8,9 @@
 //
 // # Usage
 //
-//	go run ./internal/build              # Build everything (plugins + host with version)
-//	go run ./internal/build plugins      # Build plugins only
-//	go run ./internal/build host         # Build host only
+//	go run tools/build/main.go              # Build everything (plugins + host with version)
+//	go run tools/build/main.go plugins      # Build plugins only
+//	go run tools/build/main.go host         # Build host only
 //
 // # Plugin Building
 //
