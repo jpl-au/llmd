@@ -3,8 +3,11 @@ module github.com/jpl-au/llmd
 go 1.25.5
 
 require (
+	github.com/knqyf263/go-plugin v0.9.0
+	github.com/tetratelabs/wazero v1.11.0
 	github.com/zeebo/xxh3 v1.0.2
 	golang.org/x/crypto v0.47.0
+	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.44.2
 )
 

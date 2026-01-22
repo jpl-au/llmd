@@ -1,0 +1,277 @@
+syntax = "proto3";
+
+package llmd.host;
+
+option go_package = "./host";
+
+// go:plugin type=host
+// Host provides all host API operations to plugins.
+service Host {
+  // Document operations
+  rpc DocumentRead(ReadRequest) returns (Document);
+  rpc DocumentWrite(WriteRequest) returns (Document);
+  rpc DocumentEdit(EditRequest) returns (Document);
+  rpc DocumentDelete(DeleteRequest) returns (Empty);
+  rpc DocumentRestore(RestoreRequest) returns (Document);
+  rpc DocumentList(ListRequest) returns (DocumentListResponse);
+  rpc DocumentMove(MoveRequest) returns (Document);
+  rpc DocumentExists(ExistsRequest) returns (ExistsResponse);
+
+  // Search operations
+  rpc SearchFullText(SearchRequest) returns (SearchResults);
+  rpc SearchRegex(GrepRequest) returns (GrepResults);
+  rpc SearchGlob(GlobRequest) returns (GlobResults);
+
+  // History operations
+  rpc HistoryList(HistoryRequest) returns (VersionList);
+  rpc HistoryDiff(DiffRequest) returns (DiffResult);
+  rpc HistoryRevert(RevertRequest) returns (Document);
+
+  // Tag operations
+  rpc TagAdd(TagRequest) returns (Empty);
+  rpc TagRemove(TagRequest) returns (Empty);
+  rpc TagList(TagListRequest) returns (TagListResponse);
+
+  // Link operations
+  rpc LinkAdd(LinkRequest) returns (Link);
+  rpc LinkRemove(UnlinkRequest) returns (Empty);
+  rpc LinkList(LinkListRequest) returns (LinkListResponse);
+
+  // Entity operations (for plugin state)
+  rpc EntityRead(EntityRequest) returns (Entity);
+  rpc EntityWrite(EntityWriteRequest) returns (Entity);
+  rpc EntityDelete(EntityRequest) returns (Empty);
+  rpc EntityList(EntityListRequest) returns (EntityListResponse);
+
+  // Event operations
+  rpc EventSubscribe(SubscribeRequest) returns (Empty);
+  rpc EventEmit(EmitRequest) returns (Empty);
+}
+
+// Common messages
+message Empty {}
+
+// Document messages
+message ReadRequest {
+  string path = 1;
+  optional int32 version = 2;
+}
+
+message WriteRequest {
+  string path = 1;
+  bytes content = 2;
+  string author = 3;
+  string message = 4;
+}
+
+message EditRequest {
+  string path = 1;
+  string old_text = 2;
+  string new_text = 3;
+  string author = 4;
+  string message = 5;
+}
+
+message DeleteRequest {
+  string path = 1;
+  string author = 2;
+}
+
+message RestoreRequest {
+  string path = 1;
+  string author = 2;
+}
+
+message ListRequest {
+  string prefix = 1;
+  bool include_deleted = 2;
+  string sort = 3;
+  bool reverse = 4;
+}
+
+message MoveRequest {
+  string source = 1;
+  string dest = 2;
+  string author = 3;
+}
+
+message ExistsRequest {
+  string path = 1;
+}
+
+message ExistsResponse {
+  bool exists = 1;
+}
+
+message Document {
+  string path = 1;
+  bytes content = 2;
+  int32 version = 3;
+  string author = 4;
+  string message = 5;
+  int64 created_at = 6;
+  bool deleted = 7;
+}
+
+message DocumentListResponse {
+  repeated Document documents = 1;
+}
+
+// Search messages
+message SearchRequest {
+  string query = 1;
+  string prefix = 2;
+}
+
+message SearchResults {
+  repeated SearchMatch matches = 1;
+}
+
+message SearchMatch {
+  string path = 1;
+  string snippet = 2;
+  float score = 3;
+}
+
+message GrepRequest {
+  string pattern = 1;
+  string path = 2;
+  bool ignore_case = 3;
+  int32 context_lines = 4;
+}
+
+message GrepResults {
+  repeated GrepMatch matches = 1;
+}
+
+message GrepMatch {
+  string path = 1;
+  int32 line = 2;
+  string content = 3;
+  repeated string context_before = 4;
+  repeated string context_after = 5;
+}
+
+message GlobRequest {
+  string pattern = 1;
+}
+
+message GlobResults {
+  repeated string paths = 1;
+}
+
+// History messages
+message HistoryRequest {
+  string path = 1;
+  int32 limit = 2;
+}
+
+message VersionList {
+  repeated VersionInfo versions = 1;
+}
+
+message VersionInfo {
+  int32 version = 1;
+  string author = 2;
+  string message = 3;
+  int64 created_at = 4;
+}
+
+message DiffRequest {
+  string path = 1;
+  int32 version1 = 2;
+  int32 version2 = 3;
+}
+
+message DiffResult {
+  string diff = 1;
+}
+
+message RevertRequest {
+  string path = 1;
+  int32 version = 2;
+  string author = 3;
+}
+
+// Tag messages
+message TagRequest {
+  string path = 1;
+  string tag = 2;
+  string author = 3;
+}
+
+message TagListRequest {
+  string path = 1;
+}
+
+message TagListResponse {
+  repeated string tags = 1;
+}
+
+// Link messages
+message LinkRequest {
+  string from = 1;
+  string to = 2;
+  string tag = 3;
+  string author = 4;
+}
+
+message UnlinkRequest {
+  string id = 1;
+  string author = 2;
+}
+
+message LinkListRequest {
+  string path = 1;
+}
+
+message Link {
+  string id = 1;
+  string from = 2;
+  string to = 3;
+  string tag = 4;
+}
+
+message LinkListResponse {
+  repeated Link links = 1;
+}
+
+// Entity messages
+message EntityRequest {
+  string namespace = 1;
+  string path = 2;
+}
+
+message EntityWriteRequest {
+  string namespace = 1;
+  string path = 2;
+  bytes value = 3;
+  string author = 4;
+}
+
+message Entity {
+  string namespace = 1;
+  string path = 2;
+  bytes value = 3;
+  int64 created_at = 4;
+}
+
+message EntityListRequest {
+  string namespace = 1;
+  string prefix = 2;
+}
+
+message EntityListResponse {
+  repeated Entity entities = 1;
+}
+
+// Event messages
+message SubscribeRequest {
+  repeated string event_types = 1;
+}
+
+message EmitRequest {
+  string type = 1;
+  string path = 2;
+  map<string, string> metadata = 3;
+}
