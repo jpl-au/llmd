@@ -44,6 +44,12 @@ type HostAPI interface {
 	// Delete soft-deletes a document.
 	Delete(path string, author string) error
 
+	// Restore restores a soft-deleted document.
+	Restore(path, author string) error
+
+	// Move moves a document to a new path.
+	Move(from, to, author string) error
+
 	// List returns document paths matching the prefix.
 	List(prefix string) ([]string, error)
 
@@ -52,6 +58,15 @@ type HostAPI interface {
 
 	// Grep searches documents using a regular expression pattern.
 	Grep(pattern string) ([]GrepResult, error)
+
+	// History returns version history for a document.
+	History(path string, limit int) ([]VersionInfo, error)
+
+	// Diff returns a diff between two versions of a document.
+	Diff(path string, v1, v2 int) (string, error)
+
+	// Revert reverts a document to a previous version.
+	Revert(path string, version int, author, message string) error
 }
 
 // SearchResult represents a full-text search result.
@@ -66,6 +81,14 @@ type GrepResult struct {
 	Path    string
 	Line    int
 	Content string
+}
+
+// VersionInfo represents a document version in history.
+type VersionInfo struct {
+	Version   int
+	Author    string
+	Message   string
+	CreatedAt int64
 }
 
 // hostAPIImpl implements HostAPI using the proto-generated host client.
@@ -134,6 +157,25 @@ func (h *hostAPIImpl) Delete(path string, author string) error {
 	return err
 }
 
+// Restore restores a soft-deleted document.
+func (h *hostAPIImpl) Restore(path, author string) error {
+	_, err := h.client.DocumentRestore(context.Background(), &hostpb.RestoreRequest{
+		Path:   path,
+		Author: author,
+	})
+	return err
+}
+
+// Move moves a document to a new path.
+func (h *hostAPIImpl) Move(from, to, author string) error {
+	_, err := h.client.DocumentMove(context.Background(), &hostpb.MoveRequest{
+		Source: from,
+		Dest:   to,
+		Author: author,
+	})
+	return err
+}
+
 // List returns the paths of all documents matching the given prefix.
 // An empty prefix returns all documents. Paths are returned in lexicographical order.
 func (h *hostAPIImpl) List(prefix string) ([]string, error) {
@@ -190,4 +232,51 @@ func (h *hostAPIImpl) Grep(pattern string) ([]GrepResult, error) {
 		}
 	}
 	return results, nil
+}
+
+// History returns version history for a document.
+// If limit is 0, all versions are returned.
+func (h *hostAPIImpl) History(path string, limit int) ([]VersionInfo, error) {
+	resp, err := h.client.HistoryList(context.Background(), &hostpb.HistoryRequest{
+		Path:  path,
+		Limit: int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	versions := make([]VersionInfo, len(resp.Versions))
+	for i, v := range resp.Versions {
+		versions[i] = VersionInfo{
+			Version:   int(v.Version),
+			Author:    v.Author,
+			Message:   v.Message,
+			CreatedAt: v.CreatedAt,
+		}
+	}
+	return versions, nil
+}
+
+// Diff returns a unified diff between two versions of a document.
+// If v2 is 0, it diffs against the latest version.
+func (h *hostAPIImpl) Diff(path string, v1, v2 int) (string, error) {
+	resp, err := h.client.HistoryDiff(context.Background(), &hostpb.DiffRequest{
+		Path:     path,
+		Version1: int32(v1),
+		Version2: int32(v2),
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.Diff, nil
+}
+
+// Revert reverts a document to a previous version.
+// Creates a new version with the content from the specified version.
+func (h *hostAPIImpl) Revert(path string, version int, author, message string) error {
+	_, err := h.client.HistoryRevert(context.Background(), &hostpb.RevertRequest{
+		Path:    path,
+		Version: int32(version),
+		Author:  author,
+	})
+	return err
 }

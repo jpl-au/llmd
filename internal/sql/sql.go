@@ -12,6 +12,9 @@ import (
 //go:embed *.sql
 var schemas embed.FS
 
+//go:embed help.md
+var help string
+
 // Exec executes all embedded schema files in alphabetical order.
 func Exec(db *sql.DB) error {
 	entries, err := fs.ReadDir(schemas, ".")
@@ -35,5 +38,8 @@ func Exec(db *sql.DB) error {
 			return fmt.Errorf("exec %s: %w", entry.Name(), err)
 		}
 	}
-	return nil
+
+	// Insert help content
+	_, err = db.Exec("INSERT OR IGNORE INTO help (content) VALUES (?)", help)
+	return err
 }
