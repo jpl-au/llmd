@@ -7,7 +7,7 @@
 //
 // The actual method implementations are split across multiple files by domain:
 //   - documents.go: Document operations (read, write, edit, delete, etc.)
-//   - search.go: Search operations (full-text, regex, glob)
+//   - search.go: Full-text search (FTS5) and path glob matching
 //   - history.go: Version history operations (list, diff, revert)
 //   - tags.go: Tag operations (add, remove, list)
 //   - links.go: Link operations (add, remove, list)

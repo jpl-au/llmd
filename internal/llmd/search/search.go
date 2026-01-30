@@ -1,4 +1,4 @@
-// Package search provides full-text and regex search operations.
+// Package search provides full-text search and path matching.
 package search
 
 import (
@@ -7,9 +7,8 @@ import (
 )
 
 var (
-	ErrInvalidQuery   = errors.New("invalid FTS query")
-	ErrInvalidPattern = errors.New("invalid regex pattern")
-	ErrInvalidGlob    = errors.New("invalid glob pattern")
+	ErrInvalidQuery = errors.New("invalid FTS query")
+	ErrInvalidGlob  = errors.New("invalid glob pattern")
 )
 
 // Search provides search operations.

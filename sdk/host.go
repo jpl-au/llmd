@@ -56,8 +56,8 @@ type HostAPI interface {
 	// Search performs a full-text search across all documents.
 	Search(query string) ([]SearchResult, error)
 
-	// Grep searches documents using a regular expression pattern.
-	Grep(pattern string) ([]GrepResult, error)
+	// Grep searches documents using FTS5 full-text search.
+	Grep(query string) ([]GrepResult, error)
 
 	// History returns version history for a document.
 	History(path string, limit int) ([]VersionInfo, error)
@@ -76,7 +76,7 @@ type SearchResult struct {
 	Score   float32
 }
 
-// GrepResult represents a regular expression search result.
+// GrepResult represents a full-text search result.
 type GrepResult struct {
 	Path    string
 	Line    int
@@ -213,12 +213,11 @@ func (h *hostAPIImpl) Search(query string) ([]SearchResult, error) {
 	return results, nil
 }
 
-// Grep searches all documents using a regular expression pattern.
-// Returns matching lines with their path and line number.
-// The pattern uses Go's regexp syntax.
-func (h *hostAPIImpl) Grep(pattern string) ([]GrepResult, error) {
+// Grep searches all documents using FTS5 full-text search.
+// Returns matching documents with their path and content.
+func (h *hostAPIImpl) Grep(query string) ([]GrepResult, error) {
 	resp, err := h.client.SearchRegex(context.Background(), &hostpb.GrepRequest{
-		Pattern: pattern,
+		Pattern: query,
 	})
 	if err != nil {
 		return nil, err

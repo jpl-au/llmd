@@ -1,10 +1,7 @@
 // This file implements search-related host functions.
 //
-// Search operations allow plugins to find documents by content. Three search
-// modes are supported:
-//   - Full-text: Searches document content using a search engine query syntax
-//   - Regex: Searches document content using regular expressions
-//   - Glob: Searches document paths using glob patterns
+//   - Full-text: Searches document content using FTS5
+//   - Glob: Matches document paths using glob patterns
 package host
 
 import (
@@ -16,9 +13,8 @@ import (
 
 // SearchFullText performs a full-text search across all documents.
 //
-// The query uses the search engine's query syntax. Results are returned with
-// snippets showing the matching text in context. Results are ordered by
-// relevance score.
+// The query uses FTS5 query syntax. Results are returned with snippets
+// showing the matching text in context. Results are ordered by relevance.
 func (h *HostFuncs) SearchFullText(ctx context.Context, req *hostpb.SearchRequest) (*hostpb.SearchResults, error) {
 	opts := search.Options{
 		Path: req.Prefix,
@@ -46,47 +42,26 @@ func (h *HostFuncs) SearchFullText(ctx context.Context, req *hostpb.SearchReques
 	return &hostpb.SearchResults{Matches: matches}, nil
 }
 
-// SearchRegex performs a regular expression search across all documents.
+// SearchRegex performs a full-text search (FTS5) across all documents.
 //
-// The pattern uses Go's regexp syntax. Results include the matching line,
-// line number, and optionally context lines before and after. If IgnoreCase
-// is true, the search is case-insensitive.
+// The query is treated as an FTS5 query. Results include the matching
+// document path and content.
 func (h *HostFuncs) SearchRegex(ctx context.Context, req *hostpb.GrepRequest) (*hostpb.GrepResults, error) {
 	opts := search.Options{
-		Path:       req.Path,
-		IgnoreCase: req.IgnoreCase,
-		Context:    int(req.ContextLines),
-		Mode:       search.ModeContent,
+		Path: req.Path,
 	}
 
-	result, err := h.store.Search.Regex(ctx, req.Pattern, opts)
+	docs, err := h.store.Search.FullText(ctx, req.Pattern, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	matches := make([]*hostpb.GrepMatch, len(result.Matches))
-	for i, m := range result.Matches {
-		var before, after []string
-		lineIdx := -1
-		for j, line := range m.Context {
-			if line == m.Content {
-				lineIdx = j
-				break
-			}
-		}
-		if lineIdx > 0 {
-			before = m.Context[:lineIdx]
-		}
-		if lineIdx >= 0 && lineIdx < len(m.Context)-1 {
-			after = m.Context[lineIdx+1:]
-		}
-
+	matches := make([]*hostpb.GrepMatch, len(docs))
+	for i, doc := range docs {
 		matches[i] = &hostpb.GrepMatch{
-			Path:          m.Path,
-			Line:          int32(m.Line),
-			Content:       m.Content,
-			ContextBefore: before,
-			ContextAfter:  after,
+			Path:    doc.Path,
+			Line:    1,
+			Content: doc.Content,
 		}
 	}
 

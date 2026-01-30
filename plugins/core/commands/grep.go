@@ -12,39 +12,32 @@ import (
 
 // Grep defines the grep command for searching documents.
 //
-// The grep command searches document content using regular expressions,
-// similar to the Unix grep command. It supports case-insensitive search,
-// context lines, and match counting.
+// The grep command searches document content using FTS5 full-text search.
+// It returns matching documents with their path and content.
 //
 // MCPName is set to "llmd_grep" to avoid conflicts with existing grep tools
 // that AI assistants may have access to.
 var Grep = sdk.Command{
 	Name:        "grep",
-	Description: "Search documents with regex",
-	Usage:       "grep <pattern> [path]",
+	Description: "Search documents with full-text search",
+	Usage:       "grep <query> [path]",
 	MCPEnabled:  true,
 	MCPName:     "llmd_grep",
-	Flags: []sdk.Flag{
-		{Name: "context", Short: "C", Type: "int", Description: "Lines of context"},
-		{Name: "ignore-case", Short: "i", Type: "bool", Description: "Case insensitive"},
-		{Name: "invert", Short: "v", Type: "bool", Description: "Invert match"},
-		{Name: "count", Short: "c", Type: "bool", Description: "Count matches only"},
-	},
+	Flags:       []sdk.Flag{},
 }
 
 // ExecGrep executes the grep command.
 //
-// Searches all documents for lines matching the regex pattern. Results are
-// formatted as "path:line:content" similar to Unix grep. Returns an empty
-// string if no matches are found.
+// Searches all documents for content matching the FTS5 query. Results are
+// formatted as "path:content". Returns an empty string if no matches are found.
 func ExecGrep(ctx sdk.Context, args []string, flags map[string]any) (sdk.Result, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("grep: missing pattern argument")
+		return nil, fmt.Errorf("grep: missing query argument")
 	}
 
-	pattern := args[0]
+	query := args[0]
 
-	results, err := sdk.Host.Grep(pattern)
+	results, err := sdk.Host.Grep(query)
 	if err != nil {
 		return nil, fmt.Errorf("grep: %w", err)
 	}
@@ -55,7 +48,14 @@ func ExecGrep(ctx sdk.Context, args []string, flags map[string]any) (sdk.Result,
 
 	var out strings.Builder
 	for _, r := range results {
-		out.WriteString(fmt.Sprintf("%s:%d:%s\n", r.Path, r.Line, r.Content))
+		// Truncate content for display
+		content := r.Content
+		if len(content) > 200 {
+			content = content[:200] + "..."
+		}
+		// Replace newlines for single-line output
+		content = strings.ReplaceAll(content, "\n", " ")
+		out.WriteString(fmt.Sprintf("%s: %s\n", r.Path, content))
 	}
 
 	return sdk.TextResult(out.String()), nil

@@ -125,8 +125,8 @@ Plugins can access the llmd document store through the sdk.Host variable:
 	// Search documents
 	results, err := sdk.Host.Search("query")
 
-	// Grep with regex
-	matches, err := sdk.Host.Grep("pattern")
+	// Grep with full-text search
+	matches, err := sdk.Host.Grep("query")
 
 	// Delete a document (soft delete)
 	err := sdk.Host.Delete("docs/old", "author")
