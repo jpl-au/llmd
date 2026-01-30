@@ -2,6 +2,9 @@
 go.work
 go.work.sum
 
+# Local llmd database
+.llmd/
+
 # Built binaries
 /llmd
 /llmd.exe
