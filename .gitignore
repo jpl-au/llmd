@@ -5,6 +5,9 @@ go.work.sum
 # Local llmd database
 .llmd/
 
+# Claude Code instructions (local)
+CLAUDE.md
+
 # Built binaries
 /llmd
 /llmd.exe
