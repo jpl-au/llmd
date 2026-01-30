@@ -41,3 +41,33 @@ type JSONResult struct {
 }
 
 func (JSONResult) isResult() {}
+
+// RichResult provides both human-readable text and structured data.
+//
+// Use RichResult when a command produces data that has both a natural text
+// representation (for CLI users) and a structured form (for scripts and
+// automation). The host selects which representation to use based on CLI
+// flags (--json uses Data, default uses Text).
+//
+// This is the preferred result type for data-producing commands like ls,
+// search, or grep. It allows the same command to serve both human users
+// and automated tooling without the plugin needing to know the output format.
+//
+// Example:
+//
+//	paths, _ := sdk.Host.List(prefix)
+//	return sdk.RichResult{
+//	    Text: strings.Join(paths, "\n"),
+//	    Data: paths,
+//	}, nil
+type RichResult struct {
+	// Text is the human-readable output shown by default in the CLI.
+	// This should be formatted for terminal display (e.g., one item per line).
+	Text string
+
+	// Data is the structured data returned when --json flag is used.
+	// This will be JSON-encoded and pretty-printed by the host.
+	Data any
+}
+
+func (RichResult) isResult() {}

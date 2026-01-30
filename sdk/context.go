@@ -15,9 +15,6 @@ type Context struct {
 	// Recorded in version history for auditing.
 	Author string
 
-	// Format indicates the preferred output format.
-	Format OutputFormat
-
 	// Env contains environment variables passed to the command.
 	// Only populated if the host allows environment access.
 	Env map[string]string
@@ -42,16 +39,3 @@ const (
 	InterfaceAPI
 )
 
-// OutputFormat indicates the preferred output format.
-type OutputFormat int
-
-const (
-	// FormatText indicates plain text output.
-	FormatText OutputFormat = iota
-
-	// FormatJSON indicates structured JSON output.
-	FormatJSON
-
-	// FormatTable indicates tabular output.
-	FormatTable
-)

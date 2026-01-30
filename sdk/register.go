@@ -44,7 +44,6 @@ func (a *pluginAdapter) ExecuteCommand(ctx context.Context, req *plugin.CommandR
 	sdkCtx := Context{
 		Interface: Interface(req.GetContext().GetInterface()),
 		Author:    req.GetContext().GetAuthor(),
-		Format:    OutputFormat(req.GetContext().GetFormat()),
 		Env:       req.GetContext().GetEnv(),
 		Stdin:     req.GetStdin(),
 	}
@@ -65,12 +64,16 @@ func (a *pluginAdapter) ExecuteCommand(ctx context.Context, req *plugin.CommandR
 	resp := &plugin.CommandResponse{Success: true}
 	switch r := result.(type) {
 	case TextResult:
-		resp.Output = string(r)
-		resp.Format = plugin.OutputFormat_FORMAT_TEXT
+		resp.TextOutput = string(r)
 	case JSONResult:
 		data, _ := json.Marshal(r.Data)
-		resp.Output = string(data)
-		resp.Format = plugin.OutputFormat_FORMAT_JSON
+		resp.TextOutput = string(data)
+		resp.StructuredData = data
+	case RichResult:
+		resp.TextOutput = r.Text
+		if r.Data != nil {
+			resp.StructuredData, _ = json.Marshal(r.Data)
+		}
 	}
 
 	return resp, nil

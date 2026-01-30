@@ -27,8 +27,8 @@ var Ls = sdk.Command{
 
 // ExecLs executes the ls command.
 //
-// Lists documents matching the optional prefix. Returns one path per line.
-// If no documents match, returns an empty string.
+// Lists documents matching the optional prefix. Returns one path per line
+// for text output, or a JSON array for --json output.
 func ExecLs(ctx sdk.Context, args []string, flags map[string]any) (sdk.Result, error) {
 	prefix := ""
 	if len(args) > 0 {
@@ -41,8 +41,11 @@ func ExecLs(ctx sdk.Context, args []string, flags map[string]any) (sdk.Result, e
 	}
 
 	if len(paths) == 0 {
-		return sdk.TextResult(""), nil
+		return sdk.RichResult{Text: "", Data: []string{}}, nil
 	}
 
-	return sdk.TextResult(strings.Join(paths, "\n")), nil
+	return sdk.RichResult{
+		Text: strings.Join(paths, "\n"),
+		Data: paths,
+	}, nil
 }

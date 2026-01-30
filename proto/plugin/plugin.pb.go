@@ -47,34 +47,6 @@ func (x Interface) Enum() *Interface {
 	return p
 }
 
-type OutputFormat int32
-
-const (
-	OutputFormat_FORMAT_TEXT  OutputFormat = 0
-	OutputFormat_FORMAT_JSON  OutputFormat = 1
-	OutputFormat_FORMAT_TABLE OutputFormat = 2
-)
-
-// Enum value maps for OutputFormat.
-var (
-	OutputFormat_name = map[int32]string{
-		0: "FORMAT_TEXT",
-		1: "FORMAT_JSON",
-		2: "FORMAT_TABLE",
-	}
-	OutputFormat_value = map[string]int32{
-		"FORMAT_TEXT":  0,
-		"FORMAT_JSON":  1,
-		"FORMAT_TABLE": 2,
-	}
-)
-
-func (x OutputFormat) Enum() *OutputFormat {
-	p := new(OutputFormat)
-	*p = x
-	return p
-}
-
 type Empty struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -347,8 +319,7 @@ type ExecutionContext struct {
 
 	Interface Interface         `protobuf:"varint,1,opt,name=interface,proto3,enum=llmd.plugin.Interface" json:"interface,omitempty"`
 	Author    string            `protobuf:"bytes,2,opt,name=author,proto3" json:"author,omitempty"`
-	Format    OutputFormat      `protobuf:"varint,3,opt,name=format,proto3,enum=llmd.plugin.OutputFormat" json:"format,omitempty"`
-	Env       map[string]string `protobuf:"bytes,4,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Env       map[string]string `protobuf:"bytes,3,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (x *ExecutionContext) ProtoReflect() protoreflect.Message {
@@ -369,13 +340,6 @@ func (x *ExecutionContext) GetAuthor() string {
 	return ""
 }
 
-func (x *ExecutionContext) GetFormat() OutputFormat {
-	if x != nil {
-		return x.Format
-	}
-	return OutputFormat_FORMAT_TEXT
-}
-
 func (x *ExecutionContext) GetEnv() map[string]string {
 	if x != nil {
 		return x.Env
@@ -388,10 +352,10 @@ type CommandResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Success bool         `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Output  string       `protobuf:"bytes,2,opt,name=output,proto3" json:"output,omitempty"`
-	Format  OutputFormat `protobuf:"varint,3,opt,name=format,proto3,enum=llmd.plugin.OutputFormat" json:"format,omitempty"`
-	Error   string       `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	Success        bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	TextOutput     string `protobuf:"bytes,2,opt,name=text_output,json=textOutput,proto3" json:"text_output,omitempty"`             // Human-readable output (default for CLI)
+	StructuredData []byte `protobuf:"bytes,3,opt,name=structured_data,json=structuredData,proto3" json:"structured_data,omitempty"` // JSON-encoded structured data (for --json flag)
+	Error          string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
 }
 
 func (x *CommandResponse) ProtoReflect() protoreflect.Message {
@@ -405,18 +369,18 @@ func (x *CommandResponse) GetSuccess() bool {
 	return false
 }
 
-func (x *CommandResponse) GetOutput() string {
+func (x *CommandResponse) GetTextOutput() string {
 	if x != nil {
-		return x.Output
+		return x.TextOutput
 	}
 	return ""
 }
 
-func (x *CommandResponse) GetFormat() OutputFormat {
+func (x *CommandResponse) GetStructuredData() []byte {
 	if x != nil {
-		return x.Format
+		return x.StructuredData
 	}
-	return OutputFormat_FORMAT_TEXT
+	return nil
 }
 
 func (x *CommandResponse) GetError() string {

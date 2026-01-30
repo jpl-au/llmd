@@ -474,13 +474,8 @@ func (m *ExecutionContext) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 			dAtA[i] = 0xa
 			i = encodeVarint(dAtA, i, uint64(baseI-i))
 			i--
-			dAtA[i] = 0x22
+			dAtA[i] = 0x1a
 		}
-	}
-	if m.Format != 0 {
-		i = encodeVarint(dAtA, i, uint64(m.Format))
-		i--
-		dAtA[i] = 0x18
 	}
 	if len(m.Author) > 0 {
 		i -= len(m.Author)
@@ -534,15 +529,17 @@ func (m *CommandResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x22
 	}
-	if m.Format != 0 {
-		i = encodeVarint(dAtA, i, uint64(m.Format))
+	if len(m.StructuredData) > 0 {
+		i -= len(m.StructuredData)
+		copy(dAtA[i:], m.StructuredData)
+		i = encodeVarint(dAtA, i, uint64(len(m.StructuredData)))
 		i--
-		dAtA[i] = 0x18
+		dAtA[i] = 0x1a
 	}
-	if len(m.Output) > 0 {
-		i -= len(m.Output)
-		copy(dAtA[i:], m.Output)
-		i = encodeVarint(dAtA, i, uint64(len(m.Output)))
+	if len(m.TextOutput) > 0 {
+		i -= len(m.TextOutput)
+		copy(dAtA[i:], m.TextOutput)
+		i = encodeVarint(dAtA, i, uint64(len(m.TextOutput)))
 		i--
 		dAtA[i] = 0x12
 	}
@@ -836,9 +833,6 @@ func (m *ExecutionContext) SizeVT() (n int) {
 	if l > 0 {
 		n += 1 + l + sov(uint64(l))
 	}
-	if m.Format != 0 {
-		n += 1 + sov(uint64(m.Format))
-	}
 	if len(m.Env) > 0 {
 		for k, v := range m.Env {
 			_ = k
@@ -860,12 +854,13 @@ func (m *CommandResponse) SizeVT() (n int) {
 	if m.Success {
 		n += 2
 	}
-	l = len(m.Output)
+	l = len(m.TextOutput)
 	if l > 0 {
 		n += 1 + l + sov(uint64(l))
 	}
-	if m.Format != 0 {
-		n += 1 + sov(uint64(m.Format))
+	l = len(m.StructuredData)
+	if l > 0 {
+		n += 1 + l + sov(uint64(l))
 	}
 	l = len(m.Error)
 	if l > 0 {
@@ -2185,25 +2180,6 @@ func (m *ExecutionContext) UnmarshalVT(dAtA []byte) error {
 			m.Author = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Format", wireType)
-			}
-			m.Format = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Format |= OutputFormat(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Env", wireType)
 			}
@@ -2403,7 +2379,7 @@ func (m *CommandResponse) UnmarshalVT(dAtA []byte) error {
 			m.Success = bool(v != 0)
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Output", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field TextOutput", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -2431,13 +2407,13 @@ func (m *CommandResponse) UnmarshalVT(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Output = string(dAtA[iNdEx:postIndex])
+			m.TextOutput = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Format", wireType)
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StructuredData", wireType)
 			}
-			m.Format = 0
+			var byteLen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflow
@@ -2447,11 +2423,26 @@ func (m *CommandResponse) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Format |= OutputFormat(b&0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			if byteLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StructuredData = append(m.StructuredData[:0], dAtA[iNdEx:postIndex]...)
+			if m.StructuredData == nil {
+				m.StructuredData = []byte{}
+			}
+			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Error", wireType)

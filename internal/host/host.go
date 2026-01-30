@@ -41,7 +41,7 @@
 //	    return err
 //	}
 //
-//	output, err := h.ExecuteCommand(ctx, "cat", []string{"docs/readme"}, nil)
+//	resp, err := h.ExecuteCommand(ctx, "cat", []string{"docs/readme"}, nil, nil, "user")
 package host
 
 import (
@@ -278,12 +278,12 @@ func (h *Host) loadPluginFromBytes(ctx context.Context, name string, wasmBytes [
 // flags map contains parsed flag values, stdin contains any piped input,
 // and author identifies who is executing the command.
 //
-// Returns the command's output string on success, or an error if the command
-// is not found or execution fails.
-func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, flags map[string]any, stdin []byte, author string) (string, error) {
+// Returns the full CommandResponse containing both text and structured output,
+// or an error if the command is not found or execution fails.
+func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, flags map[string]any, stdin []byte, author string) (*plugin.CommandResponse, error) {
 	cmd, ok := h.commands[name]
 	if !ok {
-		return "", fmt.Errorf("unknown command: %s", name)
+		return nil, fmt.Errorf("unknown command: %s", name)
 	}
 
 	// Convert flags to string map
@@ -304,14 +304,14 @@ func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, f
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("executing command: %w", err)
+		return nil, fmt.Errorf("executing command: %w", err)
 	}
 
 	if !resp.Success {
-		return "", fmt.Errorf("command failed: %s", resp.Error)
+		return nil, fmt.Errorf("command failed: %s", resp.Error)
 	}
 
-	return resp.Output, nil
+	return resp, nil
 }
 
 // Close shuts down all plugins and releases resources.

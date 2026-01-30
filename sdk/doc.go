@@ -159,16 +159,28 @@ Supported types: "string", "int", "bool", "stringSlice"
 
 # Results
 
-Commands return either TextResult or JSONResult:
+Commands return one of three result types:
 
-	// Plain text output
+	// Plain text output (for simple messages)
 	return sdk.TextResult("Operation completed"), nil
 
-	// Structured JSON output
+	// Structured JSON output (for MCP/API-focused commands)
 	return sdk.JSONResult{Data: map[string]any{
 		"count": 42,
 		"items": items,
 	}}, nil
+
+	// Dual-channel output (recommended for data-producing commands)
+	return sdk.RichResult{
+		Text: strings.Join(paths, "\n"),  // Human-readable (default)
+		Data: paths,                       // Structured (for --json flag)
+	}, nil
+
+RichResult is the preferred type for commands that produce data output. It
+provides both a human-readable text representation (shown by default in the
+CLI) and structured data (returned when the user passes --json). This allows
+the same command to serve both human users and automated tooling without
+needing format-specific logic in the plugin.
 
 # Events
 

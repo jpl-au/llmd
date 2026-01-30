@@ -42,8 +42,8 @@ func New(h *host.Host) *CLI {
 //
 // Returns an exit code: 0 for success, 1 for command errors, 2 for usage errors.
 func (c *CLI) Run(ctx context.Context, args []string) int {
-	// First pass: parse without command flags to get command name
-	result, err := Parse(args, nil)
+	// Parse global flags only - command flags pass through raw
+	result, err := Parse(args)
 	if err != nil {
 		c.writeError(err, OutputText)
 		return ExitUsage
@@ -62,15 +62,6 @@ func (c *CLI) Run(ctx context.Context, args []string) int {
 	if cmd == nil && !isBuiltin {
 		c.writeError(fmt.Errorf("unknown command: %s", result.Command), result.Output)
 		return ExitUsage
-	}
-
-	// Re-parse with command flags if it's a plugin command
-	if cmd != nil {
-		result, err = Parse(args, cmd.Flags)
-		if err != nil {
-			c.writeError(err, result.Output)
-			return ExitUsage
-		}
 	}
 
 	// Handle --help for the command
@@ -109,14 +100,26 @@ func (c *CLI) Run(ctx context.Context, args []string) int {
 		}
 	}
 
-	// Execute plugin command
-	output, err := c.host.ExecuteCommand(ctx, result.Command, result.Args, result.Flags, stdin, author)
+	// Execute plugin command - pass nil for flags (plugin parses its own)
+	resp, err := c.host.ExecuteCommand(ctx, result.Command, result.Args, nil, stdin, author)
 	if err != nil {
 		c.writeError(err, result.Output)
 		return ExitError
 	}
 
-	fmt.Fprintln(c.stdout, output)
+	// Output based on format flag
+	if result.Output == OutputJSON && len(resp.StructuredData) > 0 {
+		var obj any
+		if err := json.Unmarshal(resp.StructuredData, &obj); err == nil {
+			enc := json.NewEncoder(c.stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(obj)
+		} else {
+			fmt.Fprintln(c.stdout, resp.TextOutput)
+		}
+	} else {
+		fmt.Fprintln(c.stdout, resp.TextOutput)
+	}
 	return ExitSuccess
 }
 

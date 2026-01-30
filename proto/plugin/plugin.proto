@@ -66,8 +66,7 @@ message CommandRequest {
 message ExecutionContext {
   Interface interface = 1;
   string author = 2;
-  OutputFormat format = 3;
-  map<string, string> env = 4;
+  map<string, string> env = 3;
 }
 
 enum Interface {
@@ -76,16 +75,10 @@ enum Interface {
   INTERFACE_API = 2;
 }
 
-enum OutputFormat {
-  FORMAT_TEXT = 0;
-  FORMAT_JSON = 1;
-  FORMAT_TABLE = 2;
-}
-
 message CommandResponse {
   bool success = 1;
-  string output = 2;
-  OutputFormat format = 3;
+  string text_output = 2;     // Human-readable output (default for CLI)
+  bytes structured_data = 3;  // JSON-encoded structured data (for --json flag)
   string error = 4;
 }
 
