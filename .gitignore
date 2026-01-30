@@ -3,8 +3,8 @@ go.work
 go.work.sum
 
 # Built binaries
-llmd
-llmd.exe
+/llmd
+/llmd.exe
 
 # WASM plugins (generated at build time)
 *.wasm

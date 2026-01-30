@@ -17,12 +17,13 @@ type Match struct {
 
 // RegexResult contains regex search results.
 type RegexResult struct {
-	Matches []Match          // For ModeContent
-	Files   []string         // For ModeFiles
-	Counts  map[string]int   // For ModeCount
+	Matches []Match        // For ModeContent
+	Files   []string       // For ModeFiles
+	Counts  map[string]int // For ModeCount
 }
 
 // Regex searches documents using regular expressions.
+// Uses FTS5 to pre-filter candidate documents when possible for better performance.
 func (s *Search) Regex(ctx context.Context, pattern string, opts ...Options) (*RegexResult, error) {
 	var opt Options
 	if len(opts) > 0 {
@@ -39,28 +40,49 @@ func (s *Search) Regex(ctx context.Context, pattern string, opts ...Options) (*R
 		return nil, ErrInvalidPattern
 	}
 
-	// Query documents
+	// Try to extract literal terms from the pattern for FTS pre-filtering
+	terms := ExtractSearchTerms(pattern)
+	ftsQuery := BuildFTSQuery(terms)
+
 	var b strings.Builder
 	var args []any
 
-	b.WriteString(`
-		SELECT path, content FROM content
-		WHERE namespace = 'core:document' AND deleted_at IS NULL
-	`)
+	if ftsQuery != "" {
+		// Use FTS5 to find candidate documents
+		b.WriteString(`
+			SELECT c.path, c.content FROM content c
+			JOIN content_fts fts ON fts.rowid = c.id
+			WHERE content_fts MATCH ?
+		`)
+		args = append(args, ftsQuery)
 
-	if opt.Path != "" {
-		b.WriteString(" AND path LIKE ?")
-		args = append(args, opt.Path+"%")
+		if opt.Path != "" {
+			b.WriteString(" AND c.path LIKE ?")
+			args = append(args, opt.Path+"%")
+		}
+
+		b.WriteString(" ORDER BY c.path")
+	} else {
+		// Fall back to scanning all documents
+		b.WriteString(`
+			SELECT path, content FROM content
+			WHERE namespace = 'core:document' AND deleted_at IS NULL
+		`)
+
+		if opt.Path != "" {
+			b.WriteString(" AND path LIKE ?")
+			args = append(args, opt.Path+"%")
+		}
+
+		// Latest version per path
+		b.WriteString(`
+			AND version = (
+				SELECT MAX(version) FROM content c2
+				WHERE c2.namespace = namespace AND c2.path = path
+			)
+			ORDER BY path
+		`)
 	}
-
-	// Only latest version per path
-	b.WriteString(`
-		AND version = (
-			SELECT MAX(version) FROM content c2
-			WHERE c2.namespace = namespace AND c2.path = path
-		)
-		ORDER BY path
-	`)
 
 	rows, err := s.db.QueryContext(ctx, b.String(), args...)
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/hash"
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/internal/llmd/meta"
+	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
@@ -70,6 +71,20 @@ func (d *Documents) Write(ctx context.Context, path, content string, opts WriteO
 
 	if err != nil {
 		return nil, fmt.Errorf("inserting document: %w", err)
+	}
+
+	// Emit event
+	if d.bus != nil {
+		if err := d.bus.Emit(ctx, events.Event{
+			Type:      events.DocumentWritten,
+			Path:      path,
+			Key:       k,
+			Version:   next,
+			Author:    opts.Author,
+			Timestamp: now,
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
 	}
 
 	return &document.Document{
@@ -142,6 +157,8 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 	if err != nil {
 		return nil, fmt.Errorf("inserting document: %w", err)
 	}
+
+	// Note: Events are emitted by caller after transaction commits
 
 	return &document.Document{
 		Key:       k,

@@ -4,6 +4,8 @@ package documents
 import (
 	"database/sql"
 	"errors"
+
+	"github.com/jpl-au/llmd/internal/llmd/events"
 )
 
 var (
@@ -13,10 +15,11 @@ var (
 
 // Documents provides document operations.
 type Documents struct {
-	db *sql.DB
+	db  *sql.DB
+	bus *events.Bus
 }
 
 // New creates a new Documents instance.
-func New(db *sql.DB) *Documents {
-	return &Documents{db: db}
+func New(db *sql.DB, bus *events.Bus) *Documents {
+	return &Documents{db: db, bus: bus}
 }

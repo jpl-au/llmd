@@ -2,6 +2,8 @@
 
 package sdk
 
+import "github.com/jpl-au/llmd/pkg/events"
+
 // Event represents a document store event.
 //
 // Events are delivered to plugins that implement EventHandler and have
@@ -12,6 +14,9 @@ type Event struct {
 
 	// Path is the document path that triggered the event.
 	Path string `json:"path"`
+
+	// Key is the document key after the event.
+	Key string `json:"key,omitempty"`
 
 	// Version is the document version after the event.
 	Version int `json:"version,omitempty"`
@@ -32,16 +37,16 @@ type Event struct {
 // and when comparing Event.Type in your EventHandler.
 const (
 	// EventDocumentWritten fires when a document is created or updated.
-	EventDocumentWritten = "document.written"
+	EventDocumentWritten = events.DocumentWritten
 
 	// EventDocumentDeleted fires when a document is soft-deleted.
-	EventDocumentDeleted = "document.deleted"
+	EventDocumentDeleted = events.DocumentDeleted
 
 	// EventDocumentMoved fires when a document is moved to a new path.
-	EventDocumentMoved = "document.moved"
+	EventDocumentMoved = events.DocumentMoved
 
 	// EventDocumentRestored fires when a soft-deleted document is restored.
-	EventDocumentRestored = "document.restored"
+	EventDocumentRestored = events.DocumentRestored
 
 	// EventTagAdded fires when a tag is added to a document.
 	EventTagAdded = "tag.added"

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Delete soft-deletes a document at the given path.
@@ -29,6 +31,18 @@ func (d *Documents) Delete(ctx context.Context, path string, opts DeleteOptions)
 	}
 	if rows == 0 {
 		return ErrNotFound
+	}
+
+	// Emit event
+	if d.bus != nil {
+		if err := d.bus.Emit(ctx, events.Event{
+			Type:      events.DocumentDeleted,
+			Path:      path,
+			Author:    opts.Author,
+			Timestamp: now,
+		}); err != nil {
+			return fmt.Errorf("emitting event: %w", err)
+		}
 	}
 
 	return nil

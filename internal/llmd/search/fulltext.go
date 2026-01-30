@@ -11,6 +11,7 @@ import (
 )
 
 // FullText searches documents using FTS5.
+// The FTS index contains the latest non-deleted version of each document.
 func (s *Search) FullText(ctx context.Context, query string, opts ...Options) ([]document.Document, error) {
 	var opt Options
 	if len(opts) > 0 {
@@ -26,7 +27,6 @@ func (s *Search) FullText(ctx context.Context, query string, opts ...Options) ([
 		FROM content_fts fts
 		JOIN content c ON c.id = fts.rowid
 		WHERE content_fts MATCH ?
-		  AND c.deleted_at IS NULL
 	`)
 	args = append(args, query)
 
@@ -35,14 +35,7 @@ func (s *Search) FullText(ctx context.Context, query string, opts ...Options) ([
 		args = append(args, opt.Path+"%")
 	}
 
-	// Only latest version per path
-	b.WriteString(`
-		AND c.version = (
-			SELECT MAX(version) FROM content c2
-			WHERE c2.namespace = c.namespace AND c2.path = c.path
-		)
-		ORDER BY rank
-	`)
+	b.WriteString(" ORDER BY rank")
 
 	if opt.Limit > 0 {
 		b.WriteString(" LIMIT ?")

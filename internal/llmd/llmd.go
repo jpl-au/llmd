@@ -10,6 +10,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
+	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/llmd/internal/llmd/history"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/search"
@@ -28,6 +29,7 @@ type Store struct {
 	Entities  *entities.Entities
 
 	db   *sql.DB
+	bus  *events.Bus
 	path string
 }
 
@@ -66,8 +68,15 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("migrating schema: %w", err)
 	}
 
+	// Create event bus
+	s.bus = events.New()
+
+	// Create FTS handler and subscribe
+	ftsHandler := search.NewFTSHandler(db)
+	s.bus.Subscribe(ftsHandler)
+
 	// Initialize sub-components
-	s.Documents = documents.New(db)
+	s.Documents = documents.New(db, s.bus)
 	s.History = history.New(db, s.Documents)
 	s.Search = search.New(db)
 	s.Bulk = bulk.New(s.Documents)
@@ -95,8 +104,15 @@ func OpenMemory() (*Store, error) {
 		return nil, fmt.Errorf("migrating schema: %w", err)
 	}
 
+	// Create event bus
+	s.bus = events.New()
+
+	// Create FTS handler and subscribe
+	ftsHandler := search.NewFTSHandler(db)
+	s.bus.Subscribe(ftsHandler)
+
 	// Initialize sub-components
-	s.Documents = documents.New(db)
+	s.Documents = documents.New(db, s.bus)
 	s.History = history.New(db, s.Documents)
 	s.Search = search.New(db)
 	s.Bulk = bulk.New(s.Documents)
@@ -126,4 +142,9 @@ func (s *Store) Checkpoint() error {
 // Path returns the path to the store database.
 func (s *Store) Path() string {
 	return s.path
+}
+
+// Bus returns the event bus for subscribing to document events.
+func (s *Store) Bus() *events.Bus {
+	return s.bus
 }

@@ -3,6 +3,9 @@ package documents
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Restore restores a soft-deleted document at the given path.
@@ -10,6 +13,18 @@ import (
 func (d *Documents) Restore(ctx context.Context, path string, opts RestoreOptions) error {
 	if err := opts.Validate(); err != nil {
 		return err
+	}
+
+	// Get the latest version info before restoring (for the event)
+	var key string
+	var version int
+	err := d.db.QueryRowContext(ctx, `
+		SELECT key, version FROM content
+		WHERE namespace = ? AND path = ? AND deleted_at IS NOT NULL
+		ORDER BY version DESC LIMIT 1
+	`, namespace, path).Scan(&key, &version)
+	if err != nil {
+		return ErrNotFound
 	}
 
 	result, err := d.db.ExecContext(ctx, `
@@ -26,6 +41,21 @@ func (d *Documents) Restore(ctx context.Context, path string, opts RestoreOption
 	}
 	if rows == 0 {
 		return ErrNotFound
+	}
+
+	// Emit event
+	if d.bus != nil {
+		now := time.Now().UnixMilli()
+		if err := d.bus.Emit(ctx, events.Event{
+			Type:      events.DocumentRestored,
+			Path:      path,
+			Key:       key,
+			Version:   version,
+			Author:    opts.Author,
+			Timestamp: now,
+		}); err != nil {
+			return fmt.Errorf("emitting event: %w", err)
+		}
 	}
 
 	return nil
