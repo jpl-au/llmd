@@ -86,7 +86,11 @@ func (l *Links) incoming(ctx context.Context, toPath string) ([]link.Link, error
 	return scanLinks(rows)
 }
 
-func scanLinks(rows interface{ Next() bool; Scan(...any) error; Err() error }) ([]link.Link, error) {
+func scanLinks(rows interface {
+	Next() bool
+	Scan(...any) error
+	Err() error
+}) ([]link.Link, error) {
 	var links []link.Link
 
 	for rows.Next() {

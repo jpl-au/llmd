@@ -58,7 +58,11 @@ func (t *Tags) ListAll(ctx context.Context) ([]tag.Info, error) {
 	return tags, rows.Err()
 }
 
-func scanTags(rows interface{ Next() bool; Scan(...any) error; Err() error }) ([]tag.Tag, error) {
+func scanTags(rows interface {
+	Next() bool
+	Scan(...any) error
+	Err() error
+}) ([]tag.Tag, error) {
 	var tags []tag.Tag
 
 	for rows.Next() {

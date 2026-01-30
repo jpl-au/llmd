@@ -38,4 +38,3 @@ const (
 	// InterfaceAPI indicates HTTP/gRPC API invocation.
 	InterfaceAPI
 )
-

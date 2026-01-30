@@ -12,8 +12,8 @@ type ParseResult struct {
 	Flags   map[string]any
 	Output  OutputFormat
 	Help    bool
-	Author string // From --author flag (overrides config)
-	Local  bool   // For config --local (write to .llmd/config.yaml instead of global)
+	Author  string // From --author flag (overrides config)
+	Local   bool   // For config --local (write to .llmd/config.yaml instead of global)
 }
 
 // Parse parses command-line arguments according to the CLI spec.
@@ -120,4 +120,3 @@ func parseFlag(s string) (name, value string, hasValue bool) {
 	}
 	return s, "", false
 }
-

@@ -9,8 +9,8 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/internal/llmd/history"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
 

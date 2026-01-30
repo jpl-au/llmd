@@ -12,8 +12,8 @@ package host
 import (
 	"context"
 
-	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
 

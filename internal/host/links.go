@@ -10,9 +10,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
 	"github.com/jpl-au/llmd/internal/llmd/links"
+	"github.com/jpl-au/llmd/pkg/model/core"
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
 
