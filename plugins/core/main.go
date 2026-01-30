@@ -2,11 +2,7 @@
 
 // Package main is the core plugin for llmd.
 //
-// The core plugin provides all standard llmd commands for document operations:
-//   - cat: Read and display document content
-//   - ls: List documents in the store
-//   - write: Create or update documents
-//   - grep: Search documents using regular expressions
+// The core plugin provides standard llmd commands for document operations.
 //
 // This plugin is embedded in the llmd binary but can be overridden by placing
 // a core.wasm file in .llmd/plugins/. This allows customisation of core
@@ -66,6 +62,7 @@ func (p *CorePlugin) Manifest() sdk.Manifest {
 			commands.Cat,
 			commands.Diff,
 			commands.Edit,
+			commands.Glob,
 			commands.Grep,
 			commands.History,
 			commands.Ls,
@@ -94,6 +91,8 @@ func (p *CorePlugin) ExecuteCommand(ctx sdk.Context, cmd string, args []string, 
 		return commands.ExecDiff(ctx, args, flags)
 	case "edit":
 		return commands.ExecEdit(ctx, args, flags)
+	case "glob":
+		return commands.ExecGlob(ctx, args, flags)
 	case "grep":
 		return commands.ExecGrep(ctx, args, flags)
 	case "history":

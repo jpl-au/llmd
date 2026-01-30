@@ -53,6 +53,9 @@ type HostAPI interface {
 	// List returns document paths matching the prefix.
 	List(prefix string) ([]string, error)
 
+	// Glob returns document paths matching a glob pattern.
+	Glob(pattern string) ([]string, error)
+
 	// Search performs a full-text search across all documents.
 	Search(query string) ([]SearchResult, error)
 
@@ -190,6 +193,18 @@ func (h *hostAPIImpl) List(prefix string) ([]string, error) {
 		paths[i] = doc.Path
 	}
 	return paths, nil
+}
+
+// Glob returns paths of documents matching a glob pattern.
+// Supports *, **, and ? wildcards.
+func (h *hostAPIImpl) Glob(pattern string) ([]string, error) {
+	resp, err := h.client.SearchGlob(context.Background(), &hostpb.GlobRequest{
+		Pattern: pattern,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Paths, nil
 }
 
 // Search performs a full-text search across all documents in the store.
