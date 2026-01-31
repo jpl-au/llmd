@@ -120,7 +120,7 @@ Plugins can access the llmd document store through the sdk.Host variable:
 	err := sdk.Host.Write("docs/new", []byte("content"), "author", "commit message")
 
 	// List documents
-	paths, err := sdk.Host.List("docs/")
+	docs, err := sdk.Host.List("docs/", sdk.ListOptions{})
 
 	// Search documents
 	results, err := sdk.Host.Search("query")

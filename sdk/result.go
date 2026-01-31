@@ -55,7 +55,7 @@ func (JSONResult) isResult() {}
 //
 // Example:
 //
-//	paths, _ := sdk.Host.List(prefix)
+//	docs, _ := sdk.Host.List(prefix, sdk.ListOptions{})
 //	return sdk.RichResult{
 //	    Text: strings.Join(paths, "\n"),
 //	    Data: paths,

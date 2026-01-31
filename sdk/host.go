@@ -50,8 +50,8 @@ type HostAPI interface {
 	// Move moves a document to a new path.
 	Move(from, to, author string) error
 
-	// List returns document paths matching the prefix.
-	List(prefix string) ([]string, error)
+	// List returns documents matching the prefix.
+	List(prefix string, opts ListOptions) ([]Document, error)
 
 	// Glob returns document paths matching a glob pattern.
 	Glob(pattern string) ([]string, error)
@@ -70,6 +70,23 @@ type HostAPI interface {
 
 	// Revert reverts a document to a previous version.
 	Revert(path string, version int, author, message string) error
+}
+
+// Document represents a document in the store.
+type Document struct {
+	Path      string
+	Version   int
+	Author    string
+	Message   string
+	CreatedAt int64
+	Deleted   bool
+}
+
+// ListOptions configures the List operation.
+type ListOptions struct {
+	IncludeDeleted bool   // Include soft-deleted documents
+	Sort           string // "path" (default) or "time"
+	Reverse        bool   // Reverse sort order
 }
 
 // SearchResult represents a full-text search result.
@@ -179,20 +196,30 @@ func (h *hostAPIImpl) Move(from, to, author string) error {
 	return err
 }
 
-// List returns the paths of all documents matching the given prefix.
-// An empty prefix returns all documents. Paths are returned in lexicographical order.
-func (h *hostAPIImpl) List(prefix string) ([]string, error) {
+// List returns all documents matching the given prefix.
+// An empty prefix returns all documents.
+func (h *hostAPIImpl) List(prefix string, opts ListOptions) ([]Document, error) {
 	resp, err := h.client.DocumentList(context.Background(), &hostpb.ListRequest{
-		Prefix: prefix,
+		Prefix:         prefix,
+		IncludeDeleted: opts.IncludeDeleted,
+		Sort:           opts.Sort,
+		Reverse:        opts.Reverse,
 	})
 	if err != nil {
 		return nil, err
 	}
-	paths := make([]string, len(resp.Documents))
-	for i, doc := range resp.Documents {
-		paths[i] = doc.Path
+	docs := make([]Document, len(resp.Documents))
+	for i, d := range resp.Documents {
+		docs[i] = Document{
+			Path:      d.Path,
+			Version:   int(d.Version),
+			Author:    d.Author,
+			Message:   d.Message,
+			CreatedAt: d.CreatedAt,
+			Deleted:   d.Deleted,
+		}
 	}
-	return paths, nil
+	return docs, nil
 }
 
 // Glob returns paths of documents matching a glob pattern.
