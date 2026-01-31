@@ -61,7 +61,7 @@ type HostAPI interface {
 	Search(query string) ([]SearchResult, error)
 
 	// Grep searches documents using FTS5 full-text search.
-	Grep(query string) ([]GrepResult, error)
+	Grep(query string, opts GrepOptions) ([]GrepResult, error)
 
 	// History returns version history for a document.
 	History(path string, limit int) ([]VersionInfo, error)
@@ -99,9 +99,18 @@ type SearchResult struct {
 
 // GrepResult represents a full-text search result.
 type GrepResult struct {
-	Path    string
-	Line    int
-	Content string
+	Path          string
+	Line          int
+	Content       string
+	ContextBefore []string
+	ContextAfter  []string
+}
+
+// GrepOptions configures the Grep operation.
+type GrepOptions struct {
+	Path         string // Filter to documents matching this path prefix
+	IgnoreCase   bool   // Case-insensitive search
+	ContextLines int    // Number of context lines before/after match
 }
 
 // VersionInfo represents a document version in history.
@@ -261,10 +270,13 @@ func (h *hostAPIImpl) Search(query string) ([]SearchResult, error) {
 }
 
 // Grep searches all documents using FTS5 full-text search.
-// Returns matching documents with their path and content.
-func (h *hostAPIImpl) Grep(query string) ([]GrepResult, error) {
+// Returns matching documents with their path, line, content, and optional context.
+func (h *hostAPIImpl) Grep(query string, opts GrepOptions) ([]GrepResult, error) {
 	resp, err := h.client.SearchRegex(context.Background(), &hostpb.GrepRequest{
-		Pattern: query,
+		Pattern:      query,
+		Path:         opts.Path,
+		IgnoreCase:   opts.IgnoreCase,
+		ContextLines: int32(opts.ContextLines),
 	})
 	if err != nil {
 		return nil, err
@@ -272,9 +284,11 @@ func (h *hostAPIImpl) Grep(query string) ([]GrepResult, error) {
 	results := make([]GrepResult, len(resp.Matches))
 	for i, m := range resp.Matches {
 		results[i] = GrepResult{
-			Path:    m.Path,
-			Line:    int(m.Line),
-			Content: m.Content,
+			Path:          m.Path,
+			Line:          int(m.Line),
+			Content:       m.Content,
+			ContextBefore: m.ContextBefore,
+			ContextAfter:  m.ContextAfter,
 		}
 	}
 	return results, nil
