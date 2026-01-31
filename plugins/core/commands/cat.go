@@ -10,6 +10,8 @@ package commands
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -17,34 +19,77 @@ import (
 // Cat defines the cat command for reading documents.
 //
 // The cat command displays the content of a document, similar to the Unix
-// cat command. It supports reading specific versions and line ranges.
+// cat command. It supports reading specific versions and line numbering.
 var Cat = sdk.Command{
 	Name:        "cat",
 	Description: "Read a document",
-	Usage:       "cat <path>",
+	Usage:       "cat [options] <path>...",
 	MCPEnabled:  true,
 	Flags: []sdk.Flag{
-		{Name: "version", Short: "v", Type: "int", Description: "Read specific version"},
-		{Name: "lines", Short: "n", Type: "string", Description: "Line range (e.g., 1-10)"},
+		{Name: "version", Type: "int", Description: "Read specific version"},
+		{Name: "n", Type: "bool", Description: "Number output lines"},
 	},
 }
 
 // ExecCat executes the cat command.
 //
-// Reads a document from the store and returns its content as text.
-// The path argument is required. Optional flags allow reading a specific
-// version or a range of lines.
+// Reads documents from the store and returns their content.
+// Supports multiple paths, specific versions, and line numbering.
 func ExecCat(ctx sdk.Context, args []string, flags map[string]any) (sdk.Result, error) {
-	if len(args) == 0 {
+	// Parse args
+	var paths []string
+	var version int
+	var numberLines bool
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "-n" {
+			numberLines = true
+		} else if arg == "--version" && i+1 < len(args) {
+			i++
+			version, _ = strconv.Atoi(args[i])
+		} else if strings.HasPrefix(arg, "--version=") {
+			version, _ = strconv.Atoi(strings.TrimPrefix(arg, "--version="))
+		} else if !strings.HasPrefix(arg, "-") {
+			paths = append(paths, arg)
+		}
+	}
+
+	if len(paths) == 0 {
 		return nil, fmt.Errorf("cat: missing path argument")
 	}
 
-	path := args[0]
+	var results []string
+	for _, path := range paths {
+		content, err := sdk.Host.Read(path, version)
+		if err != nil {
+			return nil, fmt.Errorf("cat: %s: %w", path, err)
+		}
 
-	content, err := sdk.Host.Read(path)
-	if err != nil {
-		return nil, fmt.Errorf("cat: %w", err)
+		text := string(content)
+		if numberLines {
+			text = addLineNumbers(text)
+		}
+		results = append(results, text)
 	}
 
-	return sdk.TextResult(string(content)), nil
+	output := strings.Join(results, "\n")
+	return sdk.RichResult{
+		Text: output,
+		Data: output,
+	}, nil
+}
+
+// addLineNumbers prefixes each line with its line number.
+func addLineNumbers(s string) string {
+	lines := strings.Split(s, "\n")
+	width := len(strconv.Itoa(len(lines)))
+	var b strings.Builder
+	for i, line := range lines {
+		fmt.Fprintf(&b, "%*d  %s", width, i+1, line)
+		if i < len(lines)-1 {
+			b.WriteByte('\n')
+		}
+	}
+	return b.String()
 }

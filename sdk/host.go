@@ -33,7 +33,8 @@ var Host HostAPI
 // (e.g., "notes/todo" not "/notes/todo").
 type HostAPI interface {
 	// Read retrieves a document's content by path.
-	Read(path string) ([]byte, error)
+	// If version is 0, reads the latest version.
+	Read(path string, version int) ([]byte, error)
 
 	// Write creates or updates a document.
 	Write(path string, content []byte, author, message string) error
@@ -129,11 +130,15 @@ func init() {
 }
 
 // Read retrieves a document's content from the host's document store.
+// If version is 0, reads the latest version.
 // Returns the raw content bytes, or an error if the document doesn't exist.
-func (h *hostAPIImpl) Read(path string) ([]byte, error) {
-	doc, err := h.client.DocumentRead(context.Background(), &hostpb.ReadRequest{
-		Path: path,
-	})
+func (h *hostAPIImpl) Read(path string, version int) ([]byte, error) {
+	req := &hostpb.ReadRequest{Path: path}
+	if version > 0 {
+		v := int32(version)
+		req.Version = &v
+	}
+	doc, err := h.client.DocumentRead(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
