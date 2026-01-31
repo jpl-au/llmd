@@ -20,7 +20,7 @@ var Write = sdk.Command{
 	Usage:       "write <path>",
 	MCPEnabled:  true,
 	Flags: []sdk.Flag{
-		{Name: "message", Short: "m", Type: "string", Description: "Version message"},
+		{Name: "message", Type: "string", Description: "Version message"},
 	},
 }
 

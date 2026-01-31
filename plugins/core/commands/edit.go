@@ -15,7 +15,7 @@ var Edit = sdk.Command{
 	Usage:       "edit <path> <old> <new>",
 	MCPEnabled:  true,
 	Flags: []sdk.Flag{
-		{Name: "message", Short: "m", Type: "string", Description: "Version message"},
+		{Name: "message", Type: "string", Description: "Version message"},
 	},
 }
 

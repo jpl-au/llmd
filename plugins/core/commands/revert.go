@@ -17,7 +17,7 @@ var Revert = sdk.Command{
 	Usage:       "revert <path> <version>",
 	MCPEnabled:  true,
 	Flags: []sdk.Flag{
-		{Name: "message", Short: "m", Type: "string", Description: "Revert message"},
+		{Name: "message", Type: "string", Description: "Revert message"},
 	},
 }
 

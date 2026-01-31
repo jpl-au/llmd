@@ -15,7 +15,7 @@ var Rm = sdk.Command{
 	Usage:       "rm <path>",
 	MCPEnabled:  true,
 	Flags: []sdk.Flag{
-		{Name: "message", Short: "m", Type: "string", Description: "Deletion message"},
+		{Name: "message", Type: "string", Description: "Deletion message"},
 	},
 }
 

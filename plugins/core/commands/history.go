@@ -4,6 +4,7 @@ package commands
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,24 +15,33 @@ import (
 var History = sdk.Command{
 	Name:        "history",
 	Description: "Show version history for a document",
-	Usage:       "history <path>",
+	Usage:       "history [-n limit] <path>",
 	MCPEnabled:  true,
 	Flags: []sdk.Flag{
-		{Name: "limit", Short: "n", Type: "int", Description: "Maximum versions to show"},
+		{Name: "n", Type: "int", Description: "Maximum versions to show"},
 	},
 }
 
 // ExecHistory executes the history command.
 func ExecHistory(ctx sdk.Context, args []string, flags map[string]any) (sdk.Result, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("history: missing path argument")
+	// Parse args
+	var path string
+	var limit int
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "-n" && i+1 < len(args) {
+			i++
+			limit, _ = strconv.Atoi(args[i])
+		} else if strings.HasPrefix(arg, "-n") {
+			limit, _ = strconv.Atoi(arg[2:])
+		} else if !strings.HasPrefix(arg, "-") {
+			path = arg
+		}
 	}
 
-	path := args[0]
-
-	limit := 0
-	if v, ok := flags["limit"].(int); ok {
-		limit = v
+	if path == "" {
+		return nil, fmt.Errorf("history: missing path argument")
 	}
 
 	versions, err := sdk.Host.History(path, limit)
@@ -40,9 +50,10 @@ func ExecHistory(ctx sdk.Context, args []string, flags map[string]any) (sdk.Resu
 	}
 
 	if len(versions) == 0 {
-		return sdk.TextResult("No history found"), nil
+		return sdk.RichResult{Text: "No history found", Data: []sdk.VersionInfo{}}, nil
 	}
 
+	// Build text output
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("%-8s %-12s %-20s %s\n", "Version", "Author", "Date", "Message"))
 	sb.WriteString(strings.Repeat("-", 60) + "\n")
@@ -56,7 +67,10 @@ func ExecHistory(ctx sdk.Context, args []string, flags map[string]any) (sdk.Resu
 		sb.WriteString(fmt.Sprintf("%-8d %-12s %-20s %s\n", v.Version, truncate(v.Author, 12), date, msg))
 	}
 
-	return sdk.TextResult(sb.String()), nil
+	return sdk.RichResult{
+		Text: strings.TrimSuffix(sb.String(), "\n"),
+		Data: versions,
+	}, nil
 }
 
 func truncate(s string, max int) string {
