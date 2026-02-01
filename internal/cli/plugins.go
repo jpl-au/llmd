@@ -10,8 +10,8 @@ import (
 )
 
 // runPlugins executes the plugins command.
-func (c *CLI) runPlugins(ctx context.Context, result *ParseResult) int {
-	plugins := c.host.Plugins()
+func (c *CLI) runPlugins(ctx context.Context, result *ParseResult, h *host.Host) int {
+	plugins := h.Plugins()
 
 	switch result.Output {
 	case OutputJSON:

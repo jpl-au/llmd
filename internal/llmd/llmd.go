@@ -33,25 +33,51 @@ type Store struct {
 	path string
 }
 
-// Open opens or creates a store at the given path.
-// If path is empty, it looks for .llmd/llmd.db in the current directory.
-func Open(path string) (*Store, error) {
+// DefaultPath returns the default store path.
+func DefaultPath() string {
+	return filepath.Join(".llmd", "llmd.db")
+}
+
+// Init creates a new store. Fails if it already exists.
+func Init(path string) (*Store, error) {
 	if path == "" {
-		path = filepath.Join(".llmd", "llmd.db")
+		path = DefaultPath()
 	}
 
-	// Ensure directory exists
+	// Check if already exists
+	if _, err := os.Stat(path); err == nil {
+		return nil, fmt.Errorf("store already exists: %s", path)
+	}
+
+	// Create directory
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("creating store directory: %w", err)
+		return nil, fmt.Errorf("creating directory: %w", err)
 	}
 
-	db, err := sql.Open("sqlite", path+"?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=ON")
+	return open(path)
+}
+
+// Open opens an existing store. Fails if it doesn't exist.
+func Open(path string) (*Store, error) {
+	if path == "" {
+		path = DefaultPath()
+	}
+
+	// Check exists
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("store not found: %s (run 'llmd init' first)", path)
+	}
+
+	return open(path)
+}
+
+func open(path string) (*Store, error) {
+	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	// Test connection
 	if err := db.Ping(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("connecting to database: %w", err)
@@ -62,20 +88,16 @@ func Open(path string) (*Store, error) {
 		path: path,
 	}
 
-	// Initialize schema
 	if err := s.migrate(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrating schema: %w", err)
 	}
 
-	// Create event bus
 	s.bus = events.New()
 
-	// Create FTS handler and subscribe
 	ftsHandler := search.NewFTSHandler(db)
 	s.bus.Subscribe(ftsHandler)
 
-	// Initialize sub-components
 	s.Documents = documents.New(db, s.bus)
 	s.History = history.New(db, s.Documents)
 	s.Search = search.New(db)
@@ -89,7 +111,7 @@ func Open(path string) (*Store, error) {
 
 // OpenMemory opens an in-memory store for testing.
 func OpenMemory() (*Store, error) {
-	db, err := sql.Open("sqlite", "file::memory:?cache=shared&_foreign_keys=ON")
+	db, err := sql.Open("sqlite", "file::memory:?cache=shared&_pragma=foreign_keys(1)")
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -124,7 +146,7 @@ func OpenMemory() (*Store, error) {
 }
 
 // Close closes the store.
-// Checkpoints WAL before closing to clean up -wal and -shm files.
+// Checkpoints WAL before closing to flush data to the main database file.
 func (s *Store) Close() error {
 	if s.path != ":memory:" {
 		_ = s.Checkpoint() // best effort, still close even if checkpoint fails
@@ -135,7 +157,7 @@ func (s *Store) Close() error {
 // Checkpoint writes WAL data to the main database file and truncates the WAL.
 // This removes the -wal and -shm files if no other connections exist.
 func (s *Store) Checkpoint() error {
-	_, err := s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	_, err := s.db.Exec("PRAGMA journal_mode=DELETE")
 	return err
 }
 
