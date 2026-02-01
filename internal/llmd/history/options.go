@@ -15,5 +15,5 @@ type RevertOptions struct {
 
 // DiffOptions configures a diff operation.
 type DiffOptions struct {
-	Context int // lines of context around changes (0 = default)
+	Context int // lines of context around changes (0 = default of 3)
 }

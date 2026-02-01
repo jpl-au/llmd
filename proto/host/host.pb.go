@@ -311,6 +311,8 @@ type DiffResponse struct {
 	Success bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	Error   string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	Diff    string `protobuf:"bytes,3,opt,name=diff,proto3" json:"diff,omitempty"`
+	Added   int32  `protobuf:"varint,4,opt,name=added,proto3" json:"added,omitempty"`     // Lines added
+	Removed int32  `protobuf:"varint,5,opt,name=removed,proto3" json:"removed,omitempty"` // Lines removed
 }
 
 func (x *DiffResponse) ProtoReflect() protoreflect.Message {
@@ -336,6 +338,20 @@ func (x *DiffResponse) GetDiff() string {
 		return x.Diff
 	}
 	return ""
+}
+
+func (x *DiffResponse) GetAdded() int32 {
+	if x != nil {
+		return x.Added
+	}
+	return 0
+}
+
+func (x *DiffResponse) GetRemoved() int32 {
+	if x != nil {
+		return x.Removed
+	}
+	return 0
 }
 
 type TagListResult struct {
@@ -1105,32 +1121,32 @@ type DiffRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Path     string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Version1 int32  `protobuf:"varint,2,opt,name=version1,proto3" json:"version1,omitempty"`
-	Version2 int32  `protobuf:"varint,3,opt,name=version2,proto3" json:"version2,omitempty"`
+	Source  string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`    // First document (path, path:version, key, or filesystem path)
+	Target  string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`    // Second document (path, path:version, key, or filesystem path)
+	Context int32  `protobuf:"varint,3,opt,name=context,proto3" json:"context,omitempty"` // Lines of context (0 = default of 3)
 }
 
 func (x *DiffRequest) ProtoReflect() protoreflect.Message {
 	panic(`not implemented`)
 }
 
-func (x *DiffRequest) GetPath() string {
+func (x *DiffRequest) GetSource() string {
 	if x != nil {
-		return x.Path
+		return x.Source
 	}
 	return ""
 }
 
-func (x *DiffRequest) GetVersion1() int32 {
+func (x *DiffRequest) GetTarget() string {
 	if x != nil {
-		return x.Version1
+		return x.Target
 	}
-	return 0
+	return ""
 }
 
-func (x *DiffRequest) GetVersion2() int32 {
+func (x *DiffRequest) GetContext() int32 {
 	if x != nil {
-		return x.Version2
+		return x.Context
 	}
 	return 0
 }

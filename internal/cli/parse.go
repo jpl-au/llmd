@@ -12,6 +12,7 @@ type ParseResult struct {
 	Flags   map[string]any
 	Output  OutputFormat
 	Help    bool
+	Raw     bool   // Skip glamour markdown rendering
 	Author  string // From --author flag (overrides config)
 	Local   bool   // For config --local (write to .llmd/config.yaml instead of global)
 }
@@ -90,6 +91,10 @@ func Parse(args []string) (*ParseResult, error) {
 			}
 			if name == "local" {
 				r.Local = true
+				continue
+			}
+			if name == "raw" {
+				r.Raw = true
 				continue
 			}
 

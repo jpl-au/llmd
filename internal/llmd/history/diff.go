@@ -3,37 +3,95 @@ package history
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/aymanbagabas/go-udiff"
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
 // DiffResult contains the result of comparing two documents.
 type DiffResult struct {
-	A *document.Document
-	B *document.Document
+	A       *document.Document
+	B       *document.Document
+	Unified string // Unified diff output
+	Stats   DiffStats
+}
+
+// DiffStats contains statistics about the diff.
+type DiffStats struct {
+	Added   int
+	Removed int
 }
 
 // Diff compares two documents.
-// a and b can be filesystem paths, llmd paths, or 9-char keys.
+// a and b can be filesystem paths, llmd paths, llmd path:version, or 9-char keys.
 func (h *History) Diff(ctx context.Context, a, b string, opts ...DiffOptions) (*DiffResult, error) {
 	var opt DiffOptions
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
-	_ = opt // TODO: use for unified diff formatting
 
 	docA, err := h.docs.Resolve(ctx, a)
 	if err != nil {
-		return nil, fmt.Errorf("resolving a: %w", err)
+		return nil, fmt.Errorf("resolving %s: %w", a, err)
 	}
 
 	docB, err := h.docs.Resolve(ctx, b)
 	if err != nil {
-		return nil, fmt.Errorf("resolving b: %w", err)
+		return nil, fmt.Errorf("resolving %s: %w", b, err)
 	}
 
+	// Compute unified diff
+	context := opt.Context
+	if context == 0 {
+		context = 3 // default context lines
+	}
+
+	labelA := formatLabel(docA)
+	labelB := formatLabel(docB)
+
+	edits := udiff.Strings(docA.Content, docB.Content)
+	unified, err := udiff.ToUnified(labelA, labelB, docA.Content, edits, context)
+	if err != nil {
+		return nil, fmt.Errorf("computing diff: %w", err)
+	}
+
+	// Compute stats
+	stats := computeStats(edits, docA.Content)
+
 	return &DiffResult{
-		A: docA,
-		B: docB,
+		A:       docA,
+		B:       docB,
+		Unified: unified,
+		Stats:   stats,
 	}, nil
+}
+
+// formatLabel creates a label for diff output.
+func formatLabel(doc *document.Document) string {
+	if doc.Version > 0 {
+		return fmt.Sprintf("%s:%d", doc.Path, doc.Version)
+	}
+	return doc.Path
+}
+
+// computeStats calculates lines added and removed.
+func computeStats(edits []udiff.Edit, original string) DiffStats {
+	var stats DiffStats
+	for _, e := range edits {
+		// Count removed lines (from original content being replaced)
+		removed := strings.Count(original[e.Start:e.End], "\n")
+		if e.End > e.Start && original[e.End-1] != '\n' {
+			removed++ // partial line counts as a line
+		}
+		stats.Removed += removed
+
+		// Count added lines (new content)
+		added := strings.Count(e.New, "\n")
+		if len(e.New) > 0 && e.New[len(e.New)-1] != '\n' {
+			added++ // partial line counts as a line
+		}
+		stats.Added += added
+	}
+	return stats
 }

@@ -562,6 +562,16 @@ func (m *DiffResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.Removed != 0 {
+		i = encodeVarint(dAtA, i, uint64(m.Removed))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.Added != 0 {
+		i = encodeVarint(dAtA, i, uint64(m.Added))
+		i--
+		dAtA[i] = 0x20
+	}
 	if len(m.Diff) > 0 {
 		i -= len(m.Diff)
 		copy(dAtA[i:], m.Diff)
@@ -1806,20 +1816,22 @@ func (m *DiffRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
-	if m.Version2 != 0 {
-		i = encodeVarint(dAtA, i, uint64(m.Version2))
+	if m.Context != 0 {
+		i = encodeVarint(dAtA, i, uint64(m.Context))
 		i--
 		dAtA[i] = 0x18
 	}
-	if m.Version1 != 0 {
-		i = encodeVarint(dAtA, i, uint64(m.Version1))
+	if len(m.Target) > 0 {
+		i -= len(m.Target)
+		copy(dAtA[i:], m.Target)
+		i = encodeVarint(dAtA, i, uint64(len(m.Target)))
 		i--
-		dAtA[i] = 0x10
+		dAtA[i] = 0x12
 	}
-	if len(m.Path) > 0 {
-		i -= len(m.Path)
-		copy(dAtA[i:], m.Path)
-		i = encodeVarint(dAtA, i, uint64(len(m.Path)))
+	if len(m.Source) > 0 {
+		i -= len(m.Source)
+		copy(dAtA[i:], m.Source)
+		i = encodeVarint(dAtA, i, uint64(len(m.Source)))
 		i--
 		dAtA[i] = 0xa
 	}
@@ -2714,6 +2726,12 @@ func (m *DiffResponse) SizeVT() (n int) {
 	if l > 0 {
 		n += 1 + l + sov(uint64(l))
 	}
+	if m.Added != 0 {
+		n += 1 + sov(uint64(m.Added))
+	}
+	if m.Removed != 0 {
+		n += 1 + sov(uint64(m.Removed))
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -3190,15 +3208,16 @@ func (m *DiffRequest) SizeVT() (n int) {
 	}
 	var l int
 	_ = l
-	l = len(m.Path)
+	l = len(m.Source)
 	if l > 0 {
 		n += 1 + l + sov(uint64(l))
 	}
-	if m.Version1 != 0 {
-		n += 1 + sov(uint64(m.Version1))
+	l = len(m.Target)
+	if l > 0 {
+		n += 1 + l + sov(uint64(l))
 	}
-	if m.Version2 != 0 {
-		n += 1 + sov(uint64(m.Version2))
+	if m.Context != 0 {
+		n += 1 + sov(uint64(m.Context))
 	}
 	n += len(m.unknownFields)
 	return n
@@ -4692,6 +4711,44 @@ func (m *DiffResponse) UnmarshalVT(dAtA []byte) error {
 			}
 			m.Diff = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Added", wireType)
+			}
+			m.Added = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Added |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Removed", wireType)
+			}
+			m.Removed = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Removed |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skip(dAtA[iNdEx:])
@@ -7712,7 +7769,7 @@ func (m *DiffRequest) UnmarshalVT(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Path", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Source", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -7740,13 +7797,13 @@ func (m *DiffRequest) UnmarshalVT(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Path = string(dAtA[iNdEx:postIndex])
+			m.Source = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Version1", wireType)
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Target", wireType)
 			}
-			m.Version1 = 0
+			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflow
@@ -7756,16 +7813,29 @@ func (m *DiffRequest) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Version1 |= int32(b&0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLength
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLength
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Target = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		case 3:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Version2", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Context", wireType)
 			}
-			m.Version2 = 0
+			m.Context = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflow
@@ -7775,7 +7845,7 @@ func (m *DiffRequest) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Version2 |= int32(b&0x7F) << shift
+				m.Context |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

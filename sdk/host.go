@@ -67,8 +67,9 @@ type HostAPI interface {
 	// History returns version history for a document.
 	History(path string, limit int) ([]VersionInfo, error)
 
-	// Diff returns a diff between two versions of a document.
-	Diff(path string, v1, v2 int) (string, error)
+	// Diff compares two documents or document versions.
+	// Source and target can be filesystem paths, llmd paths, llmd path:version, or 9-char keys.
+	Diff(source, target string, opts DiffOptions) (*DiffResult, error)
 
 	// Revert reverts a document to a previous version.
 	Revert(path string, version int, author, message string) error
@@ -120,6 +121,18 @@ type VersionInfo struct {
 	Author    string
 	Message   string
 	CreatedAt int64
+}
+
+// DiffOptions configures the Diff operation.
+type DiffOptions struct {
+	Context int // Lines of context around changes (0 = default of 3)
+}
+
+// DiffResult contains the result of comparing two documents.
+type DiffResult struct {
+	Diff    string // Unified diff output
+	Added   int    // Lines added
+	Removed int    // Lines removed
 }
 
 // hostAPIImpl implements HostAPI using the proto-generated host client.
@@ -365,21 +378,25 @@ func (h *hostAPIImpl) History(path string, limit int) ([]VersionInfo, error) {
 	return versions, nil
 }
 
-// Diff returns a unified diff between two versions of a document.
-// If v2 is 0, it diffs against the latest version.
-func (h *hostAPIImpl) Diff(path string, v1, v2 int) (string, error) {
+// Diff compares two documents or document versions.
+// Source and target can be filesystem paths, llmd paths, llmd path:version, or 9-char keys.
+func (h *hostAPIImpl) Diff(source, target string, opts DiffOptions) (*DiffResult, error) {
 	resp, err := h.client.HistoryDiff(context.Background(), &hostpb.DiffRequest{
-		Path:     path,
-		Version1: int32(v1),
-		Version2: int32(v2),
+		Source:  source,
+		Target:  target,
+		Context: int32(opts.Context),
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if !resp.Success {
-		return "", errors.New(resp.Error)
+		return nil, errors.New(resp.Error)
 	}
-	return resp.Diff, nil
+	return &DiffResult{
+		Diff:    resp.Diff,
+		Added:   int(resp.Added),
+		Removed: int(resp.Removed),
+	}, nil
 }
 
 // Revert reverts a document to a previous version.

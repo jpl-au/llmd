@@ -7,7 +7,6 @@ package host
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/jpl-au/llmd/internal/llmd/history"
 	"github.com/jpl-au/llmd/pkg/model/core"
@@ -45,33 +44,30 @@ func (h *HostFuncs) HistoryList(ctx context.Context, req *hostpb.HistoryRequest)
 	return &hostpb.VersionListResponse{Success: true, Versions: versions}, nil
 }
 
-// HistoryDiff compares two versions of a document.
+// HistoryDiff compares two documents or document versions.
 //
-// Returns a diff showing the differences between Version1 and Version2.
-// If either version is 0, the latest version is used. The diff format is
-// similar to unified diff format.
+// Source and Target can be filesystem paths, llmd paths, llmd path:version,
+// or 9-char keys. Returns a unified diff showing the differences.
 func (h *HostFuncs) HistoryDiff(ctx context.Context, req *hostpb.DiffRequest) (*hostpb.DiffResponse, error) {
 	if h.store == nil {
 		return &hostpb.DiffResponse{Error: ErrStoreNotAvailable.Error()}, nil
 	}
-	v1 := req.Path
-	v2 := req.Path
-	if req.Version1 > 0 {
-		v1 = req.Path + ":" + strconv.Itoa(int(req.Version1))
-	}
-	if req.Version2 > 0 {
-		v2 = req.Path + ":" + strconv.Itoa(int(req.Version2))
+
+	opts := history.DiffOptions{
+		Context: int(req.Context),
 	}
 
-	result, err := h.store.History.Diff(ctx, v1, v2)
+	result, err := h.store.History.Diff(ctx, req.Source, req.Target, opts)
 	if err != nil {
 		return &hostpb.DiffResponse{Error: err.Error()}, nil
 	}
 
-	diff := "--- " + result.A.Path + "\n+++ " + result.B.Path + "\n"
-	diff += result.A.Content + "\n---\n" + result.B.Content
-
-	return &hostpb.DiffResponse{Success: true, Diff: diff}, nil
+	return &hostpb.DiffResponse{
+		Success: true,
+		Diff:    result.Unified,
+		Added:   int32(result.Stats.Added),
+		Removed: int32(result.Stats.Removed),
+	}, nil
 }
 
 // HistoryRevert reverts a document to a previous version.

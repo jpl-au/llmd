@@ -209,7 +209,15 @@ func (c *CLI) runCommand(ctx context.Context, result *ParseResult, h *host.Host,
 			fmt.Fprintln(c.stdout, resp.TextOutput)
 		}
 	} else {
-		fmt.Fprintln(c.stdout, resp.TextOutput)
+		output := resp.TextOutput
+		if !result.Raw {
+			if result.Command == "diff" {
+				output = colorizeDiff(output)
+			} else {
+				output = renderMarkdown(output)
+			}
+		}
+		fmt.Fprintln(c.stdout, output)
 	}
 	return ExitSuccess
 }

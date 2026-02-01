@@ -103,6 +103,8 @@ message DiffResponse {
   bool success = 1;
   string error = 2;
   string diff = 3;
+  int32 added = 4;    // Lines added
+  int32 removed = 5;  // Lines removed
 }
 
 message TagListResult {
@@ -244,9 +246,9 @@ message VersionInfo {
 }
 
 message DiffRequest {
-  string path = 1;
-  int32 version1 = 2;
-  int32 version2 = 3;
+  string source = 1;  // First document (path, path:version, key, or filesystem path)
+  string target = 2;  // Second document (path, path:version, key, or filesystem path)
+  int32 context = 3;  // Lines of context (0 = default of 3)
 }
 
 
