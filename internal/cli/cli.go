@@ -61,8 +61,16 @@ func (c *CLI) Run(ctx context.Context, args []string) int {
 		version.Print()
 		return ExitSuccess
 	case "config":
+		if result.Help {
+			fmt.Fprint(c.stdout, BuiltinHelp("config"))
+			return ExitSuccess
+		}
 		return c.runConfig(ctx, result)
 	case "init":
+		if result.Help {
+			fmt.Fprint(c.stdout, BuiltinHelp("init"))
+			return ExitSuccess
+		}
 		return c.runInit(ctx, result)
 	}
 
@@ -84,6 +92,10 @@ func (c *CLI) Run(ctx context.Context, args []string) int {
 
 	// Maintenance commands - store only, no plugins
 	if result.Command == "vacuum" {
+		if result.Help {
+			fmt.Fprint(c.stdout, BuiltinHelp("vacuum"))
+			return ExitSuccess
+		}
 		store, err := llmd.Open("")
 		if err != nil {
 			c.writeError(err, result.Output)
