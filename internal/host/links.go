@@ -21,7 +21,10 @@ import (
 // Creates a directed link from the From document to the To document, with
 // an optional Tag describing the relationship. If the link already exists,
 // this is a no-op. Returns the created or existing link.
-func (h *HostFuncs) LinkAdd(ctx context.Context, req *hostpb.LinkRequest) (*hostpb.Link, error) {
+func (h *HostFuncs) LinkAdd(ctx context.Context, req *hostpb.LinkRequest) (*hostpb.LinkResponse, error) {
+	if h.store == nil {
+		return &hostpb.LinkResponse{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	opts := links.Options{
 		Origin: core.Origin{
 			Author: req.Author,
@@ -32,22 +35,28 @@ func (h *HostFuncs) LinkAdd(ctx context.Context, req *hostpb.LinkRequest) (*host
 
 	link, err := h.store.Links.Add(ctx, req.From, req.To, opts)
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
-		return nil, err
+		return &hostpb.LinkResponse{Error: err.Error()}, nil
 	}
 
 	if link == nil {
-		return &hostpb.Link{
-			From: req.From,
-			To:   req.To,
-			Tag:  req.Tag,
+		return &hostpb.LinkResponse{
+			Success: true,
+			Link: &hostpb.Link{
+				From: req.From,
+				To:   req.To,
+				Tag:  req.Tag,
+			},
 		}, nil
 	}
 
-	return &hostpb.Link{
-		Id:   link.Key,
-		From: link.Relation,
-		To:   link.Value.To,
-		Tag:  link.Value.Label,
+	return &hostpb.LinkResponse{
+		Success: true,
+		Link: &hostpb.Link{
+			Id:   link.Key,
+			From: link.Relation,
+			To:   link.Value.To,
+			Tag:  link.Value.Label,
+		},
 	}, nil
 }
 
@@ -55,7 +64,10 @@ func (h *HostFuncs) LinkAdd(ctx context.Context, req *hostpb.LinkRequest) (*host
 //
 // The link is permanently deleted. The ID should be obtained from a previous
 // LinkAdd or LinkList call. Returns an error if the link doesn't exist.
-func (h *HostFuncs) LinkRemove(ctx context.Context, req *hostpb.UnlinkRequest) (*hostpb.Empty, error) {
+func (h *HostFuncs) LinkRemove(ctx context.Context, req *hostpb.UnlinkRequest) (*hostpb.EmptyResponse, error) {
+	if h.store == nil {
+		return &hostpb.EmptyResponse{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	opts := entities.DeleteOptions{
 		Origin: core.Origin{
 			Author: req.Author,
@@ -64,10 +76,10 @@ func (h *HostFuncs) LinkRemove(ctx context.Context, req *hostpb.UnlinkRequest) (
 	}
 
 	if err := h.store.Entities.Delete(ctx, req.Id, opts); err != nil {
-		return nil, err
+		return &hostpb.EmptyResponse{Error: err.Error()}, nil
 	}
 
-	return &hostpb.Empty{}, nil
+	return &hostpb.EmptyResponse{Success: true}, nil
 }
 
 // LinkList lists all links for a document.
@@ -75,14 +87,17 @@ func (h *HostFuncs) LinkRemove(ctx context.Context, req *hostpb.UnlinkRequest) (
 // Returns both incoming and outgoing links. Each link includes its ID, the
 // source and target paths, and the optional tag. If the document has no
 // links, returns an empty list.
-func (h *HostFuncs) LinkList(ctx context.Context, req *hostpb.LinkListRequest) (*hostpb.LinkListResponse, error) {
+func (h *HostFuncs) LinkList(ctx context.Context, req *hostpb.LinkListRequest) (*hostpb.LinkListResult, error) {
+	if h.store == nil {
+		return &hostpb.LinkListResult{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	opts := links.Options{
 		Direction: links.Both,
 	}
 
 	linkList, err := h.store.Links.List(ctx, req.Path, opts)
 	if err != nil {
-		return nil, err
+		return &hostpb.LinkListResult{Error: err.Error()}, nil
 	}
 
 	result := make([]*hostpb.Link, len(linkList))
@@ -95,5 +110,5 @@ func (h *HostFuncs) LinkList(ctx context.Context, req *hostpb.LinkListRequest) (
 		}
 	}
 
-	return &hostpb.LinkListResponse{Links: result}, nil
+	return &hostpb.LinkListResult{Success: true, Links: result}, nil
 }

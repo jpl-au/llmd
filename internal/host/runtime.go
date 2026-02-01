@@ -25,6 +25,7 @@ package host
 import (
 	"context"
 
+	"github.com/jpl-au/llmd/internal/debug"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/paths"
 	hostpb "github.com/jpl-au/llmd/proto/host"
@@ -58,9 +59,15 @@ type Runtime struct {
 // The go-plugin library uses a custom wazero runtime factory so we can inject
 // our host functions into the "env" module before loading plugins.
 //
+// The store parameter can be nil for discovery commands that only need plugin
+// manifests. Host functions will return ErrStoreNotAvailable if called with
+// a nil store.
+//
 // Plugins built with -buildmode=c-shared export _initialize rather than _start,
 // which is the default mode for go-plugin, so no special configuration is needed.
 func NewRuntime(ctx context.Context, store *llmd.Store) (*Runtime, error) {
+	debug.Log("NewRuntime", "storeAvailable", store != nil)
+
 	hostFuncs := NewHostFuncs(store)
 
 	// Set up compilation cache to speed up subsequent runs.
@@ -71,10 +78,14 @@ func NewRuntime(ctx context.Context, store *llmd.Store) (*Runtime, error) {
 	// to clear if it grows too large.
 	cacheDir, err := paths.CacheDir()
 	if err != nil {
+		debug.Log("NewRuntime error", "step", "cacheDir", "error", err.Error())
 		return nil, err
 	}
+	debug.Log("NewRuntime", "cacheDir", cacheDir)
+
 	cache, err := wazero.NewCompilationCacheWithDir(cacheDir)
 	if err != nil {
+		debug.Log("NewRuntime error", "step", "cache", "error", err.Error())
 		return nil, err
 	}
 	runtimeConfig := wazero.NewRuntimeConfig().WithCompilationCache(cache)
@@ -83,27 +94,34 @@ func NewRuntime(ctx context.Context, store *llmd.Store) (*Runtime, error) {
 	// The WazeroRuntime option lets us configure the runtime before plugins load.
 	loader, err := plugin.NewPluginPlugin(ctx,
 		plugin.WazeroRuntime(func(ctx context.Context) (wazero.Runtime, error) {
+			debug.Log("WazeroRuntime factory called")
 			r := wazero.NewRuntimeWithConfig(ctx, runtimeConfig)
 
 			// Instantiate WASI - provides basic system call emulation (env vars, args, etc.)
 			if _, err := wasi_snapshot_preview1.Instantiate(ctx, r); err != nil {
+				debug.Log("WazeroRuntime error", "step", "WASI", "error", err.Error())
 				r.Close(ctx)
 				return nil, err
 			}
+			debug.Log("WazeroRuntime", "step", "WASI instantiated")
 
 			// Instantiate our host functions - allows plugins to access the document store
 			if err := hostpb.Instantiate(ctx, r, hostFuncs); err != nil {
+				debug.Log("WazeroRuntime error", "step", "hostFuncs", "error", err.Error())
 				r.Close(ctx)
 				return nil, err
 			}
+			debug.Log("WazeroRuntime", "step", "hostFuncs instantiated")
 
 			return r, nil
 		}),
 	)
 	if err != nil {
+		debug.Log("NewRuntime error", "step", "pluginLoader", "error", err.Error())
 		return nil, err
 	}
 
+	debug.Log("NewRuntime complete")
 	return &Runtime{
 		store:     store,
 		hostFuncs: hostFuncs,

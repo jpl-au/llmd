@@ -9,7 +9,9 @@ import (
 	"os"
 
 	"github.com/jpl-au/llmd/internal/config"
+	"github.com/jpl-au/llmd/internal/debug"
 	"github.com/jpl-au/llmd/internal/host"
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/version"
 )
 
@@ -22,16 +24,14 @@ const (
 
 // CLI is the command-line interface handler.
 type CLI struct {
-	host   *host.Host
 	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
 }
 
 // New creates a new CLI instance.
-func New(h *host.Host) *CLI {
+func New() *CLI {
 	return &CLI{
-		host:   h,
 		stdin:  os.Stdin,
 		stdout: os.Stdout,
 		stderr: os.Stderr,
@@ -40,73 +40,156 @@ func New(h *host.Host) *CLI {
 
 // Run parses arguments and executes the appropriate command.
 //
+// Commands are loaded in phases based on their requirements:
+//   - Meta commands (version, config, init): no resources needed
+//   - Discovery commands (help, plugins): plugins only, no store
+//   - Maintenance commands (vacuum): store only, no plugins
+//   - Functional commands (ls, cat, write, etc.): store and plugins
+//
 // Returns an exit code: 0 for success, 1 for command errors, 2 for usage errors.
 func (c *CLI) Run(ctx context.Context, args []string) int {
-	// Parse global flags only - command flags pass through raw
 	result, err := Parse(args)
 	if err != nil {
 		c.writeError(err, OutputText)
 		return ExitUsage
 	}
 
-	// No command → root help
-	if result.Command == "" {
-		fmt.Fprint(c.stdout, RootHelp(c.host.Commands()))
+	// Meta commands - no resources needed
+	switch result.Command {
+	case "version":
+		version.Print()
 		return ExitSuccess
+	case "config":
+		return c.runConfig(ctx, result)
+	case "init":
+		return c.runInit(ctx, result)
 	}
 
-	// Check if command exists (built-in or plugin)
-	cmd := c.host.Commands()[result.Command]
-	isBuiltin := IsBuiltin(result.Command)
-
-	if cmd == nil && !isBuiltin {
-		c.writeError(fmt.Errorf("unknown command: %s", result.Command), result.Output)
-		return ExitUsage
-	}
-
-	// Handle --help for the command
-	if result.Help {
-		if isBuiltin {
-			fmt.Fprint(c.stdout, BuiltinHelp(result.Command))
-		} else {
-			fmt.Fprint(c.stdout, CommandHelp(cmd))
+	// Discovery commands - plugins only, no store
+	// This includes: no command (root help), --help flag, or "plugins" command
+	if result.Command == "" || result.Help || result.Command == "plugins" {
+		h, err := host.New(ctx, nil)
+		if err != nil {
+			c.writeError(err, result.Output)
+			return ExitError
 		}
-		return ExitSuccess
-	}
-
-	// Execute built-in commands
-	if isBuiltin {
-		return c.runBuiltin(ctx, result)
-	}
-
-	// Load config
-	cfg, _ := config.Load() // Errors are non-fatal (file may not exist)
-
-	// Determine author: flag > config > error
-	author := result.Author
-	if author == "" && cfg != nil {
-		author = cfg.Author
-	}
-	if author == "" {
-		c.writeError(errors.New("author not configured\n\nSet your author name:\n  llmd config author \"Your Name\"           # global (all projects)\n  llmd config --local author \"Your Name\"   # local (this project only)"), result.Output)
-		return ExitUsage
-	}
-
-	// Read stdin if piped
-	var stdin []byte
-	if f, ok := c.stdin.(*os.File); ok {
-		if stat, err := f.Stat(); err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
-			stdin, _ = io.ReadAll(f)
+		defer h.Close(ctx)
+		if err := h.LoadPlugins(ctx); err != nil {
+			c.writeError(err, result.Output)
+			return ExitError
 		}
+		return c.runDiscovery(ctx, result, h)
 	}
 
-	// Execute plugin command - pass nil for flags (plugin parses its own)
-	resp, err := c.host.ExecuteCommand(ctx, result.Command, result.Args, nil, stdin, author)
+	// Maintenance commands - store only, no plugins
+	if result.Command == "vacuum" {
+		store, err := llmd.Open("")
+		if err != nil {
+			c.writeError(err, result.Output)
+			return ExitError
+		}
+		defer store.Close()
+		return c.runVacuum(ctx, result, store)
+	}
+
+	// Functional commands - store and plugins
+	debug.Log("Run", "step", "opening store")
+	store, err := llmd.Open("")
 	if err != nil {
 		c.writeError(err, result.Output)
 		return ExitError
 	}
+	defer store.Close()
+	debug.Log("Run", "step", "store opened")
 
+	h, err := host.New(ctx, store)
+	if err != nil {
+		c.writeError(err, result.Output)
+		return ExitError
+	}
+	defer h.Close(ctx)
+	debug.Log("Run", "step", "loading plugins")
+	if err := h.LoadPlugins(ctx); err != nil {
+		c.writeError(err, result.Output)
+		return ExitError
+	}
+	debug.Log("Run", "step", "plugins loaded")
+
+	// Check if command exists
+	cmd := h.Commands()[result.Command]
+	if cmd == nil {
+		c.writeError(fmt.Errorf("unknown command: %s", result.Command), result.Output)
+		return ExitUsage
+	}
+	debug.Log("Run", "step", "command found", "command", result.Command)
+
+	// Author check - only for write commands
+	author := c.resolveAuthor(result)
+	if author == "" && needsAuthor(result.Command) {
+		c.writeError(errors.New("author not configured\n\nSet your author name:\n  llmd config author \"Your Name\"           # global (all projects)\n  llmd config --local author \"Your Name\"   # local (this project only)"), result.Output)
+		return ExitUsage
+	}
+
+	debug.Log("Run", "step", "calling runCommand")
+	return c.runCommand(ctx, result, h, author)
+}
+
+// runDiscovery handles discovery commands that need plugins but not the store.
+func (c *CLI) runDiscovery(ctx context.Context, result *ParseResult, h *host.Host) int {
+	// No command → root help
+	if result.Command == "" {
+		fmt.Fprint(c.stdout, RootHelp(h.Commands()))
+		return ExitSuccess
+	}
+
+	// Command --help
+	if result.Help {
+		if IsBuiltin(result.Command) {
+			fmt.Fprint(c.stdout, BuiltinHelp(result.Command))
+		} else if cmd := h.Commands()[result.Command]; cmd != nil {
+			fmt.Fprint(c.stdout, CommandHelp(cmd))
+		} else {
+			c.writeError(fmt.Errorf("unknown command: %s", result.Command), result.Output)
+			return ExitUsage
+		}
+		return ExitSuccess
+	}
+
+	// plugins command
+	if result.Command == "plugins" {
+		return c.runPlugins(ctx, result, h)
+	}
+
+	return ExitSuccess
+}
+
+// runCommand executes a plugin command with full resources.
+func (c *CLI) runCommand(ctx context.Context, result *ParseResult, h *host.Host, author string) int {
+	debug.Log("runCommand", "command", result.Command)
+
+	// Read stdin if piped (not a TTY)
+	// Note: This blocks if stdin is a pipe with no data/EOF. Pipe input explicitly
+	// or use < /dev/null to avoid blocking when running from process wrappers.
+	var stdin []byte
+	if f, ok := c.stdin.(*os.File); ok {
+		debug.Log("runCommand", "step", "checking stdin")
+		if stat, err := f.Stat(); err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+			debug.Log("runCommand", "step", "reading stdin")
+			stdin, _ = io.ReadAll(f)
+			debug.Log("runCommand", "step", "stdin read", "size", len(stdin))
+		}
+	}
+
+	// Execute plugin command
+	debug.Log("runCommand", "step", "executing command")
+	resp, err := h.ExecuteCommand(ctx, result.Command, result.Args, nil, stdin, author)
+	if err != nil {
+		debug.Log("runCommand error", "error", err.Error())
+		c.writeError(err, result.Output)
+		return ExitError
+	}
+
+	debug.Log("runCommand", "step", "command completed")
 	// Output based on format flag
 	if result.Output == OutputJSON && len(resp.StructuredData) > 0 {
 		var obj any
@@ -123,31 +206,120 @@ func (c *CLI) Run(ctx context.Context, args []string) int {
 	return ExitSuccess
 }
 
-// runBuiltin executes a built-in command.
-func (c *CLI) runBuiltin(ctx context.Context, result *ParseResult) int {
-	switch result.Command {
-	case "version":
-		version.Print()
+// runInit creates a new store.
+func (c *CLI) runInit(ctx context.Context, result *ParseResult) int {
+	store, err := llmd.Init("")
+	if err != nil {
+		c.writeError(err, result.Output)
+		return ExitError
+	}
+	store.Close()
+	fmt.Fprintln(c.stdout, "Initialized llmd store in .llmd/")
+	return ExitSuccess
+}
+
+// runConfig handles the config command.
+func (c *CLI) runConfig(ctx context.Context, result *ParseResult) int {
+	cfg, _ := config.Load()
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
+	switch len(result.Args) {
+	case 0:
+		// Show all config
+		return c.showConfig(cfg, result.Output)
+
+	case 1:
+		// Show specific key
+		key := result.Args[0]
+		value, ok := cfg.Get(key)
+		if !ok {
+			return ExitSuccess
+		}
+		fmt.Fprintln(c.stdout, value)
 		return ExitSuccess
 
-	case "plugins":
-		return c.runPlugins(ctx, result)
+	case 2:
+		// Set key=value
+		key, value := result.Args[0], result.Args[1]
 
-	case "config":
-		return c.runConfig(ctx, result)
+		var path string
+		if result.Local {
+			path = config.LocalPath()
+		} else {
+			var err error
+			path, err = config.GlobalPath()
+			if err != nil {
+				c.writeError(fmt.Errorf("getting global config path: %w", err), result.Output)
+				return ExitError
+			}
+		}
+
+		if err := config.Set(path, key, value); err != nil {
+			c.writeError(err, result.Output)
+			return ExitError
+		}
+		return ExitSuccess
 
 	default:
-		c.writeError(fmt.Errorf("unknown built-in command: %s", result.Command), result.Output)
+		c.writeError(fmt.Errorf("usage: llmd config [key] [value]"), result.Output)
 		return ExitUsage
 	}
 }
 
-// writeError writes an error to stderr in the appropriate format.
-func (c *CLI) writeError(err error, format OutputFormat) {
+// showConfig displays all config values.
+func (c *CLI) showConfig(cfg *config.Config, format OutputFormat) int {
 	switch format {
 	case OutputJSON:
-		json.NewEncoder(c.stderr).Encode(map[string]string{"error": err.Error()})
+		data := map[string]string{}
+		if cfg.Author != "" {
+			data["author"] = cfg.Author
+		}
+		if cfg.Output != "" {
+			data["output"] = cfg.Output
+		}
+		json.NewEncoder(c.stdout).Encode(data)
+
 	default:
-		fmt.Fprintf(c.stderr, "error: %v\n", err)
+		if cfg.Author != "" {
+			fmt.Fprintf(c.stdout, "author=%s\n", cfg.Author)
+		}
+		if cfg.Output != "" {
+			fmt.Fprintf(c.stdout, "output=%s\n", cfg.Output)
+		}
+	}
+	return ExitSuccess
+}
+
+// needsAuthor returns true for commands that mutate data.
+func needsAuthor(cmd string) bool {
+	switch cmd {
+	case "write", "edit", "rm", "mv", "tag", "link":
+		return true
+	}
+	return false
+}
+
+// resolveAuthor gets author from flag, then config.
+func (c *CLI) resolveAuthor(result *ParseResult) string {
+	if result.Author != "" {
+		return result.Author
+	}
+	cfg, _ := config.Load()
+	if cfg != nil && cfg.Author != "" {
+		return cfg.Author
+	}
+	return ""
+}
+
+// writeError writes an error to stderr in the appropriate format.
+func (c *CLI) writeError(err error, format OutputFormat) {
+	msg := err.Error()
+	switch format {
+	case OutputJSON:
+		json.NewEncoder(c.stderr).Encode(map[string]string{"error": msg})
+	default:
+		fmt.Fprintf(c.stderr, "error: %s\n", msg)
 	}
 }

@@ -13,6 +13,7 @@ package sdk
 
 import (
 	"context"
+	"errors"
 
 	hostpb "github.com/jpl-au/llmd/proto/host"
 )
@@ -147,67 +148,100 @@ func (h *hostAPIImpl) Read(path string, version int) ([]byte, error) {
 		v := int32(version)
 		req.Version = &v
 	}
-	doc, err := h.client.DocumentRead(context.Background(), req)
+	resp, err := h.client.DocumentRead(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
-	return doc.Content, nil
+	if !resp.Success {
+		return nil, errors.New(resp.Error)
+	}
+	return resp.Document.Content, nil
 }
 
 // Write creates or updates a document in the host's document store.
 // The author and message are recorded in the document's version history.
 // If the document doesn't exist, it is created. If it exists, a new version is written.
 func (h *hostAPIImpl) Write(path string, content []byte, author, message string) error {
-	_, err := h.client.DocumentWrite(context.Background(), &hostpb.WriteRequest{
+	resp, err := h.client.DocumentWrite(context.Background(), &hostpb.WriteRequest{
 		Path:    path,
 		Content: content,
 		Author:  author,
 		Message: message,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if !resp.Success {
+		return errors.New(resp.Error)
+	}
+	return nil
 }
 
 // Edit performs a search/replace on a document.
 // The old text must exist in the document. A new version is created with the replacement.
 func (h *hostAPIImpl) Edit(path, old, new, author, message string) error {
-	_, err := h.client.DocumentEdit(context.Background(), &hostpb.EditRequest{
+	resp, err := h.client.DocumentEdit(context.Background(), &hostpb.EditRequest{
 		Path:    path,
 		OldText: old,
 		NewText: new,
 		Author:  author,
 		Message: message,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if !resp.Success {
+		return errors.New(resp.Error)
+	}
+	return nil
 }
 
 // Delete soft-deletes a document from the host's document store.
 // Soft-deleted documents can be restored later. The deletion is recorded
 // in the version history with the specified author.
 func (h *hostAPIImpl) Delete(path string, author string) error {
-	_, err := h.client.DocumentDelete(context.Background(), &hostpb.DeleteRequest{
+	resp, err := h.client.DocumentDelete(context.Background(), &hostpb.DeleteRequest{
 		Path:   path,
 		Author: author,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if !resp.Success {
+		return errors.New(resp.Error)
+	}
+	return nil
 }
 
 // Restore restores a soft-deleted document.
 func (h *hostAPIImpl) Restore(path, author string) error {
-	_, err := h.client.DocumentRestore(context.Background(), &hostpb.RestoreRequest{
+	resp, err := h.client.DocumentRestore(context.Background(), &hostpb.RestoreRequest{
 		Path:   path,
 		Author: author,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if !resp.Success {
+		return errors.New(resp.Error)
+	}
+	return nil
 }
 
 // Move moves a document to a new path.
 func (h *hostAPIImpl) Move(from, to, author string) error {
-	_, err := h.client.DocumentMove(context.Background(), &hostpb.MoveRequest{
+	resp, err := h.client.DocumentMove(context.Background(), &hostpb.MoveRequest{
 		Source: from,
 		Dest:   to,
 		Author: author,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if !resp.Success {
+		return errors.New(resp.Error)
+	}
+	return nil
 }
 
 // List returns all documents matching the given prefix.
@@ -221,6 +255,9 @@ func (h *hostAPIImpl) List(prefix string, opts ListOptions) ([]Document, error) 
 	})
 	if err != nil {
 		return nil, err
+	}
+	if !resp.Success {
+		return nil, errors.New(resp.Error)
 	}
 	docs := make([]Document, len(resp.Documents))
 	for i, d := range resp.Documents {
@@ -245,6 +282,9 @@ func (h *hostAPIImpl) Glob(pattern string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !resp.Success {
+		return nil, errors.New(resp.Error)
+	}
 	return resp.Paths, nil
 }
 
@@ -257,6 +297,9 @@ func (h *hostAPIImpl) Search(query string) ([]SearchResult, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if !resp.Success {
+		return nil, errors.New(resp.Error)
 	}
 	results := make([]SearchResult, len(resp.Matches))
 	for i, m := range resp.Matches {
@@ -281,6 +324,9 @@ func (h *hostAPIImpl) Grep(query string, opts GrepOptions) ([]GrepResult, error)
 	if err != nil {
 		return nil, err
 	}
+	if !resp.Success {
+		return nil, errors.New(resp.Error)
+	}
 	results := make([]GrepResult, len(resp.Matches))
 	for i, m := range resp.Matches {
 		results[i] = GrepResult{
@@ -303,6 +349,9 @@ func (h *hostAPIImpl) History(path string, limit int) ([]VersionInfo, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if !resp.Success {
+		return nil, errors.New(resp.Error)
 	}
 	versions := make([]VersionInfo, len(resp.Versions))
 	for i, v := range resp.Versions {
@@ -327,16 +376,25 @@ func (h *hostAPIImpl) Diff(path string, v1, v2 int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if !resp.Success {
+		return "", errors.New(resp.Error)
+	}
 	return resp.Diff, nil
 }
 
 // Revert reverts a document to a previous version.
 // Creates a new version with the content from the specified version.
 func (h *hostAPIImpl) Revert(path string, version int, author, message string) error {
-	_, err := h.client.HistoryRevert(context.Background(), &hostpb.RevertRequest{
+	resp, err := h.client.HistoryRevert(context.Background(), &hostpb.RevertRequest{
 		Path:    path,
 		Version: int32(version),
 		Author:  author,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if !resp.Success {
+		return errors.New(resp.Error)
+	}
+	return nil
 }

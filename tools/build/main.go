@@ -41,6 +41,9 @@ import (
 	"time"
 )
 
+// debugMode is set by parsing --debug flag
+var debugMode bool
+
 // main is the entry point for the build script.
 // It parses command-line arguments to determine what to build.
 func main() {
@@ -52,8 +55,12 @@ func main() {
 
 	// Parse args - default to building everything
 	target := "all"
-	if len(os.Args) > 1 {
-		target = os.Args[1]
+	for _, arg := range os.Args[1:] {
+		if arg == "--debug" || arg == "-debug" {
+			debugMode = true
+		} else {
+			target = arg
+		}
 	}
 
 	switch target {
@@ -66,7 +73,7 @@ func main() {
 		buildHost(root)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown target: %s\n", target)
-		fmt.Fprintf(os.Stderr, "Usage: go run ./internal/build [all|plugins|host]\n")
+		fmt.Fprintf(os.Stderr, "Usage: go run tools/build/main.go [all|plugins|host] [--debug]\n")
 		os.Exit(1)
 	}
 }
@@ -123,9 +130,13 @@ func buildPlugins(root string) {
 //
 // Version information (git tag, commit hash, build time, Go version) is
 // injected at compile time using ldflags. The -s -w flags strip debug
-// information and symbol tables for a smaller binary.
+// information and symbol tables for a smaller binary (unless debug mode).
 func buildHost(root string) {
-	fmt.Println("Building llmd...")
+	if debugMode {
+		fmt.Println("Building llmd (debug)...")
+	} else {
+		fmt.Println("Building llmd...")
+	}
 
 	version := getGitTag()
 	commit := getGitCommit()
@@ -133,12 +144,23 @@ func buildHost(root string) {
 	goVersion := runtime.Version()
 
 	// Inject version info via ldflags
-	// -s strips symbol table, -w strips DWARF debug info
 	pkg := "github.com/jpl-au/llmd/internal/version"
-	ldflags := fmt.Sprintf(
-		"-s -w -X %s.Tag=%s -X %s.Commit=%s -X %s.BuildTime=%s -X %s.GoVersion=%s",
-		pkg, version, pkg, commit, pkg, buildTime, pkg, goVersion,
-	)
+	debugPkg := "github.com/jpl-au/llmd/internal/debug"
+
+	var ldflags string
+	if debugMode {
+		// Debug build: include debug symbols and enable debug logging
+		ldflags = fmt.Sprintf(
+			"-X %s.Tag=%s -X %s.Commit=%s -X %s.BuildTime=%s -X %s.GoVersion=%s -X %s.Debug=true",
+			pkg, version, pkg, commit, pkg, buildTime, pkg, goVersion, debugPkg,
+		)
+	} else {
+		// Release build: -s strips symbol table, -w strips DWARF debug info
+		ldflags = fmt.Sprintf(
+			"-s -w -X %s.Tag=%s -X %s.Commit=%s -X %s.BuildTime=%s -X %s.GoVersion=%s",
+			pkg, version, pkg, commit, pkg, buildTime, pkg, goVersion,
+		)
+	}
 
 	// Determine output binary name (add .exe on Windows)
 	output := "llmd"
@@ -156,7 +178,11 @@ func buildHost(root string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Built %s (%s)\n", output, commit)
+	suffix := ""
+	if debugMode {
+		suffix = " [debug]"
+	}
+	fmt.Printf("Built %s (%s)%s\n", output, commit, suffix)
 }
 
 // getGitTag returns the current git version.

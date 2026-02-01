@@ -22,19 +22,25 @@ import (
 // If the Path looks like a 9-character key, reads by key directly. Otherwise,
 // searches for an entity matching the relation and returns the first match.
 // Returns an error if not found.
-func (h *HostFuncs) EntityRead(ctx context.Context, req *hostpb.EntityRequest) (*hostpb.Entity, error) {
+func (h *HostFuncs) EntityRead(ctx context.Context, req *hostpb.EntityRequest) (*hostpb.EntityResponse, error) {
+	if h.store == nil {
+		return &hostpb.EntityResponse{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	// If path looks like a key (9 chars), read by key
 	if len(req.Path) == 9 {
 		entity, err := h.store.Entities.Read(ctx, req.Path)
 		if err != nil {
-			return nil, err
+			return &hostpb.EntityResponse{Error: err.Error()}, nil
 		}
 
-		return &hostpb.Entity{
-			Namespace: entity.Namespace,
-			Path:      entity.Relation,
-			Value:     []byte(entity.Value),
-			CreatedAt: entity.CreatedAt,
+		return &hostpb.EntityResponse{
+			Success: true,
+			Entity: &hostpb.Entity{
+				Namespace: entity.Namespace,
+				Path:      entity.Relation,
+				Value:     []byte(entity.Value),
+				CreatedAt: entity.CreatedAt,
+			},
 		}, nil
 	}
 
@@ -44,19 +50,22 @@ func (h *HostFuncs) EntityRead(ctx context.Context, req *hostpb.EntityRequest) (
 		Limit:    1,
 	})
 	if err != nil {
-		return nil, err
+		return &hostpb.EntityResponse{Error: err.Error()}, nil
 	}
 
 	if len(list) == 0 {
-		return nil, entities.ErrNotFound
+		return &hostpb.EntityResponse{Error: entities.ErrNotFound.Error()}, nil
 	}
 
 	entity := list[0]
-	return &hostpb.Entity{
-		Namespace: entity.Namespace,
-		Path:      entity.Relation,
-		Value:     []byte(entity.Value),
-		CreatedAt: entity.CreatedAt,
+	return &hostpb.EntityResponse{
+		Success: true,
+		Entity: &hostpb.Entity{
+			Namespace: entity.Namespace,
+			Path:      entity.Relation,
+			Value:     []byte(entity.Value),
+			CreatedAt: entity.CreatedAt,
+		},
 	}, nil
 }
 
@@ -64,7 +73,10 @@ func (h *HostFuncs) EntityRead(ctx context.Context, req *hostpb.EntityRequest) (
 //
 // Creates an entity in the specified namespace with the given relation and
 // value. A unique key is generated for the entity. Returns the created entity.
-func (h *HostFuncs) EntityWrite(ctx context.Context, req *hostpb.EntityWriteRequest) (*hostpb.Entity, error) {
+func (h *HostFuncs) EntityWrite(ctx context.Context, req *hostpb.EntityWriteRequest) (*hostpb.EntityResponse, error) {
+	if h.store == nil {
+		return &hostpb.EntityResponse{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	opts := entities.WriteOptions{
 		Origin: core.Origin{
 			Author: req.Author,
@@ -75,14 +87,17 @@ func (h *HostFuncs) EntityWrite(ctx context.Context, req *hostpb.EntityWriteRequ
 
 	entity, err := h.store.Entities.Write(ctx, req.Namespace, string(req.Value), opts)
 	if err != nil {
-		return nil, err
+		return &hostpb.EntityResponse{Error: err.Error()}, nil
 	}
 
-	return &hostpb.Entity{
-		Namespace: entity.Namespace,
-		Path:      entity.Relation,
-		Value:     []byte(entity.Value),
-		CreatedAt: entity.CreatedAt,
+	return &hostpb.EntityResponse{
+		Success: true,
+		Entity: &hostpb.Entity{
+			Namespace: entity.Namespace,
+			Path:      entity.Relation,
+			Value:     []byte(entity.Value),
+			CreatedAt: entity.CreatedAt,
+		},
 	}, nil
 }
 
@@ -91,7 +106,10 @@ func (h *HostFuncs) EntityWrite(ctx context.Context, req *hostpb.EntityWriteRequ
 // If the Path looks like a 9-character key, deletes that entity. Otherwise,
 // searches for entities matching the relation and deletes all of them.
 // Deletion is permanent.
-func (h *HostFuncs) EntityDelete(ctx context.Context, req *hostpb.EntityRequest) (*hostpb.Empty, error) {
+func (h *HostFuncs) EntityDelete(ctx context.Context, req *hostpb.EntityRequest) (*hostpb.EmptyResponse, error) {
+	if h.store == nil {
+		return &hostpb.EmptyResponse{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	opts := entities.DeleteOptions{
 		Origin: core.Origin{
 			Author: "plugin",
@@ -102,9 +120,9 @@ func (h *HostFuncs) EntityDelete(ctx context.Context, req *hostpb.EntityRequest)
 	// If path looks like a key, delete by key
 	if len(req.Path) == 9 {
 		if err := h.store.Entities.Delete(ctx, req.Path, opts); err != nil {
-			return nil, err
+			return &hostpb.EmptyResponse{Error: err.Error()}, nil
 		}
-		return &hostpb.Empty{}, nil
+		return &hostpb.EmptyResponse{Success: true}, nil
 	}
 
 	// Otherwise list and delete all matching
@@ -112,30 +130,33 @@ func (h *HostFuncs) EntityDelete(ctx context.Context, req *hostpb.EntityRequest)
 		Relation: req.Path,
 	})
 	if err != nil {
-		return nil, err
+		return &hostpb.EmptyResponse{Error: err.Error()}, nil
 	}
 
 	for _, entity := range list {
 		if err := h.store.Entities.Delete(ctx, entity.Key, opts); err != nil {
-			return nil, err
+			return &hostpb.EmptyResponse{Error: err.Error()}, nil
 		}
 	}
 
-	return &hostpb.Empty{}, nil
+	return &hostpb.EmptyResponse{Success: true}, nil
 }
 
 // EntityList lists entities in a namespace.
 //
 // Returns all entities in the namespace, optionally filtered by a relation
 // prefix. Results include the entity key, relation, value, and timestamp.
-func (h *HostFuncs) EntityList(ctx context.Context, req *hostpb.EntityListRequest) (*hostpb.EntityListResponse, error) {
+func (h *HostFuncs) EntityList(ctx context.Context, req *hostpb.EntityListRequest) (*hostpb.EntityListResult, error) {
+	if h.store == nil {
+		return &hostpb.EntityListResult{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	opts := entities.ListOptions{
 		Relation: req.Prefix,
 	}
 
 	list, err := h.store.Entities.List(ctx, req.Namespace, opts)
 	if err != nil {
-		return nil, err
+		return &hostpb.EntityListResult{Error: err.Error()}, nil
 	}
 
 	result := make([]*hostpb.Entity, len(list))
@@ -148,5 +169,5 @@ func (h *HostFuncs) EntityList(ctx context.Context, req *hostpb.EntityListReques
 		}
 	}
 
-	return &hostpb.EntityListResponse{Entities: result}, nil
+	return &hostpb.EntityListResult{Success: true, Entities: result}, nil
 }

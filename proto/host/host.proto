@@ -8,48 +8,132 @@ option go_package = "./host";
 // Host provides all host API operations to plugins.
 service Host {
   // Document operations
-  rpc DocumentRead(ReadRequest) returns (Document);
-  rpc DocumentWrite(WriteRequest) returns (Document);
-  rpc DocumentEdit(EditRequest) returns (Document);
-  rpc DocumentDelete(DeleteRequest) returns (Empty);
-  rpc DocumentRestore(RestoreRequest) returns (Document);
-  rpc DocumentList(ListRequest) returns (DocumentListResponse);
-  rpc DocumentMove(MoveRequest) returns (Document);
-  rpc DocumentExists(ExistsRequest) returns (ExistsResponse);
+  rpc DocumentRead(ReadRequest) returns (DocumentResponse);
+  rpc DocumentWrite(WriteRequest) returns (DocumentResponse);
+  rpc DocumentEdit(EditRequest) returns (DocumentResponse);
+  rpc DocumentDelete(DeleteRequest) returns (EmptyResponse);
+  rpc DocumentRestore(RestoreRequest) returns (DocumentResponse);
+  rpc DocumentList(ListRequest) returns (DocumentListResult);
+  rpc DocumentMove(MoveRequest) returns (DocumentResponse);
+  rpc DocumentExists(ExistsRequest) returns (ExistsResult);
 
   // Search operations
-  rpc SearchFullText(SearchRequest) returns (SearchResults);
-  rpc SearchRegex(GrepRequest) returns (GrepResults);
-  rpc SearchGlob(GlobRequest) returns (GlobResults);
+  rpc SearchFullText(SearchRequest) returns (SearchResponse);
+  rpc SearchRegex(GrepRequest) returns (GrepResponse);
+  rpc SearchGlob(GlobRequest) returns (GlobResponse);
 
   // History operations
-  rpc HistoryList(HistoryRequest) returns (VersionList);
-  rpc HistoryDiff(DiffRequest) returns (DiffResult);
-  rpc HistoryRevert(RevertRequest) returns (Document);
+  rpc HistoryList(HistoryRequest) returns (VersionListResponse);
+  rpc HistoryDiff(DiffRequest) returns (DiffResponse);
+  rpc HistoryRevert(RevertRequest) returns (DocumentResponse);
 
   // Tag operations
-  rpc TagAdd(TagRequest) returns (Empty);
-  rpc TagRemove(TagRequest) returns (Empty);
-  rpc TagList(TagListRequest) returns (TagListResponse);
+  rpc TagAdd(TagRequest) returns (EmptyResponse);
+  rpc TagRemove(TagRequest) returns (EmptyResponse);
+  rpc TagList(TagListRequest) returns (TagListResult);
 
   // Link operations
-  rpc LinkAdd(LinkRequest) returns (Link);
-  rpc LinkRemove(UnlinkRequest) returns (Empty);
-  rpc LinkList(LinkListRequest) returns (LinkListResponse);
+  rpc LinkAdd(LinkRequest) returns (LinkResponse);
+  rpc LinkRemove(UnlinkRequest) returns (EmptyResponse);
+  rpc LinkList(LinkListRequest) returns (LinkListResult);
 
   // Entity operations (for plugin state)
-  rpc EntityRead(EntityRequest) returns (Entity);
-  rpc EntityWrite(EntityWriteRequest) returns (Entity);
-  rpc EntityDelete(EntityRequest) returns (Empty);
-  rpc EntityList(EntityListRequest) returns (EntityListResponse);
+  rpc EntityRead(EntityRequest) returns (EntityResponse);
+  rpc EntityWrite(EntityWriteRequest) returns (EntityResponse);
+  rpc EntityDelete(EntityRequest) returns (EmptyResponse);
+  rpc EntityList(EntityListRequest) returns (EntityListResult);
 
   // Event operations
-  rpc EventSubscribe(SubscribeRequest) returns (Empty);
-  rpc EventEmit(EmitRequest) returns (Empty);
+  rpc EventSubscribe(SubscribeRequest) returns (EmptyResponse);
+  rpc EventEmit(EmitRequest) returns (EmptyResponse);
 }
 
 // Common messages
 message Empty {}
+
+// Response wrappers - all RPCs return success/error in response, never Go errors
+message EmptyResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message DocumentResponse {
+  bool success = 1;
+  string error = 2;
+  Document document = 3;
+}
+
+message DocumentListResult {
+  bool success = 1;
+  string error = 2;
+  repeated Document documents = 3;
+}
+
+message ExistsResult {
+  bool success = 1;
+  string error = 2;
+  bool exists = 3;
+}
+
+message SearchResponse {
+  bool success = 1;
+  string error = 2;
+  repeated SearchMatch matches = 3;
+}
+
+message GrepResponse {
+  bool success = 1;
+  string error = 2;
+  repeated GrepMatch matches = 3;
+}
+
+message GlobResponse {
+  bool success = 1;
+  string error = 2;
+  repeated string paths = 3;
+}
+
+message VersionListResponse {
+  bool success = 1;
+  string error = 2;
+  repeated VersionInfo versions = 3;
+}
+
+message DiffResponse {
+  bool success = 1;
+  string error = 2;
+  string diff = 3;
+}
+
+message TagListResult {
+  bool success = 1;
+  string error = 2;
+  repeated string tags = 3;
+}
+
+message LinkResponse {
+  bool success = 1;
+  string error = 2;
+  Link link = 3;
+}
+
+message LinkListResult {
+  bool success = 1;
+  string error = 2;
+  repeated Link links = 3;
+}
+
+message EntityResponse {
+  bool success = 1;
+  string error = 2;
+  Entity entity = 3;
+}
+
+message EntityListResult {
+  bool success = 1;
+  string error = 2;
+  repeated Entity entities = 3;
+}
 
 // Document messages
 message ReadRequest {
@@ -99,9 +183,6 @@ message ExistsRequest {
   string path = 1;
 }
 
-message ExistsResponse {
-  bool exists = 1;
-}
 
 message Document {
   string path = 1;
@@ -113,9 +194,6 @@ message Document {
   bool deleted = 7;
 }
 
-message DocumentListResponse {
-  repeated Document documents = 1;
-}
 
 // Search messages
 message SearchRequest {
@@ -123,9 +201,6 @@ message SearchRequest {
   string prefix = 2;
 }
 
-message SearchResults {
-  repeated SearchMatch matches = 1;
-}
 
 message SearchMatch {
   string path = 1;
@@ -140,9 +215,6 @@ message GrepRequest {
   int32 context_lines = 4;
 }
 
-message GrepResults {
-  repeated GrepMatch matches = 1;
-}
 
 message GrepMatch {
   string path = 1;
@@ -156,9 +228,6 @@ message GlobRequest {
   string pattern = 1;
 }
 
-message GlobResults {
-  repeated string paths = 1;
-}
 
 // History messages
 message HistoryRequest {
@@ -166,9 +235,6 @@ message HistoryRequest {
   int32 limit = 2;
 }
 
-message VersionList {
-  repeated VersionInfo versions = 1;
-}
 
 message VersionInfo {
   int32 version = 1;
@@ -183,9 +249,6 @@ message DiffRequest {
   int32 version2 = 3;
 }
 
-message DiffResult {
-  string diff = 1;
-}
 
 message RevertRequest {
   string path = 1;
@@ -204,9 +267,6 @@ message TagListRequest {
   string path = 1;
 }
 
-message TagListResponse {
-  repeated string tags = 1;
-}
 
 // Link messages
 message LinkRequest {
@@ -232,9 +292,6 @@ message Link {
   string tag = 4;
 }
 
-message LinkListResponse {
-  repeated Link links = 1;
-}
 
 // Entity messages
 message EntityRequest {
@@ -261,9 +318,6 @@ message EntityListRequest {
   string prefix = 2;
 }
 
-message EntityListResponse {
-  repeated Entity entities = 1;
-}
 
 // Event messages
 message SubscribeRequest {

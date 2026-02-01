@@ -18,7 +18,10 @@ import (
 //
 // If the tag already exists on the document, this is a no-op. The addition
 // is recorded in the version history with the specified author.
-func (h *HostFuncs) TagAdd(ctx context.Context, req *hostpb.TagRequest) (*hostpb.Empty, error) {
+func (h *HostFuncs) TagAdd(ctx context.Context, req *hostpb.TagRequest) (*hostpb.EmptyResponse, error) {
+	if h.store == nil {
+		return &hostpb.EmptyResponse{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	opts := tags.Options{
 		Origin: core.Origin{
 			Author: req.Author,
@@ -28,17 +31,20 @@ func (h *HostFuncs) TagAdd(ctx context.Context, req *hostpb.TagRequest) (*hostpb
 
 	_, err := h.store.Tags.Add(ctx, req.Path, req.Tag, opts)
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
-		return nil, err
+		return &hostpb.EmptyResponse{Error: err.Error()}, nil
 	}
 
-	return &hostpb.Empty{}, nil
+	return &hostpb.EmptyResponse{Success: true}, nil
 }
 
 // TagRemove removes a tag from a document.
 //
 // If the tag doesn't exist on the document, returns an error. The removal
 // is recorded in the version history with the specified author.
-func (h *HostFuncs) TagRemove(ctx context.Context, req *hostpb.TagRequest) (*hostpb.Empty, error) {
+func (h *HostFuncs) TagRemove(ctx context.Context, req *hostpb.TagRequest) (*hostpb.EmptyResponse, error) {
+	if h.store == nil {
+		return &hostpb.EmptyResponse{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	opts := tags.Options{
 		Origin: core.Origin{
 			Author: req.Author,
@@ -47,20 +53,23 @@ func (h *HostFuncs) TagRemove(ctx context.Context, req *hostpb.TagRequest) (*hos
 	}
 
 	if err := h.store.Tags.Remove(ctx, req.Path, req.Tag, opts); err != nil {
-		return nil, err
+		return &hostpb.EmptyResponse{Error: err.Error()}, nil
 	}
 
-	return &hostpb.Empty{}, nil
+	return &hostpb.EmptyResponse{Success: true}, nil
 }
 
 // TagList lists all tags on a document.
 //
 // Returns the tag names in alphabetical order. If the document doesn't exist
 // or has no tags, returns an empty list.
-func (h *HostFuncs) TagList(ctx context.Context, req *hostpb.TagListRequest) (*hostpb.TagListResponse, error) {
+func (h *HostFuncs) TagList(ctx context.Context, req *hostpb.TagListRequest) (*hostpb.TagListResult, error) {
+	if h.store == nil {
+		return &hostpb.TagListResult{Error: ErrStoreNotAvailable.Error()}, nil
+	}
 	tagList, err := h.store.Tags.List(ctx, req.Path)
 	if err != nil {
-		return nil, err
+		return &hostpb.TagListResult{Error: err.Error()}, nil
 	}
 
 	names := make([]string, len(tagList))
@@ -68,5 +77,5 @@ func (h *HostFuncs) TagList(ctx context.Context, req *hostpb.TagListRequest) (*h
 		names[i] = t.Value.Tag
 	}
 
-	return &hostpb.TagListResponse{Tags: names}, nil
+	return &hostpb.TagListResult{Success: true, Tags: names}, nil
 }

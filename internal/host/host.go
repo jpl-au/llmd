@@ -51,6 +51,7 @@ import (
 	"path/filepath"
 
 	"github.com/jpl-au/llmd/embed"
+	"github.com/jpl-au/llmd/internal/debug"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/proto/plugin"
 )
@@ -148,6 +149,10 @@ type RegisteredCommand struct {
 // that allow plugins to access the document store. After creating the host,
 // call LoadPlugins to load available plugins.
 //
+// The store parameter can be nil for discovery commands (help, plugins) that
+// only need to load plugin manifests. If store is nil, any plugin that calls
+// host functions during ExecuteCommand will receive ErrStoreNotAvailable.
+//
 // The caller must call Close when finished with the host.
 func New(ctx context.Context, store *llmd.Store) (*Host, error) {
 	runtime, err := NewRuntime(ctx, store)
@@ -220,6 +225,8 @@ func (h *Host) loadCorePlugin(ctx context.Context) error {
 // by calling its Init method to retrieve the manifest, and its commands are
 // registered in the host's command map.
 func (h *Host) loadPluginFromBytes(ctx context.Context, name string, wasmBytes []byte, source string) error {
+	debug.Log("loadPluginFromBytes", "name", name, "source", source, "size", len(wasmBytes))
+
 	// Write to temp file for loading (the loader expects a file path)
 	tmpFile, err := os.CreateTemp("", "llmd-plugin-*.wasm")
 	if err != nil {
@@ -232,19 +239,26 @@ func (h *Host) loadPluginFromBytes(ctx context.Context, name string, wasmBytes [
 		return fmt.Errorf("writing temp file: %w", err)
 	}
 	tmpFile.Close()
+	debug.Log("loadPluginFromBytes", "step", "temp file written", "path", tmpFile.Name())
 
 	// Load the plugin
+	debug.Log("loadPluginFromBytes", "step", "loading plugin")
 	instance, err := h.runtime.Loader().Load(ctx, tmpFile.Name())
 	if err != nil {
+		debug.Log("loadPluginFromBytes error", "step", "load", "error", err.Error())
 		return fmt.Errorf("loading plugin: %w", err)
 	}
+	debug.Log("loadPluginFromBytes", "step", "plugin loaded")
 
 	// Initialize the plugin
+	debug.Log("loadPluginFromBytes", "step", "initializing plugin")
 	manifest, err := instance.Init(ctx, &plugin.InitRequest{})
 	if err != nil {
+		debug.Log("loadPluginFromBytes error", "step", "init", "error", err.Error())
 		instance.Close(ctx)
 		return fmt.Errorf("initializing plugin: %w", err)
 	}
+	debug.Log("loadPluginFromBytes", "step", "plugin initialized", "manifestName", manifest.Name, "commands", len(manifest.Commands))
 
 	// Create loaded plugin
 	loaded := &LoadedPlugin{
@@ -268,6 +282,7 @@ func (h *Host) loadPluginFromBytes(ctx context.Context, name string, wasmBytes [
 		}
 	}
 
+	debug.Log("loadPluginFromBytes complete", "name", name)
 	return nil
 }
 
@@ -281,8 +296,11 @@ func (h *Host) loadPluginFromBytes(ctx context.Context, name string, wasmBytes [
 // Returns the full CommandResponse containing both text and structured output,
 // or an error if the command is not found or execution fails.
 func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, flags map[string]any, stdin []byte, author string) (*plugin.CommandResponse, error) {
+	debug.Log("ExecuteCommand", "command", name, "args", args)
+
 	cmd, ok := h.commands[name]
 	if !ok {
+		debug.Log("ExecuteCommand error", "error", "unknown command")
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}
 
@@ -293,6 +311,7 @@ func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, f
 	}
 
 	// Call the plugin
+	debug.Log("ExecuteCommand", "step", "calling plugin", "plugin", cmd.Plugin.Name)
 	resp, err := cmd.Plugin.instance.ExecuteCommand(ctx, &plugin.CommandRequest{
 		Command: name,
 		Args:    args,
@@ -304,9 +323,11 @@ func (h *Host) ExecuteCommand(ctx context.Context, name string, args []string, f
 		},
 	})
 	if err != nil {
+		debug.Log("ExecuteCommand error", "error", err.Error())
 		return nil, fmt.Errorf("executing command: %w", err)
 	}
 
+	debug.Log("ExecuteCommand", "step", "plugin returned", "success", resp.Success)
 	if !resp.Success {
 		return nil, fmt.Errorf("command failed: %s", resp.Error)
 	}

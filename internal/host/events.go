@@ -19,8 +19,8 @@ import (
 // This is currently a no-op as event subscription is handled through the
 // plugin manifest's SubscribedEvents field. Direct subscriptions may be
 // supported in future versions.
-func (h *HostFuncs) EventSubscribe(ctx context.Context, req *hostpb.SubscribeRequest) (*hostpb.Empty, error) {
-	return &hostpb.Empty{}, nil
+func (h *HostFuncs) EventSubscribe(ctx context.Context, req *hostpb.SubscribeRequest) (*hostpb.EmptyResponse, error) {
+	return &hostpb.EmptyResponse{Success: true}, nil
 }
 
 // EventEmit emits an event to subscribers.
@@ -28,6 +28,6 @@ func (h *HostFuncs) EventSubscribe(ctx context.Context, req *hostpb.SubscribeReq
 // This is currently a no-op as the event bus infrastructure is not yet
 // implemented. In future versions, this will allow plugins to emit custom
 // events that other plugins can subscribe to.
-func (h *HostFuncs) EventEmit(ctx context.Context, req *hostpb.EmitRequest) (*hostpb.Empty, error) {
-	return &hostpb.Empty{}, nil
+func (h *HostFuncs) EventEmit(ctx context.Context, req *hostpb.EmitRequest) (*hostpb.EmptyResponse, error) {
+	return &hostpb.EmptyResponse{Success: true}, nil
 }

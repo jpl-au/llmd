@@ -23,7 +23,7 @@ func NewHost() Host {
 //go:wasmimport env document_read
 func _document_read(ptr uint32, size uint32) uint64
 
-func (h host) DocumentRead(ctx context.Context, request *ReadRequest) (*Document, error) {
+func (h host) DocumentRead(ctx context.Context, request *ReadRequest) (*DocumentResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (h host) DocumentRead(ctx context.Context, request *ReadRequest) (*Document
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Document)
+	response := new(DocumentResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (h host) DocumentRead(ctx context.Context, request *ReadRequest) (*Document
 //go:wasmimport env document_write
 func _document_write(ptr uint32, size uint32) uint64
 
-func (h host) DocumentWrite(ctx context.Context, request *WriteRequest) (*Document, error) {
+func (h host) DocumentWrite(ctx context.Context, request *WriteRequest) (*DocumentResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (h host) DocumentWrite(ctx context.Context, request *WriteRequest) (*Docume
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Document)
+	response := new(DocumentResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (h host) DocumentWrite(ctx context.Context, request *WriteRequest) (*Docume
 //go:wasmimport env document_edit
 func _document_edit(ptr uint32, size uint32) uint64
 
-func (h host) DocumentEdit(ctx context.Context, request *EditRequest) (*Document, error) {
+func (h host) DocumentEdit(ctx context.Context, request *EditRequest) (*DocumentResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (h host) DocumentEdit(ctx context.Context, request *EditRequest) (*Document
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Document)
+	response := new(DocumentResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (h host) DocumentEdit(ctx context.Context, request *EditRequest) (*Document
 //go:wasmimport env document_delete
 func _document_delete(ptr uint32, size uint32) uint64
 
-func (h host) DocumentDelete(ctx context.Context, request *DeleteRequest) (*Empty, error) {
+func (h host) DocumentDelete(ctx context.Context, request *DeleteRequest) (*EmptyResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (h host) DocumentDelete(ctx context.Context, request *DeleteRequest) (*Empt
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Empty)
+	response := new(EmptyResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (h host) DocumentDelete(ctx context.Context, request *DeleteRequest) (*Empt
 //go:wasmimport env document_restore
 func _document_restore(ptr uint32, size uint32) uint64
 
-func (h host) DocumentRestore(ctx context.Context, request *RestoreRequest) (*Document, error) {
+func (h host) DocumentRestore(ctx context.Context, request *RestoreRequest) (*DocumentResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (h host) DocumentRestore(ctx context.Context, request *RestoreRequest) (*Do
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Document)
+	response := new(DocumentResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (h host) DocumentRestore(ctx context.Context, request *RestoreRequest) (*Do
 //go:wasmimport env document_list
 func _document_list(ptr uint32, size uint32) uint64
 
-func (h host) DocumentList(ctx context.Context, request *ListRequest) (*DocumentListResponse, error) {
+func (h host) DocumentList(ctx context.Context, request *ListRequest) (*DocumentListResult, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func (h host) DocumentList(ctx context.Context, request *ListRequest) (*Document
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(DocumentListResponse)
+	response := new(DocumentListResult)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func (h host) DocumentList(ctx context.Context, request *ListRequest) (*Document
 //go:wasmimport env document_move
 func _document_move(ptr uint32, size uint32) uint64
 
-func (h host) DocumentMove(ctx context.Context, request *MoveRequest) (*Document, error) {
+func (h host) DocumentMove(ctx context.Context, request *MoveRequest) (*DocumentResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func (h host) DocumentMove(ctx context.Context, request *MoveRequest) (*Document
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Document)
+	response := new(DocumentResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (h host) DocumentMove(ctx context.Context, request *MoveRequest) (*Document
 //go:wasmimport env document_exists
 func _document_exists(ptr uint32, size uint32) uint64
 
-func (h host) DocumentExists(ctx context.Context, request *ExistsRequest) (*ExistsResponse, error) {
+func (h host) DocumentExists(ctx context.Context, request *ExistsRequest) (*ExistsResult, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -197,7 +197,7 @@ func (h host) DocumentExists(ctx context.Context, request *ExistsRequest) (*Exis
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(ExistsResponse)
+	response := new(ExistsResult)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (h host) DocumentExists(ctx context.Context, request *ExistsRequest) (*Exis
 //go:wasmimport env search_full_text
 func _search_full_text(ptr uint32, size uint32) uint64
 
-func (h host) SearchFullText(ctx context.Context, request *SearchRequest) (*SearchResults, error) {
+func (h host) SearchFullText(ctx context.Context, request *SearchRequest) (*SearchResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -220,7 +220,7 @@ func (h host) SearchFullText(ctx context.Context, request *SearchRequest) (*Sear
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(SearchResults)
+	response := new(SearchResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (h host) SearchFullText(ctx context.Context, request *SearchRequest) (*Sear
 //go:wasmimport env search_regex
 func _search_regex(ptr uint32, size uint32) uint64
 
-func (h host) SearchRegex(ctx context.Context, request *GrepRequest) (*GrepResults, error) {
+func (h host) SearchRegex(ctx context.Context, request *GrepRequest) (*GrepResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (h host) SearchRegex(ctx context.Context, request *GrepRequest) (*GrepResul
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(GrepResults)
+	response := new(GrepResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (h host) SearchRegex(ctx context.Context, request *GrepRequest) (*GrepResul
 //go:wasmimport env search_glob
 func _search_glob(ptr uint32, size uint32) uint64
 
-func (h host) SearchGlob(ctx context.Context, request *GlobRequest) (*GlobResults, error) {
+func (h host) SearchGlob(ctx context.Context, request *GlobRequest) (*GlobResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (h host) SearchGlob(ctx context.Context, request *GlobRequest) (*GlobResult
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(GlobResults)
+	response := new(GlobResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (h host) SearchGlob(ctx context.Context, request *GlobRequest) (*GlobResult
 //go:wasmimport env history_list
 func _history_list(ptr uint32, size uint32) uint64
 
-func (h host) HistoryList(ctx context.Context, request *HistoryRequest) (*VersionList, error) {
+func (h host) HistoryList(ctx context.Context, request *HistoryRequest) (*VersionListResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func (h host) HistoryList(ctx context.Context, request *HistoryRequest) (*Versio
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(VersionList)
+	response := new(VersionListResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (h host) HistoryList(ctx context.Context, request *HistoryRequest) (*Versio
 //go:wasmimport env history_diff
 func _history_diff(ptr uint32, size uint32) uint64
 
-func (h host) HistoryDiff(ctx context.Context, request *DiffRequest) (*DiffResult, error) {
+func (h host) HistoryDiff(ctx context.Context, request *DiffRequest) (*DiffResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -312,7 +312,7 @@ func (h host) HistoryDiff(ctx context.Context, request *DiffRequest) (*DiffResul
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(DiffResult)
+	response := new(DiffResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -322,7 +322,7 @@ func (h host) HistoryDiff(ctx context.Context, request *DiffRequest) (*DiffResul
 //go:wasmimport env history_revert
 func _history_revert(ptr uint32, size uint32) uint64
 
-func (h host) HistoryRevert(ctx context.Context, request *RevertRequest) (*Document, error) {
+func (h host) HistoryRevert(ctx context.Context, request *RevertRequest) (*DocumentResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -335,7 +335,7 @@ func (h host) HistoryRevert(ctx context.Context, request *RevertRequest) (*Docum
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Document)
+	response := new(DocumentResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (h host) HistoryRevert(ctx context.Context, request *RevertRequest) (*Docum
 //go:wasmimport env tag_add
 func _tag_add(ptr uint32, size uint32) uint64
 
-func (h host) TagAdd(ctx context.Context, request *TagRequest) (*Empty, error) {
+func (h host) TagAdd(ctx context.Context, request *TagRequest) (*EmptyResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -358,7 +358,7 @@ func (h host) TagAdd(ctx context.Context, request *TagRequest) (*Empty, error) {
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Empty)
+	response := new(EmptyResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -368,7 +368,7 @@ func (h host) TagAdd(ctx context.Context, request *TagRequest) (*Empty, error) {
 //go:wasmimport env tag_remove
 func _tag_remove(ptr uint32, size uint32) uint64
 
-func (h host) TagRemove(ctx context.Context, request *TagRequest) (*Empty, error) {
+func (h host) TagRemove(ctx context.Context, request *TagRequest) (*EmptyResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -381,7 +381,7 @@ func (h host) TagRemove(ctx context.Context, request *TagRequest) (*Empty, error
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Empty)
+	response := new(EmptyResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -391,7 +391,7 @@ func (h host) TagRemove(ctx context.Context, request *TagRequest) (*Empty, error
 //go:wasmimport env tag_list
 func _tag_list(ptr uint32, size uint32) uint64
 
-func (h host) TagList(ctx context.Context, request *TagListRequest) (*TagListResponse, error) {
+func (h host) TagList(ctx context.Context, request *TagListRequest) (*TagListResult, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -404,7 +404,7 @@ func (h host) TagList(ctx context.Context, request *TagListRequest) (*TagListRes
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(TagListResponse)
+	response := new(TagListResult)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -414,7 +414,7 @@ func (h host) TagList(ctx context.Context, request *TagListRequest) (*TagListRes
 //go:wasmimport env link_add
 func _link_add(ptr uint32, size uint32) uint64
 
-func (h host) LinkAdd(ctx context.Context, request *LinkRequest) (*Link, error) {
+func (h host) LinkAdd(ctx context.Context, request *LinkRequest) (*LinkResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -427,7 +427,7 @@ func (h host) LinkAdd(ctx context.Context, request *LinkRequest) (*Link, error) 
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Link)
+	response := new(LinkResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -437,7 +437,7 @@ func (h host) LinkAdd(ctx context.Context, request *LinkRequest) (*Link, error) 
 //go:wasmimport env link_remove
 func _link_remove(ptr uint32, size uint32) uint64
 
-func (h host) LinkRemove(ctx context.Context, request *UnlinkRequest) (*Empty, error) {
+func (h host) LinkRemove(ctx context.Context, request *UnlinkRequest) (*EmptyResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -450,7 +450,7 @@ func (h host) LinkRemove(ctx context.Context, request *UnlinkRequest) (*Empty, e
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Empty)
+	response := new(EmptyResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -460,7 +460,7 @@ func (h host) LinkRemove(ctx context.Context, request *UnlinkRequest) (*Empty, e
 //go:wasmimport env link_list
 func _link_list(ptr uint32, size uint32) uint64
 
-func (h host) LinkList(ctx context.Context, request *LinkListRequest) (*LinkListResponse, error) {
+func (h host) LinkList(ctx context.Context, request *LinkListRequest) (*LinkListResult, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -473,7 +473,7 @@ func (h host) LinkList(ctx context.Context, request *LinkListRequest) (*LinkList
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(LinkListResponse)
+	response := new(LinkListResult)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -483,7 +483,7 @@ func (h host) LinkList(ctx context.Context, request *LinkListRequest) (*LinkList
 //go:wasmimport env entity_read
 func _entity_read(ptr uint32, size uint32) uint64
 
-func (h host) EntityRead(ctx context.Context, request *EntityRequest) (*Entity, error) {
+func (h host) EntityRead(ctx context.Context, request *EntityRequest) (*EntityResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -496,7 +496,7 @@ func (h host) EntityRead(ctx context.Context, request *EntityRequest) (*Entity, 
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Entity)
+	response := new(EntityResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -506,7 +506,7 @@ func (h host) EntityRead(ctx context.Context, request *EntityRequest) (*Entity, 
 //go:wasmimport env entity_write
 func _entity_write(ptr uint32, size uint32) uint64
 
-func (h host) EntityWrite(ctx context.Context, request *EntityWriteRequest) (*Entity, error) {
+func (h host) EntityWrite(ctx context.Context, request *EntityWriteRequest) (*EntityResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -519,7 +519,7 @@ func (h host) EntityWrite(ctx context.Context, request *EntityWriteRequest) (*En
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Entity)
+	response := new(EntityResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -529,7 +529,7 @@ func (h host) EntityWrite(ctx context.Context, request *EntityWriteRequest) (*En
 //go:wasmimport env entity_delete
 func _entity_delete(ptr uint32, size uint32) uint64
 
-func (h host) EntityDelete(ctx context.Context, request *EntityRequest) (*Empty, error) {
+func (h host) EntityDelete(ctx context.Context, request *EntityRequest) (*EmptyResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -542,7 +542,7 @@ func (h host) EntityDelete(ctx context.Context, request *EntityRequest) (*Empty,
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Empty)
+	response := new(EmptyResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -552,7 +552,7 @@ func (h host) EntityDelete(ctx context.Context, request *EntityRequest) (*Empty,
 //go:wasmimport env entity_list
 func _entity_list(ptr uint32, size uint32) uint64
 
-func (h host) EntityList(ctx context.Context, request *EntityListRequest) (*EntityListResponse, error) {
+func (h host) EntityList(ctx context.Context, request *EntityListRequest) (*EntityListResult, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -565,7 +565,7 @@ func (h host) EntityList(ctx context.Context, request *EntityListRequest) (*Enti
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(EntityListResponse)
+	response := new(EntityListResult)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -575,7 +575,7 @@ func (h host) EntityList(ctx context.Context, request *EntityListRequest) (*Enti
 //go:wasmimport env event_subscribe
 func _event_subscribe(ptr uint32, size uint32) uint64
 
-func (h host) EventSubscribe(ctx context.Context, request *SubscribeRequest) (*Empty, error) {
+func (h host) EventSubscribe(ctx context.Context, request *SubscribeRequest) (*EmptyResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -588,7 +588,7 @@ func (h host) EventSubscribe(ctx context.Context, request *SubscribeRequest) (*E
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Empty)
+	response := new(EmptyResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}
@@ -598,7 +598,7 @@ func (h host) EventSubscribe(ctx context.Context, request *SubscribeRequest) (*E
 //go:wasmimport env event_emit
 func _event_emit(ptr uint32, size uint32) uint64
 
-func (h host) EventEmit(ctx context.Context, request *EmitRequest) (*Empty, error) {
+func (h host) EventEmit(ctx context.Context, request *EmitRequest) (*EmptyResponse, error) {
 	buf, err := request.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -611,7 +611,7 @@ func (h host) EventEmit(ctx context.Context, request *EmitRequest) (*Empty, erro
 	size = uint32(ptrSize)
 	buf = wasm.PtrToByte(ptr, size)
 
-	response := new(Empty)
+	response := new(EmptyResponse)
 	if err = response.UnmarshalVT(buf); err != nil {
 		return nil, err
 	}

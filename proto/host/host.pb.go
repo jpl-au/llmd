@@ -30,6 +30,489 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 	panic(`not implemented`)
 }
 
+// Response wrappers - all RPCs return success/error in response, never Go errors
+type EmptyResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+}
+
+func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *EmptyResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *EmptyResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type DocumentResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success  bool      `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error    string    `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Document *Document `protobuf:"bytes,3,opt,name=document,proto3" json:"document,omitempty"`
+}
+
+func (x *DocumentResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *DocumentResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DocumentResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *DocumentResponse) GetDocument() *Document {
+	if x != nil {
+		return x.Document
+	}
+	return nil
+}
+
+type DocumentListResult struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success   bool        `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error     string      `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Documents []*Document `protobuf:"bytes,3,rep,name=documents,proto3" json:"documents,omitempty"`
+}
+
+func (x *DocumentListResult) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *DocumentListResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DocumentListResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *DocumentListResult) GetDocuments() []*Document {
+	if x != nil {
+		return x.Documents
+	}
+	return nil
+}
+
+type ExistsResult struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Exists  bool   `protobuf:"varint,3,opt,name=exists,proto3" json:"exists,omitempty"`
+}
+
+func (x *ExistsResult) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *ExistsResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ExistsResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *ExistsResult) GetExists() bool {
+	if x != nil {
+		return x.Exists
+	}
+	return false
+}
+
+type SearchResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool           `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string         `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Matches []*SearchMatch `protobuf:"bytes,3,rep,name=matches,proto3" json:"matches,omitempty"`
+}
+
+func (x *SearchResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *SearchResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *SearchResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *SearchResponse) GetMatches() []*SearchMatch {
+	if x != nil {
+		return x.Matches
+	}
+	return nil
+}
+
+type GrepResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool         `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string       `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Matches []*GrepMatch `protobuf:"bytes,3,rep,name=matches,proto3" json:"matches,omitempty"`
+}
+
+func (x *GrepResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *GrepResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *GrepResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *GrepResponse) GetMatches() []*GrepMatch {
+	if x != nil {
+		return x.Matches
+	}
+	return nil
+}
+
+type GlobResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool     `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string   `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Paths   []string `protobuf:"bytes,3,rep,name=paths,proto3" json:"paths,omitempty"`
+}
+
+func (x *GlobResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *GlobResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *GlobResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *GlobResponse) GetPaths() []string {
+	if x != nil {
+		return x.Paths
+	}
+	return nil
+}
+
+type VersionListResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success  bool           `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error    string         `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Versions []*VersionInfo `protobuf:"bytes,3,rep,name=versions,proto3" json:"versions,omitempty"`
+}
+
+func (x *VersionListResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *VersionListResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *VersionListResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *VersionListResponse) GetVersions() []*VersionInfo {
+	if x != nil {
+		return x.Versions
+	}
+	return nil
+}
+
+type DiffResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Diff    string `protobuf:"bytes,3,opt,name=diff,proto3" json:"diff,omitempty"`
+}
+
+func (x *DiffResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *DiffResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DiffResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *DiffResponse) GetDiff() string {
+	if x != nil {
+		return x.Diff
+	}
+	return ""
+}
+
+type TagListResult struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool     `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string   `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Tags    []string `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
+}
+
+func (x *TagListResult) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *TagListResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *TagListResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *TagListResult) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+type LinkResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Link    *Link  `protobuf:"bytes,3,opt,name=link,proto3" json:"link,omitempty"`
+}
+
+func (x *LinkResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *LinkResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *LinkResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *LinkResponse) GetLink() *Link {
+	if x != nil {
+		return x.Link
+	}
+	return nil
+}
+
+type LinkListResult struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool    `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string  `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Links   []*Link `protobuf:"bytes,3,rep,name=links,proto3" json:"links,omitempty"`
+}
+
+func (x *LinkListResult) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *LinkListResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *LinkListResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *LinkListResult) GetLinks() []*Link {
+	if x != nil {
+		return x.Links
+	}
+	return nil
+}
+
+type EntityResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success bool    `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error   string  `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Entity  *Entity `protobuf:"bytes,3,opt,name=entity,proto3" json:"entity,omitempty"`
+}
+
+func (x *EntityResponse) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *EntityResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *EntityResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *EntityResponse) GetEntity() *Entity {
+	if x != nil {
+		return x.Entity
+	}
+	return nil
+}
+
+type EntityListResult struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Success  bool      `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error    string    `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Entities []*Entity `protobuf:"bytes,3,rep,name=entities,proto3" json:"entities,omitempty"`
+}
+
+func (x *EntityListResult) ProtoReflect() protoreflect.Message {
+	panic(`not implemented`)
+}
+
+func (x *EntityListResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *EntityListResult) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *EntityListResult) GetEntities() []*Entity {
+	if x != nil {
+		return x.Entities
+	}
+	return nil
+}
+
 // Document messages
 type ReadRequest struct {
 	state         protoimpl.MessageState
@@ -303,25 +786,6 @@ func (x *ExistsRequest) GetPath() string {
 	return ""
 }
 
-type ExistsResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Exists bool `protobuf:"varint,1,opt,name=exists,proto3" json:"exists,omitempty"`
-}
-
-func (x *ExistsResponse) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *ExistsResponse) GetExists() bool {
-	if x != nil {
-		return x.Exists
-	}
-	return false
-}
-
 type Document struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -389,25 +853,6 @@ func (x *Document) GetDeleted() bool {
 	return false
 }
 
-type DocumentListResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Documents []*Document `protobuf:"bytes,1,rep,name=documents,proto3" json:"documents,omitempty"`
-}
-
-func (x *DocumentListResponse) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *DocumentListResponse) GetDocuments() []*Document {
-	if x != nil {
-		return x.Documents
-	}
-	return nil
-}
-
 // Search messages
 type SearchRequest struct {
 	state         protoimpl.MessageState
@@ -434,25 +879,6 @@ func (x *SearchRequest) GetPrefix() string {
 		return x.Prefix
 	}
 	return ""
-}
-
-type SearchResults struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Matches []*SearchMatch `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-}
-
-func (x *SearchResults) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *SearchResults) GetMatches() []*SearchMatch {
-	if x != nil {
-		return x.Matches
-	}
-	return nil
 }
 
 type SearchMatch struct {
@@ -533,25 +959,6 @@ func (x *GrepRequest) GetContextLines() int32 {
 	return 0
 }
 
-type GrepResults struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Matches []*GrepMatch `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-}
-
-func (x *GrepResults) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *GrepResults) GetMatches() []*GrepMatch {
-	if x != nil {
-		return x.Matches
-	}
-	return nil
-}
-
 type GrepMatch struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -622,25 +1029,6 @@ func (x *GlobRequest) GetPattern() string {
 	return ""
 }
 
-type GlobResults struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Paths []string `protobuf:"bytes,1,rep,name=paths,proto3" json:"paths,omitempty"`
-}
-
-func (x *GlobResults) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *GlobResults) GetPaths() []string {
-	if x != nil {
-		return x.Paths
-	}
-	return nil
-}
-
 // History messages
 type HistoryRequest struct {
 	state         protoimpl.MessageState
@@ -667,25 +1055,6 @@ func (x *HistoryRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
-}
-
-type VersionList struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Versions []*VersionInfo `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
-}
-
-func (x *VersionList) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *VersionList) GetVersions() []*VersionInfo {
-	if x != nil {
-		return x.Versions
-	}
-	return nil
 }
 
 type VersionInfo struct {
@@ -764,25 +1133,6 @@ func (x *DiffRequest) GetVersion2() int32 {
 		return x.Version2
 	}
 	return 0
-}
-
-type DiffResult struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Diff string `protobuf:"bytes,1,opt,name=diff,proto3" json:"diff,omitempty"`
-}
-
-func (x *DiffResult) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *DiffResult) GetDiff() string {
-	if x != nil {
-		return x.Diff
-	}
-	return ""
 }
 
 type RevertRequest struct {
@@ -873,25 +1223,6 @@ func (x *TagListRequest) GetPath() string {
 		return x.Path
 	}
 	return ""
-}
-
-type TagListResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Tags []string `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
-}
-
-func (x *TagListResponse) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *TagListResponse) GetTags() []string {
-	if x != nil {
-		return x.Tags
-	}
-	return nil
 }
 
 // Link messages
@@ -1025,25 +1356,6 @@ func (x *Link) GetTag() string {
 		return x.Tag
 	}
 	return ""
-}
-
-type LinkListResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Links []*Link `protobuf:"bytes,1,rep,name=links,proto3" json:"links,omitempty"`
-}
-
-func (x *LinkListResponse) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *LinkListResponse) GetLinks() []*Link {
-	if x != nil {
-		return x.Links
-	}
-	return nil
 }
 
 // Entity messages
@@ -1187,25 +1499,6 @@ func (x *EntityListRequest) GetPrefix() string {
 	return ""
 }
 
-type EntityListResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Entities []*Entity `protobuf:"bytes,1,rep,name=entities,proto3" json:"entities,omitempty"`
-}
-
-func (x *EntityListResponse) ProtoReflect() protoreflect.Message {
-	panic(`not implemented`)
-}
-
-func (x *EntityListResponse) GetEntities() []*Entity {
-	if x != nil {
-		return x.Entities
-	}
-	return nil
-}
-
 // Event messages
 type SubscribeRequest struct {
 	state         protoimpl.MessageState
@@ -1265,36 +1558,36 @@ func (x *EmitRequest) GetMetadata() map[string]string {
 // Host provides all host API operations to plugins.
 type Host interface {
 	// Document operations
-	DocumentRead(context.Context, *ReadRequest) (*Document, error)
-	DocumentWrite(context.Context, *WriteRequest) (*Document, error)
-	DocumentEdit(context.Context, *EditRequest) (*Document, error)
-	DocumentDelete(context.Context, *DeleteRequest) (*Empty, error)
-	DocumentRestore(context.Context, *RestoreRequest) (*Document, error)
-	DocumentList(context.Context, *ListRequest) (*DocumentListResponse, error)
-	DocumentMove(context.Context, *MoveRequest) (*Document, error)
-	DocumentExists(context.Context, *ExistsRequest) (*ExistsResponse, error)
+	DocumentRead(context.Context, *ReadRequest) (*DocumentResponse, error)
+	DocumentWrite(context.Context, *WriteRequest) (*DocumentResponse, error)
+	DocumentEdit(context.Context, *EditRequest) (*DocumentResponse, error)
+	DocumentDelete(context.Context, *DeleteRequest) (*EmptyResponse, error)
+	DocumentRestore(context.Context, *RestoreRequest) (*DocumentResponse, error)
+	DocumentList(context.Context, *ListRequest) (*DocumentListResult, error)
+	DocumentMove(context.Context, *MoveRequest) (*DocumentResponse, error)
+	DocumentExists(context.Context, *ExistsRequest) (*ExistsResult, error)
 	// Search operations
-	SearchFullText(context.Context, *SearchRequest) (*SearchResults, error)
-	SearchRegex(context.Context, *GrepRequest) (*GrepResults, error)
-	SearchGlob(context.Context, *GlobRequest) (*GlobResults, error)
+	SearchFullText(context.Context, *SearchRequest) (*SearchResponse, error)
+	SearchRegex(context.Context, *GrepRequest) (*GrepResponse, error)
+	SearchGlob(context.Context, *GlobRequest) (*GlobResponse, error)
 	// History operations
-	HistoryList(context.Context, *HistoryRequest) (*VersionList, error)
-	HistoryDiff(context.Context, *DiffRequest) (*DiffResult, error)
-	HistoryRevert(context.Context, *RevertRequest) (*Document, error)
+	HistoryList(context.Context, *HistoryRequest) (*VersionListResponse, error)
+	HistoryDiff(context.Context, *DiffRequest) (*DiffResponse, error)
+	HistoryRevert(context.Context, *RevertRequest) (*DocumentResponse, error)
 	// Tag operations
-	TagAdd(context.Context, *TagRequest) (*Empty, error)
-	TagRemove(context.Context, *TagRequest) (*Empty, error)
-	TagList(context.Context, *TagListRequest) (*TagListResponse, error)
+	TagAdd(context.Context, *TagRequest) (*EmptyResponse, error)
+	TagRemove(context.Context, *TagRequest) (*EmptyResponse, error)
+	TagList(context.Context, *TagListRequest) (*TagListResult, error)
 	// Link operations
-	LinkAdd(context.Context, *LinkRequest) (*Link, error)
-	LinkRemove(context.Context, *UnlinkRequest) (*Empty, error)
-	LinkList(context.Context, *LinkListRequest) (*LinkListResponse, error)
+	LinkAdd(context.Context, *LinkRequest) (*LinkResponse, error)
+	LinkRemove(context.Context, *UnlinkRequest) (*EmptyResponse, error)
+	LinkList(context.Context, *LinkListRequest) (*LinkListResult, error)
 	// Entity operations (for plugin state)
-	EntityRead(context.Context, *EntityRequest) (*Entity, error)
-	EntityWrite(context.Context, *EntityWriteRequest) (*Entity, error)
-	EntityDelete(context.Context, *EntityRequest) (*Empty, error)
-	EntityList(context.Context, *EntityListRequest) (*EntityListResponse, error)
+	EntityRead(context.Context, *EntityRequest) (*EntityResponse, error)
+	EntityWrite(context.Context, *EntityWriteRequest) (*EntityResponse, error)
+	EntityDelete(context.Context, *EntityRequest) (*EmptyResponse, error)
+	EntityList(context.Context, *EntityListRequest) (*EntityListResult, error)
 	// Event operations
-	EventSubscribe(context.Context, *SubscribeRequest) (*Empty, error)
-	EventEmit(context.Context, *EmitRequest) (*Empty, error)
+	EventSubscribe(context.Context, *SubscribeRequest) (*EmptyResponse, error)
+	EventEmit(context.Context, *EmitRequest) (*EmptyResponse, error)
 }
