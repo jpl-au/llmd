@@ -58,6 +58,10 @@ func (c *CLI) Run(ctx context.Context, args []string) int {
 	// Meta commands - no resources needed
 	switch result.Command {
 	case "version":
+		if result.Help {
+			fmt.Fprint(c.stdout, BuiltinHelp("version"))
+			return ExitSuccess
+		}
 		version.Print()
 		return ExitSuccess
 	case "config":
