@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/debug"
@@ -167,18 +168,9 @@ func (c *CLI) runDiscovery(ctx context.Context, result *ParseResult, h *host.Hos
 func (c *CLI) runCommand(ctx context.Context, result *ParseResult, h *host.Host, author string) int {
 	debug.Log("runCommand", "command", result.Command)
 
-	// Read stdin if piped (not a TTY)
-	// Note: This blocks if stdin is a pipe with no data/EOF. Pipe input explicitly
-	// or use < /dev/null to avoid blocking when running from process wrappers.
-	var stdin []byte
-	if f, ok := c.stdin.(*os.File); ok {
-		debug.Log("runCommand", "step", "checking stdin")
-		if stat, err := f.Stat(); err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
-			debug.Log("runCommand", "step", "reading stdin")
-			stdin, _ = io.ReadAll(f)
-			debug.Log("runCommand", "step", "stdin read", "size", len(stdin))
-		}
-	}
+	// Read stdin if available (not a TTY and has data)
+	stdin := c.readStdin()
+	debug.Log("runCommand", "stdinSize", len(stdin))
 
 	// Execute plugin command
 	debug.Log("runCommand", "step", "executing command")
@@ -321,5 +313,49 @@ func (c *CLI) writeError(err error, format OutputFormat) {
 		json.NewEncoder(c.stderr).Encode(map[string]string{"error": msg})
 	default:
 		fmt.Fprintf(c.stderr, "error: %s\n", msg)
+	}
+}
+
+// readStdin reads from stdin if data is available.
+//
+// Returns nil if stdin is a TTY (interactive terminal) or if no data is
+// available within a short timeout. This prevents blocking when running
+// under process wrappers that leave stdin open but don't provide input.
+func (c *CLI) readStdin() []byte {
+	f, ok := c.stdin.(*os.File)
+	if !ok {
+		return nil
+	}
+
+	stat, err := f.Stat()
+	if err != nil {
+		return nil
+	}
+
+	// Skip if stdin is a TTY (interactive terminal)
+	if stat.Mode()&os.ModeCharDevice != 0 {
+		return nil
+	}
+
+	// For regular files, read directly (they have finite size)
+	if stat.Mode().IsRegular() {
+		data, _ := io.ReadAll(f)
+		return data
+	}
+
+	// For pipes/fifos, use a timeout to avoid blocking forever
+	// Start a goroutine to read, with a short deadline
+	done := make(chan []byte, 1)
+	go func() {
+		data, _ := io.ReadAll(f)
+		done <- data
+	}()
+
+	select {
+	case data := <-done:
+		return data
+	case <-time.After(50 * time.Millisecond):
+		// No data available within timeout - assume no input
+		return nil
 	}
 }
