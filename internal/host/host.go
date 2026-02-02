@@ -47,12 +47,10 @@ package host
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
-	"github.com/jpl-au/llmd/embed"
 	"github.com/jpl-au/llmd/internal/debug"
 	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/paths"
 	"github.com/jpl-au/llmd/proto/plugin"
 )
 
@@ -176,113 +174,22 @@ func New(ctx context.Context, store *llmd.Store) (*Host, error) {
 //
 // The loading order is:
 //  1. Embedded plugins (compiled into the binary)
-//  2. Bundled plugins (same directory as the llmd binary)
-//  3. Global plugins (~/.llmd/plugins/)
-//  4. Project plugins (.llmd/plugins/)
+//  2. Global plugins (~/.llmd/plugins/)
+//  3. Project plugins (.llmd/plugins/)
 func (h *Host) LoadPlugins(ctx context.Context) error {
-	// 1. Load embedded core plugin (or override if present)
-	if err := h.loadCorePlugin(ctx); err != nil {
+	// 1. Load embedded core plugin (must succeed)
+	if err := h.load(ctx, PluginEmbed, "core"); err != nil {
 		return fmt.Errorf("loading core plugin: %w", err)
 	}
 
-	// 2. Load bundled plugins (same directory as binary)
-	// TODO: Implement
-
-	// 3. Load global plugins (~/.llmd/plugins/)
-	// TODO: Implement
-
-	// 4. Load project plugins (.llmd/plugins/)
-	// TODO: Implement
-
-	return nil
-}
-
-// loadCorePlugin loads the embedded core plugin, or an override if present.
-//
-// The core plugin provides fundamental commands like cat, ls, write, and grep.
-// It is embedded in the binary but can be overridden by placing a core.wasm
-// file in .llmd/plugins/.
-func (h *Host) loadCorePlugin(ctx context.Context) error {
-	var wasmBytes []byte
-	source := "embedded"
-
-	// Check for .llmd/plugins/core.wasm override first
-	overridePath := filepath.Join(".llmd", "plugins", "core.wasm")
-	if data, err := os.ReadFile(overridePath); err == nil {
-		wasmBytes = data
-		source = "project"
-	} else {
-		wasmBytes = embed.CorePlugin
+	// 2. Load global plugins (~/.llmd/plugins/) - warn on failure
+	if globalDir, err := paths.GlobalDir(); err == nil {
+		h.load(ctx, PluginDir, globalDir+"/plugins")
 	}
 
-	return h.loadPluginFromBytes(ctx, "core", wasmBytes, source)
-}
+	// 3. Load project plugins (.llmd/plugins/) - warn on failure
+	h.load(ctx, PluginDir, ".llmd/plugins")
 
-// loadPluginFromBytes loads a plugin from WASM bytes.
-//
-// The go-plugin loader requires a file path, so we write the bytes to a
-// temporary file, load the plugin, then clean up. The plugin is initialised
-// by calling its Init method to retrieve the manifest, and its commands are
-// registered in the host's command map.
-func (h *Host) loadPluginFromBytes(ctx context.Context, name string, wasmBytes []byte, source string) error {
-	debug.Log("loadPluginFromBytes", "name", name, "source", source, "size", len(wasmBytes))
-
-	// Write to temp file for loading (the loader expects a file path)
-	tmpFile, err := os.CreateTemp("", "llmd-plugin-*.wasm")
-	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	if _, err := tmpFile.Write(wasmBytes); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("writing temp file: %w", err)
-	}
-	tmpFile.Close()
-	debug.Log("loadPluginFromBytes", "step", "temp file written", "path", tmpFile.Name())
-
-	// Load the plugin
-	debug.Log("loadPluginFromBytes", "step", "loading plugin")
-	instance, err := h.runtime.Loader().Load(ctx, tmpFile.Name())
-	if err != nil {
-		debug.Log("loadPluginFromBytes error", "step", "load", "error", err.Error())
-		return fmt.Errorf("loading plugin: %w", err)
-	}
-	debug.Log("loadPluginFromBytes", "step", "plugin loaded")
-
-	// Initialize the plugin
-	debug.Log("loadPluginFromBytes", "step", "initializing plugin")
-	manifest, err := instance.Init(ctx, &plugin.InitRequest{})
-	if err != nil {
-		debug.Log("loadPluginFromBytes error", "step", "init", "error", err.Error())
-		instance.Close(ctx)
-		return fmt.Errorf("initializing plugin: %w", err)
-	}
-	debug.Log("loadPluginFromBytes", "step", "plugin initialized", "manifestName", manifest.Name, "commands", len(manifest.Commands))
-
-	// Create loaded plugin
-	loaded := &LoadedPlugin{
-		Name:     manifest.Name,
-		Version:  manifest.Version,
-		Source:   source,
-		instance: instance,
-	}
-	h.plugins = append(h.plugins, loaded)
-
-	// Register commands
-	for _, cmd := range manifest.Commands {
-		h.commands[cmd.Name] = &RegisteredCommand{
-			Name:        cmd.Name,
-			Description: cmd.Description,
-			Usage:       cmd.Usage,
-			Plugin:      loaded,
-			MCPEnabled:  cmd.McpEnabled,
-			MCPName:     cmd.McpName,
-			Flags:       cmd.Flags,
-		}
-	}
-
-	debug.Log("loadPluginFromBytes complete", "name", name)
 	return nil
 }
 
