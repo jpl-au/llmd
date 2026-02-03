@@ -1,235 +1,75 @@
-//go:build wasip1
-
-/*
-Package sdk provides the plugin SDK for llmd.
-
-This guide explains how to create plugins for llmd. Plugins extend llmd with
-custom commands that can be invoked from the CLI or via MCP (Model Context
-Protocol) for AI assistant integration.
-
-# Quick Start
-
-1. Create a new Go module for your plugin:
-
-	mkdir myplugin && cd myplugin
-	go mod init github.com/yourname/myplugin
-
-2. Add the SDK dependency:
-
-	go get github.com/jpl-au/llmd/sdk
-
-3. Create main.go:
-
-	//go:build wasip1
-
-	package main
-
-	import "github.com/jpl-au/llmd/sdk"
-
-	func init() {
-		sdk.Register(&MyPlugin{})
-	}
-
-	func main() {}
-
-	type MyPlugin struct{}
-
-	func (p *MyPlugin) Manifest() sdk.Manifest {
-		return sdk.Manifest{
-			Name:        "myplugin",
-			Version:     "1.0.0",
-			Description: "My custom plugin",
-			Commands: []sdk.Command{
-				{
-					Name:        "hello",
-					Description: "Say hello",
-					Usage:       "hello [name]",
-					MCPEnabled:  true,
-				},
-			},
-		}
-	}
-
-	func (p *MyPlugin) ExecuteCommand(ctx sdk.Context, cmd string, args []string, flags map[string]any) (sdk.Result, error) {
-		switch cmd {
-		case "hello":
-			name := "world"
-			if len(args) > 0 {
-				name = args[0]
-			}
-			return sdk.TextResult("Hello, " + name + "!"), nil
-		default:
-			return nil, sdk.ErrUnknownCommand{Command: cmd}
-		}
-	}
-
-4. Build the plugin:
-
-	GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o myplugin.wasm .
-
-5. Install the plugin:
-
-	cp myplugin.wasm ~/.llmd/plugins/    # Global install
-	cp myplugin.wasm .llmd/plugins/      # Project-local install
-
-# Architecture Overview
-
-Plugins are WebAssembly modules that run inside the llmd host. The host loads
-plugins at startup, initialises them, and routes commands to the appropriate
-plugin.
-
-Communication between host and plugin uses Protocol Buffers. The SDK handles
-all the serialisation details - you just implement the Plugin interface.
-
-# Plugin Interface
-
-Every plugin must implement the Plugin interface:
-
-	type Plugin interface {
-		Manifest() Manifest
-		ExecuteCommand(ctx Context, cmd string, args []string, flags map[string]any) (Result, error)
-	}
-
-Optionally, plugins can also implement:
-
-  - EventHandler: Receive notifications when documents change
-  - Shutdowner: Perform cleanup when the plugin is unloaded
-
-# Registration
-
-Plugins must register themselves in init(), not main(). This is because plugins
-are built with -buildmode=c-shared, which creates "reactor" WASM modules where
-main() is never called.
-
-	func init() {
-		sdk.Register(&MyPlugin{})
-	}
-
-	func main() {
-		// Required for compilation, but never executed
-	}
-
-# Host API
-
-Plugins can access the llmd document store through the sdk.Host variable:
-
-	// Read a document
-	content, err := sdk.Host.Read("docs/readme")
-
-	// Write a document
-	err := sdk.Host.Write("docs/new", []byte("content"), "author", "commit message")
-
-	// List documents
-	docs, err := sdk.Host.List("docs/", sdk.ListOptions{})
-
-	// Search documents
-	results, err := sdk.Host.Search("query")
-
-	// Grep with full-text search
-	matches, err := sdk.Host.Grep("query")
-
-	// Delete a document (soft delete)
-	err := sdk.Host.Delete("docs/old", "author")
-
-# Commands
-
-Commands are defined in the Manifest and executed via ExecuteCommand. Each
-command has:
-
-  - Name: The command name (e.g., "cat", "ls")
-  - Description: Shown in help text
-  - Usage: Syntax hint (e.g., "cat <path>")
-  - Flags: Optional flags the command accepts
-  - MCPEnabled: Whether to expose via MCP
-  - MCPName: Override the MCP tool name
-
-# Flags
-
-Flags provide optional parameters to commands:
-
-	sdk.Command{
-		Name: "search",
-		Flags: []sdk.Flag{
-			{Name: "limit", Short: "n", Type: "int", Default: "10", Description: "Max results"},
-			{Name: "case-insensitive", Short: "i", Type: "bool", Description: "Ignore case"},
-		},
-	}
-
-Supported types: "string", "int", "bool", "stringSlice"
-
-# Results
-
-Commands return one of three result types:
-
-	// Plain text output (for simple messages)
-	return sdk.TextResult("Operation completed"), nil
-
-	// Structured JSON output (for MCP/API-focused commands)
-	return sdk.JSONResult{Data: map[string]any{
-		"count": 42,
-		"items": items,
-	}}, nil
-
-	// Dual-channel output (recommended for data-producing commands)
-	return sdk.RichResult{
-		Text: strings.Join(paths, "\n"),  // Human-readable (default)
-		Data: paths,                       // Structured (for --json flag)
-	}, nil
-
-RichResult is the preferred type for commands that produce data output. It
-provides both a human-readable text representation (shown by default in the
-CLI) and structured data (returned when the user passes --json). This allows
-the same command to serve both human users and automated tooling without
-needing format-specific logic in the plugin.
-
-# Events
-
-Plugins can subscribe to document store events by listing them in the Manifest:
-
-	sdk.Manifest{
-		SubscribedEvents: []string{
-			sdk.EventDocumentWritten,
-			sdk.EventDocumentDeleted,
-		},
-	}
-
-Then implement the EventHandler interface:
-
-	func (p *MyPlugin) HandleEvent(event sdk.Event) error {
-		if event.Type == sdk.EventDocumentWritten {
-			// React to document changes
-		}
-		return nil
-	}
-
-# Build Requirements
-
-Plugins must be built as WASM reactor modules:
-
-	GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o plugin.wasm .
-
-The -buildmode=c-shared flag is required. It creates a reactor module that
-initialises and stays alive, rather than running main() and exiting.
-
-# Plugin Locations
-
-Plugins are loaded from multiple locations in priority order:
-
- 1. Embedded (compiled into llmd binary)
- 2. Bundled (same directory as llmd binary)
- 3. Global (~/.llmd/plugins/)
- 4. Project (.llmd/plugins/)
-
-Later plugins can override commands from earlier plugins. For example, placing
-core.wasm in .llmd/plugins/ overrides the embedded core plugin.
-
-# Debugging
-
-If your plugin fails to load, check:
-
-  - Build tags: Ensure //go:build wasip1 is present
-  - Build mode: Must use -buildmode=c-shared
-  - Registration: Must use init(), not main()
-  - Dependencies: All imports must support wasip1
-*/
+// Package sdk provides the plugin SDK for llmd.
+//
+// Plugins implement the [Plugin] interface to provide commands. The host
+// loads plugins and routes commands to them. Plugins access the document
+// store through the global [API] variable, which is set by the host before
+// command execution.
+//
+// # Writing a Plugin
+//
+// A plugin is a type that implements three methods:
+//
+//	type MyPlugin struct{}
+//
+//	func (p *MyPlugin) Name() string { return "myplugin" }
+//
+//	func (p *MyPlugin) Commands() []sdk.Command {
+//	    return []sdk.Command{
+//	        {Name: "hello", Desc: "Say hello", Usage: "hello <name>"},
+//	    }
+//	}
+//
+//	func (p *MyPlugin) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Result, error) {
+//	    switch cmd {
+//	    case "hello":
+//	        if len(args) == 0 {
+//	            return nil, fmt.Errorf("hello: missing name")
+//	        }
+//	        return sdk.Text(fmt.Sprintf("Hello, %s!", args[0])), nil
+//	    default:
+//	        return nil, fmt.Errorf("unknown command: %s", cmd)
+//	    }
+//	}
+//
+// # Accessing the Store
+//
+// Commands access the document store through [API]:
+//
+//	content, err := sdk.API.Read("notes/todo.md", 0)  // 0 = latest version
+//	if err != nil {
+//	    return nil, err
+//	}
+//
+//	err = sdk.API.Write("notes/new.md", []byte("# New"), ctx.Author, "initial")
+//
+// # Returning Results
+//
+// Commands return one of three result types:
+//
+//   - [Text]: Plain text output
+//   - [Data]: Structured data (always output as JSON)
+//   - [Rich]: Both text and structured data (text for terminal, data for --json)
+//
+// Example:
+//
+//	// Text only
+//	return sdk.Text("Done"), nil
+//
+//	// Structured data only
+//	return sdk.Data{V: myStruct}, nil
+//
+//	// Both (text for humans, data for machines)
+//	return sdk.Rich{Text: "Found 5 documents", Data: docs}, nil
+//
+// # Command Flags
+//
+// Commands declare their flags in the [Command] struct. The host does not
+// parse flags; commands receive raw args and parse them directly. This
+// allows commands to follow Unix conventions (e.g., combined short flags
+// like -la).
+//
+//	{Name: "ls", Flags: []sdk.Flag{
+//	    {Name: "l", Type: "bool", Desc: "Long format"},
+//	    {Name: "a", Type: "bool", Desc: "Include deleted"},
+//	}}
 package sdk
