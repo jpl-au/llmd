@@ -1,22 +1,28 @@
-package core
+// Package cli provides core commands as an extension.
+package cli
 
 import (
 	"fmt"
 
+	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// Core is the core plugin.
-type Core struct{}
+func init() {
+	extension.Register(&CLI{})
+}
 
-// New creates a new core plugin.
-func New() *Core { return &Core{} }
+// CLI provides core document commands.
+type CLI struct{}
 
-// Name returns the plugin name.
-func (c *Core) Name() string { return "core" }
+// Name returns the extension name.
+func (c *CLI) Name() string { return "cli" }
 
-// Commands returns the plugin's commands.
-func (c *Core) Commands() []sdk.Command {
+// Plugin returns this extension as an sdk.Plugin.
+func (c *CLI) Plugin() sdk.Plugin { return c }
+
+// Commands returns the CLI commands.
+func (c *CLI) Commands() []sdk.Command {
 	return []sdk.Command{
 		{Name: "cat", Desc: "Read a document", Usage: "cat [options] <path>...", MCP: true, Flags: []sdk.Flag{
 			{Name: "version", Type: "int", Desc: "Read specific version"},
@@ -58,7 +64,7 @@ func (c *Core) Commands() []sdk.Command {
 }
 
 // Exec executes a command.
-func (c *Core) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Result, error) {
+func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Result, error) {
 	switch cmd {
 	case "cat":
 		return cat(ctx, args)

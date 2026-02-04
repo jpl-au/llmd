@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/jpl-au/llmd/cli" // registers cli extension
 	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/sdk"

@@ -4,8 +4,8 @@ package host
 import (
 	"fmt"
 
+	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/llmd"
-	"github.com/jpl-au/llmd/plugins/core"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -32,7 +32,10 @@ func New(store *llmd.Store) *Host {
 		sdk.API = newAPI(store)
 	}
 
-	h.register(core.New())
+	// Register plugins from extensions
+	for _, ext := range extension.All() {
+		h.register(ext.Plugin())
+	}
 
 	return h
 }
