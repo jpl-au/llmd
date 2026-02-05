@@ -95,17 +95,34 @@ func (a *api) Glob(pattern string) ([]string, error) {
 }
 
 func (a *api) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
-	docs, err := a.store.Search.FullText(context.Background(), query, search.Options{Path: opts.Path})
+	searchOpts := search.Options{
+		Path:    opts.Path,
+		Mode:    search.Mode(opts.Mode),
+		Context: opts.Context,
+	}
+
+	results, err := a.store.Search.FullText(context.Background(), query, searchOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	hits := make([]sdk.GrepHit, len(docs))
-	for i, doc := range docs {
-		hits[i] = sdk.GrepHit{
-			Path: doc.Path,
-			Line: 1,
-			Text: doc.Content,
+	var hits []sdk.GrepHit
+	for _, r := range results {
+		if len(r.Matches) == 0 {
+			// ModePaths: no matches, just path
+			hits = append(hits, sdk.GrepHit{Path: r.Path})
+			continue
+		}
+		for _, m := range r.Matches {
+			hits = append(hits, sdk.GrepHit{
+				Path:    r.Path,
+				Line:    m.Line,
+				Column:  m.Column,
+				Text:    m.Text,
+				Before:  m.Before,
+				After:   m.After,
+				Section: m.Section,
+			})
 		}
 	}
 	return hits, nil

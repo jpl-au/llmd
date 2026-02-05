@@ -90,19 +90,72 @@ type ListOpts struct {
 	Reverse bool
 }
 
-// GrepOpts configures Grep.
+// GrepMode controls the granularity of grep results.
+type GrepMode int
+
+const (
+	// GrepFull returns entire document content (default).
+	GrepFull GrepMode = iota
+
+	// GrepSections returns markdown sections containing matches.
+	// Each section is delimited by headings.
+	GrepSections
+
+	// GrepLines returns individual matching lines with optional context.
+	// Use GrepOpts.Context to specify context lines.
+	GrepLines
+
+	// GrepPaths returns only document paths, no content.
+	// GrepHit.Text will be empty.
+	GrepPaths
+
+	// GrepSnippets returns FTS5-generated highlighted snippets.
+	// Text includes <b></b> markers around matches.
+	GrepSnippets
+)
+
+// GrepOpts configures a Grep search.
 type GrepOpts struct {
-	Path    string
+	// Path limits results to documents under this path prefix.
+	Path string
+
+	// Context specifies lines of context for GrepLines mode.
+	// Ignored for other modes.
 	Context int
+
+	// Mode controls result granularity. Default is GrepFull.
+	Mode GrepMode
 }
 
-// GrepHit is a grep result.
+// GrepHit represents a search match. Which fields are populated
+// depends on the GrepMode used:
+//
+//	GrepFull:     Path, Text (entire document)
+//	GrepPaths:    Path only
+//	GrepLines:    Path, Line, Column, Text, Before, After
+//	GrepSections: Path, Line, Text, Section
+//	GrepSnippets: Path, Text (with highlights)
 type GrepHit struct {
-	Path   string
-	Line   int
-	Text   string
+	// Path is the document path.
+	Path string
+
+	// Line is the 1-indexed line number (GrepLines, GrepSections).
+	Line int
+
+	// Column is the 0-indexed byte position in the line (GrepLines).
+	Column int
+
+	// Text contains the matched content.
+	Text string
+
+	// Before contains context lines before the match (GrepLines).
 	Before []string
-	After  []string
+
+	// After contains context lines after the match (GrepLines).
+	After []string
+
+	// Section is the markdown heading text (GrepSections).
+	Section string
 }
 
 // Version is a document version.
