@@ -1,5 +1,15 @@
 package cli
 
+// diff compares two document versions.
+//
+// With two paths: compares them directly ("diff notes/a notes/b").
+// With one path: compares the current version to its immediate predecessor,
+// which is the common "what changed last?" use case. It fetches the two
+// most recent versions from history to construct the comparison.
+//
+// Paths can include version suffixes ("notes/a:3") to compare specific
+// versions. See sdk.Store.Diff for the path:version syntax.
+
 import (
 	"fmt"
 	"strconv"
@@ -26,12 +36,13 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if len(paths) == 0 {
-		return nil, fmt.Errorf("diff: missing source argument")
+		return nil, fmt.Errorf("diff: %w", sdk.ErrMissingArg)
 	}
 
 	var source, target string
 	switch len(paths) {
 	case 1:
+		// Single path: compare current version to its predecessor.
 		versions, err := sdk.API.History(paths[0], 2)
 		if err != nil || len(versions) < 2 {
 			return nil, fmt.Errorf("diff: no previous version for %s", paths[0])
@@ -41,7 +52,7 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case 2:
 		source, target = paths[0], paths[1]
 	default:
-		return nil, fmt.Errorf("diff: expected 1 or 2 paths, got %d", len(paths))
+		return nil, fmt.Errorf("diff: %w: expected 1 or 2 paths, got %d", sdk.ErrInvalidArg, len(paths))
 	}
 
 	diffText, added, removed, err := sdk.API.Diff(source, target, contextLines)

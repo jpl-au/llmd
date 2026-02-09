@@ -1,5 +1,9 @@
 package cli
 
+// rm soft-deletes a document. The content is preserved and can be
+// recovered with "restore". Use "vacuum" to permanently purge
+// soft-deleted documents.
+
 import (
 	"fmt"
 
@@ -8,7 +12,7 @@ import (
 
 func rm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("rm: missing path argument")
+		return nil, fmt.Errorf("rm: %w", sdk.ErrMissingArg)
 	}
 
 	if err := sdk.API.Delete(args[0], ctx.Author); err != nil {

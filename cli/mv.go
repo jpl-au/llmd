@@ -1,5 +1,8 @@
 package cli
 
+// mv renames or moves a document to a new path. The full version
+// history moves with it.
+
 import (
 	"fmt"
 
@@ -8,7 +11,7 @@ import (
 
 func mv(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("mv: requires <from> <to> arguments")
+		return nil, fmt.Errorf("mv: %w", sdk.ErrMissingArg)
 	}
 
 	if err := sdk.API.Move(args[0], args[1], ctx.Author); err != nil {

@@ -23,11 +23,11 @@
 //	    switch cmd {
 //	    case "hello":
 //	        if len(args) == 0 {
-//	            return nil, fmt.Errorf("hello: missing name")
+//	            return nil, fmt.Errorf("hello: %w", sdk.ErrMissingArg)
 //	        }
 //	        return sdk.Text(fmt.Sprintf("Hello, %s!", args[0])), nil
 //	    default:
-//	        return nil, fmt.Errorf("unknown command: %s", cmd)
+//	        return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 //	    }
 //	}
 //

@@ -1,3 +1,10 @@
+// api.go bridges sdk.Store to the internal storage packages. Each method
+// translates sdk types (flat args) into internal option structs (documents.*,
+// history.*, search.*) and maps internal results back to sdk types.
+//
+// All mutating operations stamp a core.Origin with Source:"cli" so the
+// version history records where the change came from.
+
 package host
 
 import (
@@ -11,16 +18,21 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// api implements sdk.Store by delegating to the internal storage packages.
 type api struct {
 	store *llmd.Store
 }
 
+// newAPI wraps a Store as an sdk.Store for plugin access.
 func newAPI(store *llmd.Store) *api {
 	return &api{store: store}
 }
 
+// Read returns document content. Version 0 means latest (nil pointer
+// in internal options); a positive version reads that specific version.
 func (a *api) Read(path string, version int) ([]byte, error) {
 	var opts documents.ReadOptions
+	// nil Version pointer = latest; non-nil = specific version
 	if version > 0 {
 		opts.Version = &version
 	}
@@ -31,6 +43,7 @@ func (a *api) Read(path string, version int) ([]byte, error) {
 	return []byte(doc.Content), nil
 }
 
+// Write creates or updates a document, recording a new version.
 func (a *api) Write(path string, content []byte, author, msg string) error {
 	_, err := a.store.Documents.Write(context.Background(), path, string(content), documents.WriteOptions{
 		Origin: core.Origin{Author: author, Message: msg, Source: "cli"},
@@ -38,24 +51,30 @@ func (a *api) Write(path string, content []byte, author, msg string) error {
 	return err
 }
 
+// Delete soft-deletes a document (recoverable until Vacuum).
 func (a *api) Delete(path, author string) error {
 	return a.store.Documents.Delete(context.Background(), path, documents.DeleteOptions{
 		Origin: core.Origin{Author: author, Source: "cli"},
 	})
 }
 
+// Restore recovers a soft-deleted document.
 func (a *api) Restore(path, author string) error {
 	return a.store.Documents.Restore(context.Background(), path, documents.RestoreOptions{
 		Origin: core.Origin{Author: author, Source: "cli"},
 	})
 }
 
+// Move renames a document, preserving its version history.
 func (a *api) Move(from, to, author string) error {
 	return a.store.Documents.Move(context.Background(), from, to, documents.MoveOptions{
 		Origin: core.Origin{Author: author, Source: "cli"},
 	})
 }
 
+// List returns documents matching the path prefix. Reverse is applied
+// here rather than in the database query so all sort modes (path,
+// time) can be reversed uniformly.
 func (a *api) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
 	infos, err := a.store.Documents.List(context.Background(), documents.ListOptions{
 		Prefix:         prefix,
@@ -86,14 +105,21 @@ func (a *api) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
 	return docs, nil
 }
 
+// Exists reports whether a non-deleted document exists at path.
 func (a *api) Exists(path string) (bool, error) {
 	return a.store.Documents.Exists(context.Background(), path)
 }
 
+// Glob returns document paths matching a shell-style glob pattern.
 func (a *api) Glob(pattern string) ([]string, error) {
 	return a.store.Search.Glob(context.Background(), pattern)
 }
 
+// Grep performs FTS5 full-text search. Maps sdk.GrepOpts to internal
+// search.Options (the Mode enum values are identical by design so a
+// direct cast works). Results are flattened: each search.Result may
+// contain multiple matches, which become individual sdk.GrepHit entries.
+// For GrepPaths mode, results have no matches — just a path.
 func (a *api) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
 	searchOpts := search.Options{
 		Path:    opts.Path,
@@ -109,7 +135,7 @@ func (a *api) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
 	var hits []sdk.GrepHit
 	for _, r := range results {
 		if len(r.Matches) == 0 {
-			// ModePaths: no matches, just path
+			// GrepPaths mode: no match detail, just the path
 			hits = append(hits, sdk.GrepHit{Path: r.Path})
 			continue
 		}
@@ -128,6 +154,8 @@ func (a *api) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
 	return hits, nil
 }
 
+// History returns version history for a document, newest first.
+// Limit 0 means all versions (zero-value ListOptions has no limit).
 func (a *api) History(path string, limit int) ([]sdk.Version, error) {
 	var opts history.ListOptions
 	if limit > 0 {
@@ -151,6 +179,10 @@ func (a *api) History(path string, limit int) ([]sdk.Version, error) {
 	return versions, nil
 }
 
+// Diff computes a unified diff between two document versions.
+// src and dst use "path" or "path:version" format. Context 0 means
+// the default (3 lines). Returns unified diff text, lines added,
+// and lines removed.
 func (a *api) Diff(src, dst string, ctx int) (string, int, int, error) {
 	var opts history.DiffOptions
 	if ctx > 0 {
@@ -165,6 +197,7 @@ func (a *api) Diff(src, dst string, ctx int) (string, int, int, error) {
 	return result.Unified, result.Stats.Added, result.Stats.Removed, nil
 }
 
+// Revert creates a new version with the content from a previous version.
 func (a *api) Revert(path string, version int, author, msg string) error {
 	_, err := a.store.History.Revert(context.Background(), path, version, history.RevertOptions{
 		Origin: core.Origin{Author: author, Message: msg, Source: "cli"},
@@ -172,6 +205,7 @@ func (a *api) Revert(path string, version int, author, msg string) error {
 	return err
 }
 
+// Edit performs a search-and-replace within a document, creating a new version.
 func (a *api) Edit(path, old, new, author, msg string) error {
 	_, err := a.store.Documents.Edit(context.Background(), path, old, new, documents.EditOptions{
 		Origin: core.Origin{Author: author, Message: msg, Source: "cli"},

@@ -1,5 +1,14 @@
 package cli
 
+// history shows the version log for a document.
+//
+// Output is a fixed-width table: version number, author, date, and
+// commit message. Authors longer than 12 characters are truncated with
+// an ellipsis to keep the table readable in narrow terminals.
+//
+// Limit defaults to 0 (all versions). Use -n to cap the output, e.g.
+// "history -n5 notes/readme" shows the 5 most recent versions.
+
 import (
 	"fmt"
 	"strconv"
@@ -26,7 +35,7 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if path == "" {
-		return nil, fmt.Errorf("history: missing path argument")
+		return nil, fmt.Errorf("history: %w", sdk.ErrMissingArg)
 	}
 
 	versions, err := sdk.API.History(path, limit)

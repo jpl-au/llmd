@@ -1,5 +1,12 @@
 package cli
 
+// edit performs a search-and-replace within a document. Takes three
+// positional args: path, old text, new text. The store replaces the
+// first occurrence of old with new and creates a new version.
+//
+// This is the primary way MCP clients make targeted changes without
+// rewriting the entire document via write.
+
 import (
 	"fmt"
 	"strings"
@@ -9,7 +16,7 @@ import (
 
 func edit(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 3 {
-		return nil, fmt.Errorf("edit: requires <path> <old> <new> arguments")
+		return nil, fmt.Errorf("edit: %w", sdk.ErrMissingArg)
 	}
 
 	path, old, new := args[0], args[1], args[2]

@@ -1,4 +1,16 @@
-// Package cli provides core commands as an extension.
+// Package cli provides the core document commands as a compiled extension.
+//
+// Each command is a thin wrapper around sdk.API — it parses flags, calls
+// the store, and returns both human-readable text and structured data.
+// The host decides which to display (text for terminals, data for --json).
+//
+// Commands parse their own flags rather than relying on the host because
+// each command has different positional argument conventions (like Unix
+// utilities: "cat <path>...", "grep <pattern> [path]", etc.) that don't
+// fit a single parsing model.
+//
+// All commands are registered at init time via extension.Register,
+// following the database/sql.Register convention.
 package cli
 
 import (
@@ -12,16 +24,16 @@ func init() {
 	extension.Register(&CLI{})
 }
 
-// CLI provides core document commands.
+// CLI implements sdk.Plugin to provide core document commands.
 type CLI struct{}
 
-// Name returns the extension name.
-func (c *CLI) Name() string { return "cli" }
-
-// Plugin returns this extension as an sdk.Plugin.
+func (c *CLI) Name() string       { return "cli" }
 func (c *CLI) Plugin() sdk.Plugin { return c }
 
-// Commands returns the CLI commands.
+// Commands returns the full command table. MCP and MCPName fields control
+// which commands are exposed to AI agents via the MCP server. MCPName
+// overrides the tool name to avoid collisions (e.g. "grep" -> "llmd_grep"
+// so it doesn't shadow the host's grep tool).
 func (c *CLI) Commands() []sdk.Command {
 	return []sdk.Command{
 		{Name: "cat", Desc: "Read a document", Usage: "cat [options] <path>...", MCP: true, Flags: []sdk.Flag{
@@ -63,7 +75,7 @@ func (c *CLI) Commands() []sdk.Command {
 	}
 }
 
-// Exec executes a command.
+// Exec dispatches a command name to its handler.
 func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
 	switch cmd {
 	case "cat":
@@ -91,6 +103,6 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 	case "revert":
 		return revert(ctx, args)
 	default:
-		return nil, fmt.Errorf("unknown command: %s", cmd)
+		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 	}
 }

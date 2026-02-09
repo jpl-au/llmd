@@ -1,3 +1,15 @@
+// llmd is a versioned document store for LLMs and humans.
+//
+// This file contains the CLI entry point. It handles:
+//   - Global flag parsing (--json, --help)
+//   - Built-in commands (init, config, vacuum, mcp, plugins, version)
+//   - Delegation to plugin commands via Host
+//   - Config file management (global ~/.config/llmd/config, local .llmd/config)
+//   - stdin detection for piped content
+//
+// Plugin commands (cat, ls, write, grep, etc.) are registered by the cli
+// package's init() function via the extension system. They need an open
+// store, so they're handled after the built-in commands.
 package main
 
 import (
@@ -21,13 +33,17 @@ func main() {
 	os.Exit(run(os.Args[1:]))
 }
 
+// run is the real entry point, separated from main() so it can return
+// an exit code instead of calling os.Exit directly.
 func run(args []string) int {
 	if len(args) == 0 {
 		printHelp(host.New(nil))
 		return 0
 	}
 
-	// Parse global flags and extract command
+	// Global flags are parsed before the command name. Once a non-flag
+	// arg is found, it's the command and everything after it is passed
+	// through as command args (unparsed — commands parse their own flags).
 	var jsonOut bool
 	var help bool
 	var cmd string
@@ -43,11 +59,11 @@ func run(args []string) int {
 		case cmd == "" && !strings.HasPrefix(arg, "-"):
 			cmd = arg
 			cmdArgs = args[i+1:]
-			i = len(args)
+			i = len(args) // stop parsing globals
 		}
 	}
 
-	// Built-in commands
+	// Built-in commands don't need an open store.
 	switch cmd {
 	case "version":
 		fmt.Println("llmd dev")
@@ -94,6 +110,13 @@ Keys:
 		fmt.Println("Vacuum complete")
 		return 0
 
+	case "mcp":
+		if help {
+			fmt.Println("mcp - Start MCP stdio server\n\nUsage: llmd mcp")
+			return 0
+		}
+		return runMCP()
+
 	case "plugins":
 		if help {
 			fmt.Println("plugins - List loaded plugins\n\nUsage: llmd plugins")
@@ -106,14 +129,14 @@ Keys:
 		return 0
 	}
 
-	// Help for no command
+	// No command given — show help.
 	if cmd == "" || help && cmd == "" {
 		h := host.New(nil)
 		printHelp(h)
 		return 0
 	}
 
-	// Plugin commands need store
+	// Plugin commands require an open store.
 	store, err := llmd.Open("")
 	if err != nil {
 		return errorf(jsonOut, "%v", err)
@@ -122,7 +145,6 @@ Keys:
 
 	h := host.New(store)
 
-	// Command help
 	if help {
 		c := h.Commands()[cmd]
 		if c == nil {
@@ -132,27 +154,23 @@ Keys:
 		return 0
 	}
 
-	// Check command exists
 	if h.Commands()[cmd] == nil {
 		return errorf(jsonOut, "unknown command: %s", cmd)
 	}
 
-	// Load author from config
 	author := loadConfig()["author"]
 	if author == "" && needsAuthor(cmd) {
 		return errorf(jsonOut, "author not configured\n\nSet your author name:\n  llmd config author \"Your Name\"")
 	}
 
-	// Read stdin
 	stdin := readStdin()
 
-	// Execute
 	result, err := h.Exec(cmd, cmdArgs, author, stdin)
 	if err != nil {
 		return errorf(jsonOut, "%v", err)
 	}
 
-	// Output
+	// Display result: text for terminals, JSON for --json.
 	switch r := result.(type) {
 	case sdk.Text:
 		if string(r) != "" {
@@ -175,26 +193,24 @@ Keys:
 	return 0
 }
 
+// runConfig handles "llmd config" subcommands: show all, show key, set key.
 func runConfig(args []string, jsonOut bool) int {
 	cfg := loadConfig()
 
 	switch len(args) {
 	case 0:
-		// Show all
 		for k, v := range cfg {
 			fmt.Printf("%s=%s\n", k, v)
 		}
 		return 0
 
 	case 1:
-		// Show specific key
 		if v, ok := cfg[args[0]]; ok {
 			fmt.Println(v)
 		}
 		return 0
 
 	case 2:
-		// Set key=value
 		key, value := args[0], args[1]
 		if key != "author" {
 			return errorf(jsonOut, "unknown config key: %s", key)
@@ -209,30 +225,34 @@ func runConfig(args []string, jsonOut bool) int {
 	}
 }
 
+// configPath returns the path to the config file that would be used for
+// writes. Local .llmd/config takes precedence over global config.
 func configPath() string {
-	// Local config in .llmd/config takes precedence
 	if _, err := os.Stat(".llmd/config"); err == nil {
 		return ".llmd/config"
 	}
-	// Fall back to global config
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "llmd", "config")
 }
 
+// loadConfig merges global (~/.config/llmd/config) and local (.llmd/config)
+// configuration. Local values override global ones, so a project can set
+// its own author without affecting other stores.
 func loadConfig() map[string]string {
 	cfg := make(map[string]string)
 
-	// Load global config first
 	home, _ := os.UserHomeDir()
 	globalPath := filepath.Join(home, ".config", "llmd", "config")
 	loadConfigFile(globalPath, cfg)
 
-	// Local config overrides
+	// Local overrides global.
 	loadConfigFile(".llmd/config", cfg)
 
 	return cfg
 }
 
+// loadConfigFile reads a simple "key=value" config file into cfg.
+// Missing files are silently ignored (config is optional).
 func loadConfigFile(path string, cfg map[string]string) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -254,20 +274,19 @@ func loadConfigFile(path string, cfg map[string]string) {
 	}
 }
 
+// saveConfig writes a key=value to the local .llmd/config file,
+// preserving any existing values.
 func saveConfig(key, value string) error {
 	path := ".llmd/config"
 
-	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
 
-	// Load existing config
 	cfg := make(map[string]string)
 	loadConfigFile(path, cfg)
 	cfg[key] = value
 
-	// Write back
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -280,6 +299,8 @@ func saveConfig(key, value string) error {
 	return nil
 }
 
+// errorf writes an error to stderr (as JSON if --json, plain text otherwise)
+// and returns exit code 1.
 func errorf(jsonOut bool, format string, args ...any) int {
 	msg := fmt.Sprintf(format, args...)
 	if jsonOut {
@@ -290,6 +311,9 @@ func errorf(jsonOut bool, format string, args ...any) int {
 	return 1
 }
 
+// needsAuthor returns true for commands that create versions (writes,
+// deletes, moves). These require an author name so the version history
+// records who made the change.
 func needsAuthor(cmd string) bool {
 	switch cmd {
 	case "write", "edit", "rm", "mv", "restore", "revert":
@@ -298,6 +322,16 @@ func needsAuthor(cmd string) bool {
 	return false
 }
 
+// readStdin reads piped input if present, or returns nil for interactive
+// terminals.
+//
+// There are three cases:
+//   - TTY (interactive terminal): returns nil immediately
+//   - Regular file (redirect): reads all content
+//   - Pipe: reads with a 50ms timeout. The timeout handles the ambiguous
+//     case where stdin is a pipe but nothing is being written to it (e.g.
+//     when running in certain process managers). Without the timeout, the
+//     read would block indefinitely.
 func readStdin() []byte {
 	f := os.Stdin
 	stat, err := f.Stat()
@@ -305,12 +339,13 @@ func readStdin() []byte {
 		return nil
 	}
 	if stat.Mode()&os.ModeCharDevice != 0 {
-		return nil
+		return nil // TTY, no piped input
 	}
 	if stat.Mode().IsRegular() {
 		data, _ := io.ReadAll(f)
 		return data
 	}
+	// Pipe: read with timeout to avoid blocking on empty pipes.
 	done := make(chan []byte, 1)
 	go func() {
 		data, _ := io.ReadAll(f)
@@ -324,6 +359,8 @@ func readStdin() []byte {
 	}
 }
 
+// printHelp displays the top-level usage, including both built-in and
+// plugin commands.
 func printHelp(h *host.Host) {
 	fmt.Print(`llmd - a document store for LLMs and humans
 
@@ -337,6 +374,7 @@ Global Flags:
 Built-in Commands:
   config      Manage configuration
   init        Initialize a new store
+  mcp         Start MCP stdio server
   plugins     List loaded plugins
   vacuum      Clean up deleted documents
   version     Show version information
@@ -360,6 +398,8 @@ Built-in Commands:
 	fmt.Println(`Use "llmd <command> --help" for more information about a command.`)
 }
 
+// printCmdHelp displays detailed help for a single command, including
+// its flags and global flags.
 func printCmdHelp(c *sdk.Command) {
 	fmt.Printf("%s - %s\n\n", c.Name, c.Desc)
 	if c.Usage != "" {

@@ -1,5 +1,9 @@
 package cli
 
+// glob finds documents whose paths match a glob pattern.
+// Patterns use standard glob syntax: * matches any sequence within a
+// path segment, ** matches across segments.
+
 import (
 	"fmt"
 	"strings"
@@ -9,7 +13,7 @@ import (
 
 func glob(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("glob: missing pattern argument")
+		return nil, fmt.Errorf("glob: %w", sdk.ErrMissingArg)
 	}
 
 	paths, err := sdk.API.Glob(args[0])

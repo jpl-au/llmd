@@ -1,4 +1,12 @@
-// Package sql provides embedded SQL schema files.
+// Package sql provides embedded SQL schema files for llmd's database.
+//
+// Schema files are named alphabetically (content.sql, entities.sql,
+// fts.sql, help.sql) and executed in that order. Alphabetical ordering
+// matters because later schemas may reference tables created by earlier
+// ones (e.g. fts.sql depends on tables from content.sql).
+//
+// All statements use CREATE IF NOT EXISTS and INSERT OR IGNORE, making
+// the migration idempotent — it runs on every store open, not just init.
 package sql
 
 import (
@@ -15,7 +23,13 @@ var schemas embed.FS
 //go:embed help.md
 var help string
 
-// Exec executes all embedded schema files in alphabetical order.
+// Exec executes all embedded .sql schema files in alphabetical order,
+// then inserts the embedded help.md content into the help table.
+//
+// The help table stores documentation inside the database itself so
+// that LLMs or humans exploring the SQLite file directly (e.g. via
+// sqlite3 CLI) can discover what the schema represents and how to
+// query it, without needing access to the llmd binary or source.
 func Exec(db *sql.DB) error {
 	entries, err := fs.ReadDir(schemas, ".")
 	if err != nil {
@@ -39,7 +53,7 @@ func Exec(db *sql.DB) error {
 		}
 	}
 
-	// Insert help content
+	// Embed help documentation inside the database for discoverability.
 	_, err = db.Exec("INSERT OR IGNORE INTO help (content) VALUES (?)", help)
 	return err
 }

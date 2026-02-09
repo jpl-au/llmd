@@ -1,14 +1,46 @@
 // Package sdk provides the plugin SDK for llmd.
 package sdk
 
-// Plugin is what plugins implement.
+import "errors"
+
+// Common errors returned by commands. These allow callers to
+// programmatically distinguish error categories without parsing
+// strings. Commands wrap these with context, e.g.:
+//
+//	fmt.Errorf("cat: %w", sdk.ErrMissingArg)
+var (
+	// ErrMissingArg means a required positional argument was not provided.
+	ErrMissingArg = errors.New("missing required argument")
+
+	// ErrInvalidArg means an argument was present but malformed
+	// (e.g. non-numeric version string).
+	ErrInvalidArg = errors.New("invalid argument")
+
+	// ErrUnknownCmd means the command name was not found in the plugin's
+	// command table.
+	ErrUnknownCmd = errors.New("unknown command")
+)
+
+// Plugin is the interface that command providers implement. The host
+// discovers plugins at startup (compiled extensions via init(), dynamic
+// plugins via Yaegi), calls Commands() to build its command table, and
+// dispatches execution to Exec().
+//
+// Plugins receive raw args and parse flags themselves — the host does
+// not interpret command arguments. See doc.go for a full example.
 type Plugin interface {
 	Name() string
 	Commands() []Command
 	Exec(ctx Context, cmd string, args []string) (Response, error)
 }
 
-// Command describes a command.
+// Command describes a plugin command. Name is the invocation word
+// (e.g. "cat", "ls"). Desc is a short one-line description shown in
+// help output. Usage shows the argument pattern (e.g. "cat [options] <path>...").
+//
+// MCP controls whether the command is exposed as an MCP tool.
+// MCPName overrides the tool name to avoid collisions with host tools
+// (e.g. "grep" → "llmd_grep").
 type Command struct {
 	Name    string
 	Desc    string
@@ -18,34 +50,52 @@ type Command struct {
 	MCPName string
 }
 
-// Flag describes a command flag.
+// Flag describes a command flag for help output. The host does not parse
+// flags — this metadata is only used for --help display and MCP tool
+// descriptions. Commands parse their own flags from the raw args slice.
 type Flag struct {
-	Name  string
-	Short string
-	Type  string // "bool", "string", "int"
+	Name  string // Long flag name (e.g. "version" for --version)
+	Short string // Optional short form (e.g. "n" for -n)
+	Type  string // "bool", "string", or "int"
 	Desc  string
 }
 
-// Context provides execution context.
+// Context carries per-invocation data to commands. Author is the
+// configured user identity (required for write operations). Stdin
+// contains piped input when present, or nil for interactive terminals.
 type Context struct {
 	Author string
 	Stdin  []byte
 }
 
-// Response is returned by commands.
+// Response is the marker interface for command return values. It uses
+// a marker method instead of a concrete type so the three result types
+// (Text, Data, Result) remain distinct at the type-switch level — the
+// host switches on the concrete type to decide output format.
+//
+// Choose between the three implementations:
+//   - [Text]: plain text, displayed as-is (most commands)
+//   - [Data]: structured data, always JSON-encoded (machine-only output)
+//   - [Result]: both text and data (text for terminals, data for --json)
 type Response interface{ Response() }
 
-// Text is plain text output.
+// Text is plain text output, displayed as-is to the terminal.
+// Use for simple messages like "Deleted notes/todo.md".
 type Text string
 
 func (Text) Response() {}
 
-// Data is structured output (for --json).
+// Data is structured output that is always JSON-encoded regardless of
+// --json flag. Use when the output is only meaningful as structured data
+// (e.g. machine-to-machine communication).
 type Data struct{ V any }
 
 func (Data) Response() {}
 
-// Result has both text and structured data.
+// Result carries both human-readable text and structured data. The host
+// displays Text for terminal output and Data when --json is set. Use
+// when both humans and machines consume the output (e.g. "ls" shows a
+// table for humans but returns document metadata as JSON for scripts).
 type Result struct {
 	Text string
 	Data any
@@ -53,27 +103,70 @@ type Result struct {
 
 func (Result) Response() {}
 
-// API provides store access to plugins.
+// API is the global store handle, set by the host before command
+// execution. Plugins call sdk.API.Read(), sdk.API.Write(), etc.
+// It is nil when the host is created without a store (e.g. for
+// discovery-only operations like "llmd plugins").
 var API Store
 
-// Store provides store access.
+// Store is the document store interface exposed to plugins. It
+// abstracts the internal storage engine so plugins don't depend on
+// database internals.
 type Store interface {
+	// Read returns document content. Version 0 means latest;
+	// a positive version reads that specific historical version.
 	Read(path string, version int) ([]byte, error)
+
+	// Write creates or updates a document, recording a new version.
 	Write(path string, content []byte, author, msg string) error
+
+	// Delete soft-deletes a document (recoverable via Restore until Vacuum).
 	Delete(path, author string) error
+
+	// Restore recovers a soft-deleted document.
 	Restore(path, author string) error
+
+	// Move renames a document, preserving version history.
 	Move(from, to, author string) error
+
+	// List returns documents matching the path prefix. Use ListOpts
+	// to include deleted documents or change sort order.
 	List(prefix string, opts ListOpts) ([]Doc, error)
+
+	// Exists reports whether a (non-deleted) document exists at path.
 	Exists(path string) (bool, error)
+
+	// Glob returns paths matching a shell-style glob pattern
+	// (e.g. "notes/*.md", "**/*.txt").
 	Glob(pattern string) ([]string, error)
+
+	// Grep performs FTS5 full-text search. The query uses SQLite FTS5
+	// syntax (e.g. "hello world", "title:foo", "NEAR(a b)").
+	// See GrepOpts for result modes (lines, sections, paths, etc.).
 	Grep(query string, opts GrepOpts) ([]GrepHit, error)
+
+	// History returns version history for a document, newest first.
+	// Limit 0 means all versions.
 	History(path string, limit int) ([]Version, error)
+
+	// Diff computes a unified diff. Arguments use "path" or "path:version"
+	// format. When only one argument is given, it diffs against the
+	// previous version. ctx is lines of context (0 = default 3).
+	// Returns the unified diff text, lines added, and lines removed.
 	Diff(a, b string, ctx int) (string, int, int, error)
+
+	// Revert creates a new version with the content from a previous version.
+	// The old version is not modified — revert is non-destructive.
 	Revert(path string, version int, author, msg string) error
+
+	// Edit performs a search-and-replace within a document, creating a
+	// new version with the substitution applied.
 	Edit(path, old, new, author, msg string) error
 }
 
-// Doc represents a document.
+// Doc represents a document's metadata (not its content — use Read for
+// that). Returned by List. CreatedAt is a Unix timestamp. Deleted is
+// true for soft-deleted documents (only visible with ListOpts.Deleted).
 type Doc struct {
 	Path      string
 	Version   int
@@ -83,11 +176,11 @@ type Doc struct {
 	Deleted   bool
 }
 
-// ListOpts configures List.
+// ListOpts configures List behavior.
 type ListOpts struct {
-	Deleted bool
-	Sort    string
-	Reverse bool
+	Deleted bool   // Include soft-deleted documents
+	Sort    string // Sort field (default: path alphabetical)
+	Reverse bool   // Reverse the sort order
 }
 
 // GrepMode controls the granularity of grep results.
@@ -158,7 +251,8 @@ type GrepHit struct {
 	Section string
 }
 
-// Version is a document version.
+// Version is a single entry in a document's version history.
+// Num is the 1-indexed version number. CreatedAt is a Unix timestamp.
 type Version struct {
 	Num       int
 	Author    string

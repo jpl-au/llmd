@@ -1,5 +1,9 @@
 package cli
 
+// write creates or updates a document. Content comes from ctx.Stdin
+// (piped input on CLI, Content field via MCP). If the document already
+// exists, a new version is created; if not, it's created at version 1.
+
 import (
 	"fmt"
 	"strings"
@@ -9,7 +13,7 @@ import (
 
 func write(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("write: missing path argument")
+		return nil, fmt.Errorf("write: %w", sdk.ErrMissingArg)
 	}
 
 	path := args[0]

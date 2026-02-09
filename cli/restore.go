@@ -1,5 +1,9 @@
 package cli
 
+// restore recovers a soft-deleted document, making it visible again
+// in ls output. Only works on documents deleted with "rm" that haven't
+// been purged by "vacuum".
+
 import (
 	"fmt"
 
@@ -8,7 +12,7 @@ import (
 
 func restore(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("restore: missing path argument")
+		return nil, fmt.Errorf("restore: %w", sdk.ErrMissingArg)
 	}
 
 	if err := sdk.API.Restore(args[0], ctx.Author); err != nil {

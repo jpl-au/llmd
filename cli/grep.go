@@ -1,5 +1,17 @@
 package cli
 
+// grep searches document content using FTS5 full-text search.
+//
+// It supports three output modes, matching standard grep conventions:
+//   - Default: prints "path:text" per match (or "path:line:text" with -n)
+//   - -l (files only): prints unique paths, deduplicating multiple hits per doc
+//   - -c (count only): prints "path:count" per document
+//
+// The first positional arg is the search pattern; the optional second
+// limits results to a path prefix (e.g. "grep TODO notes/").
+//
+// -C accepts both "-C3" and "-C 3" forms to match GNU grep conventions.
+
 import (
 	"fmt"
 	"strconv"
@@ -37,7 +49,7 @@ func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if pattern == "" {
-		return nil, fmt.Errorf("grep: missing pattern argument")
+		return nil, fmt.Errorf("grep: %w", sdk.ErrMissingArg)
 	}
 
 	results, err := sdk.API.Grep(pattern, sdk.GrepOpts{Path: pathPrefix, Context: contextLines})
@@ -61,6 +73,7 @@ func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 		text = strings.TrimSuffix(out.String(), "\n")
 	} else if filesOnly {
+		// Deduplicate paths — a document may have multiple hits.
 		seen := make(map[string]bool)
 		var paths []string
 		for _, r := range results {

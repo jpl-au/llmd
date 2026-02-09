@@ -1,4 +1,22 @@
-// Package llmd provides the core business logic for document storage.
+// Package llmd provides the core document storage engine.
+//
+// Store is the top-level type that orchestrates sub-packages:
+//
+//   - documents: CRUD operations, versioning, soft-delete
+//   - history: version listing, diffs, reverts
+//   - search: FTS5 full-text search and path glob matching
+//   - bulk: batch import/export operations
+//   - tags: key-value metadata on documents
+//   - links: relationships between documents
+//   - entities: named entity extraction and storage
+//   - events: in-process event bus for cross-cutting concerns
+//
+// The event bus connects packages that need to react to changes without
+// direct dependencies. Currently, the FTS search index subscribes to
+// document write/delete events to keep the full-text index in sync.
+//
+// Storage uses SQLite with WAL mode for concurrent read access. Schema
+// migration runs automatically on Open/Init via the internal/sql package.
 package llmd
 
 import (
@@ -18,7 +36,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Store provides access to llmd operations.
+// Store is the top-level handle for all document operations. Public
+// fields expose the sub-package managers; private fields hold the
+// underlying database connection and event bus.
 type Store struct {
 	Documents *documents.Documents
 	History   *history.History
@@ -72,6 +92,14 @@ func Open(path string) (*Store, error) {
 	return open(path)
 }
 
+// open is the shared implementation for Init and Open. It configures
+// SQLite pragmas, runs schema migration, wires up the event bus, and
+// initializes all sub-package managers.
+//
+// Pragmas:
+//   - journal_mode(WAL): allows concurrent readers during writes
+//   - busy_timeout(5000): waits up to 5s instead of failing on lock contention
+//   - foreign_keys(1): enforces referential integrity
 func open(path string) (*Store, error) {
 	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
 	if err != nil {
@@ -93,6 +121,9 @@ func open(path string) (*Store, error) {
 		return nil, fmt.Errorf("migrating schema: %w", err)
 	}
 
+	// Event bus: connects document changes to cross-cutting concerns.
+	// The FTS handler keeps the full-text search index in sync with
+	// document writes and deletes.
 	s.bus = events.New()
 
 	ftsHandler := search.NewFTSHandler(db)
@@ -145,17 +176,21 @@ func OpenMemory() (*Store, error) {
 	return s, nil
 }
 
-// Close closes the store.
-// Checkpoints WAL before closing to flush data to the main database file.
+// Close closes the store. For on-disk stores, it first checkpoints the
+// WAL to flush pending writes to the main database file, ensuring data
+// durability if the process crashes after Close. The checkpoint is
+// best-effort — a failure still proceeds with closing to avoid leaking
+// the database connection.
 func (s *Store) Close() error {
 	if s.path != ":memory:" {
-		_ = s.Checkpoint() // best effort, still close even if checkpoint fails
+		_ = s.Checkpoint()
 	}
 	return s.db.Close()
 }
 
-// Checkpoint writes WAL data to the main database file and truncates the WAL.
-// This removes the -wal and -shm files if no other connections exist.
+// Checkpoint writes WAL data to the main database file and truncates
+// the WAL. This removes the -wal and -shm files if no other connections
+// exist, leaving a clean single-file database on disk.
 func (s *Store) Checkpoint() error {
 	_, err := s.db.Exec("PRAGMA journal_mode=DELETE")
 	return err
