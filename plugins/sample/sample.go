@@ -4,7 +4,7 @@
 // - sdk.Plugin interface implementation
 // - Flag parsing patterns
 // - sdk.API calls (Read, List, Exists, History)
-// - Returning sdk.Rich with text and structured data
+// - Returning sdk.Result with text and structured data
 // - Error handling
 //
 // Commands:
@@ -57,7 +57,7 @@ func (s *Sample) Commands() []sdk.Command {
 }
 
 // Exec executes a command.
-func (s *Sample) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Result, error) {
+func (s *Sample) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
 	switch cmd {
 	case "stat":
 		return s.stat(args)
@@ -71,7 +71,7 @@ func (s *Sample) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Result, e
 }
 
 // stat shows document metadata using Exists() and History().
-func (s *Sample) stat(args []string) (sdk.Result, error) {
+func (s *Sample) stat(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("stat: missing path argument")
 	}
@@ -83,7 +83,7 @@ func (s *Sample) stat(args []string) (sdk.Result, error) {
 	}
 
 	if !exists {
-		return sdk.Rich{
+		return sdk.Result{
 			Text: fmt.Sprintf("%s: not found", path),
 			Data: map[string]any{"path": path, "exists": false},
 		}, nil
@@ -112,11 +112,11 @@ func (s *Sample) stat(args []string) (sdk.Result, error) {
 		"latest_date":   latestDate,
 	}
 
-	return sdk.Rich{Text: text, Data: data}, nil
+	return sdk.Result{Text: text, Data: data}, nil
 }
 
 // recent shows recently modified documents using List() with time sort.
-func (s *Sample) recent(args []string) (sdk.Result, error) {
+func (s *Sample) recent(args []string) (sdk.Response, error) {
 	limit := 10
 
 	for i := 0; i < len(args); i++ {
@@ -138,7 +138,7 @@ func (s *Sample) recent(args []string) (sdk.Result, error) {
 	}
 
 	if len(docs) == 0 {
-		return sdk.Rich{Text: "No documents found", Data: []any{}}, nil
+		return sdk.Result{Text: "No documents found", Data: []any{}}, nil
 	}
 
 	var sb strings.Builder
@@ -155,11 +155,11 @@ func (s *Sample) recent(args []string) (sdk.Result, error) {
 		}
 	}
 
-	return sdk.Rich{Text: strings.TrimSuffix(sb.String(), "\n"), Data: data}, nil
+	return sdk.Result{Text: strings.TrimSuffix(sb.String(), "\n"), Data: data}, nil
 }
 
 // wc counts lines, words, and characters using Read().
-func (s *Sample) wc(args []string) (sdk.Result, error) {
+func (s *Sample) wc(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("wc: missing path argument")
 	}
@@ -197,5 +197,5 @@ func (s *Sample) wc(args []string) (sdk.Result, error) {
 		"chars": chars,
 	}
 
-	return sdk.Rich{Text: result, Data: data}, nil
+	return sdk.Result{Text: result, Data: data}, nil
 }

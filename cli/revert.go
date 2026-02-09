@@ -8,7 +8,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func revert(ctx sdk.Context, args []string) (sdk.Result, error) {
+func revert(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("revert: requires <path> <version> arguments")
 	}

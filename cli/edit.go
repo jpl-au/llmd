@@ -7,7 +7,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func edit(ctx sdk.Context, args []string) (sdk.Result, error) {
+func edit(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 3 {
 		return nil, fmt.Errorf("edit: requires <path> <old> <new> arguments")
 	}

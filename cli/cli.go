@@ -64,7 +64,7 @@ func (c *CLI) Commands() []sdk.Command {
 }
 
 // Exec executes a command.
-func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Result, error) {
+func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
 	switch cmd {
 	case "cat":
 		return cat(ctx, args)

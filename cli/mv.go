@@ -6,7 +6,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func mv(ctx sdk.Context, args []string) (sdk.Result, error) {
+func mv(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("mv: requires <from> <to> arguments")
 	}

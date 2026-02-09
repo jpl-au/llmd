@@ -8,7 +8,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func grep(ctx sdk.Context, args []string) (sdk.Result, error) {
+func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var pattern, pathPrefix string
 	var showLineNums, filesOnly, countOnly bool
 	var contextLines int
@@ -46,7 +46,7 @@ func grep(ctx sdk.Context, args []string) (sdk.Result, error) {
 	}
 
 	if len(results) == 0 {
-		return sdk.Rich{Text: "", Data: []sdk.GrepHit{}}, nil
+		return sdk.Result{Text: "", Data: []sdk.GrepHit{}}, nil
 	}
 
 	var text string
@@ -82,5 +82,5 @@ func grep(ctx sdk.Context, args []string) (sdk.Result, error) {
 		text = strings.TrimSuffix(out.String(), "\n")
 	}
 
-	return sdk.Rich{Text: text, Data: results}, nil
+	return sdk.Result{Text: text, Data: results}, nil
 }

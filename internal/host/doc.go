@@ -5,11 +5,12 @@
 //
 // # Architecture
 //
-// The host uses a simple native plugin model:
+// The host loads plugins from two sources:
 //
-//   - Plugins are compiled directly into the binary (no WASM, no interpreters)
-//   - The core plugin is registered automatically when [New] is called
-//   - Commands are routed by name to the plugin that registered them
+//  1. Compiled extensions — registered at init-time via [extension.Register]
+//  2. Yaegi dynamic plugins — Go source loaded at runtime from plugin directories
+//
+// Commands are routed by name to the plugin that registered them.
 //
 // # Creating a Host
 //
@@ -36,13 +37,22 @@
 //	content, _ := sdk.API.Read("path/to/doc.md", 0)
 //	sdk.API.Write("path/to/doc.md", content, author, message)
 //
-// # Adding Plugins
+// # Adding Compiled Plugins
 //
-// Currently, plugins are registered in [New]. To add a new plugin:
+// Compiled plugins are discovered via the extension registry:
 //
 //  1. Create a package implementing [sdk.Plugin]
-//  2. Import it in host.go
-//  3. Call h.register(myplugin.New()) in [New]
+//  2. Wrap it in an [extension.Extension] and call [extension.Register] in init()
+//  3. Import the package (blank import) in main.go
 //
-// Future versions may support dynamic plugin loading via Yaegi.
+// # Yaegi Dynamic Plugins
+//
+// Yaegi plugins are Go source files loaded at runtime. Plugin directories
+// are searched in order (local overrides global):
+//
+//  1. .llmd/plugins/<name>/ — project-local plugins
+//  2. ~/.llmd/plugins/<name>/ — global plugins
+//
+// Each plugin directory must contain .go files with a New() function
+// returning an [sdk.Plugin]. A broken plugin is logged and skipped.
 package host

@@ -6,7 +6,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func restore(ctx sdk.Context, args []string) (sdk.Result, error) {
+func restore(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("restore: missing path argument")
 	}

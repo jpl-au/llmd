@@ -3,9 +3,11 @@ package host
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/plugin"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -37,6 +39,15 @@ func New(store *llmd.Store) *Host {
 		h.register(ext.Plugin())
 	}
 
+	// Load Yaegi plugins from user directories
+	yaegiPlugins, err := plugin.Load()
+	if err != nil {
+		log.Printf("yaegi: %v", err)
+	}
+	for _, p := range yaegiPlugins {
+		h.register(p)
+	}
+
 	return h
 }
 
@@ -48,7 +59,7 @@ func (h *Host) register(p sdk.Plugin) {
 }
 
 // Exec executes a command.
-func (h *Host) Exec(cmd string, args []string, author string, stdin []byte) (sdk.Result, error) {
+func (h *Host) Exec(cmd string, args []string, author string, stdin []byte) (sdk.Response, error) {
 	entry, ok := h.commands[cmd]
 	if !ok {
 		return nil, fmt.Errorf("unknown command: %s", cmd)

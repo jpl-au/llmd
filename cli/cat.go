@@ -8,7 +8,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func cat(ctx sdk.Context, args []string) (sdk.Result, error) {
+func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var paths []string
 	var version int
 	var numberLines bool
@@ -46,7 +46,7 @@ func cat(ctx sdk.Context, args []string) (sdk.Result, error) {
 	}
 
 	output := strings.Join(results, "\n")
-	return sdk.Rich{Text: output, Data: output}, nil
+	return sdk.Result{Text: output, Data: output}, nil
 }
 
 func addLineNumbers(s string) string {

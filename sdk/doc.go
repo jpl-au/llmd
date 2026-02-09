@@ -19,7 +19,7 @@
 //	    }
 //	}
 //
-//	func (p *MyPlugin) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Result, error) {
+//	func (p *MyPlugin) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
 //	    switch cmd {
 //	    case "hello":
 //	        if len(args) == 0 {
@@ -48,7 +48,7 @@
 //
 //   - [Text]: Plain text output
 //   - [Data]: Structured data (always output as JSON)
-//   - [Rich]: Both text and structured data (text for terminal, data for --json)
+//   - [Result]: Both text and structured data (text for terminal, data for --json)
 //
 // Example:
 //
@@ -59,7 +59,7 @@
 //	return sdk.Data{V: myStruct}, nil
 //
 //	// Both (text for humans, data for machines)
-//	return sdk.Rich{Text: "Found 5 documents", Data: docs}, nil
+//	return sdk.Result{Text: "Found 5 documents", Data: docs}, nil
 //
 // # Command Flags
 //

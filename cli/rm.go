@@ -6,7 +6,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func rm(ctx sdk.Context, args []string) (sdk.Result, error) {
+func rm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("rm: missing path argument")
 	}

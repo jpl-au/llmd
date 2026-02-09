@@ -7,7 +7,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func diffCmd(ctx sdk.Context, args []string) (sdk.Result, error) {
+func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var paths []string
 	var contextLines int
 	var statOnly bool

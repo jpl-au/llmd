@@ -8,7 +8,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func ls(ctx sdk.Context, args []string) (sdk.Result, error) {
+func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var long, all, reverse, sortByTime bool
 	var prefix string
 
@@ -46,7 +46,7 @@ func ls(ctx sdk.Context, args []string) (sdk.Result, error) {
 	}
 
 	if len(docs) == 0 {
-		return sdk.Rich{Text: "", Data: []sdk.Doc{}}, nil
+		return sdk.Result{Text: "", Data: []sdk.Doc{}}, nil
 	}
 
 	data := make([]map[string]any, len(docs))
@@ -72,7 +72,7 @@ func ls(ctx sdk.Context, args []string) (sdk.Result, error) {
 		text = strings.Join(paths, "\n")
 	}
 
-	return sdk.Rich{Text: text, Data: data}, nil
+	return sdk.Result{Text: text, Data: data}, nil
 }
 
 func formatTable(docs []sdk.Doc) string {

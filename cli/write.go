@@ -7,7 +7,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func write(ctx sdk.Context, args []string) (sdk.Result, error) {
+func write(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("write: missing path argument")
 	}

@@ -158,7 +158,7 @@ Keys:
 		if string(r) != "" {
 			fmt.Println(string(r))
 		}
-	case sdk.Rich:
+	case sdk.Result:
 		if jsonOut {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")

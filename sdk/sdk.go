@@ -5,7 +5,7 @@ package sdk
 type Plugin interface {
 	Name() string
 	Commands() []Command
-	Exec(ctx Context, cmd string, args []string) (Result, error)
+	Exec(ctx Context, cmd string, args []string) (Response, error)
 }
 
 // Command describes a command.
@@ -32,26 +32,26 @@ type Context struct {
 	Stdin  []byte
 }
 
-// Result is returned by commands.
-type Result interface{ result() }
+// Response is returned by commands.
+type Response interface{ Response() }
 
 // Text is plain text output.
 type Text string
 
-func (Text) result() {}
+func (Text) Response() {}
 
 // Data is structured output (for --json).
 type Data struct{ V any }
 
-func (Data) result() {}
+func (Data) Response() {}
 
-// Rich has both text and structured data.
-type Rich struct {
+// Result has both text and structured data.
+type Result struct {
 	Text string
 	Data any
 }
 
-func (Rich) result() {}
+func (Result) Response() {}
 
 // API provides store access to plugins.
 var API Store

@@ -9,7 +9,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func historyCmd(ctx sdk.Context, args []string) (sdk.Result, error) {
+func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var path string
 	var limit int
 
@@ -35,7 +35,7 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Result, error) {
 	}
 
 	if len(versions) == 0 {
-		return sdk.Rich{Text: "No history found", Data: []sdk.Version{}}, nil
+		return sdk.Result{Text: "No history found", Data: []sdk.Version{}}, nil
 	}
 
 	var sb strings.Builder
@@ -55,5 +55,5 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Result, error) {
 		sb.WriteString(fmt.Sprintf("%-8d %-12s %-20s %s\n", v.Num, author, date, msg))
 	}
 
-	return sdk.Rich{Text: strings.TrimSuffix(sb.String(), "\n"), Data: versions}, nil
+	return sdk.Result{Text: strings.TrimSuffix(sb.String(), "\n"), Data: versions}, nil
 }
