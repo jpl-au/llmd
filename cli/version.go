@@ -1,9 +1,11 @@
 package cli
 
-import "github.com/jpl-au/llmd/sdk"
+import (
+	"github.com/jpl-au/llmd/internal/version"
+	"github.com/jpl-au/llmd/sdk"
+)
 
-// version returns the build version string. In release builds this is
-// injected via -ldflags; during development it returns "llmd dev".
-func version(ctx sdk.Context, args []string) (sdk.Response, error) {
-	return sdk.Text("llmd dev"), nil
+func versionCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
+	info := version.Get()
+	return sdk.Result{Text: info.String(), Data: info}, nil
 }

@@ -107,6 +107,7 @@ func (c *CLI) Commands() []sdk.Command {
 		{Name: "vacuum", Desc: "Clean up deleted documents", Usage: "vacuum"},
 		{Name: "mcp", Desc: "Start MCP stdio server", Usage: "mcp"},
 		{Name: "serve", Desc: "Start MCP stdio server", Usage: "serve"},
+		{Name: "mirror", Desc: "Mirror documents to filesystem", Usage: "mirror [prefix]"},
 		{Name: "plugins", Desc: "List loaded plugins", Usage: "plugins"},
 		{Name: "guide", Desc: "Built-in documentation", Usage: "guide [topic]"},
 		{Name: "llm", Desc: "Quick command reference for LLMs", Usage: "llm"},
@@ -155,7 +156,7 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 	case "export":
 		return exportCmd(ctx, args)
 	case "version":
-		return version(ctx, args)
+		return versionCmd(ctx, args)
 	case "config":
 		return configCmd(ctx, args)
 	case "init":
@@ -168,6 +169,8 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return serve(ctx, args)
 	case "plugins":
 		return pluginsCmd(ctx, args)
+	case "mirror":
+		return mirror(ctx, args)
 	case "guide":
 		return guide(ctx, args)
 	case "llm":
