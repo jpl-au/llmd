@@ -212,3 +212,16 @@ func (a *api) Edit(path, old, new, author, msg string) error {
 	})
 	return err
 }
+
+// Vacuum permanently deletes all soft-deleted data and reclaims disk space.
+func (a *api) Vacuum() (sdk.VacuumResult, error) {
+	r, err := a.store.Vacuum(context.Background())
+	if err != nil {
+		return sdk.VacuumResult{}, err
+	}
+	return sdk.VacuumResult{
+		Documents: r.Documents,
+		Tags:      r.Tags,
+		Links:     r.Links,
+	}, nil
+}

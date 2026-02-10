@@ -1,4 +1,4 @@
-// Package cli provides the core document commands as a compiled extension.
+// Package cli provides the core commands as a compiled extension.
 //
 // Each command is a thin wrapper around sdk.API — it parses flags, calls
 // the store, and returns both human-readable text and structured data.
@@ -30,12 +30,16 @@ type CLI struct{}
 func (c *CLI) Name() string       { return "cli" }
 func (c *CLI) Plugin() sdk.Plugin { return c }
 
+// NoStoreCommands returns commands that can run without an open store.
+func (c *CLI) NoStoreCommands() []string {
+	return []string{"version", "config", "init", "plugins"}
+}
+
 // Commands returns the full command table. MCP and MCPName fields control
-// which commands are exposed to AI agents via the MCP server. MCPName
-// overrides the tool name to avoid collisions (e.g. "grep" -> "llmd_grep"
-// so it doesn't shadow the host's grep tool).
+// which commands are exposed to AI agents via the MCP server.
 func (c *CLI) Commands() []sdk.Command {
 	return []sdk.Command{
+		// Document commands
 		{Name: "cat", Desc: "Read a document", Usage: "cat [options] <path>...", MCP: true, Flags: []sdk.Flag{
 			{Name: "version", Type: "int", Desc: "Read specific version"},
 			{Name: "n", Type: "bool", Desc: "Number output lines"},
@@ -46,12 +50,12 @@ func (c *CLI) Commands() []sdk.Command {
 			{Name: "r", Type: "bool", Desc: "Reverse sort order"},
 			{Name: "t", Type: "bool", Desc: "Sort by time (newest first)"},
 		}},
-		{Name: "write", Desc: "Write a document", Usage: "write <path>", MCP: true, Flags: []sdk.Flag{
+		{Name: "write", Desc: "Write a document", Usage: "write <path>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
 			{Name: "message", Type: "string", Desc: "Version message"},
 		}},
-		{Name: "rm", Desc: "Delete a document", Usage: "rm <path>", MCP: true},
-		{Name: "mv", Desc: "Move or rename a document", Usage: "mv <from> <to>", MCP: true},
-		{Name: "edit", Desc: "Edit a document via search/replace", Usage: "edit <path> <old> <new>", MCP: true, Flags: []sdk.Flag{
+		{Name: "rm", Desc: "Delete a document", Usage: "rm <path>", MCP: true, NeedsAuthor: true},
+		{Name: "mv", Desc: "Move or rename a document", Usage: "mv <from> <to>", MCP: true, NeedsAuthor: true},
+		{Name: "edit", Desc: "Edit a document via search/replace", Usage: "edit <path> <old> <new>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
 			{Name: "message", Type: "string", Desc: "Version message"},
 		}},
 		{Name: "grep", Desc: "Search documents", Usage: "grep [options] <pattern> [path]", MCP: true, MCPName: "llmd_grep", Flags: []sdk.Flag{
@@ -68,10 +72,20 @@ func (c *CLI) Commands() []sdk.Command {
 			{Name: "C", Type: "int", Desc: "Lines of context"},
 			{Name: "stat", Type: "bool", Desc: "Show stats only"},
 		}},
-		{Name: "restore", Desc: "Restore a deleted document", Usage: "restore <path>", MCP: true},
-		{Name: "revert", Desc: "Revert to a previous version", Usage: "revert <path> <version>", MCP: true, Flags: []sdk.Flag{
+		{Name: "restore", Desc: "Restore a deleted document", Usage: "restore <path>", MCP: true, NeedsAuthor: true},
+		{Name: "revert", Desc: "Revert to a previous version", Usage: "revert <path> <version>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
 			{Name: "message", Type: "string", Desc: "Revert message"},
 		}},
+
+		// Former built-in commands
+		{Name: "version", Desc: "Show version information", Usage: "version"},
+		{Name: "config", Desc: "Manage configuration", Usage: "config [key] [value]", Flags: []sdk.Flag{
+			{Name: "key", Type: "string", Desc: "Config key to get or set"},
+		}},
+		{Name: "init", Desc: "Initialize a new store", Usage: "init"},
+		{Name: "vacuum", Desc: "Clean up deleted documents", Usage: "vacuum"},
+		{Name: "mcp", Desc: "Start MCP stdio server", Usage: "mcp"},
+		{Name: "plugins", Desc: "List loaded plugins", Usage: "plugins"},
 	}
 }
 
@@ -102,6 +116,18 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return restore(ctx, args)
 	case "revert":
 		return revert(ctx, args)
+	case "version":
+		return version(ctx, args)
+	case "config":
+		return configCmd(ctx, args)
+	case "init":
+		return initCmd(ctx, args)
+	case "vacuum":
+		return vacuumCmd(ctx, args)
+	case "mcp":
+		return mcpCmd(ctx, args)
+	case "plugins":
+		return pluginsCmd(ctx, args)
 	default:
 		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 	}

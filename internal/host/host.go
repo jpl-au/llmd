@@ -21,8 +21,9 @@ type Host struct {
 }
 
 type cmdEntry struct {
-	cmd    sdk.Command
-	plugin sdk.Plugin
+	cmd      sdk.Command
+	plugin   sdk.Plugin
+	isPlugin bool // true for yaegi plugins, false for extensions
 }
 
 // New creates a Host, loading all available plugins. When store is nil,
@@ -47,7 +48,7 @@ func New(store *llmd.Store) *Host {
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
 	for _, ext := range extension.All() {
-		h.register(ext.Plugin())
+		h.addPlugin(ext.Plugin(), false)
 	}
 
 	// Dynamic plugins from .llmd/plugins/ and ~/.llmd/plugins/.
@@ -58,17 +59,37 @@ func New(store *llmd.Store) *Host {
 		log.Printf("yaegi: %v", err)
 	}
 	for _, p := range yaegiPlugins {
-		h.register(p)
+		h.addPlugin(p, true)
 	}
+
+	// Set sdk function vars so commands can discover and dispatch.
+	sdk.Dispatch = h.Exec
+	sdk.AllCommands = h.Commands
+	sdk.PluginNames = h.pluginNames
 
 	return h
 }
 
-func (h *Host) register(p sdk.Plugin) {
+// addPlugin registers a plugin's commands. isPlugin distinguishes yaegi
+// plugins (true) from compiled extensions (false) for help output grouping.
+func (h *Host) addPlugin(p sdk.Plugin, isPlugin bool) {
 	h.plugins = append(h.plugins, p)
 	for _, cmd := range p.Commands() {
-		h.commands[cmd.Name] = &cmdEntry{cmd: cmd, plugin: p}
+		h.commands[cmd.Name] = &cmdEntry{cmd: cmd, plugin: p, isPlugin: isPlugin}
 	}
+}
+
+// pluginNames returns the names of loaded yaegi plugins.
+func (h *Host) pluginNames() []string {
+	var names []string
+	seen := make(map[string]bool)
+	for _, e := range h.commands {
+		if e.isPlugin && !seen[e.plugin.Name()] {
+			seen[e.plugin.Name()] = true
+			names = append(names, e.plugin.Name())
+		}
+	}
+	return names
 }
 
 // Exec dispatches a command to its owning plugin. It builds an
@@ -86,12 +107,35 @@ func (h *Host) Exec(cmd string, args []string, author string, stdin []byte) (sdk
 }
 
 // Commands returns a copy of all registered commands, keyed by name.
-// Returns copies so callers can't modify the host's command table.
 func (h *Host) Commands() map[string]*sdk.Command {
 	cmds := make(map[string]*sdk.Command)
 	for name, e := range h.commands {
 		cmd := e.cmd
 		cmds[name] = &cmd
+	}
+	return cmds
+}
+
+// ExtCommands returns commands from compiled extensions only.
+func (h *Host) ExtCommands() map[string]*sdk.Command {
+	cmds := make(map[string]*sdk.Command)
+	for name, e := range h.commands {
+		if !e.isPlugin {
+			cmd := e.cmd
+			cmds[name] = &cmd
+		}
+	}
+	return cmds
+}
+
+// PluginCommands returns commands from yaegi plugins only.
+func (h *Host) PluginCommands() map[string]*sdk.Command {
+	cmds := make(map[string]*sdk.Command)
+	for name, e := range h.commands {
+		if e.isPlugin {
+			cmd := e.cmd
+			cmds[name] = &cmd
+		}
 	}
 	return cmds
 }

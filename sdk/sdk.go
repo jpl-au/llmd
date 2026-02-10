@@ -41,13 +41,18 @@ type Plugin interface {
 // MCP controls whether the command is exposed as an MCP tool.
 // MCPName overrides the tool name to avoid collisions with host tools
 // (e.g. "grep" → "llmd_grep").
+//
+// NeedsAuthor marks commands that create versions (write, edit, rm, mv,
+// restore, revert). The host checks this before dispatch and requires
+// an author to be configured.
 type Command struct {
-	Name    string
-	Desc    string
-	Usage   string
-	Flags   []Flag
-	MCP     bool
-	MCPName string
+	Name        string
+	Desc        string
+	Usage       string
+	Flags       []Flag
+	MCP         bool
+	MCPName     string
+	NeedsAuthor bool
 }
 
 // Flag describes a command flag for help output. The host does not parse
@@ -109,6 +114,17 @@ func (Result) Response() {}
 // discovery-only operations like "llmd plugins").
 var API Store
 
+// Dispatch executes a command by name through the host. Set by the host
+// at startup. Used by commands that need to invoke other commands (e.g.
+// MCP server dispatching tool calls).
+var Dispatch func(cmd string, args []string, author string, stdin []byte) (Response, error)
+
+// AllCommands returns all registered commands. Set by the host at startup.
+var AllCommands func() map[string]*Command
+
+// PluginNames returns the names of loaded yaegi plugins. Set by the host.
+var PluginNames func() []string
+
 // Store is the document store interface exposed to plugins. It
 // abstracts the internal storage engine so plugins don't depend on
 // database internals.
@@ -162,6 +178,17 @@ type Store interface {
 	// Edit performs a search-and-replace within a document, creating a
 	// new version with the substitution applied.
 	Edit(path, old, new, author, msg string) error
+
+	// Vacuum permanently deletes all soft-deleted data and reclaims
+	// disk space. This operation cannot be undone.
+	Vacuum() (VacuumResult, error)
+}
+
+// VacuumResult contains the counts from a vacuum operation.
+type VacuumResult struct {
+	Documents int64
+	Tags      int64
+	Links     int64
 }
 
 // Doc represents a document's metadata (not its content — use Read for
