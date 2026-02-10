@@ -11,9 +11,12 @@ import (
 	"context"
 
 	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/bulk"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/history"
+	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/search"
+	"github.com/jpl-au/llmd/internal/llmd/tags"
 	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -223,5 +226,123 @@ func (a *api) Vacuum() (sdk.VacuumResult, error) {
 		Documents: r.Documents,
 		Tags:      r.Tags,
 		Links:     r.Links,
+	}, nil
+}
+
+// TagAdd attaches a tag to a document.
+func (a *api) TagAdd(path, name, author string) error {
+	_, err := a.store.Tags.Add(context.Background(), path, name, tags.Options{
+		Origin: core.Origin{Author: author, Source: "cli"},
+	})
+	return err
+}
+
+// TagRemove removes a tag from a document.
+func (a *api) TagRemove(path, name, author string) error {
+	return a.store.Tags.Remove(context.Background(), path, name, tags.Options{
+		Origin: core.Origin{Author: author, Source: "cli"},
+	})
+}
+
+// TagList returns all tags on a document.
+func (a *api) TagList(path string) ([]sdk.Tag, error) {
+	tt, err := a.store.Tags.List(context.Background(), path)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]sdk.Tag, len(tt))
+	for i, t := range tt {
+		out[i] = sdk.Tag{Name: t.Value.Tag, Path: t.Relation}
+	}
+	return out, nil
+}
+
+// Tags returns all tags in the store with usage counts.
+func (a *api) Tags() ([]sdk.TagInfo, error) {
+	infos, err := a.store.Tags.ListAll(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]sdk.TagInfo, len(infos))
+	for i, info := range infos {
+		out[i] = sdk.TagInfo{Name: info.Name, Count: info.Count}
+	}
+	return out, nil
+}
+
+// TagFind returns document paths that have the given tag.
+func (a *api) TagFind(name string) ([]string, error) {
+	return a.store.Tags.Find(context.Background(), name)
+}
+
+// LinkAdd creates a directed link between two documents.
+func (a *api) LinkAdd(from, to, label, author string) error {
+	_, err := a.store.Links.Add(context.Background(), from, to, links.Options{
+		Origin: core.Origin{Author: author, Source: "cli"},
+		Label:  label,
+	})
+	return err
+}
+
+// LinkRemove removes a link between two documents.
+func (a *api) LinkRemove(from, to, author string) error {
+	return a.store.Links.Remove(context.Background(), from, to, links.Options{
+		Origin: core.Origin{Author: author, Source: "cli"},
+	})
+}
+
+// LinkList returns links for a document.
+func (a *api) LinkList(path, dir string) ([]sdk.Link, error) {
+	var d links.Direction
+	switch dir {
+	case "in":
+		d = links.Incoming
+	case "both":
+		d = links.Both
+	default:
+		d = links.Outgoing
+	}
+	ll, err := a.store.Links.List(context.Background(), path, links.Options{
+		Direction: d,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]sdk.Link, len(ll))
+	for i, l := range ll {
+		out[i] = sdk.Link{From: l.Relation, To: l.Value.To, Label: l.Value.Label}
+	}
+	return out, nil
+}
+
+// Import reads files from a filesystem directory into the store.
+func (a *api) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error) {
+	r, err := a.store.Bulk.Import(context.Background(), dir, bulk.ImportOptions{
+		Origin: core.Origin{Source: "cli"},
+		Prefix: opts.Prefix,
+		DryRun: opts.DryRun,
+		Force:  opts.Force,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &sdk.ImportResult{
+		Created: r.Created,
+		Updated: r.Updated,
+		Skipped: r.Skipped,
+	}, nil
+}
+
+// Export writes documents to a filesystem directory.
+func (a *api) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error) {
+	r, err := a.store.Bulk.Export(context.Background(), prefix, dir, bulk.ExportOptions{
+		Overwrite: opts.Overwrite,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &sdk.ExportResult{
+		Exported: r.Exported,
+		Skipped:  r.Skipped,
 	}, nil
 }

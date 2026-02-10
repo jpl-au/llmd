@@ -182,6 +182,37 @@ type Store interface {
 	// Vacuum permanently deletes all soft-deleted data and reclaims
 	// disk space. This operation cannot be undone.
 	Vacuum() (VacuumResult, error)
+
+	// TagAdd attaches a tag to a document.
+	TagAdd(path, name, author string) error
+
+	// TagRemove removes a tag from a document.
+	TagRemove(path, name, author string) error
+
+	// TagList returns all tags on a document.
+	TagList(path string) ([]Tag, error)
+
+	// Tags returns all tags in the store with usage counts.
+	Tags() ([]TagInfo, error)
+
+	// TagFind returns document paths that have the given tag.
+	TagFind(name string) ([]string, error)
+
+	// LinkAdd creates a directed link between two documents.
+	LinkAdd(from, to, label, author string) error
+
+	// LinkRemove removes a link between two documents.
+	LinkRemove(from, to, author string) error
+
+	// LinkList returns links for a document. Dir controls direction:
+	// "out" (default), "in", or "both".
+	LinkList(path, dir string) ([]Link, error)
+
+	// Import reads files from a filesystem directory into the store.
+	Import(dir string, opts ImportOpts) (*ImportResult, error)
+
+	// Export writes documents to a filesystem directory.
+	Export(prefix, dir string, opts ExportOpts) (*ExportResult, error)
 }
 
 // VacuumResult contains the counts from a vacuum operation.
@@ -189,6 +220,50 @@ type VacuumResult struct {
 	Documents int64
 	Tags      int64
 	Links     int64
+}
+
+// Tag represents a tag attached to a document.
+type Tag struct {
+	Name string
+	Path string
+}
+
+// TagInfo represents a tag with its usage count across documents.
+type TagInfo struct {
+	Name  string
+	Count int
+}
+
+// Link represents a directed relationship between two documents.
+type Link struct {
+	From  string
+	To    string
+	Label string
+}
+
+// ImportOpts configures a bulk import operation.
+type ImportOpts struct {
+	Prefix string // Target path prefix in store
+	DryRun bool   // Show what would change without importing
+	Force  bool   // Import even if content is unchanged
+}
+
+// ImportResult contains the results of a bulk import.
+type ImportResult struct {
+	Created []string
+	Updated []string
+	Skipped []string
+}
+
+// ExportOpts configures a bulk export operation.
+type ExportOpts struct {
+	Overwrite bool // Overwrite existing files
+}
+
+// ExportResult contains the results of a bulk export.
+type ExportResult struct {
+	Exported []string
+	Skipped  []string
 }
 
 // Doc represents a document's metadata (not its content — use Read for

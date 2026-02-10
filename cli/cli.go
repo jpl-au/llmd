@@ -32,7 +32,7 @@ func (c *CLI) Plugin() sdk.Plugin { return c }
 
 // NoStoreCommands returns commands that can run without an open store.
 func (c *CLI) NoStoreCommands() []string {
-	return []string{"version", "config", "init", "plugins"}
+	return []string{"version", "config", "init", "plugins", "guide", "llm"}
 }
 
 // Commands returns the full command table. MCP and MCPName fields control
@@ -58,12 +58,14 @@ func (c *CLI) Commands() []sdk.Command {
 		{Name: "edit", Desc: "Edit a document via search/replace", Usage: "edit <path> <old> <new>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
 			{Name: "message", Type: "string", Desc: "Version message"},
 		}},
+		{Name: "sed", Desc: "sed-style substitution", Usage: "sed [-i] 's/old/new/' <path>", MCP: true, NeedsAuthor: true},
 		{Name: "grep", Desc: "Search documents", Usage: "grep [options] <pattern> [path]", MCP: true, MCPName: "llmd_grep", Flags: []sdk.Flag{
 			{Name: "n", Type: "bool", Desc: "Show line numbers"},
 			{Name: "l", Type: "bool", Desc: "Show only filenames"},
 			{Name: "c", Type: "bool", Desc: "Show match count only"},
 			{Name: "C", Type: "int", Desc: "Lines of context"},
 		}},
+		{Name: "find", Desc: "Full-text search (paths only)", Usage: "find <query> [path]", MCP: true, MCPName: "llmd_find"},
 		{Name: "glob", Desc: "Find documents by path pattern", Usage: "glob <pattern>", MCP: true, MCPName: "llmd_glob"},
 		{Name: "history", Desc: "Show version history", Usage: "history [-n limit] <path>", MCP: true, Flags: []sdk.Flag{
 			{Name: "n", Type: "int", Desc: "Maximum versions to show"},
@@ -77,15 +79,37 @@ func (c *CLI) Commands() []sdk.Command {
 			{Name: "message", Type: "string", Desc: "Revert message"},
 		}},
 
-		// Former built-in commands
-		{Name: "version", Desc: "Show version information", Usage: "version"},
-		{Name: "config", Desc: "Manage configuration", Usage: "config [key] [value]", Flags: []sdk.Flag{
-			{Name: "key", Type: "string", Desc: "Config key to get or set"},
+		// Tags and links
+		{Name: "tag", Desc: "Manage document tags", Usage: "tag [options] [path] [name]", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+			{Name: "delete", Short: "d", Type: "bool", Desc: "Remove a tag"},
+			{Name: "find", Short: "f", Type: "bool", Desc: "Find documents with tag"},
 		}},
+		{Name: "link", Desc: "Create links between documents", Usage: "link [options] <from> [to]", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+			{Name: "label", Type: "string", Desc: "Link label"},
+			{Name: "in", Type: "bool", Desc: "Show incoming links"},
+		}},
+		{Name: "unlink", Desc: "Remove document links", Usage: "unlink <from> <to>", MCP: true, NeedsAuthor: true},
+
+		// Bulk operations
+		{Name: "import", Desc: "Bulk import from filesystem", Usage: "import [options] <dir>", NeedsAuthor: true, Flags: []sdk.Flag{
+			{Name: "prefix", Type: "string", Desc: "Target path prefix"},
+			{Name: "dry-run", Type: "bool", Desc: "Preview without importing"},
+			{Name: "force", Type: "bool", Desc: "Import even if unchanged"},
+		}},
+		{Name: "export", Desc: "Export documents to filesystem", Usage: "export [options] <prefix> <dir>", Flags: []sdk.Flag{
+			{Name: "overwrite", Type: "bool", Desc: "Overwrite existing files"},
+		}},
+
+		// Admin and help
+		{Name: "version", Desc: "Show version information", Usage: "version"},
+		{Name: "config", Desc: "Manage configuration", Usage: "config [key] [value]"},
 		{Name: "init", Desc: "Initialize a new store", Usage: "init"},
 		{Name: "vacuum", Desc: "Clean up deleted documents", Usage: "vacuum"},
 		{Name: "mcp", Desc: "Start MCP stdio server", Usage: "mcp"},
+		{Name: "serve", Desc: "Start MCP stdio server", Usage: "serve"},
 		{Name: "plugins", Desc: "List loaded plugins", Usage: "plugins"},
+		{Name: "guide", Desc: "Built-in documentation", Usage: "guide [topic]"},
+		{Name: "llm", Desc: "Quick command reference for LLMs", Usage: "llm"},
 	}
 }
 
@@ -104,8 +128,12 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return mv(ctx, args)
 	case "edit":
 		return edit(ctx, args)
+	case "sed":
+		return sed(ctx, args)
 	case "grep":
 		return grep(ctx, args)
+	case "find":
+		return find(ctx, args)
 	case "glob":
 		return glob(ctx, args)
 	case "history":
@@ -116,6 +144,16 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return restore(ctx, args)
 	case "revert":
 		return revert(ctx, args)
+	case "tag":
+		return tag(ctx, args)
+	case "link":
+		return linkCmd(ctx, args)
+	case "unlink":
+		return unlink(ctx, args)
+	case "import":
+		return importCmd(ctx, args)
+	case "export":
+		return exportCmd(ctx, args)
 	case "version":
 		return version(ctx, args)
 	case "config":
@@ -126,8 +164,14 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return vacuumCmd(ctx, args)
 	case "mcp":
 		return mcpCmd(ctx, args)
+	case "serve":
+		return serve(ctx, args)
 	case "plugins":
 		return pluginsCmd(ctx, args)
+	case "guide":
+		return guide(ctx, args)
+	case "llm":
+		return llm(ctx, args)
 	default:
 		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 	}
