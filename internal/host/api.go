@@ -176,7 +176,7 @@ func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
 	versions := make([]sdk.Version, len(infos))
 	for i, info := range infos {
 		versions[i] = sdk.Version{
-			Num:       info.Version,
+			Number:    info.Version,
 			Author:    info.Author,
 			Message:   info.Message,
 			CreatedAt: info.CreatedAt,

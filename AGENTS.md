@@ -138,8 +138,8 @@ that interpreted plugin code can call methods on domain globals.
 
 ## Common Pitfalls
 
-- **Version.Num not Version.Number** — `sdk.Version` uses `Num` for the
-  version number field.
+- **Version.Number** — `sdk.Version` uses `Number` for the 1-indexed
+  version number field (not `Num`, not `Version`).
 
 - **Task Move requires a spec** — Tasks in backlog cannot move to other
   columns without a spec. `hasSpec()` in `internal/llmd/tasks/` strips the

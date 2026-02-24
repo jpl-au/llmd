@@ -138,7 +138,7 @@ func (s *stubDocs) History(path string, _ int) ([]sdk.Version, error) {
 	if _, ok := s.docs[path]; !ok {
 		return nil, fmt.Errorf("not found: %s", path)
 	}
-	return []sdk.Version{{Num: 1, Author: "stub", CreatedAt: 1700000000000}}, nil
+	return []sdk.Version{{Number: 1, Author: "stub", CreatedAt: 1700000000000}}, nil
 }
 func (s *stubDocs) Delete(string, string) error                        { return nil }
 func (s *stubDocs) Restore(string, string) error                       { return nil }

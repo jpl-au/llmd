@@ -152,9 +152,9 @@ type GrepHit struct {
 }
 
 // Version is a single entry in a document's version history.
-// Num is the 1-indexed version number. CreatedAt is a Unix timestamp.
+// Number is the 1-indexed version number. CreatedAt is a Unix timestamp.
 type Version struct {
-	Num       int
+	Number    int
 	Author    string
 	Message   string
 	CreatedAt int64

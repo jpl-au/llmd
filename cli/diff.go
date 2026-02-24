@@ -47,7 +47,7 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if err != nil || len(versions) < 2 {
 			return nil, fmt.Errorf("diff: no previous version for %s", paths[0])
 		}
-		source = paths[0] + ":" + strconv.Itoa(versions[1].Num)
+		source = paths[0] + ":" + strconv.Itoa(versions[1].Number)
 		target = paths[0]
 	case 2:
 		source, target = paths[0], paths[1]

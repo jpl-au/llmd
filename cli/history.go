@@ -54,7 +54,7 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if msg == "" {
 			msg = "-"
 		}
-		t.Row(fmt.Sprintf("%d", v.Num), v.Author, date, msg)
+		t.Row(fmt.Sprintf("%d", v.Number), v.Author, date, msg)
 	}
 
 	return sdk.Result{Text: t.String(), Data: versions}, nil
