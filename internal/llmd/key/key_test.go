@@ -85,7 +85,7 @@ func TestValidate(t *testing.T) {
 func TestGenerateAtUniqueness(t *testing.T) {
 	// Different timestamps should produce different keys
 	seen := make(map[string]bool)
-	for ms := int64(0); ms < 1000; ms++ {
+	for ms := range int64(1000) {
 		k := GenerateAt(ms)
 		if seen[k] {
 			t.Errorf("GenerateAt(%d) produced duplicate key: %s", ms, k)
@@ -110,7 +110,7 @@ func TestGenerateAtMonotonic(t *testing.T) {
 func TestGenerateUniqueness(t *testing.T) {
 	// Generate() should produce unique keys even in tight loops
 	seen := make(map[string]bool)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		k := Generate()
 		if seen[k] {
 			t.Errorf("Generate() produced duplicate key on iteration %d: %s", i, k)

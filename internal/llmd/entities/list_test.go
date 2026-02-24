@@ -71,7 +71,7 @@ func TestList_Limit(t *testing.T) {
 	ctx := context.Background()
 
 	// Write 5 entities
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		s.Entities.Write(ctx, "test:item", `{"i":1}`, testWriteOpts())
 	}
 

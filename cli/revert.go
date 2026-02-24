@@ -33,8 +33,8 @@ func revert(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if args[i] == "--message" && i+1 < len(args) {
 			i++
 			message = args[i]
-		} else if strings.HasPrefix(args[i], "--message=") {
-			message = strings.TrimPrefix(args[i], "--message=")
+		} else if after, ok := strings.CutPrefix(args[i], "--message="); ok {
+			message = after
 		}
 	}
 

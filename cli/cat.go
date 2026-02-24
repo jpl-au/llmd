@@ -29,8 +29,8 @@ func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
 		} else if arg == "--version" && i+1 < len(args) {
 			i++
 			version, _ = strconv.Atoi(args[i])
-		} else if strings.HasPrefix(arg, "--version=") {
-			version, _ = strconv.Atoi(strings.TrimPrefix(arg, "--version="))
+		} else if after, ok := strings.CutPrefix(arg, "--version="); ok {
+			version, _ = strconv.Atoi(after)
 		} else if !strings.HasPrefix(arg, "-") {
 			paths = append(paths, arg)
 		}

@@ -171,19 +171,13 @@ func getContext(lines []string, lineNum, n int) []string {
 	var result []string
 	if n < 0 {
 		// Lines before
-		start := lineNum + n
-		if start < 0 {
-			start = 0
-		}
+		start := max(lineNum+n, 0)
 		for i := start; i < lineNum; i++ {
 			result = append(result, lines[i])
 		}
 	} else {
 		// Lines after
-		end := lineNum + n + 1
-		if end > len(lines) {
-			end = len(lines)
-		}
+		end := min(lineNum+n+1, len(lines))
 		for i := lineNum + 1; i < end; i++ {
 			result = append(result, lines[i])
 		}

@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/jpl-au/llmd/internal/version"
 	"github.com/jpl-au/llmd/sdk"
@@ -65,17 +66,18 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 		name = cmd.MCPName
 	}
 
-	desc := cmd.Desc
+	var desc strings.Builder
+	desc.WriteString(cmd.Desc)
 	if cmd.Usage != "" {
-		desc += "\n\nUsage: llmd " + cmd.Usage
+		desc.WriteString("\n\nUsage: llmd " + cmd.Usage)
 	}
 	if len(cmd.Flags) > 0 {
-		desc += "\n\nFlags:"
+		desc.WriteString("\n\nFlags:")
 		for _, f := range cmd.Flags {
 			if f.Short != "" {
-				desc += fmt.Sprintf("\n  -%s, --%s  %s", f.Short, f.Name, f.Desc)
+				desc.WriteString(fmt.Sprintf("\n  -%s, --%s  %s", f.Short, f.Name, f.Desc))
 			} else {
-				desc += fmt.Sprintf("\n  --%s  %s", f.Name, f.Desc)
+				desc.WriteString(fmt.Sprintf("\n  --%s  %s", f.Name, f.Desc))
 			}
 		}
 	}
@@ -84,7 +86,7 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        name,
-		Description: desc,
+		Description: desc.String(),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input toolInput) (*mcp.CallToolResult, any, error) {
 		var stdin []byte
 		if input.Content != "" {

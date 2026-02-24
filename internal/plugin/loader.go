@@ -284,7 +284,7 @@ func readSource(dir string) (string, error) {
 // stripPackageDecl removes the "package ..." line from source.
 func stripPackageDecl(src string) string {
 	var sb strings.Builder
-	for _, line := range strings.Split(src, "\n") {
+	for line := range strings.SplitSeq(src, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "package ") {
 			continue
@@ -297,7 +297,7 @@ func stripPackageDecl(src string) string {
 
 // pkgName extracts the package name from Go source.
 func pkgName(src string) string {
-	for _, line := range strings.Split(src, "\n") {
+	for line := range strings.SplitSeq(src, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "package ") {
 			return strings.TrimSpace(trimmed[len("package "):])

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -68,11 +69,8 @@ func run(args []string) int {
 	needsStore := true
 	for _, ext := range extension.All() {
 		if sl, ok := ext.(extension.Storeless); ok {
-			for _, name := range sl.NoStoreCommands() {
-				if name == cmd {
-					needsStore = false
-					break
-				}
+			if slices.Contains(sl.NoStoreCommands(), cmd) {
+				needsStore = false
 			}
 		}
 	}

@@ -21,7 +21,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var remove, find bool
 
 	var positional []string
-	for i := 0; i < len(args); i++ {
+	for i := range args {
 		switch args[i] {
 		case "-d":
 			remove = true
