@@ -103,8 +103,10 @@ func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task rm: %w", err)
 	}
 
-	text := fmt.Sprintf("Removed task %s \"%s\"\nNote: the document at %s still exists. To remove it: llmd rm %s",
-		t.Key, t.Title, t.Path, t.Path)
+	text := fmt.Sprintf("Removed task %s \"%s\"", t.Key, t.Title)
+	if ok, _ := sdk.Documents.Exists(t.Path); ok {
+		text += fmt.Sprintf("\nNote: the document at %s still exists. To remove it: llmd rm %s", t.Path, t.Path)
+	}
 	return sdk.Text(text), nil
 }
 

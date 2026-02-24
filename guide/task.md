@@ -10,14 +10,14 @@ that holds the spec.
 llmd task add <title>                Create a task
 llmd task list                       Board view (all columns)
 llmd task show <id>                  Show task metadata + spec
-llmd task move <id> <status>         Move task to a column
+llmd task move <id> <column>         Move task to a column
 llmd task set <id> [flags]           Update task metadata
 llmd task rm <id>                    Soft-delete task
 llmd task restore <id>               Restore deleted task
-llmd task columns                    List columns
-llmd task add-column <name>          Add a column
-llmd task rm-column <name>           Remove empty column
-llmd task mv-column <name> --after   Reorder column
+llmd task column list                List columns
+llmd task column add <name>          Add a column
+llmd task column rm <name>           Remove empty column
+llmd task column mv <name> --after   Reorder column
 llmd task link <id> <path>           Link task to document
 llmd task links <id>                 List linked documents
 ```
@@ -26,19 +26,29 @@ llmd task links <id>                 List linked documents
 
 | Flag | Description |
 |------|-------------|
-| `--status <col>` | Create in a specific column (default: backlog) |
+| `--column <col>` | Create in a specific column (default: backlog) |
 | `--priority <n>` | Set priority (1 = highest) |
 | `--assign <name>` | Assign to someone |
-| `--path <path>` | Custom document path (default: tasks/\<slug\>) |
+| `--path <path>` | Use an existing store document as the spec |
+| `--file <file>` | Read spec content from a file on disk |
 
-The task body comes from stdin, same as `write`:
+The task body can come from stdin, a file, or an existing document:
 
 ```bash
+# Pipe content as spec
 echo "## Acceptance Criteria" | llmd task add "Fix auth bug"
+
+# Read spec from a local file
+llmd task add "Fix auth bug" --file spec.md
+
+# Link to an existing document in the store
+llmd task add "Fix auth bug" --path docs/auth-spec
 ```
 
-If no stdin is provided, the document is created with a minimal
-template heading. Tasks without a real spec cannot leave backlog.
+If no body is provided, the task is created without a document.
+Tasks without a spec cannot leave backlog — write one with
+`llmd write tasks/<slug>` or link an existing document with
+`llmd task link <id> <path>`.
 
 ## Set flags
 
@@ -55,7 +65,7 @@ template heading. Tasks without a real spec cannot leave backlog.
 
 | Flag | Description |
 |------|-------------|
-| `--status <col>` | Filter by column |
+| `--column <col>` | Filter by column |
 | `--assign <name>` | Filter by assigned to |
 | `--priority <n>` | Filter by priority |
 
@@ -100,12 +110,12 @@ llmd task move a1b2c3d4e done
 llmd task rm a1b2c3d4e
 
 # Add a custom column
-llmd task add-column testing --after in-progress
+llmd task column add testing --after in-progress
 ```
 
 ## Notes
 
-- Task IDs are 9-character keys, shown as `#a1b2c3d4e` in output.
+- Task IDs are 9-character keys (e.g. `a1b2c3d4e`).
 - `task rm` only deletes the task row. The document at the task's path
   is never touched. Use `llmd rm <path>` separately if needed.
 - Spec gating: tasks with no real document content cannot be moved out
@@ -113,6 +123,6 @@ llmd task add-column testing --after in-progress
 - Flags (`blocked`, `hold`) are metadata on the task, not columns. A
   flagged task stays in its current column.
 - All state changes are recorded in the history table for observability.
-- The board view shows markdown tables grouped by column.
+- The board view shows styled terminal tables grouped by column.
 - Default columns: backlog, up-next, in-progress, review, done.
-  Customise with `add-column`, `rm-column`, `mv-column`.
+  Customise with `task column add`, `task column rm`, `task column mv`.
