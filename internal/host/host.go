@@ -28,8 +28,9 @@ type cmdEntry struct {
 
 // New creates a Host, loading all available plugins. When store is nil,
 // the Host can still enumerate commands (for help/discovery) but cannot
-// execute them — sdk.API remains nil. When store is non-nil, New sets
-// the global sdk.API so plugins can access the store.
+// execute them — the SDK domain vars remain nil. When store is non-nil,
+// New sets sdk.Documents, sdk.Tasks, sdk.Links, and sdk.Tags so plugins
+// can access the store.
 //
 // Plugin loading: compiled extensions (registered via init()) are loaded
 // first, then Yaegi dynamic plugins from user directories. Yaegi load
@@ -41,9 +42,12 @@ func New(store *llmd.Store) *Host {
 		commands: make(map[string]*cmdEntry),
 	}
 
-	// Set the global store handle so plugins can call sdk.API.Read(), etc.
+	// Set domain globals so plugins can call sdk.Documents.Read(), etc.
 	if store != nil {
-		sdk.API = newAPI(store)
+		sdk.Documents = newDocumentAPI(store)
+		sdk.Tasks = newTaskAPI(store)
+		sdk.Links = newLinkAPI(store)
+		sdk.Tags = newTagAPI(store)
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.

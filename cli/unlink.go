@@ -18,7 +18,7 @@ func unlink(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	from, to := args[0], args[1]
-	if err := sdk.API.LinkRemove(from, to, ctx.Author); err != nil {
+	if err := sdk.Links.Remove(from, to, ctx.Author); err != nil {
 		return nil, fmt.Errorf("unlink: %w", err)
 	}
 

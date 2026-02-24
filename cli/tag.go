@@ -37,7 +37,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if len(positional) == 0 {
 			return nil, fmt.Errorf("tag: %w", sdk.ErrMissingArg)
 		}
-		paths, err := sdk.API.TagFind(positional[0])
+		paths, err := sdk.Tags.Find(positional[0])
 		if err != nil {
 			return nil, fmt.Errorf("tag: %w", err)
 		}
@@ -46,7 +46,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// llmd tag — list all tags
 	if len(positional) == 0 {
-		infos, err := sdk.API.Tags()
+		infos, err := sdk.Tags.All()
 		if err != nil {
 			return nil, fmt.Errorf("tag: %w", err)
 		}
@@ -59,7 +59,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// llmd tag <path> — list tags on a document
 	if len(positional) == 1 {
-		tags, err := sdk.API.TagList(positional[0])
+		tags, err := sdk.Tags.List(positional[0])
 		if err != nil {
 			return nil, fmt.Errorf("tag: %w", err)
 		}
@@ -74,14 +74,14 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// llmd tag -d <path> <name> — remove
 	if remove {
-		if err := sdk.API.TagRemove(path, name, ctx.Author); err != nil {
+		if err := sdk.Tags.Remove(path, name, ctx.Author); err != nil {
 			return nil, fmt.Errorf("tag: %w", err)
 		}
 		return sdk.Text(fmt.Sprintf("Removed tag %s from %s", name, path)), nil
 	}
 
 	// llmd tag <path> <name> — add
-	if err := sdk.API.TagAdd(path, name, ctx.Author); err != nil {
+	if err := sdk.Tags.Add(path, name, ctx.Author); err != nil {
 		return nil, fmt.Errorf("tag: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Tagged %s with %s", path, name)), nil

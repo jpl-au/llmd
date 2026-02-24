@@ -30,12 +30,14 @@
 //
 // # Store API
 //
-// The host sets [sdk.API] to an implementation that wraps the llmd store.
-// This allows plugins to access documents without direct store dependencies:
+// The host sets domain-specific globals ([sdk.Documents], [sdk.Tasks],
+// [sdk.Links], [sdk.Tags]) that wrap the llmd store. This allows plugins
+// to access the store without direct dependencies:
 //
 //	// In a plugin command:
-//	content, _ := sdk.API.Read("path/to/doc.md", 0)
-//	sdk.API.Write("path/to/doc.md", content, author, message)
+//	content, _ := sdk.Documents.Read("path/to/doc.md", 0)
+//	sdk.Documents.Write("path/to/doc.md", content, author, message)
+//	sdk.Tags.Add("path/to/doc.md", "important", author)
 //
 // # Adding Compiled Plugins
 //

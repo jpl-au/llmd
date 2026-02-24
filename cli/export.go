@@ -32,7 +32,7 @@ func exportCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	prefix, dir := positional[0], positional[1]
-	result, err := sdk.API.Export(prefix, dir, opts)
+	result, err := sdk.Documents.Export(prefix, dir, opts)
 	if err != nil {
 		return nil, fmt.Errorf("export: %w", err)
 	}

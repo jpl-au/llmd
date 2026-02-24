@@ -39,7 +39,7 @@ func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("sed: %w", err)
 	}
 
-	if err := sdk.API.Edit(path, old, new, ctx.Author, ""); err != nil {
+	if err := sdk.Documents.Edit(path, old, new, ctx.Author, ""); err != nil {
 		return nil, fmt.Errorf("sed: %w", err)
 	}
 

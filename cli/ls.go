@@ -44,7 +44,7 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 		sort = "time"
 	}
 
-	docs, err := sdk.API.List(prefix, sdk.ListOpts{
+	docs, err := sdk.Documents.List(prefix, sdk.ListOpts{
 		Deleted: all,
 		Sort:    sort,
 		Reverse: reverse,

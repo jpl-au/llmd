@@ -30,7 +30,7 @@ func mirror(ctx sdk.Context, args []string) (sdk.Response, error) {
 		prefix = args[0]
 	}
 
-	docs, err := sdk.API.List(prefix, sdk.ListOpts{})
+	docs, err := sdk.Documents.List(prefix, sdk.ListOpts{})
 	if err != nil {
 		return nil, fmt.Errorf("mirror: %w", err)
 	}
@@ -40,7 +40,7 @@ func mirror(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var wrote, skipped, removed int
 
 	for _, doc := range docs {
-		content, err := sdk.API.Read(doc.Path, 0)
+		content, err := sdk.Documents.Read(doc.Path, 0)
 		if err != nil {
 			return nil, fmt.Errorf("mirror: reading %s: %w", doc.Path, err)
 		}

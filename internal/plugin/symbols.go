@@ -15,121 +15,263 @@ import (
 func symbols() interp.Exports {
 	return interp.Exports{
 		"github.com/jpl-au/llmd/sdk/sdk": {
-			// function, constant and variable definitions
-			"API":          reflect.ValueOf(&sdk.API).Elem(),
+			// Domain store globals
+			"Documents": reflect.ValueOf(&sdk.Documents).Elem(),
+			"Tasks":     reflect.ValueOf(&sdk.Tasks).Elem(),
+			"Links":     reflect.ValueOf(&sdk.Links).Elem(),
+			"Tags":      reflect.ValueOf(&sdk.Tags).Elem(),
+
+			// Constants
 			"GrepFull":     reflect.ValueOf(sdk.GrepFull),
 			"GrepLines":    reflect.ValueOf(sdk.GrepLines),
 			"GrepPaths":    reflect.ValueOf(sdk.GrepPaths),
 			"GrepSections": reflect.ValueOf(sdk.GrepSections),
 			"GrepSnippets": reflect.ValueOf(sdk.GrepSnippets),
 
-			// type definitions
-			"Command":  reflect.ValueOf((*sdk.Command)(nil)),
-			"Context":  reflect.ValueOf((*sdk.Context)(nil)),
-			"Data":     reflect.ValueOf((*sdk.Data)(nil)),
-			"Doc":      reflect.ValueOf((*sdk.Doc)(nil)),
-			"Flag":     reflect.ValueOf((*sdk.Flag)(nil)),
-			"GrepHit":  reflect.ValueOf((*sdk.GrepHit)(nil)),
-			"GrepMode": reflect.ValueOf((*sdk.GrepMode)(nil)),
-			"GrepOpts": reflect.ValueOf((*sdk.GrepOpts)(nil)),
-			"ListOpts": reflect.ValueOf((*sdk.ListOpts)(nil)),
-			"Plugin":   reflect.ValueOf((*sdk.Plugin)(nil)),
-			"Response": reflect.ValueOf((*sdk.Response)(nil)),
-			"Result":   reflect.ValueOf((*sdk.Result)(nil)),
-			"Store":    reflect.ValueOf((*sdk.Store)(nil)),
-			"Text":     reflect.ValueOf((*sdk.Text)(nil)),
-			"Version":  reflect.ValueOf((*sdk.Version)(nil)),
+			// Sentinel errors
+			"ErrMissingArg": reflect.ValueOf(&sdk.ErrMissingArg).Elem(),
+			"ErrInvalidArg": reflect.ValueOf(&sdk.ErrInvalidArg).Elem(),
+			"ErrUnknownCmd": reflect.ValueOf(&sdk.ErrUnknownCmd).Elem(),
+			"ErrNoSpec":     reflect.ValueOf(&sdk.ErrNoSpec).Elem(),
 
-			// interface wrapper definitions
-			"_Plugin":   reflect.ValueOf((*_github_com_jpl_au_llmd_sdk_Plugin)(nil)),
-			"_Response": reflect.ValueOf((*_github_com_jpl_au_llmd_sdk_Response)(nil)),
-			"_Store":    reflect.ValueOf((*_github_com_jpl_au_llmd_sdk_Store)(nil)),
+			// Type definitions
+			"Command":      reflect.ValueOf((*sdk.Command)(nil)),
+			"Context":      reflect.ValueOf((*sdk.Context)(nil)),
+			"Data":         reflect.ValueOf((*sdk.Data)(nil)),
+			"Doc":          reflect.ValueOf((*sdk.Doc)(nil)),
+			"ExportOpts":   reflect.ValueOf((*sdk.ExportOpts)(nil)),
+			"ExportResult": reflect.ValueOf((*sdk.ExportResult)(nil)),
+			"Flag":         reflect.ValueOf((*sdk.Flag)(nil)),
+			"GrepHit":      reflect.ValueOf((*sdk.GrepHit)(nil)),
+			"GrepMode":     reflect.ValueOf((*sdk.GrepMode)(nil)),
+			"GrepOpts":     reflect.ValueOf((*sdk.GrepOpts)(nil)),
+			"ImportOpts":   reflect.ValueOf((*sdk.ImportOpts)(nil)),
+			"ImportResult": reflect.ValueOf((*sdk.ImportResult)(nil)),
+			"Link":         reflect.ValueOf((*sdk.Link)(nil)),
+			"ListOpts":     reflect.ValueOf((*sdk.ListOpts)(nil)),
+			"Plugin":       reflect.ValueOf((*sdk.Plugin)(nil)),
+			"Response":     reflect.ValueOf((*sdk.Response)(nil)),
+			"Result":       reflect.ValueOf((*sdk.Result)(nil)),
+			"Tag":          reflect.ValueOf((*sdk.Tag)(nil)),
+			"TagInfo":      reflect.ValueOf((*sdk.TagInfo)(nil)),
+			"Task":         reflect.ValueOf((*sdk.Task)(nil)),
+			"TaskAddOpts":  reflect.ValueOf((*sdk.TaskAddOpts)(nil)),
+			"TaskEvent":    reflect.ValueOf((*sdk.TaskEvent)(nil)),
+			"TaskListOpts": reflect.ValueOf((*sdk.TaskListOpts)(nil)),
+			"TaskSetOpts":  reflect.ValueOf((*sdk.TaskSetOpts)(nil)),
+			"Text":         reflect.ValueOf((*sdk.Text)(nil)),
+			"VacuumResult": reflect.ValueOf((*sdk.VacuumResult)(nil)),
+			"Version":      reflect.ValueOf((*sdk.Version)(nil)),
+
+			// Interface definitions
+			"DocumentStore": reflect.ValueOf((*sdk.DocumentStore)(nil)),
+			"TaskStore":     reflect.ValueOf((*sdk.TaskStore)(nil)),
+			"LinkStore":     reflect.ValueOf((*sdk.LinkStore)(nil)),
+			"TagStore":      reflect.ValueOf((*sdk.TagStore)(nil)),
+
+			// Interface wrappers
+			"_DocumentStore": reflect.ValueOf((*_sdk_DocumentStore)(nil)),
+			"_TaskStore":     reflect.ValueOf((*_sdk_TaskStore)(nil)),
+			"_LinkStore":     reflect.ValueOf((*_sdk_LinkStore)(nil)),
+			"_TagStore":      reflect.ValueOf((*_sdk_TagStore)(nil)),
+			"_Plugin":        reflect.ValueOf((*_sdk_Plugin)(nil)),
+			"_Response":      reflect.ValueOf((*_sdk_Response)(nil)),
 		},
 	}
 }
 
-// _github_com_jpl_au_llmd_sdk_Plugin is an interface wrapper for Plugin type
-type _github_com_jpl_au_llmd_sdk_Plugin struct {
+// _sdk_Plugin is an interface wrapper for Plugin type
+type _sdk_Plugin struct {
 	IValue    interface{}
 	WCommands func() []sdk.Command
 	WExec     func(ctx sdk.Context, cmd string, args []string) (sdk.Response, error)
 	WName     func() string
 }
 
-func (W _github_com_jpl_au_llmd_sdk_Plugin) Commands() []sdk.Command {
+func (W _sdk_Plugin) Commands() []sdk.Command {
 	return W.WCommands()
 }
-func (W _github_com_jpl_au_llmd_sdk_Plugin) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
+func (W _sdk_Plugin) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
 	return W.WExec(ctx, cmd, args)
 }
-func (W _github_com_jpl_au_llmd_sdk_Plugin) Name() string {
+func (W _sdk_Plugin) Name() string {
 	return W.WName()
 }
 
-// _github_com_jpl_au_llmd_sdk_Response is an interface wrapper for Response type
-type _github_com_jpl_au_llmd_sdk_Response struct {
+// _sdk_Response is an interface wrapper for Response type
+type _sdk_Response struct {
 	IValue    interface{}
 	WResponse func()
 }
 
-func (W _github_com_jpl_au_llmd_sdk_Response) Response() {
+func (W _sdk_Response) Response() {
 	W.WResponse()
 }
 
-// _github_com_jpl_au_llmd_sdk_Store is an interface wrapper for Store type
-type _github_com_jpl_au_llmd_sdk_Store struct {
+// _sdk_DocumentStore is an interface wrapper for DocumentStore type
+type _sdk_DocumentStore struct {
 	IValue   interface{}
+	WRead    func(path string, version int) ([]byte, error)
+	WWrite   func(path string, content []byte, author string, msg string) error
 	WDelete  func(path string, author string) error
-	WDiff    func(a string, b string, ctx int) (string, int, int, error)
-	WEdit    func(path string, old string, new string, author string, msg string) error
+	WRestore func(path string, author string) error
+	WMove    func(from string, to string, author string) error
+	WList    func(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error)
 	WExists  func(path string) (bool, error)
+	WEdit    func(path string, old string, new string, author string, msg string) error
 	WGlob    func(pattern string) ([]string, error)
 	WGrep    func(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error)
 	WHistory func(path string, limit int) ([]sdk.Version, error)
-	WList    func(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error)
-	WMove    func(from string, to string, author string) error
-	WRead    func(path string, version int) ([]byte, error)
-	WRestore func(path string, author string) error
+	WDiff    func(a string, b string, ctx int) (string, int, int, error)
 	WRevert  func(path string, version int, author string, msg string) error
-	WWrite   func(path string, content []byte, author string, msg string) error
+	WVacuum  func() (sdk.VacuumResult, error)
+	WImport  func(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error)
+	WExport  func(prefix string, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error)
 }
 
-func (W _github_com_jpl_au_llmd_sdk_Store) Delete(path string, author string) error {
-	return W.WDelete(path, author)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) Diff(a string, b string, ctx int) (string, int, int, error) {
-	return W.WDiff(a, b, ctx)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) Edit(path string, old string, new string, author string, msg string) error {
-	return W.WEdit(path, old, new, author, msg)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) Exists(path string) (bool, error) {
-	return W.WExists(path)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) Glob(pattern string) ([]string, error) {
-	return W.WGlob(pattern)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
-	return W.WGrep(query, opts)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) History(path string, limit int) ([]sdk.Version, error) {
-	return W.WHistory(path, limit)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
-	return W.WList(prefix, opts)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) Move(from string, to string, author string) error {
-	return W.WMove(from, to, author)
-}
-func (W _github_com_jpl_au_llmd_sdk_Store) Read(path string, version int) ([]byte, error) {
+func (W _sdk_DocumentStore) Read(path string, version int) ([]byte, error) {
 	return W.WRead(path, version)
 }
-func (W _github_com_jpl_au_llmd_sdk_Store) Restore(path string, author string) error {
+func (W _sdk_DocumentStore) Write(path string, content []byte, author string, msg string) error {
+	return W.WWrite(path, content, author, msg)
+}
+func (W _sdk_DocumentStore) Delete(path string, author string) error {
+	return W.WDelete(path, author)
+}
+func (W _sdk_DocumentStore) Restore(path string, author string) error {
 	return W.WRestore(path, author)
 }
-func (W _github_com_jpl_au_llmd_sdk_Store) Revert(path string, version int, author string, msg string) error {
+func (W _sdk_DocumentStore) Move(from string, to string, author string) error {
+	return W.WMove(from, to, author)
+}
+func (W _sdk_DocumentStore) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
+	return W.WList(prefix, opts)
+}
+func (W _sdk_DocumentStore) Exists(path string) (bool, error) {
+	return W.WExists(path)
+}
+func (W _sdk_DocumentStore) Edit(path string, old string, new string, author string, msg string) error {
+	return W.WEdit(path, old, new, author, msg)
+}
+func (W _sdk_DocumentStore) Glob(pattern string) ([]string, error) {
+	return W.WGlob(pattern)
+}
+func (W _sdk_DocumentStore) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
+	return W.WGrep(query, opts)
+}
+func (W _sdk_DocumentStore) History(path string, limit int) ([]sdk.Version, error) {
+	return W.WHistory(path, limit)
+}
+func (W _sdk_DocumentStore) Diff(a string, b string, ctx int) (string, int, int, error) {
+	return W.WDiff(a, b, ctx)
+}
+func (W _sdk_DocumentStore) Revert(path string, version int, author string, msg string) error {
 	return W.WRevert(path, version, author, msg)
 }
-func (W _github_com_jpl_au_llmd_sdk_Store) Write(path string, content []byte, author string, msg string) error {
-	return W.WWrite(path, content, author, msg)
+func (W _sdk_DocumentStore) Vacuum() (sdk.VacuumResult, error) {
+	return W.WVacuum()
+}
+func (W _sdk_DocumentStore) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error) {
+	return W.WImport(dir, opts)
+}
+func (W _sdk_DocumentStore) Export(prefix string, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error) {
+	return W.WExport(prefix, dir, opts)
+}
+
+// _sdk_TaskStore is an interface wrapper for TaskStore type
+type _sdk_TaskStore struct {
+	IValue        interface{}
+	WAdd          func(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Task, error)
+	WRead         func(key string) (*sdk.Task, error)
+	WList         func(opts sdk.TaskListOpts) ([]*sdk.Task, error)
+	WMove         func(key string, column string, author string) error
+	WSet          func(key string, author string, opts sdk.TaskSetOpts) error
+	WDelete       func(key string, author string) (*sdk.Task, error)
+	WRestore      func(key string, author string) (*sdk.Task, error)
+	WColumns      func() ([]string, error)
+	WAddColumn    func(name string, after string, author string) error
+	WRemoveColumn func(name string, author string) error
+	WMoveColumn   func(name string, after string, author string) error
+	WLog          func(key string, limit int) ([]sdk.TaskEvent, error)
+}
+
+func (W _sdk_TaskStore) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Task, error) {
+	return W.WAdd(title, body, opts)
+}
+func (W _sdk_TaskStore) Read(key string) (*sdk.Task, error) {
+	return W.WRead(key)
+}
+func (W _sdk_TaskStore) List(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
+	return W.WList(opts)
+}
+func (W _sdk_TaskStore) Move(key string, column string, author string) error {
+	return W.WMove(key, column, author)
+}
+func (W _sdk_TaskStore) Set(key string, author string, opts sdk.TaskSetOpts) error {
+	return W.WSet(key, author, opts)
+}
+func (W _sdk_TaskStore) Delete(key string, author string) (*sdk.Task, error) {
+	return W.WDelete(key, author)
+}
+func (W _sdk_TaskStore) Restore(key string, author string) (*sdk.Task, error) {
+	return W.WRestore(key, author)
+}
+func (W _sdk_TaskStore) Columns() ([]string, error) {
+	return W.WColumns()
+}
+func (W _sdk_TaskStore) AddColumn(name string, after string, author string) error {
+	return W.WAddColumn(name, after, author)
+}
+func (W _sdk_TaskStore) RemoveColumn(name string, author string) error {
+	return W.WRemoveColumn(name, author)
+}
+func (W _sdk_TaskStore) MoveColumn(name string, after string, author string) error {
+	return W.WMoveColumn(name, after, author)
+}
+func (W _sdk_TaskStore) Log(key string, limit int) ([]sdk.TaskEvent, error) {
+	return W.WLog(key, limit)
+}
+
+// _sdk_LinkStore is an interface wrapper for LinkStore type
+type _sdk_LinkStore struct {
+	IValue  interface{}
+	WAdd    func(from string, to string, label string, author string) error
+	WRemove func(from string, to string, author string) error
+	WList   func(path string, dir string) ([]sdk.Link, error)
+}
+
+func (W _sdk_LinkStore) Add(from string, to string, label string, author string) error {
+	return W.WAdd(from, to, label, author)
+}
+func (W _sdk_LinkStore) Remove(from string, to string, author string) error {
+	return W.WRemove(from, to, author)
+}
+func (W _sdk_LinkStore) List(path string, dir string) ([]sdk.Link, error) {
+	return W.WList(path, dir)
+}
+
+// _sdk_TagStore is an interface wrapper for TagStore type
+type _sdk_TagStore struct {
+	IValue  interface{}
+	WAdd    func(path string, name string, author string) error
+	WRemove func(path string, name string, author string) error
+	WList   func(path string) ([]sdk.Tag, error)
+	WAll    func() ([]sdk.TagInfo, error)
+	WFind   func(name string) ([]string, error)
+}
+
+func (W _sdk_TagStore) Add(path string, name string, author string) error {
+	return W.WAdd(path, name, author)
+}
+func (W _sdk_TagStore) Remove(path string, name string, author string) error {
+	return W.WRemove(path, name, author)
+}
+func (W _sdk_TagStore) List(path string) ([]sdk.Tag, error) {
+	return W.WList(path)
+}
+func (W _sdk_TagStore) All() ([]sdk.TagInfo, error) {
+	return W.WAll()
+}
+func (W _sdk_TagStore) Find(name string) ([]string, error) {
+	return W.WFind(name)
 }

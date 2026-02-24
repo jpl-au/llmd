@@ -42,7 +42,7 @@ func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// llmd link <path> — list links
 	if len(positional) == 1 {
-		ll, err := sdk.API.LinkList(positional[0], dir)
+		ll, err := sdk.Links.List(positional[0], dir)
 		if err != nil {
 			return nil, fmt.Errorf("link: %w", err)
 		}
@@ -59,7 +59,7 @@ func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// llmd link <from> <to> — create link
 	from, to := positional[0], positional[1]
-	if err := sdk.API.LinkAdd(from, to, label, ctx.Author); err != nil {
+	if err := sdk.Links.Add(from, to, label, ctx.Author); err != nil {
 		return nil, fmt.Errorf("link: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Linked %s -> %s", from, to)), nil

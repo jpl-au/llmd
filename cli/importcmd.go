@@ -40,7 +40,7 @@ func importCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("import: %w", sdk.ErrMissingArg)
 	}
 
-	result, err := sdk.API.Import(dir, opts)
+	result, err := sdk.Documents.Import(dir, opts)
 	if err != nil {
 		return nil, fmt.Errorf("import: %w", err)
 	}

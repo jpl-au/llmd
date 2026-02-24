@@ -42,7 +42,7 @@ func revert(ctx sdk.Context, args []string) (sdk.Response, error) {
 		message = fmt.Sprintf("Reverted to version %d", version)
 	}
 
-	if err := sdk.API.Revert(path, version, ctx.Author, message); err != nil {
+	if err := sdk.Documents.Revert(path, version, ctx.Author, message); err != nil {
 		return nil, fmt.Errorf("revert: %w", err)
 	}
 

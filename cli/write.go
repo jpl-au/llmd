@@ -27,7 +27,7 @@ func write(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if err := sdk.API.Write(path, ctx.Stdin, ctx.Author, message); err != nil {
+	if err := sdk.Documents.Write(path, ctx.Stdin, ctx.Author, message); err != nil {
 		return nil, fmt.Errorf("write: %w", err)
 	}
 

@@ -10,7 +10,7 @@ import (
 // links, then runs SQLite VACUUM to reclaim disk space. This is
 // irreversible — soft-deleted documents cannot be restored after vacuum.
 func vacuumCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	result, err := sdk.API.Vacuum()
+	result, err := sdk.Documents.Vacuum()
 	if err != nil {
 		return nil, fmt.Errorf("vacuum: %v", err)
 	}

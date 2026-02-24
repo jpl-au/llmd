@@ -52,7 +52,7 @@ func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("grep: %w", sdk.ErrMissingArg)
 	}
 
-	results, err := sdk.API.Grep(pattern, sdk.GrepOpts{Path: pathPrefix, Context: contextLines})
+	results, err := sdk.Documents.Grep(pattern, sdk.GrepOpts{Path: pathPrefix, Context: contextLines})
 	if err != nil {
 		return nil, fmt.Errorf("grep: %w", err)
 	}

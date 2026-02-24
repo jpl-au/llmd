@@ -16,7 +16,7 @@ func glob(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("glob: %w", sdk.ErrMissingArg)
 	}
 
-	paths, err := sdk.API.Glob(args[0])
+	paths, err := sdk.Documents.Glob(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("glob: %w", err)
 	}

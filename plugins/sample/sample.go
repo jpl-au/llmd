@@ -3,7 +3,7 @@
 // This plugin shows:
 // - sdk.Plugin interface implementation
 // - Flag parsing patterns
-// - sdk.API calls (Read, List, Exists, History)
+// - sdk.Documents calls (Read, List, Exists, History)
 // - Returning sdk.Result with text and structured data
 // - Error handling
 //
@@ -77,7 +77,7 @@ func (s *Sample) stat(args []string) (sdk.Response, error) {
 	}
 	path := args[0]
 
-	exists, err := sdk.API.Exists(path)
+	exists, err := sdk.Documents.Exists(path)
 	if err != nil {
 		return nil, fmt.Errorf("stat: %w", err)
 	}
@@ -89,7 +89,7 @@ func (s *Sample) stat(args []string) (sdk.Response, error) {
 		}, nil
 	}
 
-	versions, err := sdk.API.History(path, 0)
+	versions, err := sdk.Documents.History(path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("stat: %w", err)
 	}
@@ -128,7 +128,7 @@ func (s *Sample) recent(args []string) (sdk.Response, error) {
 		}
 	}
 
-	docs, err := sdk.API.List("", sdk.ListOpts{Sort: "time"})
+	docs, err := sdk.Documents.List("", sdk.ListOpts{Sort: "time"})
 	if err != nil {
 		return nil, fmt.Errorf("recent: %w", err)
 	}
@@ -165,7 +165,7 @@ func (s *Sample) wc(args []string) (sdk.Response, error) {
 	}
 	path := args[0]
 
-	content, err := sdk.API.Read(path, 0)
+	content, err := sdk.Documents.Read(path, 0)
 	if err != nil {
 		return nil, fmt.Errorf("wc: %w", err)
 	}

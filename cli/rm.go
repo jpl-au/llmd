@@ -15,7 +15,7 @@ func rm(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("rm: %w", sdk.ErrMissingArg)
 	}
 
-	if err := sdk.API.Delete(args[0], ctx.Author); err != nil {
+	if err := sdk.Documents.Delete(args[0], ctx.Author); err != nil {
 		return nil, fmt.Errorf("rm: %w", err)
 	}
 

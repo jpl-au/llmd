@@ -1,9 +1,9 @@
 // Package sdk provides the plugin SDK for llmd.
 //
 // Plugins implement the [Plugin] interface to provide commands. The host
-// loads plugins and routes commands to them. Plugins access the document
-// store through the global [API] variable, which is set by the host before
-// command execution.
+// loads plugins and routes commands to them. Plugins access the store
+// through domain-specific globals: [Documents], [Tasks], [Links], and
+// [Tags]. Each global is a focused interface with unprefixed methods.
 //
 // # Writing a Plugin
 //
@@ -33,14 +33,20 @@
 //
 // # Accessing the Store
 //
-// Commands access the document store through [API]:
+// Commands access the store through domain globals:
 //
-//	content, err := sdk.API.Read("notes/todo.md", 0)  // 0 = latest version
+//	content, err := sdk.Documents.Read("notes/todo.md", 0)  // 0 = latest version
 //	if err != nil {
 //	    return nil, err
 //	}
 //
-//	err = sdk.API.Write("notes/new.md", []byte("# New"), ctx.Author, "initial")
+//	err = sdk.Documents.Write("notes/new.md", []byte("# New"), ctx.Author, "initial")
+//
+//	err = sdk.Tags.Add("notes/todo.md", "important", ctx.Author)
+//
+//	err = sdk.Links.Add("notes/a", "notes/b", "related", ctx.Author)
+//
+//	task, err := sdk.Tasks.Add("Fix auth bug", body, sdk.TaskAddOpts{Author: ctx.Author})
 //
 // # Returning Results
 //
