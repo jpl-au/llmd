@@ -29,10 +29,18 @@ func Load() map[string]string {
 	return cfg
 }
 
-// Save writes a key=value to the local .llmd/config file, preserving
-// any existing values.
-func Save(key, value string) error {
+// Save writes a key=value to a config file, preserving any existing
+// values. When global is true it writes to ~/.config/llmd/config;
+// otherwise it writes to the local .llmd/config.
+func Save(key, value string, global bool) error {
 	path := ".llmd/config"
+	if global {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		path = filepath.Join(home, ".config", "llmd", "config")
+	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
