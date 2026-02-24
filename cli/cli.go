@@ -109,7 +109,9 @@ func (c *CLI) Commands() []sdk.Command {
 		{Name: "serve", Desc: "Start MCP stdio server", Usage: "serve"},
 		{Name: "mirror", Desc: "Mirror documents to filesystem", Usage: "mirror [prefix]"},
 		{Name: "plugins", Desc: "List loaded plugins", Usage: "plugins"},
-		{Name: "guide", Desc: "Built-in documentation", Usage: "guide [topic]"},
+		{Name: "guide", Desc: "Built-in documentation", Usage: "guide [--raw] [topic]", Flags: []sdk.Flag{
+			{Name: "raw", Type: "bool", Desc: "Output raw markdown without rendering"},
+		}},
 		{Name: "llm", Desc: "Quick command reference for LLMs", Usage: "llm"},
 	}
 }
@@ -172,7 +174,7 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 	case "mirror":
 		return mirror(ctx, args)
 	case "guide":
-		return guide(ctx, args)
+		return guideCmd(ctx, args)
 	case "llm":
 		return llm(ctx, args)
 	default:
