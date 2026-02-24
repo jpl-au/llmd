@@ -1,0 +1,141 @@
+package host
+
+import (
+	"testing"
+
+	"github.com/jpl-au/llmd/sdk"
+)
+
+func TestTagsAdd(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+
+	if err := sdk.Tags.Add("doc", "important", "alice"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	tags, err := sdk.Tags.List("doc")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(tags) != 1 {
+		t.Fatalf("got %d tags, want 1", len(tags))
+	}
+	if tags[0].Name != "important" {
+		t.Errorf("name = %q, want %q", tags[0].Name, "important")
+	}
+}
+
+func TestTagsAddMultiple(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	sdk.Tags.Add("doc", "feature", "alice")
+	sdk.Tags.Add("doc", "urgent", "alice")
+
+	tags, _ := sdk.Tags.List("doc")
+	if len(tags) != 2 {
+		t.Errorf("got %d tags, want 2", len(tags))
+	}
+}
+
+func TestTagsRemove(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	sdk.Tags.Add("doc", "temp", "alice")
+
+	if err := sdk.Tags.Remove("doc", "temp", "alice"); err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+
+	tags, _ := sdk.Tags.List("doc")
+	if len(tags) != 0 {
+		t.Errorf("got %d tags after Remove, want 0", len(tags))
+	}
+}
+
+func TestTagsList(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+
+	tags, err := sdk.Tags.List("doc")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(tags) != 0 {
+		t.Errorf("got %d tags on untagged doc, want 0", len(tags))
+	}
+}
+
+func TestTagsAll(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("a", []byte("x"), "alice", "")
+	sdk.Documents.Write("b", []byte("x"), "alice", "")
+	sdk.Tags.Add("a", "feature", "alice")
+	sdk.Tags.Add("b", "feature", "alice")
+	sdk.Tags.Add("a", "bug", "alice")
+
+	infos, err := sdk.Tags.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+	if len(infos) != 2 {
+		t.Fatalf("got %d tag infos, want 2", len(infos))
+	}
+
+	// Find the "feature" tag and check count
+	for _, info := range infos {
+		if info.Name == "feature" && info.Count != 2 {
+			t.Errorf("feature count = %d, want 2", info.Count)
+		}
+		if info.Name == "bug" && info.Count != 1 {
+			t.Errorf("bug count = %d, want 1", info.Count)
+		}
+	}
+}
+
+func TestTagsAllEmpty(t *testing.T) {
+	testHost(t)
+
+	infos, err := sdk.Tags.All()
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+	if len(infos) != 0 {
+		t.Errorf("got %d infos, want 0", len(infos))
+	}
+}
+
+func TestTagsFind(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("a", []byte("x"), "alice", "")
+	sdk.Documents.Write("b", []byte("x"), "alice", "")
+	sdk.Documents.Write("c", []byte("x"), "alice", "")
+	sdk.Tags.Add("a", "release", "alice")
+	sdk.Tags.Add("c", "release", "alice")
+
+	paths, err := sdk.Tags.Find("release")
+	if err != nil {
+		t.Fatalf("Find: %v", err)
+	}
+	if len(paths) != 2 {
+		t.Errorf("got %d paths, want 2", len(paths))
+	}
+}
+
+func TestTagsFindEmpty(t *testing.T) {
+	testHost(t)
+
+	paths, err := sdk.Tags.Find("nonexistent")
+	if err != nil {
+		t.Fatalf("Find: %v", err)
+	}
+	if len(paths) != 0 {
+		t.Errorf("got %d paths, want 0", len(paths))
+	}
+}
