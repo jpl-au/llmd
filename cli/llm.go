@@ -9,40 +9,61 @@ func llm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(llmRef), nil
 }
 
-var llmRef = `llmd quick reference
+var llmRef = `llmd — versioned document store
 
-READ:    llmd cat <path>                     Read document
-         llmd cat --version 3 <path>         Read specific version
-         llmd cat -n <path>                  With line numbers
+Documents have paths (notes/readme, projects/spec), full version history,
+tags, and links. All content is plain text.
 
-WRITE:   echo "content" | llmd write <path>  Create/update document
-         llmd edit <path> <old> <new>        Search and replace
-         llmd sed 's/old/new/' <path>        sed-style edit
+## Self-help
 
-SEARCH:  llmd grep <pattern> [prefix]        Full-text search
-         llmd find <query> [prefix]          Search (paths only)
-         llmd glob "docs/*.md"               Path pattern match
-         llmd ls [prefix]                    List documents
+Call the "guide" tool for detailed help on any topic:
 
-DELETE:  llmd rm <path>                      Soft-delete (recoverable)
-         llmd restore <path>                 Recover deleted doc
-         llmd vacuum                         Permanently purge deleted
+  guide                        overview and all commands
+  guide <topic>                detailed help (cat, grep, edit, tag, link,
+                               workflow, import, export, config, mcp, ...)
 
-HISTORY: llmd history <path>                 Version log
-         llmd diff <path>                    Diff against previous version
-         llmd diff <path>:1 <path>:2         Diff two versions
-         llmd revert <path> <version>        Revert to old version
+## MCP tools
 
-TAGS:    llmd tag <path> <name>              Add tag
-         llmd tag <path>                     List tags
-         llmd tag -f <name>                  Find docs by tag
+If you are connected via MCP, use tools directly. Three tools are renamed
+to avoid collisions with common tool names:
 
-LINKS:   llmd link <from> <to>               Link documents
-         llmd link <path>                    List links
-         llmd unlink <from> <to>             Remove link
+  grep → llmd_grep    find → llmd_find    glob → llmd_glob
 
-BULK:    llmd import <dir>                   Import .md files
-         llmd export <prefix> <dir>          Export to filesystem
+All other tool names match their command name (cat, write, edit, ls, etc.).
 
-Use "llmd guide" for full documentation.
-Use "llmd guide <topic>" for details (edit, grep, tag, link, import, export).`
+All tools accept: {"args": [...], "content": "..."}
+Use content for document bodies (write, edit). Use args for everything else.
+
+## Commands
+
+READ     cat <path>                  read document
+         cat -n <path>               with line numbers
+         cat --version N <path>      specific version
+         ls [prefix]                 list documents
+
+WRITE    write <path>                create/update (body via content/stdin)
+         edit <path> <old> <new>     search and replace
+         sed 's/old/new/' <path>     sed-style substitution
+
+SEARCH   grep <pattern> [prefix]     full-text search
+         find <query> [prefix]       search (paths only)
+         glob "docs/*.md"            path pattern match
+
+ORGANISE tag <path> <name>           add tag
+         tag -f <name>               find docs by tag
+         link <from> <to>            link documents
+         link <path>                 list links
+
+HISTORY  history <path>              version log
+         diff <path>                 diff against previous
+         diff <path>:1 <path>:2      compare two versions
+         revert <path> <version>     restore old version
+
+DELETE   rm <path>                   soft-delete
+         restore <path>              recover deleted
+
+## Configuration
+
+Author must be set before any write operation:
+
+  config author "Name"`

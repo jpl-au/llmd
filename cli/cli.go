@@ -100,6 +100,18 @@ func (c *CLI) Commands() []sdk.Command {
 			{Name: "overwrite", Type: "bool", Desc: "Overwrite existing files"},
 		}},
 
+		// Tasks
+		{Name: "task", Desc: "Manage kanban tasks", Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
+			{Name: "status", Type: "string", Desc: "Filter or set status column"},
+			{Name: "priority", Type: "int", Desc: "Filter or set priority"},
+			{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},
+			{Name: "path", Type: "string", Desc: "Custom document path"},
+			{Name: "flag", Type: "string", Desc: "Set a flag (blocked, hold)"},
+			{Name: "unflag", Type: "string", Desc: "Remove a flag"},
+			{Name: "position", Type: "int", Desc: "Set position within column"},
+			{Name: "after", Type: "string", Desc: "Insert/move column after this one"},
+		}},
+
 		// Admin and help
 		{Name: "version", Desc: "Show version information", Usage: "version"},
 		{Name: "config", Desc: "Manage configuration", Usage: "config [key] [value]"},
@@ -109,10 +121,10 @@ func (c *CLI) Commands() []sdk.Command {
 		{Name: "serve", Desc: "Start MCP stdio server", Usage: "serve"},
 		{Name: "mirror", Desc: "Mirror documents to filesystem", Usage: "mirror [prefix]"},
 		{Name: "plugins", Desc: "List loaded plugins", Usage: "plugins"},
-		{Name: "guide", Desc: "Built-in documentation", Usage: "guide [--raw] [topic]", Flags: []sdk.Flag{
+		{Name: "guide", Desc: "Built-in documentation", Usage: "guide [--raw] [topic]", MCP: true, Flags: []sdk.Flag{
 			{Name: "raw", Type: "bool", Desc: "Output raw markdown without rendering"},
 		}},
-		{Name: "llm", Desc: "Quick command reference for LLMs", Usage: "llm"},
+		{Name: "llm", Desc: "Quick command reference for LLMs", Usage: "llm", MCP: true},
 	}
 }
 
@@ -153,6 +165,8 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return linkCmd(ctx, args)
 	case "unlink":
 		return unlink(ctx, args)
+	case "task":
+		return taskCmd(ctx, args)
 	case "import":
 		return importCmd(ctx, args)
 	case "export":

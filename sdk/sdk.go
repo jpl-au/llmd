@@ -214,6 +214,39 @@ type Store interface {
 
 	// Export writes documents to a filesystem directory.
 	Export(prefix, dir string, opts ExportOpts) (*ExportResult, error)
+
+	// TaskAdd creates a new task and its backing document.
+	TaskAdd(title string, body []byte, opts TaskAddOpts) (*Task, error)
+
+	// TaskRead returns a task by key.
+	TaskRead(key string) (*Task, error)
+
+	// TaskList returns tasks, optionally filtered.
+	TaskList(opts TaskListOpts) ([]*Task, error)
+
+	// TaskMove changes a task's column.
+	TaskMove(key, status, author string) error
+
+	// TaskSet updates task metadata.
+	TaskSet(key, author string, opts TaskSetOpts) error
+
+	// TaskDelete soft-deletes a task.
+	TaskDelete(key, author string) (*Task, error)
+
+	// TaskRestore undeletes a soft-deleted task.
+	TaskRestore(key, author string) (*Task, error)
+
+	// TaskColumns returns the board columns in order.
+	TaskColumns() ([]string, error)
+
+	// TaskAddColumn adds a new column.
+	TaskAddColumn(name, after, author string) error
+
+	// TaskRemoveColumn removes an empty column.
+	TaskRemoveColumn(name, author string) error
+
+	// TaskMoveColumn reorders a column.
+	TaskMoveColumn(name, after, author string) error
 }
 
 // VacuumResult contains the counts from a vacuum operation.
@@ -361,4 +394,44 @@ type Version struct {
 	Author    string
 	Message   string
 	CreatedAt int64
+}
+
+// Task represents a kanban task.
+type Task struct {
+	Key        string
+	Title      string
+	Status     string
+	Priority   int
+	Position   int
+	AssignedTo string
+	Flags      string
+	Path       string
+	Author     string
+	CreatedAt  int64
+}
+
+// TaskAddOpts configures a task add operation.
+type TaskAddOpts struct {
+	Status     string
+	Priority   int
+	AssignedTo string
+	Path       string // Custom document path
+	Author     string
+}
+
+// TaskListOpts configures a task list operation.
+type TaskListOpts struct {
+	Status     string
+	AssignedTo string
+	Priority   int
+}
+
+// TaskSetOpts configures which task fields to update.
+type TaskSetOpts struct {
+	Title      *string
+	Priority   *int
+	Position   *int
+	AssignedTo *string
+	Flag       string
+	Unflag     string
 }

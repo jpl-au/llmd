@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
@@ -33,6 +34,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/search"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
+	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	_ "modernc.org/sqlite"
 )
 
@@ -47,6 +49,8 @@ type Store struct {
 	Tags      *tags.Tags
 	Links     *links.Links
 	Entities  *entities.Entities
+	Tasks     *tasks.Tasks
+	Audit     *audit.Log
 
 	db   *sql.DB
 	bus  *events.Bus
@@ -136,6 +140,8 @@ func open(path string) (*Store, error) {
 	s.Tags = tags.New(db, s.Documents)
 	s.Links = links.New(db, s.Documents)
 	s.Entities = entities.New(db)
+	s.Audit = audit.New(db)
+	s.Tasks = tasks.New(db, s.Documents, s.Entities, s.Audit)
 
 	return s, nil
 }
@@ -172,6 +178,8 @@ func OpenMemory() (*Store, error) {
 	s.Tags = tags.New(db, s.Documents)
 	s.Links = links.New(db, s.Documents)
 	s.Entities = entities.New(db)
+	s.Audit = audit.New(db)
+	s.Tasks = tasks.New(db, s.Documents, s.Entities, s.Audit)
 
 	return s, nil
 }

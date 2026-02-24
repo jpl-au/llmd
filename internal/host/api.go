@@ -17,7 +17,9 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/search"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
+	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	"github.com/jpl-au/llmd/pkg/model/core"
+	"github.com/jpl-au/llmd/pkg/model/task"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -346,4 +348,104 @@ func (a *api) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.ExportResult
 		Exported: r.Exported,
 		Skipped:  r.Skipped,
 	}, nil
+}
+
+func taskToSDK(t *task.Task) *sdk.Task {
+	return &sdk.Task{
+		Key:        t.Key,
+		Title:      t.Title,
+		Status:     t.Status,
+		Priority:   t.Priority,
+		Position:   t.Position,
+		AssignedTo: t.AssignedTo,
+		Flags:      t.Flags,
+		Path:       t.Path,
+		Author:     t.Author,
+		CreatedAt:  t.CreatedAt,
+	}
+}
+
+func (a *api) TaskAdd(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Task, error) {
+	t, err := a.store.Tasks.Add(context.Background(), title, body, tasks.AddOptions{
+		Origin:     core.Origin{Author: opts.Author, Source: "cli"},
+		Status:     opts.Status,
+		Priority:   opts.Priority,
+		AssignedTo: opts.AssignedTo,
+		Path:       opts.Path,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return taskToSDK(t), nil
+}
+
+func (a *api) TaskRead(key string) (*sdk.Task, error) {
+	t, err := a.store.Tasks.Read(context.Background(), key)
+	if err != nil {
+		return nil, err
+	}
+	return taskToSDK(t), nil
+}
+
+func (a *api) TaskList(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
+	tt, err := a.store.Tasks.List(context.Background(), tasks.ListOptions{
+		Status:     opts.Status,
+		AssignedTo: opts.AssignedTo,
+		Priority:   opts.Priority,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*sdk.Task, len(tt))
+	for i, t := range tt {
+		out[i] = taskToSDK(t)
+	}
+	return out, nil
+}
+
+func (a *api) TaskMove(key, status, author string) error {
+	return a.store.Tasks.Move(context.Background(), key, status, author)
+}
+
+func (a *api) TaskSet(key, author string, opts sdk.TaskSetOpts) error {
+	return a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
+		Title:      opts.Title,
+		Priority:   opts.Priority,
+		Position:   opts.Position,
+		AssignedTo: opts.AssignedTo,
+		Flag:       opts.Flag,
+		Unflag:     opts.Unflag,
+	})
+}
+
+func (a *api) TaskDelete(key, author string) (*sdk.Task, error) {
+	t, err := a.store.Tasks.Delete(context.Background(), key, author)
+	if err != nil {
+		return nil, err
+	}
+	return taskToSDK(t), nil
+}
+
+func (a *api) TaskRestore(key, author string) (*sdk.Task, error) {
+	t, err := a.store.Tasks.Restore(context.Background(), key, author)
+	if err != nil {
+		return nil, err
+	}
+	return taskToSDK(t), nil
+}
+
+func (a *api) TaskColumns() ([]string, error) {
+	return a.store.Tasks.Columns(context.Background())
+}
+
+func (a *api) TaskAddColumn(name, after, author string) error {
+	return a.store.Tasks.AddColumn(context.Background(), name, after, author)
+}
+
+func (a *api) TaskRemoveColumn(name, author string) error {
+	return a.store.Tasks.RemoveColumn(context.Background(), name, author)
+}
+
+func (a *api) TaskMoveColumn(name, after, author string) error {
+	return a.store.Tasks.MoveColumn(context.Background(), name, after, author)
 }
