@@ -62,6 +62,13 @@ HISTORY  history <path>              version log
 DELETE   rm <path>                   soft-delete
          restore <path>              recover deleted
 
+TASKS    task list                   board view (all columns)
+         task show <id>              metadata + spec body
+         task add <title>            create task (body via content/stdin)
+         task move <id> <status>     move to column
+         task set <id> --flag hold   set flag, priority, assign, etc.
+         task rm <id>                soft-delete task (doc untouched)
+
 ## Configuration
 
 Author must be set before any write operation:

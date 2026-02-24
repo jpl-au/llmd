@@ -1,4 +1,4 @@
-// Package tasks provides kanban task management.
+// Package tasks provides task management.
 //
 // Tasks are stored in a dedicated table, created lazily on first use.
 // Each task points to a document in the content table (the spec body).
@@ -53,7 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted_at) WHERE deleted_
 // Default columns for a new board.
 var DefaultColumns = []string{"backlog", "up-next", "in-progress", "review", "done"}
 
-const boardNamespace = "kanban:board"
+const boardNamespace = "task:board"
 
 var (
 	ErrNotFound     = errors.New("task not found")
@@ -145,16 +145,15 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		path = "tasks/" + slug(title)
 	}
 
-	// Create the backing document
-	content := string(body)
-	if content == "" {
-		content = "# " + title + "\n"
-	}
-	_, err = t.docs.Write(ctx, path, content, documents.WriteOptions{
-		Origin: opts.Origin,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("creating document: %w", err)
+	// Only create a document if body content was provided.
+	// Tasks without a spec sit in backlog until one is written.
+	if len(body) > 0 {
+		_, err = t.docs.Write(ctx, path, string(body), documents.WriteOptions{
+			Origin: opts.Origin,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("creating document: %w", err)
+		}
 	}
 
 	// Next position in the target column
@@ -447,6 +446,18 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 
 	_ = t.audit.Record(ctx, author, "restore", key, "", tsk.Status)
 	return tsk, nil
+}
+
+// Log returns audit events for a task, newest first.
+func (t *Tasks) Log(ctx context.Context, key string, limit int) ([]audit.Event, error) {
+	// Verify task exists
+	if _, err := t.Read(ctx, key); err != nil {
+		// Try deleted tasks too
+		if _, err := t.scanDeleted(ctx, key); err != nil {
+			return nil, err
+		}
+	}
+	return t.audit.Query(ctx, key, limit)
 }
 
 // Columns returns the board columns in order.

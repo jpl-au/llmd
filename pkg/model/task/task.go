@@ -1,9 +1,9 @@
-// Package task provides the Task model for kanban task management.
+// Package task provides the Task model for task management.
 package task
 
 import "github.com/jpl-au/llmd/pkg/model/core"
 
-// Task represents a kanban task stored in the tasks table.
+// Task represents a task stored in the tasks table.
 type Task struct {
 	ID         int64
 	Key        string

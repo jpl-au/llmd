@@ -449,3 +449,21 @@ func (a *api) TaskRemoveColumn(name, author string) error {
 func (a *api) TaskMoveColumn(name, after, author string) error {
 	return a.store.Tasks.MoveColumn(context.Background(), name, after, author)
 }
+
+func (a *api) TaskLog(key string, limit int) ([]sdk.TaskEvent, error) {
+	events, err := a.store.Tasks.Log(context.Background(), key, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]sdk.TaskEvent, len(events))
+	for i, e := range events {
+		out[i] = sdk.TaskEvent{
+			Timestamp: e.Timestamp,
+			Actor:     e.Actor,
+			Action:    e.Action,
+			OldValue:  e.OldValue,
+			NewValue:  e.NewValue,
+		}
+	}
+	return out, nil
+}

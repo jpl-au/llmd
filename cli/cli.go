@@ -101,7 +101,23 @@ func (c *CLI) Commands() []sdk.Command {
 		}},
 
 		// Tasks
-		{Name: "task", Desc: "Manage kanban tasks", Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
+		{Name: "task", Desc: `Manage tasks on the board.
+
+Subcommands (passed as first arg):
+  add <title>               create task (body via content/stdin)
+  list                      board view (all columns)
+  show <id>                 task metadata + spec body
+  move <id> <status>        move task to column
+  set <id> [flags]          update metadata
+  rm <id>                   soft-delete task
+  restore <id>              restore deleted task
+  columns                   list columns
+  add-column <name>         add column
+  rm-column <name>          remove empty column
+  mv-column <name> --after  reorder column
+  link <id> <path>          link task to document
+  links <id>                list linked documents
+  log <id> [-n limit]       audit history for a task`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
 			{Name: "status", Type: "string", Desc: "Filter or set status column"},
 			{Name: "priority", Type: "int", Desc: "Filter or set priority"},
 			{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},

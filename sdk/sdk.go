@@ -247,6 +247,9 @@ type Store interface {
 
 	// TaskMoveColumn reorders a column.
 	TaskMoveColumn(name, after, author string) error
+
+	// TaskLog returns audit events for a task, newest first.
+	TaskLog(key string, limit int) ([]TaskEvent, error)
 }
 
 // VacuumResult contains the counts from a vacuum operation.
@@ -396,7 +399,7 @@ type Version struct {
 	CreatedAt int64
 }
 
-// Task represents a kanban task.
+// Task represents a task on the board.
 type Task struct {
 	Key        string
 	Title      string
@@ -424,6 +427,15 @@ type TaskListOpts struct {
 	Status     string
 	AssignedTo string
 	Priority   int
+}
+
+// TaskEvent is a single audit log entry for a task.
+type TaskEvent struct {
+	Timestamp int64
+	Actor     string
+	Action    string
+	OldValue  string
+	NewValue  string
 }
 
 // TaskSetOpts configures which task fields to update.

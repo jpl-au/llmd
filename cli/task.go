@@ -1,4 +1,4 @@
-// task.go provides kanban task management commands.
+// task.go provides task management commands.
 //
 // Usage:
 //
@@ -15,6 +15,7 @@
 //	llmd task mv-column <name> --after   Reorder column
 //	llmd task link <id> <path>           Link task to document
 //	llmd task links <id>                 List linked documents
+//	llmd task log <id>                   Show audit history
 
 package cli
 
@@ -22,7 +23,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -61,6 +65,8 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return taskLink(ctx, args)
 	case "links":
 		return taskLinks(ctx, args)
+	case "log":
+		return taskLog(ctx, args)
 	default:
 		return nil, fmt.Errorf("task: unknown subcommand: %s", sub)
 	}
@@ -116,7 +122,10 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task add: %w", err)
 	}
 
-	text := fmt.Sprintf("Created task #%s \"%s\" in %s\nDocument: %s", t.Key, t.Title, t.Status, t.Path)
+	text := fmt.Sprintf("Created task #%s \"%s\" in %s", t.Key, t.Title, t.Status)
+	if len(ctx.Stdin) > 0 {
+		text += fmt.Sprintf("\nSpec: %s", t.Path)
+	}
 	return sdk.Result{Text: text, Data: t}, nil
 }
 
@@ -147,6 +156,11 @@ func taskList(_ sdk.Context, args []string) (sdk.Response, error) {
 				return nil, fmt.Errorf("task list: invalid priority: %w", err)
 			}
 			opts.Priority = p
+		default:
+			// Positional arg = column name
+			if opts.Status == "" && !strings.HasPrefix(args[i], "-") {
+				opts.Status = args[i]
+			}
 		}
 	}
 
@@ -425,32 +439,123 @@ func taskLinks(_ sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: strings.Join(lines, "\n"), Data: links}, nil
 }
 
-// formatBoard renders the board view as markdown tables grouped by column.
+func taskLog(_ sdk.Context, args []string) (sdk.Response, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("task log: %w: id", sdk.ErrMissingArg)
+	}
+
+	key := args[0]
+	limit := 0
+	for i := 1; i < len(args); i++ {
+		if args[i] == "-n" && i+1 < len(args) {
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil {
+				return nil, fmt.Errorf("task log: invalid limit: %w", err)
+			}
+			limit = n
+		}
+	}
+
+	events, err := sdk.API.TaskLog(key, limit)
+	if err != nil {
+		return nil, fmt.Errorf("task log: %w", err)
+	}
+
+	if len(events) == 0 {
+		return sdk.Result{Text: emptyCol.Render("no history"), Data: events}, nil
+	}
+
+	t := table.New().
+		Headers("TIME", "ACTOR", "ACTION", "OLD", "NEW").
+		Border(lipgloss.RoundedBorder()).
+		BorderRow(false).
+		BorderStyle(borderStyle).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return headerCell
+			}
+			if col == 0 {
+				return dimCell
+			}
+			return cell
+		})
+
+	for _, e := range events {
+		ts := time.UnixMilli(e.Timestamp).Format("2006-01-02 15:04")
+		t.Row(ts, e.Actor, e.Action, e.OldValue, e.NewValue)
+	}
+
+	return sdk.Result{Text: t.String(), Data: events}, nil
+}
+
+// Styles for the board view.
+var (
+	colHeader = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("12")). // bright blue
+			PaddingLeft(1)
+
+	colCount = lipgloss.NewStyle().
+			Faint(true)
+
+	emptyCol = lipgloss.NewStyle().
+			Faint(true).
+			Italic(true).
+			PaddingLeft(3)
+
+	headerCell = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("15")). // bright white
+			Padding(0, 1)
+
+	cell = lipgloss.NewStyle().
+		Padding(0, 1)
+
+	flagBlocked = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("9")). // red
+			Padding(0, 1)
+
+	flagHold = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("11")). // yellow
+			Padding(0, 1)
+
+	dimCell = lipgloss.NewStyle().
+		Faint(true).
+		Padding(0, 1)
+
+	borderStyle = lipgloss.NewStyle().
+			Faint(true)
+)
+
+// formatBoard renders the board view grouped by column.
 func formatBoard(cols []string, tasks []*sdk.Task) string {
-	// Group tasks by status
+	specs := specExists(tasks)
+
 	byStatus := make(map[string][]*sdk.Task)
 	for _, t := range tasks {
 		byStatus[t.Status] = append(byStatus[t.Status], t)
 	}
 
 	var b strings.Builder
-	for _, col := range cols {
-		b.WriteString(strings.ToUpper(col))
-		b.WriteByte('\n')
-		b.WriteByte('\n')
+	for i, col := range cols {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
 
 		tt := byStatus[col]
-		if len(tt) == 0 {
-			b.WriteString("(empty)\n")
-		} else {
-			b.WriteString("| ID | TITLE | PRIORITY | ASSIGNED TO | FLAGS | SPEC |\n")
-			b.WriteString("|------|-------|----------|-------------|-------|------|\n")
-			for _, t := range tt {
-				fmt.Fprintf(&b, "| #%s | %s | %d | %s | %s | %s |\n",
-					t.Key, t.Title, t.Priority, t.AssignedTo, t.Flags, t.Path)
-			}
-		}
+		heading := colHeader.Render(strings.ToUpper(col)) +
+			" " + colCount.Render(fmt.Sprintf("(%d)", len(tt)))
+		b.WriteString(heading)
 		b.WriteByte('\n')
+
+		if len(tt) == 0 {
+			b.WriteString(emptyCol.Render("no tasks"))
+			b.WriteByte('\n')
+		} else {
+			b.WriteString(taskTable(tt, specs))
+			b.WriteByte('\n')
+		}
 	}
 	return b.String()
 }
@@ -458,15 +563,68 @@ func formatBoard(cols []string, tasks []*sdk.Task) string {
 // formatTaskTable renders a flat table of tasks.
 func formatTaskTable(tasks []*sdk.Task) string {
 	if len(tasks) == 0 {
-		return "(empty)"
+		return emptyCol.Render("no tasks")
+	}
+	return taskTable(tasks, specExists(tasks))
+}
+
+// specExists checks which tasks have a document at their path.
+func specExists(tasks []*sdk.Task) map[string]bool {
+	m := make(map[string]bool, len(tasks))
+	for _, t := range tasks {
+		if t.Path == "" {
+			continue
+		}
+		exists, err := sdk.API.Exists(t.Path)
+		if err == nil && exists {
+			m[t.Key] = true
+		}
+	}
+	return m
+}
+
+// taskTable renders a terminal table using lipgloss.
+func taskTable(tasks []*sdk.Task, specs map[string]bool) string {
+	t := table.New().
+		Headers("ID", "PRI", "TITLE", "ASSIGNED TO", "SPEC", "FLAGS").
+		Border(lipgloss.RoundedBorder()).
+		BorderRow(false).
+		BorderStyle(borderStyle).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return headerCell
+			}
+			// Colour flags by value
+			if col == 5 && row >= 0 && row < len(tasks) {
+				f := tasks[row].Flags
+				if strings.Contains(f, "blocked") {
+					return flagBlocked
+				}
+				if strings.Contains(f, "hold") {
+					return flagHold
+				}
+			}
+			// Dim empty cells (assigned to, spec)
+			if col == 3 || col == 4 {
+				return dimCell
+			}
+			return cell
+		})
+
+	for _, tk := range tasks {
+		spec := ""
+		if specs[tk.Key] {
+			spec = tk.Path
+		}
+		t.Row(
+			"#"+tk.Key,
+			strconv.Itoa(tk.Priority),
+			tk.Title,
+			tk.AssignedTo,
+			spec,
+			tk.Flags,
+		)
 	}
 
-	var b strings.Builder
-	b.WriteString("| ID | TITLE | PRIORITY | ASSIGNED TO | FLAGS | SPEC |\n")
-	b.WriteString("|------|-------|----------|-------------|-------|------|\n")
-	for _, t := range tasks {
-		fmt.Fprintf(&b, "| #%s | %s | %d | %s | %s | %s |\n",
-			t.Key, t.Title, t.Priority, t.AssignedTo, t.Flags, t.Path)
-	}
-	return b.String()
+	return t.String()
 }

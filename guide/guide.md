@@ -53,6 +53,15 @@ llmd grep hello                              # full-text search
 | `link`   | Create links between docs   | `link <from> <to>`                 |
 | `unlink` | Remove a link               | `unlink <from> <to>`               |
 
+### Tasks
+
+| Command | Description                            | Usage                             |
+|---------|----------------------------------------|-----------------------------------|
+| `task`  | Manage tasks on the board              | `task <subcommand> [options]`     |
+
+Subcommands: add, list, show, move, set, rm, restore, columns,
+add-column, rm-column, mv-column, link, links. See `llmd guide task`.
+
 ### Bulk operations
 
 | Command  | Description                        | Usage                        |

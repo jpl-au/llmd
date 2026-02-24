@@ -23,7 +23,7 @@
 //
 // Applications can define custom namespaces for their own use:
 //   - "todo:item" - todo list items
-//   - "kanban:card" - kanban board cards
+//   - "task:board" - task board configuration
 //   - "config:setting" - application configuration
 //
 // # Relation Field
@@ -36,8 +36,8 @@
 //   - For app state: could be a user ID, session ID, or any identifier
 //
 // The Relation field is nullable - not everything needs to relate to something.
-// For example, a kanban board entity might have no relation, while its cards
-// relate to the board.
+// For example, a board configuration entity might have no relation, while
+// items relate to a parent entity.
 //
 // # Value Field
 //

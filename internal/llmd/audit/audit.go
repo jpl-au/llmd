@@ -52,6 +52,58 @@ func (l *Log) ensure() error {
 	return l.err
 }
 
+// Event is a single audit log entry.
+type Event struct {
+	ID        int64
+	Timestamp int64
+	Actor     string
+	Action    string
+	Subject   string
+	OldValue  string
+	NewValue  string
+}
+
+// Query returns audit events for a subject, newest first.
+// Limit 0 means all events.
+func (l *Log) Query(ctx context.Context, subject string, limit int) ([]Event, error) {
+	if err := l.ensure(); err != nil {
+		return nil, fmt.Errorf("audit: creating table: %w", err)
+	}
+
+	query := `SELECT id, timestamp, actor, action, subject, old_value, new_value
+		FROM history WHERE subject = ? ORDER BY timestamp DESC`
+	var args []any
+	args = append(args, subject)
+
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+
+	rows, err := l.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("audit: querying: %w", err)
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var e Event
+		var oldV, newV sql.NullString
+		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Actor, &e.Action, &e.Subject, &oldV, &newV); err != nil {
+			return nil, err
+		}
+		if oldV.Valid {
+			e.OldValue = oldV.String
+		}
+		if newV.Valid {
+			e.NewValue = newV.String
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
+}
+
 // Record writes an audit event.
 func (l *Log) Record(ctx context.Context, actor, action, subject, oldValue, newValue string) error {
 	if err := l.ensure(); err != nil {
