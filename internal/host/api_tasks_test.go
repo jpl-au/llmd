@@ -383,3 +383,119 @@ func TestTasksLogLimit(t *testing.T) {
 		t.Errorf("Log limit 2 returned %d events", len(events))
 	}
 }
+
+func TestTasksListFilterByPriority(t *testing.T) {
+	testHost(t)
+
+	sdk.Tasks.Add("Normal", nil, sdk.TaskAddOpts{Author: "alice"})
+	sdk.Tasks.Add("Urgent", nil, sdk.TaskAddOpts{Author: "alice", Priority: 1})
+	sdk.Tasks.Add("Critical", nil, sdk.TaskAddOpts{Author: "alice", Priority: 2})
+
+	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Priority: 1})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("got %d tasks, want 1", len(tasks))
+	}
+	if tasks[0].Title != "Urgent" {
+		t.Errorf("title = %q, want %q", tasks[0].Title, "Urgent")
+	}
+}
+
+func TestTasksListEmpty(t *testing.T) {
+	testHost(t)
+
+	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(tasks) != 0 {
+		t.Errorf("List on empty store: got %d, want 0", len(tasks))
+	}
+}
+
+func TestTasksSetAssignee(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Assign me", nil, sdk.TaskAddOpts{Author: "alice"})
+
+	assignee := "bob"
+	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{
+		AssignedTo: &assignee,
+	}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+
+	updated, _ := sdk.Tasks.Read(task.Key)
+	if updated.AssignedTo != "bob" {
+		t.Errorf("assigned_to = %q, want %q", updated.AssignedTo, "bob")
+	}
+}
+
+func TestTasksMoveAcrossColumns(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Journey", []byte("# Spec\n\nFull lifecycle."), sdk.TaskAddOpts{Author: "alice"})
+
+	// Move through the whole board
+	for _, col := range []string{"up-next", "in-progress", "review", "done"} {
+		if err := sdk.Tasks.Move(task.Key, col, "alice"); err != nil {
+			t.Fatalf("Move to %s: %v", col, err)
+		}
+	}
+
+	updated, _ := sdk.Tasks.Read(task.Key)
+	if updated.Status != "done" {
+		t.Errorf("status = %q, want %q", updated.Status, "done")
+	}
+}
+
+func TestTasksDeleteNotFound(t *testing.T) {
+	testHost(t)
+
+	_, err := sdk.Tasks.Delete("nonexistent", "alice")
+	if err == nil {
+		t.Error("Delete returned nil error for missing task")
+	}
+}
+
+func TestTasksAddWithAssignee(t *testing.T) {
+	testHost(t)
+
+	task, err := sdk.Tasks.Add("Assigned", nil, sdk.TaskAddOpts{
+		Author:     "alice",
+		AssignedTo: "bob",
+	})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if task.AssignedTo != "bob" {
+		t.Errorf("assigned_to = %q, want %q", task.AssignedTo, "bob")
+	}
+}
+
+func TestTasksLogEventDetails(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Detailed", []byte("# Spec\n\nLog details."), sdk.TaskAddOpts{Author: "alice"})
+	sdk.Tasks.Move(task.Key, "in-progress", "alice")
+
+	events, _ := sdk.Tasks.Log(task.Key, 0)
+
+	for _, e := range events {
+		if e.Action == "move" {
+			if e.OldValue == "" {
+				t.Error("move event missing OldValue")
+			}
+			if e.NewValue == "" {
+				t.Error("move event missing NewValue")
+			}
+			if e.Actor == "" {
+				t.Error("move event missing Actor")
+			}
+			return
+		}
+	}
+	t.Error("no move event found")
+}

@@ -128,3 +128,56 @@ func TestLinksListEmpty(t *testing.T) {
 		t.Errorf("got %d links, want 0", len(links))
 	}
 }
+
+func TestLinksAddDuplicate(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("a", []byte("x"), "alice", "")
+	sdk.Documents.Write("b", []byte("x"), "alice", "")
+
+	sdk.Links.Add("a", "b", "related", "alice")
+	// Adding the same link again should not create a duplicate
+	sdk.Links.Add("a", "b", "related", "alice")
+
+	links, _ := sdk.Links.List("a", "out")
+	if len(links) != 1 {
+		t.Errorf("duplicate add: got %d links, want 1", len(links))
+	}
+}
+
+func TestLinksRemoveNonexistent(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("a", []byte("x"), "alice", "")
+	sdk.Documents.Write("b", []byte("x"), "alice", "")
+
+	// Removing a link that was never created returns an error
+	err := sdk.Links.Remove("a", "b", "alice")
+	if err == nil {
+		t.Error("Remove nonexistent link: expected error")
+	}
+}
+
+func TestLinksWithLabel(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("a", []byte("x"), "alice", "")
+	sdk.Documents.Write("b", []byte("x"), "alice", "")
+	sdk.Documents.Write("c", []byte("x"), "alice", "")
+
+	sdk.Links.Add("a", "b", "blocks", "alice")
+	sdk.Links.Add("a", "c", "relates", "alice")
+
+	links, _ := sdk.Links.List("a", "out")
+	if len(links) != 2 {
+		t.Fatalf("got %d links, want 2", len(links))
+	}
+
+	labels := map[string]bool{}
+	for _, l := range links {
+		labels[l.Label] = true
+	}
+	if !labels["blocks"] || !labels["relates"] {
+		t.Errorf("labels = %v, want blocks and relates", labels)
+	}
+}

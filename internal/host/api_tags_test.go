@@ -139,3 +139,76 @@ func TestTagsFindEmpty(t *testing.T) {
 		t.Errorf("got %d paths, want 0", len(paths))
 	}
 }
+
+func TestTagsAddDuplicate(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+
+	sdk.Tags.Add("doc", "dupe", "alice")
+	sdk.Tags.Add("doc", "dupe", "alice")
+
+	tags, _ := sdk.Tags.List("doc")
+	if len(tags) != 1 {
+		t.Errorf("duplicate add: got %d tags, want 1", len(tags))
+	}
+}
+
+func TestTagsRemoveNonexistent(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+
+	// Removing a tag that was never added returns an error
+	err := sdk.Tags.Remove("doc", "nope", "alice")
+	if err == nil {
+		t.Error("Remove nonexistent tag: expected error")
+	}
+}
+
+func TestTagsListMultiple(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	sdk.Tags.Add("doc", "alpha", "alice")
+	sdk.Tags.Add("doc", "beta", "alice")
+	sdk.Tags.Add("doc", "gamma", "alice")
+
+	tags, err := sdk.Tags.List("doc")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(tags) != 3 {
+		t.Errorf("got %d tags, want 3", len(tags))
+	}
+
+	names := map[string]bool{}
+	for _, tag := range tags {
+		names[tag.Name] = true
+	}
+	if !names["alpha"] || !names["beta"] || !names["gamma"] {
+		t.Errorf("missing expected tags in %v", names)
+	}
+}
+
+func TestTagsFindMultipleDocs(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("a", []byte("x"), "alice", "")
+	sdk.Documents.Write("b", []byte("x"), "alice", "")
+	sdk.Documents.Write("c", []byte("x"), "alice", "")
+
+	sdk.Tags.Add("a", "shared", "alice")
+	sdk.Tags.Add("b", "shared", "alice")
+	sdk.Tags.Add("c", "unique", "alice")
+
+	paths, _ := sdk.Tags.Find("shared")
+	if len(paths) != 2 {
+		t.Errorf("Find shared: got %d, want 2", len(paths))
+	}
+
+	paths, _ = sdk.Tags.Find("unique")
+	if len(paths) != 1 {
+		t.Errorf("Find unique: got %d, want 1", len(paths))
+	}
+}

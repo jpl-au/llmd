@@ -222,7 +222,7 @@ func (a *documentAPI) Vacuum() (sdk.VacuumResult, error) {
 
 func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error) {
 	r, err := a.store.Bulk.Import(context.Background(), dir, bulk.ImportOptions{
-		Origin: core.Origin{Source: "cli"},
+		Origin: origin("import"),
 		Prefix: opts.Prefix,
 		DryRun: opts.DryRun,
 		Force:  opts.Force,

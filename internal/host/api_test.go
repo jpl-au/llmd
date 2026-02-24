@@ -1,6 +1,8 @@
 package host
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
@@ -329,5 +331,347 @@ func TestDocumentsVacuum(t *testing.T) {
 	}
 	if result.Documents == 0 {
 		t.Error("Vacuum reported 0 documents cleaned")
+	}
+}
+
+func TestDocumentsVacuumEmpty(t *testing.T) {
+	testHost(t)
+
+	result, err := sdk.Documents.Vacuum()
+	if err != nil {
+		t.Fatalf("Vacuum: %v", err)
+	}
+	if result.Documents != 0 {
+		t.Errorf("Vacuum on empty store: documents = %d, want 0", result.Documents)
+	}
+}
+
+func TestDocumentsReadNotFound(t *testing.T) {
+	testHost(t)
+
+	_, err := sdk.Documents.Read("nonexistent", 0)
+	if err == nil {
+		t.Error("Read returned nil error for missing document")
+	}
+}
+
+func TestDocumentsDeleteNotFound(t *testing.T) {
+	testHost(t)
+
+	err := sdk.Documents.Delete("nonexistent", "alice")
+	if err == nil {
+		t.Error("Delete returned nil error for missing document")
+	}
+}
+
+func TestDocumentsMoveNotFound(t *testing.T) {
+	testHost(t)
+
+	err := sdk.Documents.Move("nonexistent", "dest", "alice")
+	if err == nil {
+		t.Error("Move returned nil error for missing source")
+	}
+}
+
+func TestDocumentsEditNotFound(t *testing.T) {
+	testHost(t)
+
+	err := sdk.Documents.Edit("nonexistent", "old", "new", "alice", "")
+	if err == nil {
+		t.Error("Edit returned nil error for missing document")
+	}
+}
+
+func TestDocumentsEditPatternNotFound(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("hello world"), "alice", "")
+
+	err := sdk.Documents.Edit("doc", "xyz", "abc", "alice", "")
+	if err == nil {
+		t.Error("Edit returned nil error when pattern not found")
+	}
+}
+
+func TestDocumentsWriteEmpty(t *testing.T) {
+	testHost(t)
+
+	if err := sdk.Documents.Write("empty", []byte(""), "alice", ""); err != nil {
+		t.Fatalf("Write empty: %v", err)
+	}
+
+	content, err := sdk.Documents.Read("empty", 0)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if len(content) != 0 {
+		t.Errorf("content = %q, want empty", content)
+	}
+}
+
+func TestDocumentsWriteOverwrite(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("first"), "alice", "")
+	sdk.Documents.Write("doc", []byte("second"), "alice", "")
+
+	content, _ := sdk.Documents.Read("doc", 0)
+	if string(content) != "second" {
+		t.Errorf("content = %q, want %q", content, "second")
+	}
+
+	// Should have 2 versions
+	versions, _ := sdk.Documents.History("doc", 0)
+	if len(versions) != 2 {
+		t.Errorf("versions = %d, want 2", len(versions))
+	}
+}
+
+func TestDocumentsGlobNoMatch(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("notes/a.md", []byte("x"), "alice", "")
+
+	paths, err := sdk.Documents.Glob("other/*")
+	if err != nil {
+		t.Fatalf("Glob: %v", err)
+	}
+	if len(paths) != 0 {
+		t.Errorf("Glob returned %d paths, want 0", len(paths))
+	}
+}
+
+func TestDocumentsGrepNoMatch(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("hello world"), "alice", "")
+
+	hits, err := sdk.Documents.Grep("nonexistent", sdk.GrepOpts{})
+	if err != nil {
+		t.Fatalf("Grep: %v", err)
+	}
+	if len(hits) != 0 {
+		t.Errorf("Grep returned %d hits, want 0", len(hits))
+	}
+}
+
+func TestDocumentsGrepLines(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("line one\nline two\nline three"), "alice", "")
+
+	hits, err := sdk.Documents.Grep("two", sdk.GrepOpts{Mode: sdk.GrepLines})
+	if err != nil {
+		t.Fatalf("Grep: %v", err)
+	}
+	if len(hits) == 0 {
+		t.Fatal("GrepLines returned no hits")
+	}
+	if hits[0].Line == 0 {
+		t.Error("GrepLines hit has no line number")
+	}
+}
+
+func TestDocumentsGrepLinesContext(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("aaa\nbbb\nccc\nddd\neee"), "alice", "")
+
+	hits, err := sdk.Documents.Grep("ccc", sdk.GrepOpts{Mode: sdk.GrepLines, Context: 1})
+	if err != nil {
+		t.Fatalf("Grep: %v", err)
+	}
+	if len(hits) == 0 {
+		t.Fatal("GrepLines with context returned no hits")
+	}
+	if len(hits[0].Before) == 0 {
+		t.Error("expected Before context lines")
+	}
+	if len(hits[0].After) == 0 {
+		t.Error("expected After context lines")
+	}
+}
+
+func TestDocumentsGrepSections(t *testing.T) {
+	testHost(t)
+
+	content := "# Intro\n\nNothing here.\n\n# Details\n\nThe needle is here.\n"
+	sdk.Documents.Write("doc", []byte(content), "alice", "")
+
+	hits, err := sdk.Documents.Grep("needle", sdk.GrepOpts{Mode: sdk.GrepSections})
+	if err != nil {
+		t.Fatalf("Grep: %v", err)
+	}
+	if len(hits) == 0 {
+		t.Fatal("GrepSections returned no hits")
+	}
+	if hits[0].Section == "" {
+		t.Error("GrepSections hit has no section heading")
+	}
+}
+
+func TestDocumentsDiffSameVersion(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("same"), "alice", "")
+
+	_, added, removed, err := sdk.Documents.Diff("doc:1", "doc:1", 0)
+	if err != nil {
+		t.Fatalf("Diff: %v", err)
+	}
+	if added != 0 || removed != 0 {
+		t.Errorf("same-version diff: added=%d removed=%d, want 0/0", added, removed)
+	}
+}
+
+func TestDocumentsListEmpty(t *testing.T) {
+	testHost(t)
+
+	docs, err := sdk.Documents.List("", sdk.ListOpts{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(docs) != 0 {
+		t.Errorf("List on empty store: got %d, want 0", len(docs))
+	}
+}
+
+func TestDocumentsImportExport(t *testing.T) {
+	testHost(t)
+
+	// Create a temp directory with some files to import
+	importDir := t.TempDir()
+	os.WriteFile(filepath.Join(importDir, "one.md"), []byte("first"), 0644)
+	os.WriteFile(filepath.Join(importDir, "two.md"), []byte("second"), 0644)
+
+	result, err := sdk.Documents.Import(importDir, sdk.ImportOpts{})
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	if len(result.Created) != 2 {
+		t.Errorf("Import created %d, want 2", len(result.Created))
+	}
+
+	// Import strips the .md extension, so documents are stored as "one" and "two"
+	content, err := sdk.Documents.Read("one", 0)
+	if err != nil {
+		t.Fatalf("Read imported: %v", err)
+	}
+	if string(content) != "first" {
+		t.Errorf("imported content = %q, want %q", content, "first")
+	}
+}
+
+func TestDocumentsImportDryRun(t *testing.T) {
+	testHost(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "doc.md"), []byte("content"), 0644)
+
+	result, err := sdk.Documents.Import(dir, sdk.ImportOpts{DryRun: true})
+	if err != nil {
+		t.Fatalf("Import dry run: %v", err)
+	}
+	if len(result.Created) != 1 {
+		t.Errorf("dry run created %d, want 1", len(result.Created))
+	}
+
+	// Document should NOT actually exist
+	ok, _ := sdk.Documents.Exists("doc.md")
+	if ok {
+		t.Error("dry run imported the document for real")
+	}
+}
+
+func TestDocumentsImportWithPrefix(t *testing.T) {
+	testHost(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "note.md"), []byte("x"), 0644)
+
+	result, err := sdk.Documents.Import(dir, sdk.ImportOpts{Prefix: "imported/"})
+	if err != nil {
+		t.Fatalf("Import with prefix: %v", err)
+	}
+	if len(result.Created) != 1 {
+		t.Errorf("created %d, want 1", len(result.Created))
+	}
+
+	// Import strips .md extension, so stored as "imported/note"
+	ok, _ := sdk.Documents.Exists("imported/note")
+	if !ok {
+		t.Error("document not found at prefixed path")
+	}
+}
+
+func TestDocumentsExport(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("notes/one", []byte("first"), "alice", "")
+	sdk.Documents.Write("notes/two", []byte("second"), "alice", "")
+
+	dir := t.TempDir()
+	// Export uses prefix ending in "/" for multi-doc export,
+	// and appends .md to each exported file
+	result, err := sdk.Documents.Export("notes/", dir, sdk.ExportOpts{})
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if len(result.Exported) != 2 {
+		t.Errorf("exported %d, want 2", len(result.Exported))
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "one.md"))
+	if err != nil {
+		t.Fatalf("read exported file: %v", err)
+	}
+	if string(data) != "first" {
+		t.Errorf("exported content = %q, want %q", data, "first")
+	}
+}
+
+func TestDocumentsExportSkipsExisting(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("exp/doc", []byte("store content"), "alice", "")
+
+	dir := t.TempDir()
+	// Export appends .md, so pre-create doc.md to trigger skip
+	os.WriteFile(filepath.Join(dir, "doc.md"), []byte("existing"), 0644)
+
+	result, err := sdk.Documents.Export("exp/", dir, sdk.ExportOpts{Overwrite: false})
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if len(result.Skipped) != 1 {
+		t.Errorf("skipped %d, want 1", len(result.Skipped))
+	}
+
+	// Original file should be untouched
+	data, _ := os.ReadFile(filepath.Join(dir, "doc.md"))
+	if string(data) != "existing" {
+		t.Errorf("file was overwritten: %q", data)
+	}
+}
+
+func TestDocumentsExportOverwrite(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("exp/doc", []byte("new content"), "alice", "")
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "doc.md"), []byte("old"), 0644)
+
+	result, err := sdk.Documents.Export("exp/", dir, sdk.ExportOpts{Overwrite: true})
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if len(result.Exported) != 1 {
+		t.Errorf("exported %d, want 1", len(result.Exported))
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, "doc.md"))
+	if string(data) != "new content" {
+		t.Errorf("file not overwritten: %q", data)
 	}
 }
