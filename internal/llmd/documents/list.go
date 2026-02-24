@@ -42,8 +42,13 @@ func (d *Documents) List(ctx context.Context, opts ...ListOptions) ([]document.I
 			SELECT MAX(version) FROM content c2
 			WHERE c2.namespace = content.namespace AND c2.path = content.path
 		)
-		ORDER BY path
 	`)
+
+	if opt.Sort == "time" {
+		query.WriteString(" ORDER BY created_at DESC")
+	} else {
+		query.WriteString(" ORDER BY path")
+	}
 
 	if opt.Limit > 0 {
 		query.WriteString(" LIMIT ?")

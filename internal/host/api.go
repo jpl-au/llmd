@@ -82,6 +82,7 @@ func (a *api) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
 	infos, err := a.store.Documents.List(context.Background(), documents.ListOptions{
 		Prefix:         prefix,
 		IncludeDeleted: opts.Deleted,
+		Sort:           opts.Sort,
 	})
 	if err != nil {
 		return nil, err

@@ -17,6 +17,7 @@ type ListOptions struct {
 	Prefix         string // Filter by path prefix
 	IncludeDeleted bool   // Include soft-deleted documents
 	Limit          int    // Max results (0 = no limit)
+	Sort           string // "time" for newest-first; default is by path
 }
 
 // DeleteOptions configures a delete operation.

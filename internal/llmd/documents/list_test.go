@@ -3,6 +3,7 @@ package documents_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
@@ -67,5 +68,40 @@ func TestList_IncludeDeleted(t *testing.T) {
 	list, _ = s.Documents.List(ctx, documents.ListOptions{IncludeDeleted: true})
 	if len(list) != 2 {
 		t.Errorf("List(IncludeDeleted) returned %d items, want 2", len(list))
+	}
+}
+
+func TestList_SortByTime(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	opts := testWriteOpts()
+
+	// Write in reverse alphabetical order with distinct timestamps
+	// so time order (newest first) differs from path order.
+	s.Documents.Write(ctx, "notes/c", "c", opts)
+	time.Sleep(2 * time.Millisecond)
+	s.Documents.Write(ctx, "notes/b", "b", opts)
+	time.Sleep(2 * time.Millisecond)
+	s.Documents.Write(ctx, "notes/a", "a", opts)
+
+	list, err := s.Documents.List(ctx, documents.ListOptions{Sort: "time"})
+	if err != nil {
+		t.Fatalf("List(Sort:time) error = %v", err)
+	}
+	if len(list) != 3 {
+		t.Fatalf("List(Sort:time) returned %d items, want 3", len(list))
+	}
+
+	// Newest first: a (written last), then b, then c
+	if list[0].Path != "notes/a" || list[1].Path != "notes/b" || list[2].Path != "notes/c" {
+		t.Errorf("List(Sort:time) = [%s, %s, %s], want [notes/a, notes/b, notes/c]",
+			list[0].Path, list[1].Path, list[2].Path)
+	}
+
+	// Default sort should still be by path
+	list, _ = s.Documents.List(ctx)
+	if list[0].Path != "notes/a" || list[1].Path != "notes/b" || list[2].Path != "notes/c" {
+		t.Errorf("List() default sort = [%s, %s, %s], want [notes/a, notes/b, notes/c]",
+			list[0].Path, list[1].Path, list[2].Path)
 	}
 }
