@@ -325,4 +325,136 @@ func TestPosition(t *testing.T) {
 	}
 }
 
+func TestLogSingleTask(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+	origin := core.Origin{Author: "alice", Source: "test"}
+
+	tsk, _ := ts.Add(ctx, "Logged task", []byte("# Logged task\n\nSpec content."), AddOptions{Origin: origin})
+
+	// Move and set to generate audit entries
+	ts.Move(ctx, tsk.Key, "up-next", "alice")
+	ts.Set(ctx, tsk.Key, "bob", SetOptions{Flag: "blocked"})
+
+	events, err := ts.Log(ctx, tsk.Key, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(events) != 3 {
+		t.Fatalf("len = %d, want 3", len(events))
+	}
+
+	// Verify all three actions are present (order depends on insert ID
+	// when timestamps are identical within the same millisecond)
+	actions := map[string]bool{}
+	for _, e := range events {
+		actions[e.Action] = true
+		if e.Subject != tsk.Key {
+			t.Errorf("subject = %q, want %q", e.Subject, tsk.Key)
+		}
+	}
+	for _, want := range []string{"add", "move", "flag"} {
+		if !actions[want] {
+			t.Errorf("missing action %q in log", want)
+		}
+	}
+}
+
+func TestLogAllTasks(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+	origin := core.Origin{Author: "alice", Source: "test"}
+
+	t1, _ := ts.Add(ctx, "Task A", nil, AddOptions{Origin: origin})
+	t2, _ := ts.Add(ctx, "Task B", nil, AddOptions{Origin: origin})
+
+	// All history, no filter
+	events, err := ts.Log(ctx, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("len = %d, want 2", len(events))
+	}
+
+	// Subjects should be the two task keys (newest first)
+	if events[0].Subject != t2.Key {
+		t.Errorf("events[0].Subject = %q, want %q", events[0].Subject, t2.Key)
+	}
+	if events[1].Subject != t1.Key {
+		t.Errorf("events[1].Subject = %q, want %q", events[1].Subject, t1.Key)
+	}
+}
+
+func TestLogLimit(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+	origin := core.Origin{Author: "alice", Source: "test"}
+
+	tsk, _ := ts.Add(ctx, "Many events", []byte("# Many events\n\nSpec."), AddOptions{Origin: origin})
+	ts.Move(ctx, tsk.Key, "up-next", "alice")
+	ts.Set(ctx, tsk.Key, "alice", SetOptions{Flag: "hold"})
+
+	// Limit to 2
+	events, err := ts.Log(ctx, tsk.Key, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("len = %d, want 2", len(events))
+	}
+}
+
+func TestLogNotFound(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+
+	_, err := ts.Log(ctx, "nonexistent", 0)
+	if err == nil {
+		t.Fatal("expected error for nonexistent task")
+	}
+}
+
+func TestAddWithoutBody(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+	origin := core.Origin{Author: "alice", Source: "test"}
+
+	tsk, err := ts.Add(ctx, "No body task", nil, AddOptions{Origin: origin})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tsk.Path != "tasks/no-body-task" {
+		t.Errorf("path = %q, want %q", tsk.Path, "tasks/no-body-task")
+	}
+
+	// Document should NOT exist
+	_, err = ts.docs.Read(ctx, tsk.Path)
+	if err == nil {
+		t.Error("expected document to not exist")
+	}
+}
+
+func TestAddWithBody(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+	origin := core.Origin{Author: "alice", Source: "test"}
+
+	body := []byte("## Spec\n\nReal content here.")
+	tsk, err := ts.Add(ctx, "With body", body, AddOptions{Origin: origin})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Document should exist with correct content
+	doc, err := ts.docs.Read(ctx, tsk.Path)
+	if err != nil {
+		t.Fatalf("reading document: %v", err)
+	}
+	if doc.Content != string(body) {
+		t.Errorf("content = %q, want %q", doc.Content, string(body))
+	}
+}
+
 func intPtr(i int) *int { return &i }

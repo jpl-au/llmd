@@ -63,17 +63,22 @@ type Event struct {
 	NewValue  string
 }
 
-// Query returns audit events for a subject, newest first.
-// Limit 0 means all events.
+// Query returns audit events, newest first. If subject is empty,
+// returns all events. Limit 0 means no limit.
 func (l *Log) Query(ctx context.Context, subject string, limit int) ([]Event, error) {
 	if err := l.ensure(); err != nil {
 		return nil, fmt.Errorf("audit: creating table: %w", err)
 	}
 
-	query := `SELECT id, timestamp, actor, action, subject, old_value, new_value
-		FROM history WHERE subject = ? ORDER BY timestamp DESC`
+	query := `SELECT id, timestamp, actor, action, subject, old_value, new_value FROM history`
 	var args []any
-	args = append(args, subject)
+
+	if subject != "" {
+		query += " WHERE subject = ?"
+		args = append(args, subject)
+	}
+
+	query += " ORDER BY timestamp DESC"
 
 	if limit > 0 {
 		query += " LIMIT ?"

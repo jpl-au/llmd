@@ -1,6 +1,6 @@
 // Package tag provides the Tag model for document tagging.
 //
-// Tags provide a way to categorize and organize documents with lightweight labels.
+// Tags provide a way to categorise and organise documents with lightweight labels.
 // Unlike links which connect documents to each other, tags are independent labels
 // that can be attached to any document. Multiple tags can be attached to the same
 // document, and the same tag can be applied across many documents.

@@ -57,7 +57,7 @@ const boardNamespace = "task:board"
 
 var (
 	ErrNotFound     = errors.New("task not found")
-	ErrNoSpec       = errors.New("task has no spec — write the document before moving out of backlog")
+	ErrNoSpec       = errors.New("task has no spec")
 	ErrInvalidCol   = errors.New("unknown column")
 	ErrColNotEmpty  = errors.New("column has tasks — move or delete them first")
 	ErrColExists    = errors.New("column already exists")
@@ -110,7 +110,7 @@ type AddOptions struct {
 	Status     string
 	Priority   int
 	AssignedTo string
-	Path       string // Custom document path (default: tasks/<slug>)
+	Path       string // Existing store document to use as spec
 }
 
 // Add creates a new task and its backing document.
@@ -139,15 +139,23 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		return nil, fmt.Errorf("%w: %s", ErrInvalidCol, status)
 	}
 
-	// Determine document path
-	path := opts.Path
-	if path == "" {
-		path = "tasks/" + slug(title)
-	}
+	// Determine document path.
+	//
+	// --path links to an existing store document. The document must exist.
+	// Body content (stdin/--file) creates a new document at tasks/<slug>.
+	// No body and no --path: task has no spec, sits in backlog.
+	path := "tasks/" + slug(title)
 
-	// Only create a document if body content was provided.
-	// Tasks without a spec sit in backlog until one is written.
-	if len(body) > 0 {
+	if opts.Path != "" {
+		exists, eerr := t.docs.Exists(ctx, opts.Path)
+		if eerr != nil {
+			return nil, fmt.Errorf("checking document: %w", eerr)
+		}
+		if !exists {
+			return nil, fmt.Errorf("document not found: %s", opts.Path)
+		}
+		path = opts.Path
+	} else if len(body) > 0 {
 		_, err = t.docs.Write(ctx, path, string(body), documents.WriteOptions{
 			Origin: opts.Origin,
 		})
@@ -449,12 +457,14 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 }
 
 // Log returns audit events for a task, newest first.
+// If key is empty, returns all task history.
 func (t *Tasks) Log(ctx context.Context, key string, limit int) ([]audit.Event, error) {
-	// Verify task exists
-	if _, err := t.Read(ctx, key); err != nil {
-		// Try deleted tasks too
-		if _, err := t.scanDeleted(ctx, key); err != nil {
-			return nil, err
+	if key != "" {
+		// Verify task exists (including deleted)
+		if _, err := t.Read(ctx, key); err != nil {
+			if _, err := t.scanDeleted(ctx, key); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return t.audit.Query(ctx, key, limit)

@@ -16,5 +16,5 @@ func initCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 	path := store.Path()
 	store.Close()
-	return sdk.Text(fmt.Sprintf("Initialized llmd store at %s", path)), nil
+	return sdk.Text(fmt.Sprintf("Initialised llmd store at %s", path)), nil
 }

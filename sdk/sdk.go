@@ -19,6 +19,9 @@ var (
 	// ErrUnknownCmd means the command name was not found in the plugin's
 	// command table.
 	ErrUnknownCmd = errors.New("unknown command")
+
+	// ErrNoSpec means a task has no backing document.
+	ErrNoSpec = errors.New("task has no spec")
 )
 
 // Plugin is the interface that command providers implement. The host
@@ -432,6 +435,7 @@ type TaskListOpts struct {
 // TaskEvent is a single audit log entry for a task.
 type TaskEvent struct {
 	Timestamp int64
+	Subject   string // task key
 	Actor     string
 	Action    string
 	OldValue  string

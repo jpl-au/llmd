@@ -65,7 +65,7 @@ DELETE   rm <path>                   soft-delete
 TASKS    task list                   board view (all columns)
          task show <id>              metadata + spec body
          task add <title>            create task (body via content/stdin)
-         task move <id> <status>     move to column
+         task move <id> <column>     move to column
          task set <id> --flag hold   set flag, priority, assign, etc.
          task rm <id>                soft-delete task (doc untouched)
 

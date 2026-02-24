@@ -40,7 +40,7 @@ type Search struct {
 }
 
 // New creates a Search instance using the given database connection.
-// The database must have the content_fts table initialized.
+// The database must have the content_fts table initialised.
 func New(db *sql.DB) *Search {
 	return &Search{db: db}
 }

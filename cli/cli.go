@@ -107,21 +107,22 @@ Subcommands (passed as first arg):
   add <title>               create task (body via content/stdin)
   list                      board view (all columns)
   show <id>                 task metadata + spec body
-  move <id> <status>        move task to column
+  move <id> <column>        move task to column
   set <id> [flags]          update metadata
   rm <id>                   soft-delete task
   restore <id>              restore deleted task
-  columns                   list columns
-  add-column <name>         add column
-  rm-column <name>          remove empty column
-  mv-column <name> --after  reorder column
+  column list               list columns
+  column add <name>         add column
+  column rm <name>          remove empty column
+  column mv <name> --after  reorder column
   link <id> <path>          link task to document
   links <id>                list linked documents
   log <id> [-n limit]       audit history for a task`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
-			{Name: "status", Type: "string", Desc: "Filter or set status column"},
+			{Name: "column", Type: "string", Desc: "Filter by column"},
 			{Name: "priority", Type: "int", Desc: "Filter or set priority"},
 			{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},
-			{Name: "path", Type: "string", Desc: "Custom document path"},
+			{Name: "path", Type: "string", Desc: "Use existing store document as spec"},
+			{Name: "file", Type: "string", Desc: "Read spec from filesystem path"},
 			{Name: "flag", Type: "string", Desc: "Set a flag (blocked, hold)"},
 			{Name: "unflag", Type: "string", Desc: "Remove a flag"},
 			{Name: "position", Type: "int", Desc: "Set position within column"},
@@ -131,7 +132,7 @@ Subcommands (passed as first arg):
 		// Admin and help
 		{Name: "version", Desc: "Show version information", Usage: "version"},
 		{Name: "config", Desc: "Manage configuration", Usage: "config [key] [value]"},
-		{Name: "init", Desc: "Initialize a new store", Usage: "init"},
+		{Name: "init", Desc: "Initialise a new store", Usage: "init"},
 		{Name: "vacuum", Desc: "Clean up deleted documents", Usage: "vacuum"},
 		{Name: "mcp", Desc: "Start MCP stdio server", Usage: "mcp"},
 		{Name: "serve", Desc: "Start MCP stdio server", Usage: "serve"},

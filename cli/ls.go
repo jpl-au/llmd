@@ -6,8 +6,7 @@ package cli
 // following standard Unix conventions.
 //
 // Default output is one path per line. Long format (-l) adds version
-// number, author, and date in a dynamically-sized table — column widths
-// expand to fit the longest value rather than truncating.
+// number, author, and date in a lipgloss table.
 
 import (
 	"fmt"
@@ -86,27 +85,13 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: text, Data: data}, nil
 }
 
-// formatTable renders docs as a fixed-width table with dynamic column
-// widths. Minimum widths (3 for version, 6 for author) prevent the
-// header labels from being clipped when all values are short.
+// formatTable renders docs as a lipgloss table.
 func formatTable(docs []sdk.Doc) string {
 	if len(docs) == 0 {
 		return ""
 	}
 
-	verWidth := 3
-	authorWidth := 6
-	for _, d := range docs {
-		if w := len(fmt.Sprintf("%d", d.Version)); w > verWidth {
-			verWidth = w
-		}
-		if w := len(d.Author); w > authorWidth {
-			authorWidth = w
-		}
-	}
-
-	var b strings.Builder
-	fmt.Fprintf(&b, "%*s  %-*s  %-10s  %s\n", verWidth, "VER", authorWidth, "AUTHOR", "DATE", "PATH")
+	t := newTable("VER", "AUTHOR", "DATE", "PATH")
 
 	for _, d := range docs {
 		date := time.UnixMilli(d.CreatedAt).Format("2006-01-02")
@@ -114,8 +99,8 @@ func formatTable(docs []sdk.Doc) string {
 		if d.Deleted {
 			path = d.Path + " (deleted)"
 		}
-		fmt.Fprintf(&b, "%*d  %-*s  %-10s  %s\n", verWidth, d.Version, authorWidth, d.Author, date, path)
+		t.Row(fmt.Sprintf("%d", d.Version), d.Author, date, path)
 	}
 
-	return strings.TrimSuffix(b.String(), "\n")
+	return t.String()
 }

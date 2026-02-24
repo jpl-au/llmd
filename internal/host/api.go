@@ -9,6 +9,7 @@ package host
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
@@ -404,7 +405,11 @@ func (a *api) TaskList(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
 }
 
 func (a *api) TaskMove(key, status, author string) error {
-	return a.store.Tasks.Move(context.Background(), key, status, author)
+	err := a.store.Tasks.Move(context.Background(), key, status, author)
+	if errors.Is(err, tasks.ErrNoSpec) {
+		return sdk.ErrNoSpec
+	}
+	return err
 }
 
 func (a *api) TaskSet(key, author string, opts sdk.TaskSetOpts) error {
@@ -459,6 +464,7 @@ func (a *api) TaskLog(key string, limit int) ([]sdk.TaskEvent, error) {
 	for i, e := range events {
 		out[i] = sdk.TaskEvent{
 			Timestamp: e.Timestamp,
+			Subject:   e.Subject,
 			Actor:     e.Actor,
 			Action:    e.Action,
 			OldValue:  e.OldValue,

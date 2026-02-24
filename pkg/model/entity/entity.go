@@ -16,7 +16,7 @@
 //
 // # Namespaces
 //
-// Entities are organized by namespace, which acts as a type discriminator.
+// Entities are organised by namespace, which acts as a type discriminator.
 // Core namespaces used by llmd:
 //   - "core:tag" - document tags
 //   - "core:link" - document relationships

@@ -98,7 +98,7 @@ func Open(path string) (*Store, error) {
 
 // open is the shared implementation for Init and Open. It configures
 // SQLite pragmas, runs schema migration, wires up the event bus, and
-// initializes all sub-package managers.
+// initialises all sub-package managers.
 //
 // Pragmas:
 //   - journal_mode(WAL): allows concurrent readers during writes
@@ -170,7 +170,7 @@ func OpenMemory() (*Store, error) {
 	ftsHandler := search.NewFTSHandler(db)
 	s.bus.Subscribe(ftsHandler)
 
-	// Initialize sub-components
+	// Initialise sub-components
 	s.Documents = documents.New(db, s.bus)
 	s.History = history.New(db, s.Documents)
 	s.Search = search.New(db)

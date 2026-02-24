@@ -2,10 +2,10 @@
 //
 // Usage:
 //
-//	llmd task add <title>                Create a task
+//	llmd task add <title>                Create a task (--column to set column)
 //	llmd task list                       List all tasks (board view)
 //	llmd task show <id>                  Show task + spec
-//	llmd task move <id> <status>         Move task to column
+//	llmd task move <id> <column>         Move task to column
 //	llmd task set <id> [flags]           Update task metadata
 //	llmd task rm <id>                    Soft-delete task
 //	llmd task restore <id>               Restore deleted task
@@ -20,7 +20,9 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -53,14 +55,24 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return taskRm(ctx, args)
 	case "restore":
 		return taskRestore(ctx, args)
-	case "columns":
-		return taskColumns(ctx, args)
-	case "add-column":
-		return taskAddColumn(ctx, args)
-	case "rm-column":
-		return taskRmColumn(ctx, args)
-	case "mv-column":
-		return taskMvColumn(ctx, args)
+	case "column":
+		if len(args) == 0 {
+			return taskColumns(ctx, nil)
+		}
+		colSub := args[0]
+		args = args[1:]
+		switch colSub {
+		case "list":
+			return taskColumns(ctx, args)
+		case "add":
+			return taskAddColumn(ctx, args)
+		case "rm":
+			return taskRmColumn(ctx, args)
+		case "mv", "move":
+			return taskMvColumn(ctx, args)
+		default:
+			return nil, fmt.Errorf("task column: unknown subcommand %q", colSub)
+		}
 	case "link":
 		return taskLink(ctx, args)
 	case "links":
@@ -77,12 +89,13 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	opts.Author = ctx.Author
 
 	var positional []string
+	var file string
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
-		case "--status":
+		case "--column":
 			i++
 			if i >= len(args) {
-				return nil, fmt.Errorf("task add: --status requires a value")
+				return nil, fmt.Errorf("task add: --column requires a value")
 			}
 			opts.Status = args[i]
 		case "--priority":
@@ -107,6 +120,12 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 				return nil, fmt.Errorf("task add: --path requires a value")
 			}
 			opts.Path = args[i]
+		case "--file":
+			i++
+			if i >= len(args) {
+				return nil, fmt.Errorf("task add: --file requires a value")
+			}
+			file = args[i]
 		default:
 			positional = append(positional, args[i])
 		}
@@ -115,15 +134,28 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(positional) == 0 {
 		return nil, fmt.Errorf("task add: %w: title", sdk.ErrMissingArg)
 	}
+	if file != "" && opts.Path != "" {
+		return nil, fmt.Errorf("task add: --file and --path are mutually exclusive")
+	}
+
+	// --file reads content from the filesystem
+	body := ctx.Stdin
+	if file != "" {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("task add: %w", err)
+		}
+		body = data
+	}
 
 	title := strings.Join(positional, " ")
-	t, err := sdk.API.TaskAdd(title, ctx.Stdin, opts)
+	t, err := sdk.API.TaskAdd(title, body, opts)
 	if err != nil {
 		return nil, fmt.Errorf("task add: %w", err)
 	}
 
-	text := fmt.Sprintf("Created task #%s \"%s\" in %s", t.Key, t.Title, t.Status)
-	if len(ctx.Stdin) > 0 {
+	text := fmt.Sprintf("Created task %s \"%s\" in %s", t.Key, t.Title, t.Status)
+	if ok, _ := sdk.API.Exists(t.Path); ok {
 		text += fmt.Sprintf("\nSpec: %s", t.Path)
 	}
 	return sdk.Result{Text: text, Data: t}, nil
@@ -134,10 +166,10 @@ func taskList(_ sdk.Context, args []string) (sdk.Response, error) {
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
-		case "--status":
+		case "--column":
 			i++
 			if i >= len(args) {
-				return nil, fmt.Errorf("task list: --status requires a value")
+				return nil, fmt.Errorf("task list: --column requires a value")
 			}
 			opts.Status = args[i]
 		case "--assign":
@@ -205,7 +237,7 @@ func taskShow(_ sdk.Context, args []string) (sdk.Response, error) {
 	fmt.Fprintf(&b, "# %s\n\n", t.Title)
 	fmt.Fprintf(&b, "| Field | Value |\n")
 	fmt.Fprintf(&b, "|-------|-------|\n")
-	fmt.Fprintf(&b, "| ID | #%s |\n", t.Key)
+	fmt.Fprintf(&b, "| ID | %s |\n", t.Key)
 	fmt.Fprintf(&b, "| Status | %s |\n", t.Status)
 	fmt.Fprintf(&b, "| Priority | %d |\n", t.Priority)
 	if t.AssignedTo != "" {
@@ -226,14 +258,20 @@ func taskShow(_ sdk.Context, args []string) (sdk.Response, error) {
 
 func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("task move: %w: id and status", sdk.ErrMissingArg)
+		return nil, fmt.Errorf("task move: %w: id and column", sdk.ErrMissingArg)
 	}
 
 	if err := sdk.API.TaskMove(args[0], args[1], ctx.Author); err != nil {
+		if errors.Is(err, sdk.ErrNoSpec) {
+			tsk, rerr := sdk.API.TaskRead(args[0])
+			if rerr == nil {
+				return nil, fmt.Errorf("task move: task has no spec — write a document with `llmd write %s` or link an existing one with `task link %s <path>`", tsk.Path, args[0])
+			}
+		}
 		return nil, fmt.Errorf("task move: %w", err)
 	}
 
-	return sdk.Text(fmt.Sprintf("Moved task #%s to %s", args[0], args[1])), nil
+	return sdk.Text(fmt.Sprintf("Moved task %s to %s", args[0], args[1])), nil
 }
 
 func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -298,7 +336,7 @@ func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task set: %w", err)
 	}
 
-	return sdk.Text(fmt.Sprintf("Updated task #%s", key)), nil
+	return sdk.Text(fmt.Sprintf("Updated task %s", key)), nil
 }
 
 func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -311,7 +349,7 @@ func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task rm: %w", err)
 	}
 
-	text := fmt.Sprintf("Removed task #%s \"%s\"\nNote: the document at %s still exists. To remove it: llmd rm %s",
+	text := fmt.Sprintf("Removed task %s \"%s\"\nNote: the document at %s still exists. To remove it: llmd rm %s",
 		t.Key, t.Title, t.Path, t.Path)
 	return sdk.Text(text), nil
 }
@@ -326,7 +364,7 @@ func taskRestore(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task restore: %w", err)
 	}
 
-	return sdk.Text(fmt.Sprintf("Restored task #%s \"%s\"", t.Key, t.Title)), nil
+	return sdk.Text(fmt.Sprintf("Restored task %s \"%s\"", t.Key, t.Title)), nil
 }
 
 func taskColumns(_ sdk.Context, _ []string) (sdk.Response, error) {
@@ -410,7 +448,7 @@ func taskLink(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task link: %w", err)
 	}
 
-	return sdk.Text(fmt.Sprintf("Linked task #%s to %s", args[0], args[1])), nil
+	return sdk.Text(fmt.Sprintf("Linked task %s to %s", args[0], args[1])), nil
 }
 
 func taskLinks(_ sdk.Context, args []string) (sdk.Response, error) {
@@ -440,20 +478,25 @@ func taskLinks(_ sdk.Context, args []string) (sdk.Response, error) {
 }
 
 func taskLog(_ sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("task log: %w: id", sdk.ErrMissingArg)
-	}
-
-	key := args[0]
+	var key string
 	limit := 0
-	for i := 1; i < len(args); i++ {
-		if args[i] == "-n" && i+1 < len(args) {
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "-n":
 			i++
+			if i >= len(args) {
+				return nil, fmt.Errorf("task log: -n requires a value")
+			}
 			n, err := strconv.Atoi(args[i])
 			if err != nil {
 				return nil, fmt.Errorf("task log: invalid limit: %w", err)
 			}
 			limit = n
+		default:
+			if key == "" && !strings.HasPrefix(args[i], "-") {
+				key = args[i]
+			}
 		}
 	}
 
@@ -466,30 +509,43 @@ func taskLog(_ sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Result{Text: emptyCol.Render("no history"), Data: events}, nil
 	}
 
+	// Show TASK column when listing all history
+	showSubject := key == ""
+
+	headers := []string{"TIME", "ACTOR", "ACTION", "OLD", "NEW"}
+	if showSubject {
+		headers = []string{"TIME", "TASK", "ACTOR", "ACTION", "OLD", "NEW"}
+	}
+
 	t := table.New().
-		Headers("TIME", "ACTOR", "ACTION", "OLD", "NEW").
+		Headers(headers...).
 		Border(lipgloss.RoundedBorder()).
 		BorderRow(false).
-		BorderStyle(borderStyle).
+		BorderStyle(tblBorder).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
-				return headerCell
+				return tblHeader
 			}
 			if col == 0 {
-				return dimCell
+				return tblDim
 			}
-			return cell
+			return tblCell
 		})
 
 	for _, e := range events {
 		ts := time.UnixMilli(e.Timestamp).Format("2006-01-02 15:04")
-		t.Row(ts, e.Actor, e.Action, e.OldValue, e.NewValue)
+		if showSubject {
+			t.Row(ts, e.Subject, e.Actor, e.Action, e.OldValue, e.NewValue)
+		} else {
+			t.Row(ts, e.Actor, e.Action, e.OldValue, e.NewValue)
+		}
 	}
 
 	return sdk.Result{Text: t.String(), Data: events}, nil
 }
 
-// Styles for the board view.
+// Styles for the board view. Generic table styles (tblHeader, tblCell,
+// tblDim, tblBorder) live in styles.go.
 var (
 	colHeader = lipgloss.NewStyle().
 			Bold(true).
@@ -504,14 +560,6 @@ var (
 			Italic(true).
 			PaddingLeft(3)
 
-	headerCell = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("15")). // bright white
-			Padding(0, 1)
-
-	cell = lipgloss.NewStyle().
-		Padding(0, 1)
-
 	flagBlocked = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("9")). // red
 			Padding(0, 1)
@@ -519,13 +567,6 @@ var (
 	flagHold = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("11")). // yellow
 			Padding(0, 1)
-
-	dimCell = lipgloss.NewStyle().
-		Faint(true).
-		Padding(0, 1)
-
-	borderStyle = lipgloss.NewStyle().
-			Faint(true)
 )
 
 // formatBoard renders the board view grouped by column.
@@ -589,10 +630,10 @@ func taskTable(tasks []*sdk.Task, specs map[string]bool) string {
 		Headers("ID", "PRI", "TITLE", "ASSIGNED TO", "SPEC", "FLAGS").
 		Border(lipgloss.RoundedBorder()).
 		BorderRow(false).
-		BorderStyle(borderStyle).
+		BorderStyle(tblBorder).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			if row == table.HeaderRow {
-				return headerCell
+				return tblHeader
 			}
 			// Colour flags by value
 			if col == 5 && row >= 0 && row < len(tasks) {
@@ -606,9 +647,9 @@ func taskTable(tasks []*sdk.Task, specs map[string]bool) string {
 			}
 			// Dim empty cells (assigned to, spec)
 			if col == 3 || col == 4 {
-				return dimCell
+				return tblDim
 			}
-			return cell
+			return tblCell
 		})
 
 	for _, tk := range tasks {
@@ -617,7 +658,7 @@ func taskTable(tasks []*sdk.Task, specs map[string]bool) string {
 			spec = tk.Path
 		}
 		t.Row(
-			"#"+tk.Key,
+			tk.Key,
 			strconv.Itoa(tk.Priority),
 			tk.Title,
 			tk.AssignedTo,
