@@ -96,13 +96,13 @@ func (h *Host) pluginNames() []string {
 // sdk.Context from the author and stdin, then delegates to the
 // plugin's Exec method. Returns sdk.ErrUnknownCmd if cmd is not
 // registered.
-func (h *Host) Exec(cmd string, args []string, author string, stdin []byte) (sdk.Response, error) {
+func (h *Host) Exec(cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
 	entry, ok := h.commands[cmd]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 	}
 
-	ctx := sdk.Context{Author: author, Stdin: stdin}
+	ctx := sdk.Context{Author: author, Stdin: stdin, DBPath: dbPath}
 	return entry.plugin.Exec(ctx, cmd, args)
 }
 

@@ -19,7 +19,7 @@
 //	store, _ := llmd.Open("")
 //	h := host.New(store)
 //
-//	result, err := h.Exec("ls", nil, "", nil)
+//	result, err := h.Exec("ls", nil, "", nil, "")
 //
 // Or without a store for discovery (help text, command listing):
 //

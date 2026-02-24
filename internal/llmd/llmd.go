@@ -86,7 +86,7 @@ func Open(path string) (*Store, error) {
 
 	// Check exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("store not found: %s (run 'llmd init' first)", path)
+		return nil, fmt.Errorf("store not found: %s", path)
 	}
 
 	return open(path)

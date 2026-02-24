@@ -93,7 +93,7 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 			stdin = []byte(input.Content)
 		}
 
-		result, err := sdk.Dispatch(cmdName, input.Args, author, stdin)
+		result, err := sdk.Dispatch(cmdName, input.Args, author, stdin, "")
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},

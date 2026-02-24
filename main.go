@@ -32,6 +32,7 @@ func main() {
 func run(args []string) int {
 	var jsonOut bool
 	var help bool
+	var dbPath string
 	var cmd string
 	var cmdArgs []string
 
@@ -42,6 +43,12 @@ func run(args []string) int {
 			jsonOut = true
 		case arg == "--help" || arg == "-h":
 			help = true
+		case arg == "--db":
+			if i+1 >= len(args) {
+				return errorf(jsonOut, "--db requires a path")
+			}
+			i++
+			dbPath = args[i]
 		case cmd == "" && !strings.HasPrefix(arg, "-"):
 			cmd = arg
 			cmdArgs = args[i+1:]
@@ -78,8 +85,11 @@ func run(args []string) int {
 	var store *llmd.Store
 	if needsStore {
 		var err error
-		store, err = llmd.Open("")
+		store, err = llmd.Open(dbPath)
 		if err != nil {
+			if dbPath == "" {
+				return errorf(jsonOut, "%v (run 'llmd init' first)", err)
+			}
 			return errorf(jsonOut, "%v", err)
 		}
 		defer store.Close()
@@ -107,7 +117,7 @@ func run(args []string) int {
 
 	stdin := readStdin()
 
-	result, err := h.Exec(cmd, cmdArgs, author, stdin)
+	result, err := h.Exec(cmd, cmdArgs, author, stdin, dbPath)
 	if err != nil {
 		return errorf(jsonOut, "%v", err)
 	}
@@ -184,6 +194,7 @@ Usage:
   llmd <command> [flags] [args...]
 
 Global Flags:
+  --db <path>         Use a specific database file
   --json              Output as JSON
   --help              Show help
 
@@ -246,6 +257,7 @@ func printCmdHelp(c *sdk.Command) {
 		fmt.Println()
 	}
 	fmt.Println("Global Flags:")
+	fmt.Println("  --db <path>         Use a specific database file")
 	fmt.Println("  --json              Output as JSON")
 	fmt.Println("  --help              Show help")
 }

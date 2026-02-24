@@ -71,6 +71,7 @@ type Flag struct {
 type Context struct {
 	Author string
 	Stdin  []byte
+	DBPath string // Override database path (empty = default)
 }
 
 // Response is the marker interface for command return values. It uses
@@ -117,7 +118,7 @@ var API Store
 // Dispatch executes a command by name through the host. Set by the host
 // at startup. Used by commands that need to invoke other commands (e.g.
 // MCP server dispatching tool calls).
-var Dispatch func(cmd string, args []string, author string, stdin []byte) (Response, error)
+var Dispatch func(cmd string, args []string, author string, stdin []byte, dbPath string) (Response, error)
 
 // AllCommands returns all registered commands. Set by the host at startup.
 var AllCommands func() map[string]*Command

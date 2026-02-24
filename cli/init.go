@@ -1,17 +1,20 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// initCmd creates a new llmd store in the current directory (.llmd/).
-// It is a storeless command — it runs before any store exists.
+// initCmd creates a new llmd store. Uses ctx.DBPath if set,
+// otherwise defaults to .llmd/llmd.db.
 func initCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	store, err := llmd.Init("")
+	store, err := llmd.Init(ctx.DBPath)
 	if err != nil {
 		return nil, err
 	}
+	path := store.Path()
 	store.Close()
-	return sdk.Text("Initialized llmd store in .llmd/"), nil
+	return sdk.Text(fmt.Sprintf("Initialized llmd store at %s", path)), nil
 }
