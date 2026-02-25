@@ -132,3 +132,19 @@ var AllCommands func() map[string]*Command
 
 // PluginNames returns the names of loaded yaegi plugins. Set by the host.
 var PluginNames func() []string
+
+// Activity represents a single event in the unified activity feed.
+// Events come from documents (writes, deletes), entities (tags, links),
+// and tasks (board changes).
+type Activity struct {
+	Type      string // "document", "tag", "link", "task"
+	Action    string // "written", "deleted", "tagged", "untagged", "linked", "unlinked", "created", "moved", etc.
+	Subject   string // document path or task key
+	Author    string
+	Detail    string // version message, tag name, link target, old→new
+	Timestamp int64  // Unix milliseconds
+}
+
+// RecentActivity returns the most recent events across all domains.
+// Set by the host at startup.
+var RecentActivity func(limit int) ([]Activity, error)

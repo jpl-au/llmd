@@ -4,7 +4,7 @@
 
 ```
 sdk/                        Plugin SDK: interfaces, types, globals
-cli/                        Core commands (cat, ls, write, rm, task, etc.)
+cli/                        Core commands (cat, ls, write, rm, task, status, review, etc.)
 extension/                  Caddy-style compile-time plugin registry
 internal/host/              Plugin host: discovery, dispatch, SDK bridge
 internal/plugin/            Yaegi dynamic plugin loader
@@ -135,6 +135,45 @@ of all four SDK interfaces to avoid import cycles (`internal/host` imports
 helper sets SDK globals to stubs and restores them on cleanup. Yaegi
 integration tests load real `.go` source through the interpreter and verify
 that interpreted plugin code can call methods on domain globals.
+
+## CLI Views
+
+Three static terminal views provide human-friendly overviews. All use lipgloss
+for styled output in terminals and fall back to plain text when piped.
+
+| Command | File | Description |
+|---------|------|-------------|
+| `diff` | `cli/diff.go` | Coloured unified diffs (green/red/cyan) when TTY |
+| `status` | `cli/status.go` | Dashboard: recent docs, task summary, activity |
+| `review` | `cli/review.go` | Pending tasks with spec previews and links |
+
+Diff colour styles (`diffAdded`, `diffRemoved`, `diffHunk`, `diffHeader`) live
+in `cli/styles.go` alongside table styles. View-specific styles are local to
+each command file.
+
+The `status` command uses a unified activity feed (`sdk.RecentActivity`) that
+queries documents, entities (tags/links), and task audit events in parallel,
+then merges by timestamp. The feed is implemented in `internal/llmd/llmd.go`
+(`Store.RecentActivity`) and wired through `internal/host/host.go`.
+
+Task audit actions use past tense: `"created"`, `"moved"`, `"deleted"`,
+`"restored"`, `"edited:*"`, `"flagged"`, `"unflagged"`.
+
+## Git-Aware Tasks
+
+Tasks can be linked to git branches via the `Branch` field. Three CLI
+subcommands provide the integration:
+
+| Command | File | Description |
+|---------|------|-------------|
+| `task start <id>` | `cli/task_git.go` | Move to in-progress + record current branch |
+| `task diff <id>` | `cli/task_git.go` | Git diff for task's branch vs default branch |
+| `task files <id>` | `cli/task_git.go` | List changed files on task's branch |
+
+Git operations live in the CLI layer only — the SDK and backend just store
+the branch string. The `gitBranch`, `gitDefaultBranch`, `gitDiff`, and
+`gitFiles` helpers shell out to `git` via `os/exec`. Default branch
+detection tries `main` then `master`; override with `--base`.
 
 ## Common Pitfalls
 

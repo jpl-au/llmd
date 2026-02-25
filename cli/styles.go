@@ -22,6 +22,12 @@ var (
 
 	tblBorder = lipgloss.NewStyle().
 			Faint(true)
+
+	// Diff colouring styles, applied line-by-line to unified diff output.
+	diffAdded   = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	diffRemoved = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	diffHunk    = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Faint(true)
+	diffHeader  = lipgloss.NewStyle().Bold(true)
 )
 
 // newTable creates a styled lipgloss table with standard formatting.

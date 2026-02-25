@@ -27,6 +27,7 @@ func taskToSDK(t *task.Task) *sdk.Task {
 		Priority:   t.Priority,
 		Position:   t.Position,
 		AssignedTo: t.AssignedTo,
+		Branch:     t.Branch,
 		Flags:      t.Flags,
 		Path:       t.Path,
 		Author:     t.Author,
@@ -40,6 +41,7 @@ func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Tas
 		Status:     opts.Status,
 		Priority:   opts.Priority,
 		AssignedTo: opts.AssignedTo,
+		Branch:     opts.Branch,
 		Path:       opts.Path,
 	})
 	if err != nil {
@@ -86,6 +88,7 @@ func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
 		Priority:   opts.Priority,
 		Position:   opts.Position,
 		AssignedTo: opts.AssignedTo,
+		Branch:     opts.Branch,
 		Flag:       opts.Flag,
 		Unflag:     opts.Unflag,
 	})

@@ -20,6 +20,9 @@ llmd task column rm <name>           Remove empty column
 llmd task column mv <name> --after   Reorder column
 llmd task link <id> <path>           Link task to document
 llmd task links <id>                 List linked documents
+llmd task start <id>                 Start task (record branch + in-progress)
+llmd task diff <id>                  Show git diff for task's branch
+llmd task files <id>                 List files changed on task's branch
 ```
 
 ## Add flags
@@ -60,6 +63,7 @@ Tasks without a spec cannot leave backlog — write one with
 | `--position <n>` | Reorder within column |
 | `--flag <name>` | Set a flag (blocked, hold) |
 | `--unflag <name>` | Remove a flag |
+| `--branch <name>` | Set git branch manually |
 
 ## List flags
 
@@ -111,6 +115,51 @@ llmd task rm a1b2c3d4e
 
 # Add a custom column
 llmd task column add testing --after in-progress
+```
+
+## Git integration
+
+Tasks can be linked to git branches. When you start a task, llmd
+records the current branch. You can then view the diff or list changed
+files without remembering which branch goes with which task.
+
+### Start
+
+`task start` moves a task to in-progress and records the current
+git branch automatically:
+
+```bash
+git checkout -b feature-auth
+llmd task start a1b2c3d4e
+# Started a1b2c3d4e on branch feature-auth
+```
+
+Use `--column` to move to a different column instead of in-progress.
+
+### Diff and files
+
+Once a task has a branch, view what changed:
+
+```bash
+# Full diff against default branch (main or master)
+llmd task diff a1b2c3d4e
+
+# Just the stats
+llmd task diff a1b2c3d4e --stat
+
+# List changed files only
+llmd task files a1b2c3d4e
+
+# Specify a different base branch
+llmd task diff a1b2c3d4e --base develop
+```
+
+### Manual branch assignment
+
+Set or change the branch without moving the task:
+
+```bash
+llmd task set a1b2c3d4e --branch feature-auth
 ```
 
 ## Notes

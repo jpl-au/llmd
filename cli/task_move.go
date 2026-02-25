@@ -83,6 +83,12 @@ func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 				return nil, fmt.Errorf("task set: --unflag requires a value")
 			}
 			opts.Unflag = args[i]
+		case "--branch":
+			i++
+			if i >= len(args) {
+				return nil, fmt.Errorf("task set: --branch requires a value")
+			}
+			opts.Branch = &args[i]
 		}
 	}
 

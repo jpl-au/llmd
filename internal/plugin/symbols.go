@@ -47,7 +47,11 @@ func symbols() interp.Exports {
 			"ErrUnknownCmd": reflect.ValueOf(&sdk.ErrUnknownCmd).Elem(),
 			"ErrNoSpec":     reflect.ValueOf(&sdk.ErrNoSpec).Elem(),
 
+			// Function globals
+			"RecentActivity": reflect.ValueOf(&sdk.RecentActivity).Elem(),
+
 			// Type definitions
+			"Activity":     reflect.ValueOf((*sdk.Activity)(nil)),
 			"Command":      reflect.ValueOf((*sdk.Command)(nil)),
 			"Context":      reflect.ValueOf((*sdk.Context)(nil)),
 			"Data":         reflect.ValueOf((*sdk.Data)(nil)),
@@ -95,7 +99,7 @@ func symbols() interp.Exports {
 
 // _sdk_Plugin is an interface wrapper for Plugin type
 type _sdk_Plugin struct {
-	IValue    interface{}
+	IValue    any
 	WCommands func() []sdk.Command
 	WExec     func(ctx sdk.Context, cmd string, args []string) (sdk.Response, error)
 	WName     func() string
@@ -113,7 +117,7 @@ func (W _sdk_Plugin) Name() string {
 
 // _sdk_Response is an interface wrapper for Response type
 type _sdk_Response struct {
-	IValue    interface{}
+	IValue    any
 	WResponse func()
 }
 
@@ -123,7 +127,7 @@ func (W _sdk_Response) Response() {
 
 // _sdk_DocumentStore is an interface wrapper for DocumentStore type
 type _sdk_DocumentStore struct {
-	IValue   interface{}
+	IValue   any
 	WRead    func(path string, version int) ([]byte, error)
 	WWrite   func(path string, content []byte, author string, msg string) error
 	WDelete  func(path string, author string) error
@@ -193,7 +197,7 @@ func (W _sdk_DocumentStore) Export(prefix string, dir string, opts sdk.ExportOpt
 
 // _sdk_TaskStore is an interface wrapper for TaskStore type
 type _sdk_TaskStore struct {
-	IValue        interface{}
+	IValue        any
 	WAdd          func(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Task, error)
 	WRead         func(key string) (*sdk.Task, error)
 	WList         func(opts sdk.TaskListOpts) ([]*sdk.Task, error)
@@ -247,7 +251,7 @@ func (W _sdk_TaskStore) Log(key string, limit int) ([]sdk.TaskEvent, error) {
 
 // _sdk_LinkStore is an interface wrapper for LinkStore type
 type _sdk_LinkStore struct {
-	IValue  interface{}
+	IValue  any
 	WAdd    func(from string, to string, label string, author string) error
 	WRemove func(from string, to string, author string) error
 	WList   func(path string, dir string) ([]sdk.Link, error)
@@ -265,7 +269,7 @@ func (W _sdk_LinkStore) List(path string, dir string) ([]sdk.Link, error) {
 
 // _sdk_TagStore is an interface wrapper for TagStore type
 type _sdk_TagStore struct {
-	IValue  interface{}
+	IValue  any
 	WAdd    func(path string, name string, author string) error
 	WRemove func(path string, name string, author string) error
 	WList   func(path string) ([]sdk.Tag, error)

@@ -311,7 +311,7 @@ func TestPosition(t *testing.T) {
 	t3, _ := ts.Add(ctx, "Third", nil, AddOptions{Origin: origin})
 
 	// Move third to top
-	ts.Set(ctx, t3.Key, "alice", SetOptions{Position: intPtr(0)})
+	ts.Set(ctx, t3.Key, "alice", SetOptions{Position: new(int)})
 
 	all, _ := ts.List(ctx, ListOptions{})
 	if all[0].Key != t3.Key {
@@ -354,7 +354,7 @@ func TestLogSingleTask(t *testing.T) {
 			t.Errorf("subject = %q, want %q", e.Subject, tsk.Key)
 		}
 	}
-	for _, want := range []string{"add", "move", "flag"} {
+	for _, want := range []string{"created", "moved", "flagged"} {
 		if !actions[want] {
 			t.Errorf("missing action %q in log", want)
 		}
@@ -457,4 +457,67 @@ func TestAddWithBody(t *testing.T) {
 	}
 }
 
-func intPtr(i int) *int { return &i }
+func TestAddWithBranch(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+	origin := core.Origin{Author: "alice", Source: "test"}
+
+	tsk, err := ts.Add(ctx, "Branched task", nil, AddOptions{
+		Origin: origin,
+		Branch: "feature-auth",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tsk.Branch != "feature-auth" {
+		t.Errorf("branch = %q, want %q", tsk.Branch, "feature-auth")
+	}
+
+	// Read back and verify
+	got, err := ts.Read(ctx, tsk.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Branch != "feature-auth" {
+		t.Errorf("branch after read = %q, want %q", got.Branch, "feature-auth")
+	}
+}
+
+func TestSetBranch(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+	origin := core.Origin{Author: "alice", Source: "test"}
+
+	tsk, _ := ts.Add(ctx, "Set branch", nil, AddOptions{Origin: origin})
+
+	branch := "feature-xyz"
+	if err := ts.Set(ctx, tsk.Key, "alice", SetOptions{Branch: &branch}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := ts.Read(ctx, tsk.Key)
+	if got.Branch != "feature-xyz" {
+		t.Errorf("branch = %q, want %q", got.Branch, "feature-xyz")
+	}
+}
+
+func TestClearBranch(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+	origin := core.Origin{Author: "alice", Source: "test"}
+
+	tsk, _ := ts.Add(ctx, "Clear branch", nil, AddOptions{
+		Origin: origin,
+		Branch: "old-branch",
+	})
+
+	empty := ""
+	if err := ts.Set(ctx, tsk.Key, "alice", SetOptions{Branch: &empty}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := ts.Read(ctx, tsk.Key)
+	if got.Branch != "" {
+		t.Errorf("branch = %q, want empty", got.Branch)
+	}
+}

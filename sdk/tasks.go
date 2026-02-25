@@ -51,6 +51,7 @@ type Task struct {
 	Priority   int
 	Position   int
 	AssignedTo string
+	Branch     string
 	Flags      string
 	Path       string
 	Author     string
@@ -62,6 +63,7 @@ type TaskAddOpts struct {
 	Status     string
 	Priority   int
 	AssignedTo string
+	Branch     string
 	Path       string // Existing store document to use as spec
 	Author     string
 }
@@ -79,6 +81,7 @@ type TaskSetOpts struct {
 	Priority   *int
 	Position   *int
 	AssignedTo *string
+	Branch     *string
 	Flag       string
 	Unflag     string
 }

@@ -117,16 +117,31 @@ Subcommands (passed as first arg):
   column mv <name> --after  reorder column
   link <id> <path>          link task to document
   links <id>                list linked documents
-  log <id> [-n limit]       audit history for a task`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
+  log <id> [-n limit]       audit history for a task
+  start <id>                start task (record branch, move to in-progress)
+  diff <id>                 show git diff for task's branch
+  files <id>                list files changed on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
 			{Name: "column", Type: "string", Desc: "Filter by column"},
 			{Name: "priority", Type: "int", Desc: "Filter or set priority"},
 			{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},
+			{Name: "branch", Type: "string", Desc: "Git branch for this task"},
 			{Name: "path", Type: "string", Desc: "Use existing store document as spec"},
 			{Name: "file", Type: "string", Desc: "Read spec from filesystem path"},
 			{Name: "flag", Type: "string", Desc: "Set a flag (blocked, hold)"},
 			{Name: "unflag", Type: "string", Desc: "Remove a flag"},
 			{Name: "position", Type: "int", Desc: "Set position within column"},
 			{Name: "after", Type: "string", Desc: "Insert/move column after this one"},
+			{Name: "base", Type: "string", Desc: "Base branch for diff (default: main/master)"},
+			{Name: "stat", Type: "bool", Desc: "Show diffstat instead of full diff"},
+		}},
+
+		// Views
+		{Name: "status", Desc: "Store overview dashboard", Usage: "status [-n limit]", Flags: []sdk.Flag{
+			{Name: "n", Type: "int", Desc: "Items per section (default 5)"},
+		}},
+		{Name: "review", Desc: "Review pending tasks with context", Usage: "review [--column name] [-n limit]", Flags: []sdk.Flag{
+			{Name: "column", Type: "string", Desc: "Filter by column"},
+			{Name: "n", Type: "int", Desc: "Maximum tasks to show"},
 		}},
 
 		// Admin and help
@@ -184,6 +199,10 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return unlink(ctx, args)
 	case "task":
 		return taskCmd(ctx, args)
+	case "status":
+		return status(ctx, args)
+	case "review":
+		return review(ctx, args)
 	case "import":
 		return importCmd(ctx, args)
 	case "export":

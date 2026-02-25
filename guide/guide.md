@@ -45,6 +45,13 @@ llmd grep hello                              # full-text search
 | `history` | Show version log for a document    | `history [-n limit] <path>`    |
 | `diff`    | Compare document versions          | `diff <path>` or `diff a:1 b:2`|
 
+### Views
+
+| Command  | Description                        | Usage                            |
+|----------|------------------------------------|----------------------------------|
+| `status` | Store overview dashboard           | `status [-n limit]`              |
+| `review` | Review pending tasks with context  | `review [--column name] [-n N]`  |
+
 ### Tags and links
 
 | Command  | Description                 | Usage                              |
@@ -59,8 +66,8 @@ llmd grep hello                              # full-text search
 |---------|----------------------------------------|-----------------------------------|
 | `task`  | Manage tasks on the board              | `task <subcommand> [options]`     |
 
-Subcommands: add, list, show, move, set, rm, restore, columns,
-add-column, rm-column, mv-column, link, links. See `llmd guide task`.
+Subcommands: add, list, show, move, set, rm, restore, start, diff,
+files, column, link, links, log. See `llmd guide task`.
 
 ### Bulk operations
 

@@ -4,6 +4,7 @@
 package host
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -48,6 +49,24 @@ func New(store *llmd.Store) *Host {
 		sdk.Tasks = newTaskAPI(store)
 		sdk.Links = newLinkAPI(store)
 		sdk.Tags = newTagAPI(store)
+		sdk.RecentActivity = func(limit int) ([]sdk.Activity, error) {
+			events, err := store.RecentActivity(context.Background(), limit)
+			if err != nil {
+				return nil, err
+			}
+			out := make([]sdk.Activity, len(events))
+			for i, e := range events {
+				out[i] = sdk.Activity{
+					Type:      e.Type,
+					Action:    e.Action,
+					Subject:   e.Subject,
+					Author:    e.Author,
+					Detail:    e.Detail,
+					Timestamp: e.Timestamp,
+				}
+			}
+			return out, nil
+		}
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.

@@ -12,6 +12,7 @@ type Task struct {
 	Priority   int
 	Position   int
 	AssignedTo string
+	Branch     string // Git branch associated with this task
 	Flags      string // Comma-separated: "blocked", "hold", "blocked,hold"
 	Path       string // Document path in the content table
 	core.Origin

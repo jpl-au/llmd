@@ -13,6 +13,7 @@ package cli
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -68,5 +69,33 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Text("No differences"), nil
 	}
 
+	if isTTY() {
+		diffText = colourDiff(diffText)
+	}
+
 	return sdk.Text(diffText), nil
+}
+
+// colourDiff applies terminal colours to unified diff output.
+func colourDiff(text string) string {
+	lines := strings.Split(text, "\n")
+	var b strings.Builder
+	for i, line := range lines {
+		switch {
+		case strings.HasPrefix(line, "+++"), strings.HasPrefix(line, "---"):
+			b.WriteString(diffHeader.Render(line))
+		case strings.HasPrefix(line, "@@"):
+			b.WriteString(diffHunk.Render(line))
+		case strings.HasPrefix(line, "+"):
+			b.WriteString(diffAdded.Render(line))
+		case strings.HasPrefix(line, "-"):
+			b.WriteString(diffRemoved.Render(line))
+		default:
+			b.WriteString(line)
+		}
+		if i < len(lines)-1 {
+			b.WriteByte('\n')
+		}
+	}
+	return b.String()
 }

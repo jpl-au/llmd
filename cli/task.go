@@ -58,6 +58,12 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return taskLinks(ctx, args)
 	case "log":
 		return taskLog(ctx, args)
+	case "start":
+		return taskStart(ctx, args)
+	case "diff":
+		return taskDiff(ctx, args)
+	case "files":
+		return taskFiles(ctx, args)
 	default:
 		return nil, fmt.Errorf("task: unknown subcommand: %s", sub)
 	}
@@ -221,6 +227,9 @@ func taskShow(_ sdk.Context, args []string) (sdk.Response, error) {
 	fmt.Fprintf(&b, "| Priority | %d |\n", t.Priority)
 	if t.AssignedTo != "" {
 		fmt.Fprintf(&b, "| Assigned To | %s |\n", t.AssignedTo)
+	}
+	if t.Branch != "" {
+		fmt.Fprintf(&b, "| Branch | %s |\n", t.Branch)
 	}
 	if t.Flags != "" {
 		fmt.Fprintf(&b, "| Flags | %s |\n", t.Flags)

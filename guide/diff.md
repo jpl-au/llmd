@@ -40,3 +40,5 @@ llmd diff --stat notes/meeting
 - With one path: compares the latest version to the previous version.
 - With two paths: compares them directly.
 - Use `path:version` syntax to pin a specific version (e.g. `docs/readme:3`).
+- Output is coloured in a terminal (green for additions, red for removals,
+  cyan for hunk headers). Piped output is plain unified diff.

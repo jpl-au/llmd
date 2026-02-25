@@ -361,7 +361,7 @@ func TestTasksLog(t *testing.T) {
 	// Should have a move event
 	found := false
 	for _, e := range events {
-		if e.Action == "move" {
+		if e.Action == "moved" {
 			found = true
 		}
 	}
@@ -475,6 +475,45 @@ func TestTasksAddWithAssignee(t *testing.T) {
 	}
 }
 
+func TestTasksAddWithBranch(t *testing.T) {
+	testHost(t)
+
+	task, err := sdk.Tasks.Add("Branched", nil, sdk.TaskAddOpts{
+		Author: "alice",
+		Branch: "feature-login",
+	})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if task.Branch != "feature-login" {
+		t.Errorf("branch = %q, want %q", task.Branch, "feature-login")
+	}
+
+	// Read back
+	got, _ := sdk.Tasks.Read(task.Key)
+	if got.Branch != "feature-login" {
+		t.Errorf("branch after read = %q, want %q", got.Branch, "feature-login")
+	}
+}
+
+func TestTasksSetBranch(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Set branch", nil, sdk.TaskAddOpts{Author: "alice"})
+
+	branch := "feature-new"
+	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{
+		Branch: &branch,
+	}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+
+	updated, _ := sdk.Tasks.Read(task.Key)
+	if updated.Branch != "feature-new" {
+		t.Errorf("branch = %q, want %q", updated.Branch, "feature-new")
+	}
+}
+
 func TestTasksLogEventDetails(t *testing.T) {
 	testHost(t)
 
@@ -484,7 +523,7 @@ func TestTasksLogEventDetails(t *testing.T) {
 	events, _ := sdk.Tasks.Log(task.Key, 0)
 
 	for _, e := range events {
-		if e.Action == "move" {
+		if e.Action == "moved" {
 			if e.OldValue == "" {
 				t.Error("move event missing OldValue")
 			}

@@ -72,13 +72,16 @@ Familiar filesystem commands with superpowers:
 | `rm` | Soft delete (`-r` for recursive) |
 | `mv` | Move/rename |
 | `history` | Version history |
-| `diff` | Compare document versions |
+| `diff` | Compare document versions (coloured in terminal) |
 | `revert` | Revert to a previous version of a document |
 | `restore` | Restore deleted documents |
 | `vacuum` | Permanently delete soft-deleted docs |
 | `tag` | Manage document tags |
 | `link` | Create links between documents |
 | `unlink` | Remove document links |
+| `status` | Store overview dashboard |
+| `task` | Task board with git-aware tracking |
+| `review` | Review pending tasks with context |
 | `import` | Bulk import from filesystem |
 | `export` | Export documents to filesystem |
 | `sync` | Sync filesystem changes back to db |

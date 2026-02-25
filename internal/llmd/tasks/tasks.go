@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     priority INTEGER NOT NULL DEFAULT 0,
     position INTEGER NOT NULL DEFAULT 0,
     assigned_to TEXT,
+    branch TEXT,
     flags TEXT,
     path TEXT NOT NULL,
     author TEXT NOT NULL,
@@ -84,6 +85,11 @@ func New(db *sql.DB, docs *documents.Documents, ents *entities.Entities, audit *
 func (t *Tasks) ensure() error {
 	t.once.Do(func() {
 		_, t.err = t.db.Exec(schema)
+		if t.err != nil {
+			return
+		}
+		// Migration: add branch column for existing databases.
+		_, _ = t.db.Exec("ALTER TABLE tasks ADD COLUMN branch TEXT")
 	})
 	return t.err
 }
@@ -110,6 +116,7 @@ type AddOptions struct {
 	Status     string
 	Priority   int
 	AssignedTo string
+	Branch     string
 	Path       string // Existing store document to use as spec
 }
 
@@ -181,11 +188,15 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	if opts.AssignedTo != "" {
 		assignedTo = sql.NullString{String: opts.AssignedTo, Valid: true}
 	}
+	var branch sql.NullString
+	if opts.Branch != "" {
+		branch = sql.NullString{String: opts.Branch, Valid: true}
+	}
 
 	_, err = t.db.ExecContext(ctx, `
-		INSERT INTO tasks (key, title, status, priority, position, assigned_to, flags, path, author, source, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
-	`, k, title, status, opts.Priority, maxPos+1, assignedTo, path, opts.Author, opts.Source, now)
+		INSERT INTO tasks (key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
+	`, k, title, status, opts.Priority, maxPos+1, assignedTo, branch, path, opts.Author, opts.Source, now)
 
 	if err != nil {
 		return nil, fmt.Errorf("inserting task: %w", err)
@@ -198,12 +209,13 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		Priority:   opts.Priority,
 		Position:   maxPos + 1,
 		AssignedTo: opts.AssignedTo,
+		Branch:     opts.Branch,
 		Path:       path,
 		Origin:     opts.Origin,
 		CreatedAt:  now,
 	}
 
-	_ = t.audit.Record(ctx, opts.Author, "add", k, "", title)
+	_ = t.audit.Record(ctx, opts.Author, "created", k, "", title)
 
 	return tsk, nil
 }
@@ -214,7 +226,7 @@ func (t *Tasks) Read(ctx context.Context, key string) (*task.Task, error) {
 		return nil, err
 	}
 	return t.scan(t.db.QueryRowContext(ctx, `
-		SELECT id, key, title, status, priority, position, assigned_to, flags, path, author, source, created_at, deleted_at
+		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
 		FROM tasks
 		WHERE key = ? AND deleted_at IS NULL
 	`, key))
@@ -236,7 +248,7 @@ func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error
 	var args []any
 
 	query.WriteString(`
-		SELECT id, key, title, status, priority, position, assigned_to, flags, path, author, source, created_at, deleted_at
+		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
 		FROM tasks
 		WHERE deleted_at IS NULL
 	`)
@@ -323,7 +335,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 		return fmt.Errorf("moving task: %w", err)
 	}
 
-	_ = t.audit.Record(ctx, author, "move", key, oldStatus, status)
+	_ = t.audit.Record(ctx, author, "moved", key, oldStatus, status)
 	return nil
 }
 
@@ -333,6 +345,7 @@ type SetOptions struct {
 	Priority   *int
 	Position   *int
 	AssignedTo *string
+	Branch     *string
 	Flag       string // Flag to add
 	Unflag     string // Flag to remove
 }
@@ -354,7 +367,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		if err != nil {
 			return fmt.Errorf("setting title: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "set:title", key, old, *opts.Title)
+		_ = t.audit.Record(ctx, author, "edited:title", key, old, *opts.Title)
 	}
 
 	if opts.Priority != nil {
@@ -363,7 +376,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		if err != nil {
 			return fmt.Errorf("setting priority: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "set:priority", key, old, fmt.Sprintf("%d", *opts.Priority))
+		_ = t.audit.Record(ctx, author, "edited:priority", key, old, fmt.Sprintf("%d", *opts.Priority))
 	}
 
 	if opts.AssignedTo != nil {
@@ -376,7 +389,20 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		if err != nil {
 			return fmt.Errorf("setting assigned_to: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "set:assigned_to", key, old, *opts.AssignedTo)
+		_ = t.audit.Record(ctx, author, "edited:assigned_to", key, old, *opts.AssignedTo)
+	}
+
+	if opts.Branch != nil {
+		old := tsk.Branch
+		var v sql.NullString
+		if *opts.Branch != "" {
+			v = sql.NullString{String: *opts.Branch, Valid: true}
+		}
+		_, err = t.db.ExecContext(ctx, `UPDATE tasks SET branch = ? WHERE key = ? AND deleted_at IS NULL`, v, key)
+		if err != nil {
+			return fmt.Errorf("setting branch: %w", err)
+		}
+		_ = t.audit.Record(ctx, author, "edited:branch", key, old, *opts.Branch)
 	}
 
 	if opts.Position != nil {
@@ -384,7 +410,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		if err := t.reposition(ctx, key, tsk.Status, *opts.Position, author); err != nil {
 			return err
 		}
-		_ = t.audit.Record(ctx, author, "set:position", key, old, fmt.Sprintf("%d", *opts.Position))
+		_ = t.audit.Record(ctx, author, "edited:position", key, old, fmt.Sprintf("%d", *opts.Position))
 	}
 
 	if opts.Flag != "" {
@@ -394,7 +420,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		if err != nil {
 			return fmt.Errorf("setting flag: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "flag", key, old, flags)
+		_ = t.audit.Record(ctx, author, "flagged", key, old, flags)
 	}
 
 	if opts.Unflag != "" {
@@ -404,7 +430,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		if err != nil {
 			return fmt.Errorf("removing flag: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "unflag", key, old, flags)
+		_ = t.audit.Record(ctx, author, "unflagged", key, old, flags)
 	}
 
 	return nil
@@ -429,7 +455,7 @@ func (t *Tasks) Delete(ctx context.Context, key, author string) (*task.Task, err
 		return nil, fmt.Errorf("deleting task: %w", err)
 	}
 
-	_ = t.audit.Record(ctx, author, "delete", key, tsk.Status, "")
+	_ = t.audit.Record(ctx, author, "deleted", key, tsk.Status, "")
 	return tsk, nil
 }
 
@@ -452,7 +478,7 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 		return nil, fmt.Errorf("restoring task: %w", err)
 	}
 
-	_ = t.audit.Record(ctx, author, "restore", key, "", tsk.Status)
+	_ = t.audit.Record(ctx, author, "restored", key, "", tsk.Status)
 	return tsk, nil
 }
 
@@ -692,7 +718,7 @@ func (t *Tasks) writeColumns(ctx context.Context, cols []string, author string) 
 // scanDeleted reads a task including soft-deleted ones.
 func (t *Tasks) scanDeleted(ctx context.Context, key string) (*task.Task, error) {
 	return t.scan(t.db.QueryRowContext(ctx, `
-		SELECT id, key, title, status, priority, position, assigned_to, flags, path, author, source, created_at, deleted_at
+		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
 		FROM tasks
 		WHERE key = ?
 		ORDER BY deleted_at DESC
@@ -702,12 +728,12 @@ func (t *Tasks) scanDeleted(ctx context.Context, key string) (*task.Task, error)
 
 func (t *Tasks) scan(row *sql.Row) (*task.Task, error) {
 	var tsk task.Task
-	var assignedTo, flags sql.NullString
+	var assignedTo, branch, flags sql.NullString
 	var deletedAt sql.NullInt64
 
 	err := row.Scan(
 		&tsk.ID, &tsk.Key, &tsk.Title, &tsk.Status,
-		&tsk.Priority, &tsk.Position, &assignedTo, &flags,
+		&tsk.Priority, &tsk.Position, &assignedTo, &branch, &flags,
 		&tsk.Path, &tsk.Author, &tsk.Source, &tsk.CreatedAt, &deletedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -720,6 +746,9 @@ func (t *Tasks) scan(row *sql.Row) (*task.Task, error) {
 	if assignedTo.Valid {
 		tsk.AssignedTo = assignedTo.String
 	}
+	if branch.Valid {
+		tsk.Branch = branch.String
+	}
 	if flags.Valid {
 		tsk.Flags = flags.String
 	}
@@ -731,12 +760,12 @@ func (t *Tasks) scan(row *sql.Row) (*task.Task, error) {
 
 func (t *Tasks) scanRow(rows *sql.Rows) (*task.Task, error) {
 	var tsk task.Task
-	var assignedTo, flags sql.NullString
+	var assignedTo, branch, flags sql.NullString
 	var deletedAt sql.NullInt64
 
 	err := rows.Scan(
 		&tsk.ID, &tsk.Key, &tsk.Title, &tsk.Status,
-		&tsk.Priority, &tsk.Position, &assignedTo, &flags,
+		&tsk.Priority, &tsk.Position, &assignedTo, &branch, &flags,
 		&tsk.Path, &tsk.Author, &tsk.Source, &tsk.CreatedAt, &deletedAt,
 	)
 	if err != nil {
@@ -745,6 +774,9 @@ func (t *Tasks) scanRow(rows *sql.Rows) (*task.Task, error) {
 
 	if assignedTo.Valid {
 		tsk.AssignedTo = assignedTo.String
+	}
+	if branch.Valid {
+		tsk.Branch = branch.String
 	}
 	if flags.Valid {
 		tsk.Flags = flags.String
