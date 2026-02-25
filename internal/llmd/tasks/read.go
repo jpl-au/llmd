@@ -1,0 +1,100 @@
+// read.go handles reading and scanning individual tasks.
+
+package tasks
+
+import (
+	"context"
+	"database/sql"
+
+	"github.com/jpl-au/llmd/pkg/model/task"
+)
+
+// Read returns a task by key.
+func (t *Tasks) Read(ctx context.Context, key string) (*task.Task, error) {
+	if err := t.ensure(); err != nil {
+		return nil, err
+	}
+	return t.scan(t.db.QueryRowContext(ctx, `
+		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
+		FROM tasks
+		WHERE key = ? AND deleted_at IS NULL
+	`, key))
+}
+
+// scanDeleted reads a task including soft-deleted ones.
+func (t *Tasks) scanDeleted(ctx context.Context, key string) (*task.Task, error) {
+	return t.scan(t.db.QueryRowContext(ctx, `
+		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
+		FROM tasks
+		WHERE key = ?
+		ORDER BY deleted_at DESC
+		LIMIT 1
+	`, key))
+}
+
+// scan reads a single task row from a sql.Row. It handles the nullable
+// columns (assigned_to, branch, flags, deleted_at) by scanning into
+// sql.Null types and converting to Go zero values. Returns ErrNotFound
+// when no row matches.
+func (t *Tasks) scan(row *sql.Row) (*task.Task, error) {
+	var tsk task.Task
+	var assignedTo, branch, flags sql.NullString
+	var deletedAt sql.NullInt64
+
+	err := row.Scan(
+		&tsk.ID, &tsk.Key, &tsk.Title, &tsk.Status,
+		&tsk.Priority, &tsk.Position, &assignedTo, &branch, &flags,
+		&tsk.Path, &tsk.Author, &tsk.Source, &tsk.CreatedAt, &deletedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if assignedTo.Valid {
+		tsk.AssignedTo = assignedTo.String
+	}
+	if branch.Valid {
+		tsk.Branch = branch.String
+	}
+	if flags.Valid {
+		tsk.Flags = flags.String
+	}
+	if deletedAt.Valid {
+		tsk.DeletedAt = &deletedAt.Int64
+	}
+	return &tsk, nil
+}
+
+// scanRow reads a single task from sql.Rows (used in List iterations).
+// Same nullable handling as scan, but operates on Rows instead of Row.
+func (t *Tasks) scanRow(rows *sql.Rows) (*task.Task, error) {
+	var tsk task.Task
+	var assignedTo, branch, flags sql.NullString
+	var deletedAt sql.NullInt64
+
+	err := rows.Scan(
+		&tsk.ID, &tsk.Key, &tsk.Title, &tsk.Status,
+		&tsk.Priority, &tsk.Position, &assignedTo, &branch, &flags,
+		&tsk.Path, &tsk.Author, &tsk.Source, &tsk.CreatedAt, &deletedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if assignedTo.Valid {
+		tsk.AssignedTo = assignedTo.String
+	}
+	if branch.Valid {
+		tsk.Branch = branch.String
+	}
+	if flags.Valid {
+		tsk.Flags = flags.String
+	}
+	if deletedAt.Valid {
+		tsk.DeletedAt = &deletedAt.Int64
+	}
+	return &tsk, nil
+}

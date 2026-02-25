@@ -1,8 +1,10 @@
-// styles.go defines shared lipgloss styles for CLI table output.
+// styles.go defines shared lipgloss styles and terminal helpers for CLI output.
 
 package cli
 
 import (
+	"os"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 )
@@ -29,6 +31,15 @@ var (
 	diffHunk    = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Faint(true)
 	diffHeader  = lipgloss.NewStyle().Bold(true)
 )
+
+// isTTY reports whether stdout is a terminal.
+func isTTY() bool {
+	f, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return f.Mode()&os.ModeCharDevice != 0
+}
 
 // newTable creates a styled lipgloss table with standard formatting.
 func newTable(headers ...string) *table.Table {

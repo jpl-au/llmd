@@ -12,7 +12,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/charmbracelet/glamour"
@@ -50,13 +49,4 @@ func guideCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	return sdk.Text(content), nil
-}
-
-// isTTY reports whether stdout is a terminal.
-func isTTY() bool {
-	f, err := os.Stdout.Stat()
-	if err != nil {
-		return false
-	}
-	return f.Mode()&os.ModeCharDevice != 0
 }
