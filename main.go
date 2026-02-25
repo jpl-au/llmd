@@ -185,8 +185,29 @@ func readStdin() []byte {
 	}
 }
 
-// printHelp displays top-level usage. "Commands:" lists extension commands,
-// "Plugin Commands:" lists yaegi plugins (only shown if any are loaded).
+// commandGroup defines a labelled set of commands for help output.
+type commandGroup struct {
+	label string
+	names []string
+}
+
+// helpGroups controls the order and grouping of the root help listing.
+// Commands not listed here are omitted from the root help (they still
+// work — they just aren't advertised at the top level).
+var helpGroups = []commandGroup{
+	{"Reading", []string{"cat", "ls", "grep", "find", "glob"}},
+	{"Writing", []string{"write", "edit", "sed", "rm", "mv", "restore", "revert"}},
+	{"History", []string{"history", "diff"}},
+	{"Tags & Links", []string{"tag", "link", "unlink"}},
+	{"Tasks", []string{"task", "status", "review"}},
+	{"Bulk", []string{"import", "export", "mirror"}},
+	{"Admin", []string{"init", "config", "vacuum", "version", "mcp", "serve", "plugins"}},
+	{"Help", []string{"guide", "llm"}},
+}
+
+// printHelp displays grouped top-level usage. Each command shows only
+// the first line of its description. "Plugin Commands:" lists yaegi
+// plugins (only shown if any are loaded).
 func printHelp(h *host.Host) {
 	fmt.Print(`llmd - a document store for LLMs and humans
 
@@ -200,15 +221,18 @@ Global Flags:
 
 `)
 	cmds := h.ExtCommands()
-	if len(cmds) > 0 {
-		fmt.Println("Commands:")
-		names := make([]string, 0, len(cmds))
-		for name := range cmds {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			fmt.Printf("  %-12s%s\n", name, cmds[name].Desc)
+	for _, g := range helpGroups {
+		fmt.Printf("%s:\n", g.label)
+		for _, name := range g.names {
+			c, ok := cmds[name]
+			if !ok {
+				continue
+			}
+			desc := c.Desc
+			if i := strings.IndexByte(desc, '\n'); i >= 0 {
+				desc = desc[:i]
+			}
+			fmt.Printf("  %-12s%s\n", name, desc)
 		}
 		fmt.Println()
 	}
@@ -222,7 +246,11 @@ Global Flags:
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			fmt.Printf("  %-12s%s\n", name, pcmds[name].Desc)
+			desc := pcmds[name].Desc
+			if i := strings.IndexByte(desc, '\n'); i >= 0 {
+				desc = desc[:i]
+			}
+			fmt.Printf("  %-12s%s\n", name, desc)
 		}
 		fmt.Println()
 	}
