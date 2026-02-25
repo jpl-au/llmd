@@ -27,6 +27,9 @@ var (
 			Faint(true)
 )
 
+// status renders a single-screen dashboard showing recent documents,
+// task board summary, and activity feed. Falls back to plain text when
+// output is not a terminal.
 func status(_ sdk.Context, args []string) (sdk.Response, error) {
 	limit := 5
 	for i := 0; i < len(args); i++ {
@@ -161,6 +164,7 @@ func actionLabel(action string) string {
 	}
 }
 
+// plainStatus renders a text-only dashboard for piped output.
 func plainStatus(docs []sdk.Doc, cols []string, counts map[string]int, activity []sdk.Activity) string {
 	var b strings.Builder
 	b.WriteString("Recent documents:\n")

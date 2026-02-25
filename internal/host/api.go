@@ -25,12 +25,18 @@ func origin(author string) core.Origin {
 	return core.Origin{Author: author, Source: "cli"}
 }
 
-// documentAPI implements sdk.DocumentStore by delegating to the
-// internal storage packages.
+// documentAPI implements [sdk.DocumentStore] by delegating to the
+// internal storage packages (documents, history, search, bulk). Each
+// method translates flat SDK arguments into the internal option structs
+// and maps internal results back to SDK types. Mutating operations stamp
+// a [core.Origin] with Source:"cli" so version history records the source.
 type documentAPI struct {
 	store *llmd.Store
 }
 
+// newDocumentAPI creates a document API bridge wrapping the given store.
+// The returned value satisfies [sdk.DocumentStore] and is assigned to
+// the sdk.Documents global by [New].
 func newDocumentAPI(store *llmd.Store) *documentAPI {
 	return &documentAPI{store: store}
 }
@@ -49,6 +55,8 @@ func (a *documentAPI) Read(path string, version int) ([]byte, error) {
 	return []byte(doc.Content), nil
 }
 
+// Write creates or updates a document, recording a new version.
+// The author and message are recorded in the version history.
 func (a *documentAPI) Write(path string, content []byte, author, msg string) error {
 	o := origin(author)
 	o.Message = msg
@@ -58,24 +66,33 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 	return err
 }
 
+// Delete soft-deletes a document. The document can be recovered via
+// Restore until a Vacuum permanently removes it.
 func (a *documentAPI) Delete(path, author string) error {
 	return a.store.Documents.Delete(context.Background(), path, documents.DeleteOptions{
 		Origin: origin(author),
 	})
 }
 
+// Restore recovers a soft-deleted document, clearing its deleted_at
+// timestamp so it reappears in normal listings.
 func (a *documentAPI) Restore(path, author string) error {
 	return a.store.Documents.Restore(context.Background(), path, documents.RestoreOptions{
 		Origin: origin(author),
 	})
 }
 
+// Move renames a document, preserving its full version history.
+// Tags and links follow the document to the new path.
 func (a *documentAPI) Move(from, to, author string) error {
 	return a.store.Documents.Move(context.Background(), from, to, documents.MoveOptions{
 		Origin: origin(author),
 	})
 }
 
+// List returns document metadata for all documents matching the given
+// path prefix. Results are converted from internal Info structs to SDK
+// Doc structs. The Reverse option is applied after the database query.
 func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
 	infos, err := a.store.Documents.List(context.Background(), documents.ListOptions{
 		Prefix:         prefix,
@@ -107,10 +124,13 @@ func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) 
 	return docs, nil
 }
 
+// Exists reports whether a non-deleted document exists at the given path.
 func (a *documentAPI) Exists(path string) (bool, error) {
 	return a.store.Documents.Exists(context.Background(), path)
 }
 
+// Edit performs a search-and-replace within a document, creating a new
+// version with the substitution applied.
 func (a *documentAPI) Edit(path, old, new, author, msg string) error {
 	o := origin(author)
 	o.Message = msg
@@ -120,6 +140,8 @@ func (a *documentAPI) Edit(path, old, new, author, msg string) error {
 	return err
 }
 
+// Glob returns document paths matching a shell-style glob pattern.
+// Delegates to the search package's glob implementation.
 func (a *documentAPI) Glob(pattern string) ([]string, error) {
 	return a.store.Search.Glob(context.Background(), pattern)
 }
@@ -162,6 +184,8 @@ func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, erro
 	return hits, nil
 }
 
+// History returns version history for a document, newest first.
+// Converts internal Info structs to SDK Version structs.
 func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
 	var opts history.ListOptions
 	if limit > 0 {
@@ -185,6 +209,8 @@ func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
 	return versions, nil
 }
 
+// Diff computes a unified diff between two document versions. Returns
+// the diff text, lines added, and lines removed.
 func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 	var opts history.DiffOptions
 	if ctx > 0 {
@@ -199,6 +225,8 @@ func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 	return result.Unified, result.Stats.Added, result.Stats.Removed, nil
 }
 
+// Revert creates a new version with the content from a previous version.
+// The old version is preserved — revert is non-destructive.
 func (a *documentAPI) Revert(path string, version int, author, msg string) error {
 	o := origin(author)
 	o.Message = msg
@@ -208,6 +236,8 @@ func (a *documentAPI) Revert(path string, version int, author, msg string) error
 	return err
 }
 
+// Vacuum permanently removes all soft-deleted data and reclaims disk
+// space. Returns counts of deleted documents, tags, and links.
 func (a *documentAPI) Vacuum() (sdk.VacuumResult, error) {
 	r, err := a.store.Vacuum(context.Background())
 	if err != nil {
@@ -220,6 +250,9 @@ func (a *documentAPI) Vacuum() (sdk.VacuumResult, error) {
 	}, nil
 }
 
+// Import reads markdown files from a filesystem directory into the store.
+// Files are attributed to the "import" author. Results report which
+// documents were created, updated, or skipped.
 func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error) {
 	r, err := a.store.Bulk.Import(context.Background(), dir, bulk.ImportOptions{
 		Origin: origin("import"),
@@ -237,6 +270,8 @@ func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult
 	}, nil
 }
 
+// Export writes store documents to a filesystem directory as .md files.
+// Preserves the document path hierarchy under the destination directory.
 func (a *documentAPI) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error) {
 	r, err := a.store.Bulk.Export(context.Background(), prefix, dir, bulk.ExportOptions{
 		Overwrite: opts.Overwrite,

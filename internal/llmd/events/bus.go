@@ -1,4 +1,15 @@
 // Package events provides the internal event bus for document operations.
+//
+// The bus connects packages that need to react to document changes without
+// direct dependencies. Handlers subscribe to events and are called
+// synchronously in subscription order when an event is emitted. Currently
+// the only subscriber is the FTS search index handler, which keeps the
+// full-text index in sync with document writes, deletes, restores, and
+// moves.
+//
+// Events are fire-and-forget: handlers observe after the fact and cannot
+// block or veto the originating operation. If a handler returns an error,
+// event delivery stops and the error propagates to the caller.
 package events
 
 import (

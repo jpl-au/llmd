@@ -31,14 +31,19 @@ type Context interface {
 	Config() map[string]string
 }
 
-// extContext implements Context.
+// extContext implements [Context] by holding references to the store,
+// database, and configuration. It is created by [NewContext] during host
+// initialisation and passed to extensions that implement [Initializable].
+// The struct is unexported to enforce construction via NewContext.
 type extContext struct {
 	store *llmd.Store
 	db    *sql.DB
 	cfg   map[string]string
 }
 
-// NewContext creates a new extension context.
+// NewContext creates a new extension context with the given store,
+// database connection, and user configuration. Called during host
+// initialisation to build the context passed to [Initializable.Init].
 func NewContext(store *llmd.Store, db *sql.DB, cfg map[string]string) Context {
 	return &extContext{
 		store: store,

@@ -83,6 +83,10 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 	return result, nil
 }
 
+// exportOne exports a single document to a filesystem path. It reads
+// the document content from the store, creates any necessary parent
+// directories, and writes the file. Respects the Overwrite option to
+// avoid clobbering existing files.
 func (b *Bulk) exportOne(ctx context.Context, src, dest string, opts ExportOptions) error {
 	// Read document
 	doc, err := b.docs.Read(ctx, src, documents.ReadOptions{Version: opts.Version})

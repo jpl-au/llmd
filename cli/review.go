@@ -31,6 +31,8 @@ var (
 			Faint(true)
 )
 
+// review shows pending tasks with inline spec previews and linked
+// documents, giving a quick picture of what needs attention.
 func review(_ sdk.Context, args []string) (sdk.Response, error) {
 	var column string
 	limit := 0
@@ -182,6 +184,7 @@ func linkedDocs(path string) []sdk.Link {
 	return links
 }
 
+// plainReview renders a tab-separated task listing for piped output.
 func plainReview(tasks []*sdk.Task) string {
 	var b strings.Builder
 	for _, t := range tasks {

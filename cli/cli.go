@@ -24,7 +24,11 @@ func init() {
 	extension.Register(&CLI{})
 }
 
-// CLI implements sdk.Plugin to provide core document commands.
+// CLI implements [sdk.Plugin] and [extension.Extension] to provide the
+// core command set. It registers itself at init time via
+// [extension.Register] and provides all built-in commands: document
+// CRUD, search, tags, links, tasks, bulk operations, and administrative
+// commands. The CLI is the only compiled extension that ships with llmd.
 type CLI struct{}
 
 func (c *CLI) Name() string       { return "cli" }

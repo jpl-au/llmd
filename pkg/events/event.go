@@ -1,4 +1,13 @@
 // Package events provides shared event types for the llmd document store.
+//
+// Events are emitted after successful document mutations (writes, deletes,
+// restores, moves) and consumed by handlers like the FTS search index.
+// The Event struct is shared between the internal event bus and any
+// external subscribers.
+//
+// Event types follow a "domain.action" naming convention (e.g.
+// "document.written", "document.deleted"). The Metadata map carries
+// event-specific data such as old_path for move events.
 package events
 
 // Event represents a document store event.

@@ -9,6 +9,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// taskColumns lists all board columns in display order, one per line.
 func taskColumns(_ sdk.Context, _ []string) (sdk.Response, error) {
 	cols, err := sdk.Tasks.Columns()
 	if err != nil {
@@ -17,6 +18,8 @@ func taskColumns(_ sdk.Context, _ []string) (sdk.Response, error) {
 	return sdk.Result{Text: strings.Join(cols, "\n"), Data: cols}, nil
 }
 
+// taskAddColumn adds a new column to the board. Takes a column name as
+// a positional argument and an optional --after flag to control placement.
 func taskAddColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task column add: %w: name", sdk.ErrMissingArg)
@@ -38,6 +41,8 @@ func taskAddColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Added column %s", name)), nil
 }
 
+// taskRmColumn removes an empty column from the board. Fails if any
+// tasks still occupy the column.
 func taskRmColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task column rm: %w: name", sdk.ErrMissingArg)
@@ -50,6 +55,8 @@ func taskRmColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Removed column %s", args[0])), nil
 }
 
+// taskMvColumn reorders a column to appear after another. Requires both
+// a column name and --after flag specifying the target position.
 func taskMvColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task column mv: %w: name", sdk.ErrMissingArg)

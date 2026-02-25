@@ -66,7 +66,9 @@ var (
 	ErrMissingTitle = errors.New("title is required")
 )
 
-// Tasks provides task operations.
+// Tasks provides task CRUD, board column management, and audit logging.
+// The tasks table and board entity are created lazily on first use via
+// sync.Once, so stores that never use tasks pay no schema cost.
 type Tasks struct {
 	db       *sql.DB
 	docs     *documents.Documents
@@ -76,7 +78,9 @@ type Tasks struct {
 	err      error
 }
 
-// New creates a new Tasks instance.
+// New creates a Tasks instance with its dependencies. The tasks table
+// is not created until the first operation that requires it (Add, Read,
+// List, etc.), triggered by the ensure() call in each method.
 func New(db *sql.DB, docs *documents.Documents, ents *entities.Entities, audit *audit.Log) *Tasks {
 	return &Tasks{db: db, docs: docs, entities: ents, audit: audit}
 }
@@ -94,7 +98,11 @@ func (t *Tasks) ensure() error {
 	return t.err
 }
 
-// ensureBoard creates the default board entity if it does not exist.
+// ensureBoard creates the default board entity if one does not already
+// exist. The board is stored as an entity in the "task:board" namespace
+// with a JSON value like {"columns":["backlog","up-next",...]}. This
+// lazy creation means a fresh store only gains the board entity when
+// someone first creates a task.
 func (t *Tasks) ensureBoard(ctx context.Context, author, source string) error {
 	exists, err := t.entities.ExistsInNamespace(ctx, boardNamespace, "")
 	if err != nil {
@@ -232,13 +240,18 @@ func (t *Tasks) Read(ctx context.Context, key string) (*task.Task, error) {
 	`, key))
 }
 
-// List returns tasks, optionally filtered.
+// ListOptions filters the task listing. All zero-valued fields mean
+// "no filter" — the query returns all non-deleted tasks. Filters are
+// combined with AND.
 type ListOptions struct {
 	Status     string
 	AssignedTo string
 	Priority   int // 0 = all
 }
 
+// List returns all non-deleted tasks matching the filter criteria.
+// Results are ordered by position then creation time. When no filters
+// are set, returns every active task on the board.
 func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error) {
 	if err := t.ensure(); err != nil {
 		return nil, err
@@ -726,6 +739,10 @@ func (t *Tasks) scanDeleted(ctx context.Context, key string) (*task.Task, error)
 	`, key))
 }
 
+// scan reads a single task row from a sql.Row. It handles the nullable
+// columns (assigned_to, branch, flags, deleted_at) by scanning into
+// sql.Null types and converting to Go zero values. Returns ErrNotFound
+// when no row matches.
 func (t *Tasks) scan(row *sql.Row) (*task.Task, error) {
 	var tsk task.Task
 	var assignedTo, branch, flags sql.NullString
@@ -758,6 +775,8 @@ func (t *Tasks) scan(row *sql.Row) (*task.Task, error) {
 	return &tsk, nil
 }
 
+// scanRow reads a single task from sql.Rows (used in List iterations).
+// Same nullable handling as scan, but operates on Rows instead of Row.
 func (t *Tasks) scanRow(rows *sql.Rows) (*task.Task, error) {
 	var tsk task.Task
 	var assignedTo, branch, flags sql.NullString
@@ -805,6 +824,8 @@ func slug(title string) string {
 	return strings.TrimRight(s, "-")
 }
 
+// addFlag appends a flag to the comma-separated flags string. Returns
+// the original string unchanged if the flag is already present.
 func addFlag(flags, flag string) string {
 	if flags == "" {
 		return flag
@@ -817,6 +838,9 @@ func addFlag(flags, flag string) string {
 	return flags + "," + flag
 }
 
+// removeFlag removes a flag from the comma-separated flags string.
+// Returns the remaining flags joined by commas, or empty string if
+// no flags remain.
 func removeFlag(flags, flag string) string {
 	if flags == "" {
 		return ""
@@ -830,6 +854,8 @@ func removeFlag(flags, flag string) string {
 	return strings.Join(result, ",")
 }
 
+// nullStr converts a Go string to sql.NullString. Empty strings become
+// NULL in the database; non-empty strings become valid values.
 func nullStr(s string) sql.NullString {
 	if s == "" {
 		return sql.NullString{}
@@ -863,6 +889,8 @@ func parseColumns(value string) ([]string, error) {
 	return cols, nil
 }
 
+// formatColumns serialises the column list to the JSON format stored in
+// the board entity: {"columns":["backlog","up-next",...]}.
 func formatColumns(cols []string) string {
 	var quoted []string
 	for _, c := range cols {

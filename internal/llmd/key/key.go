@@ -1,4 +1,14 @@
-// Package key provides unique identifier generation for documents and entities.
+// Package key provides unique identifier generation for documents and
+// entities.
+//
+// Keys are 9-character base36 strings derived from millisecond timestamps
+// combined with an atomic counter. This scheme produces lexicographically
+// sortable, globally unique identifiers without coordination — no UUIDs,
+// no central sequence. The 9-char length fits comfortably in terminal
+// output and database indexes.
+//
+// The counter ensures uniqueness even when multiple keys are generated
+// within the same millisecond (e.g. during bulk imports or tests).
 package key
 
 import (

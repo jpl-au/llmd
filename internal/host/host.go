@@ -14,13 +14,22 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// Host manages plugins and command execution.
+// Host manages plugins and command execution. It is the central
+// orchestrator: it discovers plugins from both compiled extensions and
+// Yaegi dynamic sources, builds a unified command table, and dispatches
+// execution to the owning plugin. The Host also wires up the SDK domain
+// globals (sdk.Documents, sdk.Tasks, etc.) so that plugins can access
+// the store without direct dependencies.
 type Host struct {
 	store    *llmd.Store
 	commands map[string]*cmdEntry
 	plugins  []sdk.Plugin
 }
 
+// cmdEntry maps a command to its owning plugin and tracks the plugin's
+// origin. The isPlugin flag distinguishes Yaegi dynamic plugins from
+// compiled extensions — this distinction drives help output grouping
+// (core commands vs plugin commands) and the "plugins" command listing.
 type cmdEntry struct {
 	cmd      sdk.Command
 	plugin   sdk.Plugin

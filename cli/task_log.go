@@ -13,6 +13,9 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// taskLog displays the audit history for a task (or all tasks if no key
+// is given). Renders a table of events showing timestamp, actor, action,
+// and old/new values. Supports -n to limit the number of events.
 func taskLog(_ sdk.Context, args []string) (sdk.Response, error) {
 	var key string
 	limit := 0

@@ -11,6 +11,10 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// taskCmd dispatches to task subcommands. It peels off the first
+// positional argument as the subcommand name and delegates to the
+// appropriate handler. Column subcommands are nested one level deeper
+// ("task column add", "task column rm", etc.).
 func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task: %w", sdk.ErrMissingArg)
@@ -69,6 +73,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 }
 
+// taskAdd creates a new task with an optional spec body from stdin or --file.
 func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var opts sdk.TaskAddOpts
 	opts.Author = ctx.Author
@@ -146,6 +151,9 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: text, Data: t}, nil
 }
 
+// taskList renders the task board. When filtered by column (--column or
+// positional arg), shows a flat table for that column. Otherwise renders
+// the full board view with all columns grouped under headings.
 func taskList(_ sdk.Context, args []string) (sdk.Response, error) {
 	var opts sdk.TaskListOpts
 
@@ -202,6 +210,10 @@ func taskList(_ sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: text, Data: tasks}, nil
 }
 
+// taskShow displays a single task's metadata and spec body. Renders a
+// markdown document with a metadata table (ID, status, priority,
+// assignee, branch, flags, spec path) followed by the spec document
+// content if it exists.
 func taskShow(_ sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task show: %w: id", sdk.ErrMissingArg)

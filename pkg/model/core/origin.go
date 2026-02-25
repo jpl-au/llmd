@@ -1,4 +1,9 @@
 // Package core provides shared types embedded across llmd models.
+//
+// The primary type is [Origin], which tracks authorship and provenance
+// for all write operations. Origin is embedded in document, entity, tag,
+// link, and task models via struct embedding, giving every record a
+// consistent Author/Source/Message triple.
 package core
 
 // Origin tracks the origin of data: who created it and from where.

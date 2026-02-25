@@ -10,15 +10,23 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// taskAPI implements sdk.TaskStore by delegating to the internal tasks package.
+// taskAPI implements [sdk.TaskStore] by delegating to the internal tasks
+// package. It translates between SDK types (flat structs with string
+// fields) and internal types (sql.NullString, core.Origin, etc.).
 type taskAPI struct {
 	store *llmd.Store
 }
 
+// newTaskAPI creates a task API bridge wrapping the given store.
+// The returned value satisfies [sdk.TaskStore] and is assigned to the
+// sdk.Tasks global by [New].
 func newTaskAPI(store *llmd.Store) *taskAPI {
 	return &taskAPI{store: store}
 }
 
+// taskToSDK converts an internal task model to the SDK representation.
+// Nullable fields (AssignedTo, Branch, Flags) have already been scanned
+// to Go zero values by the tasks package, so the mapping is direct.
 func taskToSDK(t *task.Task) *sdk.Task {
 	return &sdk.Task{
 		Key:        t.Key,
@@ -35,6 +43,8 @@ func taskToSDK(t *task.Task) *sdk.Task {
 	}
 }
 
+// Add creates a new task with the given title and optional spec body.
+// Maps SDK options to internal AddOptions and stamps a CLI origin.
 func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Task, error) {
 	t, err := a.store.Tasks.Add(context.Background(), title, body, tasks.AddOptions{
 		Origin:     origin(opts.Author),
@@ -50,6 +60,8 @@ func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Tas
 	return taskToSDK(t), nil
 }
 
+// Read returns a single task by its key. Returns ErrNotFound if the
+// task does not exist or has been deleted.
 func (a *taskAPI) Read(key string) (*sdk.Task, error) {
 	t, err := a.store.Tasks.Read(context.Background(), key)
 	if err != nil {
@@ -58,6 +70,8 @@ func (a *taskAPI) Read(key string) (*sdk.Task, error) {
 	return taskToSDK(t), nil
 }
 
+// List returns all non-deleted tasks matching the filter criteria.
+// Results are ordered by position then creation time within each column.
 func (a *taskAPI) List(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
 	tt, err := a.store.Tasks.List(context.Background(), tasks.ListOptions{
 		Status:     opts.Status,
@@ -74,6 +88,8 @@ func (a *taskAPI) List(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
 	return out, nil
 }
 
+// Move changes a task's column. Translates the internal ErrNoSpec into
+// sdk.ErrNoSpec so callers get the sentinel error they expect.
 func (a *taskAPI) Move(key, column, author string) error {
 	err := a.store.Tasks.Move(context.Background(), key, column, author)
 	if errors.Is(err, tasks.ErrNoSpec) {
@@ -82,6 +98,8 @@ func (a *taskAPI) Move(key, column, author string) error {
 	return err
 }
 
+// Set updates task metadata. Maps SDK pointer fields directly to
+// internal SetOptions — the nil-means-no-change convention is shared.
 func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
 	return a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
 		Title:      opts.Title,
@@ -94,6 +112,8 @@ func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
 	})
 }
 
+// Delete soft-deletes a task. Returns the task as it was before
+// deletion so the caller can display confirmation with the title.
 func (a *taskAPI) Delete(key, author string) (*sdk.Task, error) {
 	t, err := a.store.Tasks.Delete(context.Background(), key, author)
 	if err != nil {
@@ -102,6 +122,8 @@ func (a *taskAPI) Delete(key, author string) (*sdk.Task, error) {
 	return taskToSDK(t), nil
 }
 
+// Restore undeletes a soft-deleted task. Returns the restored task
+// so the caller can confirm which task was recovered.
 func (a *taskAPI) Restore(key, author string) (*sdk.Task, error) {
 	t, err := a.store.Tasks.Restore(context.Background(), key, author)
 	if err != nil {
@@ -110,22 +132,30 @@ func (a *taskAPI) Restore(key, author string) (*sdk.Task, error) {
 	return taskToSDK(t), nil
 }
 
+// Columns returns the board column names in display order.
 func (a *taskAPI) Columns() ([]string, error) {
 	return a.store.Tasks.Columns(context.Background())
 }
 
+// AddColumn adds a new column to the board. When after is non-empty,
+// the column is inserted after the named column; otherwise it is appended.
 func (a *taskAPI) AddColumn(name, after, author string) error {
 	return a.store.Tasks.AddColumn(context.Background(), name, after, author)
 }
 
+// RemoveColumn removes a column from the board. Fails if the column
+// still contains tasks — they must be moved or deleted first.
 func (a *taskAPI) RemoveColumn(name, author string) error {
 	return a.store.Tasks.RemoveColumn(context.Background(), name, author)
 }
 
+// MoveColumn reorders a column to appear after the named column.
 func (a *taskAPI) MoveColumn(name, after, author string) error {
 	return a.store.Tasks.MoveColumn(context.Background(), name, after, author)
 }
 
+// Log returns audit events for a task, newest first. Converts internal
+// audit.Event structs to SDK TaskEvent structs.
 func (a *taskAPI) Log(key string, limit int) ([]sdk.TaskEvent, error) {
 	events, err := a.store.Tasks.Log(context.Background(), key, limit)
 	if err != nil {

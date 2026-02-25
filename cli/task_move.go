@@ -10,6 +10,10 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// taskMove changes a task's column. Requires two positional arguments:
+// the task key and the target column name. When the move fails due to
+// ErrNoSpec (task has no spec body), the error message includes
+// actionable instructions for writing or linking a spec.
 func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("task move: %w: id and column", sdk.ErrMissingArg)
@@ -28,6 +32,10 @@ func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Moved task %s to %s", args[0], args[1])), nil
 }
 
+// taskSet updates task metadata fields. Parses --title, --priority,
+// --assign, --position, --flag, --unflag, and --branch from the
+// argument list and builds a TaskSetOpts with non-nil pointers only
+// for the fields that were explicitly provided.
 func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task set: %w: id", sdk.ErrMissingArg)
@@ -99,6 +107,8 @@ func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Updated task %s", key)), nil
 }
 
+// taskRm soft-deletes a task. The backing document is not removed — the
+// output reminds the user to delete it separately if desired.
 func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task rm: %w: id", sdk.ErrMissingArg)
@@ -116,6 +126,8 @@ func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(text), nil
 }
 
+// taskRestore undeletes a soft-deleted task, returning it to the column
+// it was in when deleted.
 func taskRestore(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task restore: %w: id", sdk.ErrMissingArg)

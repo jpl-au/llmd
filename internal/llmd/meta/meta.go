@@ -1,4 +1,11 @@
-// Package meta provides content metadata computation.
+// Package meta provides content metadata computation for documents.
+//
+// Metadata (size in bytes, line count) is computed at write time and
+// stored as a JSON blob alongside the document version. This avoids
+// re-scanning content for listings and statistics. The computation is
+// intentionally simple — more expensive analysis (word count, readability
+// scores, etc.) can be added here later without changing the storage
+// format.
 package meta
 
 import (

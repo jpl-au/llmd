@@ -10,7 +10,10 @@ import (
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
-// Stat represents document metadata without content.
+// Stat represents document metadata without content. It mirrors the
+// Document struct but omits the Content field, making it cheaper to
+// retrieve when only metadata is needed (e.g. checking existence,
+// comparing hashes, or building listings).
 type Stat struct {
 	ID        int64
 	Key       string
@@ -69,6 +72,8 @@ func (d *Documents) Stat(ctx context.Context, value string) (*Stat, error) {
 	return nil, ErrNotFound
 }
 
+// statByKey queries the content table by the document's stable key.
+// Returns the latest version for that key regardless of soft-delete status.
 func (d *Documents) statByKey(ctx context.Context, key string) (*Stat, error) {
 	var stat Stat
 	var meta sql.NullString
@@ -97,6 +102,8 @@ func (d *Documents) statByKey(ctx context.Context, key string) (*Stat, error) {
 	return finish(&stat, message, mime, meta, deletedAt)
 }
 
+// statByPath queries the content table by document path. Returns only
+// the latest non-deleted version (unlike statByKey which includes deleted).
 func (d *Documents) statByPath(ctx context.Context, path string) (*Stat, error) {
 	var stat Stat
 	var meta sql.NullString
@@ -126,6 +133,10 @@ func (d *Documents) statByPath(ctx context.Context, path string) (*Stat, error) 
 	return finish(&stat, message, mime, meta, deletedAt)
 }
 
+// finish populates nullable Stat fields from their sql.Null wrappers
+// and returns the appropriate error. If the document is soft-deleted
+// (deletedAt is valid), finish returns the Stat alongside ErrDeleted —
+// callers can still inspect the metadata.
 func finish(stat *Stat, message, mime, meta sql.NullString, deletedAt sql.NullInt64) (*Stat, error) {
 	if message.Valid {
 		stat.Message = message.String

@@ -25,12 +25,22 @@ type ImportError struct {
 	Err  error
 }
 
-// importStatus indicates the result of importing a single file.
+// importStatus indicates the outcome of importing a single file. Each
+// file is classified after comparing its content hash to the existing
+// store document (if any). The status determines which result bucket
+// (Created, Updated, Skipped) the path lands in.
 type importStatus int
 
 const (
+	// statusCreated means the document did not exist and was newly added.
 	statusCreated importStatus = iota
+
+	// statusUpdated means the document existed but had different content,
+	// so a new version was written.
 	statusUpdated
+
+	// statusSkipped means the document existed with identical content
+	// (matching XXH3 hash), so no write was needed.
 	statusSkipped
 )
 
@@ -100,6 +110,8 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 	return result, nil
 }
 
+// recordStatus appends a path to the appropriate result bucket based
+// on the import outcome.
 func (b *Bulk) recordStatus(result *ImportResult, path string, status importStatus) {
 	switch status {
 	case statusCreated:
@@ -111,6 +123,11 @@ func (b *Bulk) recordStatus(result *ImportResult, path string, status importStat
 	}
 }
 
+// importFile imports a single file. It reads the file, computes its
+// store path (based on relative position, prefix, and flatten settings),
+// compares the XXH3 hash to any existing document, and writes a new
+// version if the content has changed. Returns the store path, the
+// import status, and any error.
 func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOptions) (string, importStatus, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {

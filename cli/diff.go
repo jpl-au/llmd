@@ -18,6 +18,7 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// diffCmd compares document versions and displays a unified diff.
 func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var paths []string
 	var contextLines int

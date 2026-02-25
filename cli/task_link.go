@@ -9,6 +9,10 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// taskLink creates a link from a task's spec document to another
+// document in the store. Requires two arguments: the task key and the
+// target document path. The link is created from the task's spec path,
+// not from the task key itself.
 func taskLink(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("task link: %w: id and path", sdk.ErrMissingArg)
@@ -27,6 +31,8 @@ func taskLink(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Linked task %s to %s", args[0], args[1])), nil
 }
 
+// taskLinks lists outgoing links from a task's spec document. Shows
+// each linked document path with its label (if any).
 func taskLinks(_ sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task links: %w: id", sdk.ErrMissingArg)

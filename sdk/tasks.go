@@ -1,7 +1,16 @@
 package sdk
 
-// TaskStore is the task management interface. It covers creating,
-// reading, updating, and organising tasks on the board.
+// TaskStore is the task management interface for the board.
+//
+// Tasks live in columns (like a kanban board). Each task has a title,
+// optional spec document, priority, flags, and assignee. Tasks move
+// between columns via [TaskStore.Move], and the column set itself is
+// customisable via AddColumn, RemoveColumn, and MoveColumn.
+//
+// A task's spec is a document in the store linked by path. Tasks in
+// the backlog column may have no spec; moving out of backlog requires
+// one (enforced by Move). The spec can be created inline during Add
+// or linked to an existing document via [TaskAddOpts.Path].
 type TaskStore interface {
 	// Add creates a new task with the given title and optional body.
 	Add(title string, body []byte, opts TaskAddOpts) (*Task, error)
@@ -44,54 +53,159 @@ type TaskStore interface {
 }
 
 // Task represents a task on the board.
+//
+// Tasks are the SDK's view of a board item. Unlike documents, tasks are
+// mutable — status, priority, position, assignee, branch, and flags can
+// all be updated in place. Every mutation is recorded in the audit log
+// (see [TaskStore.Log]).
 type Task struct {
-	Key        string
-	Title      string
-	Status     string
-	Priority   int
-	Position   int
+	// Key is the stable 9-character base36 identifier for this task.
+	// Unique across all tasks and never changes.
+	Key string
+
+	// Title is the human-readable summary of the task.
+	// Displayed in board views and tables.
+	Title string
+
+	// Status is the column name this task belongs to (e.g. "backlog",
+	// "in-progress", "done"). Controlled by [TaskStore.Move].
+	Status string
+
+	// Priority is a numeric priority level. Higher values indicate
+	// higher importance. Zero means no priority set.
+	Priority int
+
+	// Position is the sort order within the task's column. Lower
+	// values appear first. Managed automatically by Add and Move;
+	// can be overridden via [TaskSetOpts.Position].
+	Position int
+
+	// AssignedTo is the person responsible for this task.
+	// Empty string means unassigned.
 	AssignedTo string
-	Branch     string
-	Flags      string
-	Path       string
-	Author     string
-	CreatedAt  int64
+
+	// Branch is the git branch associated with this task.
+	// Set by "task start" or via [TaskSetOpts.Branch]. Used by
+	// "task diff" and "task files" to show git changes.
+	Branch string
+
+	// Flags is a comma-separated set of flags (e.g. "blocked",
+	// "hold", "blocked,hold"). Flags are free-form strings managed
+	// via [TaskSetOpts.Flag] and [TaskSetOpts.Unflag].
+	Flags string
+
+	// Path is the store document path for this task's spec body.
+	// Points to a document in the content table. May reference a
+	// document that has not yet been written (backlog tasks).
+	Path string
+
+	// Author is the user who created this task.
+	Author string
+
+	// CreatedAt is the Unix timestamp (milliseconds) when this task
+	// was created.
+	CreatedAt int64
 }
 
 // TaskAddOpts configures a task add operation.
+//
+// All fields are optional. When Status is empty, the task is placed in
+// "backlog". When Path is set, the task links to an existing store
+// document instead of creating a new one. Author is required for all
+// write operations.
 type TaskAddOpts struct {
-	Status     string
-	Priority   int
+	// Status is the initial column. Defaults to "backlog".
+	Status string
+
+	// Priority sets the task priority. Zero means no priority.
+	Priority int
+
+	// AssignedTo sets the initial assignee.
 	AssignedTo string
-	Branch     string
-	Path       string // Existing store document to use as spec
-	Author     string
+
+	// Branch associates a git branch with the task at creation time.
+	Branch string
+
+	// Path links the task to an existing store document as its spec.
+	// Mutually exclusive with providing a body to Add.
+	Path string
+
+	// Author identifies who is creating this task. Required.
+	Author string
 }
 
-// TaskListOpts configures a task list operation.
+// TaskListOpts filters the task list. All fields are optional; when all
+// are zero-valued, all non-deleted tasks are returned. Filters are
+// combined with AND — setting both Status and AssignedTo returns only
+// tasks matching both criteria.
 type TaskListOpts struct {
-	Status     string
+	// Status filters to tasks in this column (e.g. "in-progress").
+	Status string
+
+	// AssignedTo filters to tasks assigned to this person.
 	AssignedTo string
-	Priority   int
+
+	// Priority filters to tasks with this exact priority.
+	// Zero means no filter (returns all priorities).
+	Priority int
 }
 
-// TaskSetOpts configures which task fields to update.
+// TaskSetOpts configures which task fields to update. Pointer fields
+// use nil to mean "don't change" and a non-nil value to set. This
+// allows clearing a field by passing a pointer to the zero value
+// (e.g. &"" to unassign). Each non-nil field generates its own audit
+// log entry showing the old and new values.
 type TaskSetOpts struct {
-	Title      *string
-	Priority   *int
-	Position   *int
+	// Title replaces the task title.
+	Title *string
+
+	// Priority sets the numeric priority.
+	Priority *int
+
+	// Position moves the task within its column. Other tasks in the
+	// column are renumbered to accommodate the new position.
+	Position *int
+
+	// AssignedTo changes the assignee. Pointer to empty string unassigns.
 	AssignedTo *string
-	Branch     *string
-	Flag       string
-	Unflag     string
+
+	// Branch changes the associated git branch.
+	// Pointer to empty string removes the branch association.
+	Branch *string
+
+	// Flag adds a flag to the task's flag set (e.g. "blocked", "hold").
+	// No-op if the flag is already present.
+	Flag string
+
+	// Unflag removes a flag from the task's flag set.
+	// No-op if the flag is not present.
+	Unflag string
 }
 
-// TaskEvent is a single audit log entry for a task.
+// TaskEvent is a single audit log entry for a task. Every mutation to a
+// task — creation, movement, field edits, flagging, deletion, and
+// restoration — writes a TaskEvent. Events are returned newest-first
+// by [TaskStore.Log].
 type TaskEvent struct {
+	// Timestamp is the Unix timestamp (milliseconds) when the event occurred.
 	Timestamp int64
-	Subject   string // task key
-	Actor     string
-	Action    string
-	OldValue  string
-	NewValue  string
+
+	// Subject is the task key this event applies to.
+	Subject string
+
+	// Actor is the user who performed the action.
+	Actor string
+
+	// Action describes what changed. Standard actions: "created",
+	// "moved", "edited:title", "edited:priority", "edited:assigned_to",
+	// "edited:branch", "edited:position", "flagged", "unflagged",
+	// "deleted", "restored".
+	Action string
+
+	// OldValue is the previous value before the change. Empty for
+	// creation events.
+	OldValue string
+
+	// NewValue is the value after the change. Empty for deletion events.
+	NewValue string
 }
