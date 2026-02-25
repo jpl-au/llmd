@@ -1,10 +1,13 @@
-// serve.go is an alias for the mcp command. The README documents "llmd serve"
-// as the MCP server entry point.
+// serve.go will start an HTTP API server. Not yet implemented.
 
 package cli
 
-import "github.com/jpl-au/llmd/sdk"
+import (
+	"fmt"
 
-func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
-	return mcpCmd(ctx, args)
+	"github.com/jpl-au/llmd/sdk"
+)
+
+func serve(_ sdk.Context, _ []string) (sdk.Response, error) {
+	return nil, fmt.Errorf("serve: HTTP API server is not yet implemented — use 'llmd mcp' for the MCP stdio server")
 }

@@ -150,7 +150,7 @@ Subcommands (passed as first arg):
 		{Name: "init", Desc: "Initialise a new store", Usage: "init"},
 		{Name: "vacuum", Desc: "Clean up deleted documents", Usage: "vacuum"},
 		{Name: "mcp", Desc: "Start MCP stdio server", Usage: "mcp"},
-		{Name: "serve", Desc: "Start MCP stdio server", Usage: "serve"},
+		{Name: "serve", Desc: "Start HTTP API server (coming soon)", Usage: "serve"},
 		{Name: "mirror", Desc: "Mirror documents to filesystem", Usage: "mirror [prefix]"},
 		{Name: "plugins", Desc: "List loaded plugins", Usage: "plugins"},
 		{Name: "guide", Desc: "Built-in documentation", Usage: "guide [--raw] [topic]", MCP: true, Flags: []sdk.Flag{
