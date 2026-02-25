@@ -125,24 +125,7 @@ func open(path string) (*Store, error) {
 		return nil, fmt.Errorf("migrating schema: %w", err)
 	}
 
-	// Event bus: connects document changes to cross-cutting concerns.
-	// The FTS handler keeps the full-text search index in sync with
-	// document writes and deletes.
-	s.bus = events.New()
-
-	ftsHandler := search.NewFTSHandler(db)
-	s.bus.Subscribe(ftsHandler)
-
-	s.Documents = documents.New(db, s.bus)
-	s.History = history.New(db, s.Documents)
-	s.Search = search.New(db)
-	s.Bulk = bulk.New(s.Documents)
-	s.Tags = tags.New(db, s.Documents)
-	s.Links = links.New(db, s.Documents)
-	s.Entities = entities.New(db)
-	s.Audit = audit.New(db)
-	s.Tasks = tasks.New(db, s.Documents, s.Entities, s.Audit)
-
+	s.wire()
 	return s, nil
 }
 
@@ -163,25 +146,27 @@ func OpenMemory() (*Store, error) {
 		return nil, fmt.Errorf("migrating schema: %w", err)
 	}
 
-	// Create event bus
+	s.wire()
+	return s, nil
+}
+
+// wire initialises the event bus and all sub-package managers. Called
+// once after migration by both open() and OpenMemory().
+func (s *Store) wire() {
 	s.bus = events.New()
 
-	// Create FTS handler and subscribe
-	ftsHandler := search.NewFTSHandler(db)
+	ftsHandler := search.NewFTSHandler(s.db)
 	s.bus.Subscribe(ftsHandler)
 
-	// Initialise sub-components
-	s.Documents = documents.New(db, s.bus)
-	s.History = history.New(db, s.Documents)
-	s.Search = search.New(db)
+	s.Documents = documents.New(s.db, s.bus)
+	s.History = history.New(s.db, s.Documents)
+	s.Search = search.New(s.db)
 	s.Bulk = bulk.New(s.Documents)
-	s.Tags = tags.New(db, s.Documents)
-	s.Links = links.New(db, s.Documents)
-	s.Entities = entities.New(db)
-	s.Audit = audit.New(db)
-	s.Tasks = tasks.New(db, s.Documents, s.Entities, s.Audit)
-
-	return s, nil
+	s.Tags = tags.New(s.db, s.Documents)
+	s.Links = links.New(s.db, s.Documents)
+	s.Entities = entities.New(s.db)
+	s.Audit = audit.New(s.db)
+	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit)
 }
 
 // Close closes the store. For on-disk stores, it first checkpoints the

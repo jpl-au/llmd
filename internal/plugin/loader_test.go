@@ -155,6 +155,9 @@ func (s *stubDocs) Import(string, sdk.ImportOpts) (*sdk.ImportResult, error) {
 func (s *stubDocs) Export(string, string, sdk.ExportOpts) (*sdk.ExportResult, error) {
 	return &sdk.ExportResult{}, nil
 }
+func (s *stubDocs) Mirror(string, string) (*sdk.MirrorResult, error) {
+	return &sdk.MirrorResult{}, nil
+}
 
 // stubTasks is a minimal TaskStore for testing Yaegi access.
 type stubTasks struct {
