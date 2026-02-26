@@ -8,7 +8,7 @@ import (
 
 func BenchmarkNewHost(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = New(nil)
+		_ = New()
 	}
 }
 
@@ -21,7 +21,7 @@ func BenchmarkNewHostWithStore(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = New(store)
+		_ = setup(store)
 	}
 }
 
@@ -32,7 +32,7 @@ func BenchmarkExecLS(b *testing.B) {
 	}
 	defer store.Close()
 
-	h := New(store)
+	h := setup(store)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -47,7 +47,7 @@ func BenchmarkExecCat(b *testing.B) {
 	}
 	defer store.Close()
 
-	h := New(store)
+	h := setup(store)
 
 	// Create a test document
 	_, _ = h.Exec("write", []string{"test.md"}, "bench", []byte("# Test"), "")
@@ -65,7 +65,7 @@ func BenchmarkExecWrite(b *testing.B) {
 	}
 	defer store.Close()
 
-	h := New(store)
+	h := setup(store)
 	content := []byte("# Benchmark Test\n\nThis is test content.")
 
 	b.ResetTimer()

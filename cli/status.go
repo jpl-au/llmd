@@ -53,8 +53,8 @@ func status(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	var activity []sdk.Activity
-	if sdk.RecentActivity != nil {
-		activity, _ = sdk.RecentActivity(limit)
+	if sdk.Activities != nil {
+		activity, _ = sdk.Activities.Recent(limit)
 	}
 
 	data := map[string]any{

@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
@@ -22,6 +23,27 @@ type taskAPI struct {
 // sdk.Tasks global by [New].
 func newTaskAPI(store *llmd.Store) *taskAPI {
 	return &taskAPI{store: store}
+}
+
+// taskErr translates internal task errors to SDK sentinel errors.
+// ErrNotFound, ErrMissingTitle, ErrInvalidCol, and ErrNoSpec are mapped;
+// all other errors pass through unchanged.
+func taskErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.Is(err, tasks.ErrNotFound):
+		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+	case errors.Is(err, tasks.ErrNoSpec):
+		return fmt.Errorf("%w: %v", sdk.ErrNoSpec, err)
+	case errors.Is(err, tasks.ErrMissingTitle):
+		return fmt.Errorf("%w: %v", sdk.ErrMissingArg, err)
+	case errors.Is(err, tasks.ErrInvalidCol):
+		return fmt.Errorf("%w: %v", sdk.ErrInvalidArg, err)
+	default:
+		return err
+	}
 }
 
 // taskToSDK converts an internal task model to the SDK representation.
@@ -55,17 +77,17 @@ func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Tas
 		Path:       opts.Path,
 	})
 	if err != nil {
-		return nil, err
+		return nil, taskErr(err)
 	}
 	return taskToSDK(t), nil
 }
 
-// Read returns a single task by its key. Returns ErrNotFound if the
+// Read returns a single task by its key. Returns sdk.ErrNotFound if the
 // task does not exist or has been deleted.
 func (a *taskAPI) Read(key string) (*sdk.Task, error) {
 	t, err := a.store.Tasks.Read(context.Background(), key)
 	if err != nil {
-		return nil, err
+		return nil, taskErr(err)
 	}
 	return taskToSDK(t), nil
 }
@@ -88,20 +110,16 @@ func (a *taskAPI) List(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
 	return out, nil
 }
 
-// Move changes a task's column. Translates the internal ErrNoSpec into
-// sdk.ErrNoSpec so callers get the sentinel error they expect.
+// Move changes a task's column. Translates internal task errors to SDK
+// sentinels (ErrNotFound, ErrNoSpec, ErrInvalidArg).
 func (a *taskAPI) Move(key, column, author string) error {
-	err := a.store.Tasks.Move(context.Background(), key, column, author)
-	if errors.Is(err, tasks.ErrNoSpec) {
-		return sdk.ErrNoSpec
-	}
-	return err
+	return taskErr(a.store.Tasks.Move(context.Background(), key, column, author))
 }
 
 // Set updates task metadata. Maps SDK pointer fields directly to
 // internal SetOptions — the nil-means-no-change convention is shared.
 func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
-	return a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
+	return taskErr(a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
 		Title:      opts.Title,
 		Priority:   opts.Priority,
 		Position:   opts.Position,
@@ -109,7 +127,7 @@ func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
 		Branch:     opts.Branch,
 		Flag:       opts.Flag,
 		Unflag:     opts.Unflag,
-	})
+	}))
 }
 
 // Delete soft-deletes a task. Returns the task as it was before
@@ -117,7 +135,7 @@ func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
 func (a *taskAPI) Delete(key, author string) (*sdk.Task, error) {
 	t, err := a.store.Tasks.Delete(context.Background(), key, author)
 	if err != nil {
-		return nil, err
+		return nil, taskErr(err)
 	}
 	return taskToSDK(t), nil
 }
@@ -127,7 +145,7 @@ func (a *taskAPI) Delete(key, author string) (*sdk.Task, error) {
 func (a *taskAPI) Restore(key, author string) (*sdk.Task, error) {
 	t, err := a.store.Tasks.Restore(context.Background(), key, author)
 	if err != nil {
-		return nil, err
+		return nil, taskErr(err)
 	}
 	return taskToSDK(t), nil
 }

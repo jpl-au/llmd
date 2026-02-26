@@ -194,6 +194,13 @@ func (s *Store) Path() string {
 	return s.path
 }
 
+// DB returns the underlying database connection. Used by the host to
+// create extension contexts for event handlers and initialisable
+// extensions that need custom tables.
+func (s *Store) DB() *sql.DB {
+	return s.db
+}
+
 // Bus returns the event bus for subscribing to document events.
 func (s *Store) Bus() *events.Bus {
 	return s.bus

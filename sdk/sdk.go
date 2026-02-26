@@ -20,6 +20,9 @@ var (
 	// command table.
 	ErrUnknownCmd = errors.New("unknown command")
 
+	// ErrNotFound means the requested resource does not exist.
+	ErrNotFound = errors.New("not found")
+
 	// ErrNoSpec means a task has no backing document.
 	ErrNoSpec = errors.New("task has no spec")
 )
@@ -28,10 +31,11 @@ var (
 // unprefixed methods. Set by the host before command execution.
 // Nil when the host has no store (e.g. discovery-only mode).
 var (
-	Documents DocumentStore
-	Tasks     TaskStore
-	Links     LinkStore
-	Tags      TagStore
+	Documents  DocumentStore
+	Tasks      TaskStore
+	Links      LinkStore
+	Tags       TagStore
+	Activities ActivityStore
 )
 
 // Plugin is the interface that command providers implement. The host
@@ -122,6 +126,11 @@ type Result struct {
 
 func (Result) Response() {}
 
+// Init creates a new store at the given path (or the default path if
+// empty). Returns the path of the created store. Set by the host at
+// startup.
+var Init func(dbPath string) (string, error)
+
 // Dispatch executes a command by name through the host. Set by the host
 // at startup. Used by commands that need to invoke other commands (e.g.
 // MCP server dispatching tool calls).
@@ -132,19 +141,3 @@ var AllCommands func() map[string]*Command
 
 // PluginNames returns the names of loaded yaegi plugins. Set by the host.
 var PluginNames func() []string
-
-// Activity represents a single event in the unified activity feed.
-// Events come from documents (writes, deletes), entities (tags, links),
-// and tasks (board changes).
-type Activity struct {
-	Type      string // "document", "tag", "link", "task"
-	Action    string // "written", "deleted", "tagged", "untagged", "linked", "unlinked", "created", "moved", etc.
-	Subject   string // document path or task key
-	Author    string
-	Detail    string // version message, tag name, link target, old→new
-	Timestamp int64  // Unix milliseconds
-}
-
-// RecentActivity returns the most recent events across all domains.
-// Set by the host at startup.
-var RecentActivity func(limit int) ([]Activity, error)

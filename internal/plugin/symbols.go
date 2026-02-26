@@ -29,10 +29,11 @@ func symbols() interp.Exports {
 	return interp.Exports{
 		"github.com/jpl-au/llmd/sdk/sdk": {
 			// Domain store globals
-			"Documents": reflect.ValueOf(&sdk.Documents).Elem(),
-			"Tasks":     reflect.ValueOf(&sdk.Tasks).Elem(),
-			"Links":     reflect.ValueOf(&sdk.Links).Elem(),
-			"Tags":      reflect.ValueOf(&sdk.Tags).Elem(),
+			"Documents":  reflect.ValueOf(&sdk.Documents).Elem(),
+			"Tasks":      reflect.ValueOf(&sdk.Tasks).Elem(),
+			"Links":      reflect.ValueOf(&sdk.Links).Elem(),
+			"Tags":       reflect.ValueOf(&sdk.Tags).Elem(),
+			"Activities": reflect.ValueOf(&sdk.Activities).Elem(),
 
 			// Constants
 			"GrepFull":     reflect.ValueOf(sdk.GrepFull),
@@ -45,10 +46,11 @@ func symbols() interp.Exports {
 			"ErrMissingArg": reflect.ValueOf(&sdk.ErrMissingArg).Elem(),
 			"ErrInvalidArg": reflect.ValueOf(&sdk.ErrInvalidArg).Elem(),
 			"ErrUnknownCmd": reflect.ValueOf(&sdk.ErrUnknownCmd).Elem(),
+			"ErrNotFound":   reflect.ValueOf(&sdk.ErrNotFound).Elem(),
 			"ErrNoSpec":     reflect.ValueOf(&sdk.ErrNoSpec).Elem(),
 
 			// Function globals
-			"RecentActivity": reflect.ValueOf(&sdk.RecentActivity).Elem(),
+			"Init": reflect.ValueOf(&sdk.Init).Elem(),
 
 			// Type definitions
 			"Activity":     reflect.ValueOf((*sdk.Activity)(nil)),
@@ -85,12 +87,14 @@ func symbols() interp.Exports {
 			"TaskStore":     reflect.ValueOf((*sdk.TaskStore)(nil)),
 			"LinkStore":     reflect.ValueOf((*sdk.LinkStore)(nil)),
 			"TagStore":      reflect.ValueOf((*sdk.TagStore)(nil)),
+			"ActivityStore": reflect.ValueOf((*sdk.ActivityStore)(nil)),
 
 			// Interface wrappers
 			"_DocumentStore": reflect.ValueOf((*_sdk_DocumentStore)(nil)),
 			"_TaskStore":     reflect.ValueOf((*_sdk_TaskStore)(nil)),
 			"_LinkStore":     reflect.ValueOf((*_sdk_LinkStore)(nil)),
 			"_TagStore":      reflect.ValueOf((*_sdk_TagStore)(nil)),
+			"_ActivityStore": reflect.ValueOf((*_sdk_ActivityStore)(nil)),
 			"_Plugin":        reflect.ValueOf((*_sdk_Plugin)(nil)),
 			"_Response":      reflect.ValueOf((*_sdk_Response)(nil)),
 		},
@@ -144,6 +148,7 @@ type _sdk_DocumentStore struct {
 	WVacuum  func() (sdk.VacuumResult, error)
 	WImport  func(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error)
 	WExport  func(prefix string, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error)
+	WMirror  func(prefix string, dir string) (*sdk.MirrorResult, error)
 }
 
 func (W _sdk_DocumentStore) Read(path string, version int) ([]byte, error) {
@@ -193,6 +198,9 @@ func (W _sdk_DocumentStore) Import(dir string, opts sdk.ImportOpts) (*sdk.Import
 }
 func (W _sdk_DocumentStore) Export(prefix string, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error) {
 	return W.WExport(prefix, dir, opts)
+}
+func (W _sdk_DocumentStore) Mirror(prefix string, dir string) (*sdk.MirrorResult, error) {
+	return W.WMirror(prefix, dir)
 }
 
 // _sdk_TaskStore is an interface wrapper for TaskStore type
@@ -291,4 +299,14 @@ func (W _sdk_TagStore) All() ([]sdk.TagInfo, error) {
 }
 func (W _sdk_TagStore) Find(name string) ([]string, error) {
 	return W.WFind(name)
+}
+
+// _sdk_ActivityStore is an interface wrapper for ActivityStore type
+type _sdk_ActivityStore struct {
+	IValue  any
+	WRecent func(limit int) ([]sdk.Activity, error)
+}
+
+func (W _sdk_ActivityStore) Recent(limit int) ([]sdk.Activity, error) {
+	return W.WRecent(limit)
 }

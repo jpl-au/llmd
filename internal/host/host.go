@@ -4,7 +4,6 @@
 package host
 
 import (
-	"context"
 	"fmt"
 	"log"
 
@@ -36,17 +35,44 @@ type cmdEntry struct {
 	isPlugin bool // true for yaegi plugins, false for extensions
 }
 
-// New creates a Host, loading all available plugins. When store is nil,
-// the Host can still enumerate commands (for help/discovery) but cannot
-// execute them — the SDK domain vars remain nil. When store is non-nil,
-// New sets sdk.Documents, sdk.Tasks, sdk.Links, and sdk.Tags so plugins
-// can access the store.
+// New creates a Host without a store. The Host can enumerate commands
+// (for help/discovery) but cannot execute store operations — the SDK
+// domain globals remain nil.
+func New() *Host {
+	return setup(nil)
+}
+
+// Open creates a Host backed by a store at the given path (or the
+// default path if empty). The caller must defer Close() to release
+// the underlying database connection.
+func Open(dbPath string) (*Host, error) {
+	store, err := llmd.Open(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return setup(store), nil
+}
+
+// Close closes the underlying store. Safe to call on a storeless host.
+func (h *Host) Close() error {
+	if h.store != nil {
+		return h.store.Close()
+	}
+	return nil
+}
+
+// setup wires up the SDK globals, loads plugins, and configures the
+// command table. Called by both New() and Open().
+//
+// When store is non-nil, it sets sdk.Documents, sdk.Tasks, sdk.Links,
+// sdk.Tags, and sdk.Activities so plugins can access the store. It also
+// bridges internal bus events to extension EventHandlers.
 //
 // Plugin loading: compiled extensions (registered via init()) are loaded
 // first, then Yaegi dynamic plugins from user directories. Yaegi load
 // errors are logged but don't prevent startup — a broken user plugin
 // should not take down the entire CLI.
-func New(store *llmd.Store) *Host {
+func setup(store *llmd.Store) *Host {
 	h := &Host{
 		store:    store,
 		commands: make(map[string]*cmdEntry),
@@ -58,29 +84,27 @@ func New(store *llmd.Store) *Host {
 		sdk.Tasks = newTaskAPI(store)
 		sdk.Links = newLinkAPI(store)
 		sdk.Tags = newTagAPI(store)
-		sdk.RecentActivity = func(limit int) ([]sdk.Activity, error) {
-			events, err := store.RecentActivity(context.Background(), limit)
-			if err != nil {
-				return nil, err
-			}
-			out := make([]sdk.Activity, len(events))
-			for i, e := range events {
-				out[i] = sdk.Activity{
-					Type:      e.Type,
-					Action:    e.Action,
-					Subject:   e.Subject,
-					Author:    e.Author,
-					Detail:    e.Detail,
-					Timestamp: e.Timestamp,
-				}
-			}
-			return out, nil
-		}
+		sdk.Activities = newActivityAPI(store)
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
 	for _, ext := range extension.All() {
 		h.addPlugin(ext.Plugin(), false)
+	}
+
+	// Wire extension event handlers to the internal bus so extensions
+	// can react to document changes.
+	if store != nil {
+		var handlers []extension.EventHandler
+		for _, ext := range extension.All() {
+			if eh, ok := ext.(extension.EventHandler); ok {
+				handlers = append(handlers, eh)
+			}
+		}
+		if len(handlers) > 0 {
+			ctx := extension.NewContext(store, store.DB(), nil)
+			store.Bus().Subscribe(&eventBridge{handlers: handlers, ctx: ctx})
+		}
 	}
 
 	// Dynamic plugins from .llmd/plugins/ and ~/.llmd/plugins/.
@@ -95,6 +119,15 @@ func New(store *llmd.Store) *Host {
 	}
 
 	// Set sdk function vars so commands can discover and dispatch.
+	sdk.Init = func(dbPath string) (string, error) {
+		store, err := llmd.Init(dbPath)
+		if err != nil {
+			return "", err
+		}
+		path := store.Path()
+		store.Close()
+		return path, nil
+	}
 	sdk.Dispatch = h.Exec
 	sdk.AllCommands = h.Commands
 	sdk.PluginNames = h.pluginNames

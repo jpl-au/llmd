@@ -14,16 +14,16 @@
 //
 // # Creating a Host
 //
-// Create a host with a store for full functionality:
+// Open a host with a store for full functionality:
 //
-//	store, _ := llmd.Open("")
-//	h := host.New(store)
+//	h, _ := host.Open("")
+//	defer h.Close()
 //
 //	result, err := h.Exec("ls", nil, "", nil, "")
 //
 // Or without a store for discovery (help text, command listing):
 //
-//	h := host.New(nil)
+//	h := host.New()
 //	for name, cmd := range h.Commands() {
 //	    fmt.Printf("%s: %s\n", name, cmd.Desc)
 //	}

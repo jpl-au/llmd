@@ -18,7 +18,6 @@ import (
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/host"
-	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -67,7 +66,7 @@ func run(args []string) int {
 	// No command — show help. We create a host without a store just
 	// for command discovery (help/plugins listing).
 	if cmd == "" {
-		printHelp(host.New(nil))
+		printHelp(host.New())
 		return 0
 	}
 
@@ -81,20 +80,20 @@ func run(args []string) int {
 		}
 	}
 
-	var store *llmd.Store
+	var h *host.Host
 	if needsStore {
 		var err error
-		store, err = llmd.Open(dbPath)
+		h, err = host.Open(dbPath)
 		if err != nil {
 			if dbPath == "" {
 				return errorf(jsonOut, "%v (run 'llmd init' first)", err)
 			}
 			return errorf(jsonOut, "%v", err)
 		}
-		defer store.Close()
+		defer h.Close()
+	} else {
+		h = host.New()
 	}
-
-	h := host.New(store)
 
 	// Validate command exists.
 	cmds := h.Commands()

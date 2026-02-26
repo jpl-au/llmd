@@ -19,7 +19,7 @@ func testHost(t *testing.T) (*Host, *llmd.Store) {
 		t.Fatalf("OpenMemory: %v", err)
 	}
 	t.Cleanup(func() { store.Close() })
-	h := New(store)
+	h := setup(store)
 	return h, store
 }
 

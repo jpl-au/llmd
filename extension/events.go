@@ -19,6 +19,7 @@ const (
 	EventDocumentRestore EventType = "document:restore"
 	EventTagAdd          EventType = "tag:add"
 	EventTagRemove       EventType = "tag:remove"
+	EventDocumentMove    EventType = "document:move"
 	EventLinkCreate      EventType = "link:create"
 	EventLinkRemove      EventType = "link:remove"
 )
@@ -60,6 +61,16 @@ type DocumentRestoreEvent struct {
 
 func (e DocumentRestoreEvent) EventType() EventType { return EventDocumentRestore }
 func (e DocumentRestoreEvent) EventPath() string    { return e.Path }
+
+// DocumentMoveEvent is fired after a document is moved to a new path.
+type DocumentMoveEvent struct {
+	Path    string
+	OldPath string
+	Version int
+}
+
+func (e DocumentMoveEvent) EventType() EventType { return EventDocumentMove }
+func (e DocumentMoveEvent) EventPath() string    { return e.Path }
 
 // TagEvent is fired after a tag is added or removed.
 type TagEvent struct {

@@ -35,10 +35,10 @@ guide/                      User-facing command guides (markdown)
 main.go
   ↓ parse global flags (--json, --help, --db)
   ↓ check extension.Storeless — skip store for init, version, config
-  ↓ llmd.Open(path) or llmd.Init(path) if store needed
-  ↓ host.New(store)
-  │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags
+  ↓ host.Open(dbPath) or host.New() depending on needsStore
+  │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags, sdk.Activities
   │   ├─ load compiled extensions via extension.All()
+  │   ├─ wire extension EventHandlers to internal bus
   │   └─ load Yaegi plugins from .llmd/plugins/ and ~/.llmd/plugins/
   ↓ host.Exec(cmd, args, author, stdin, dbPath)
   ↓ plugin.Exec(ctx, cmd, args) → sdk.Response
@@ -59,6 +59,18 @@ Four focused interfaces replace the old monolithic `Store`:
 Each bridge type in `internal/host/` translates SDK flat arguments into
 internal option structs and maps internal results back to SDK types. All
 mutating operations stamp a `core.Origin{Source: "cli"}` for audit tracking.
+
+Bridge types also translate internal errors to SDK sentinels via `docErr()`
+and `taskErr()` helpers. This prevents internal error types from leaking
+through the SDK boundary:
+
+| Internal error | SDK sentinel |
+|---------------|-------------|
+| `documents.ErrNotFound` | `sdk.ErrNotFound` |
+| `tasks.ErrNotFound` | `sdk.ErrNotFound` |
+| `tasks.ErrNoSpec` | `sdk.ErrNoSpec` |
+| `tasks.ErrMissingTitle` | `sdk.ErrMissingArg` |
+| `tasks.ErrInvalidCol` | `sdk.ErrInvalidArg` |
 
 Plugins call these through globals:
 
@@ -109,9 +121,10 @@ Three separate event mechanisms serve different layers:
    `document.moved`. Consumed by the internal bus.
 
 3. **Extension events** (`extension/events.go`) — fire-and-forget notifications
-   for extensions. Seven event types: document write/delete/restore, tag
+   for extensions. Eight event types: document write/delete/restore/move, tag
    add/remove, link create/remove. Extensions implement `EventHandler` to
-   observe. Extensions cannot veto operations.
+   observe. The host bridges internal bus events to extension handlers via
+   `internal/host/events.go`. Extensions cannot veto operations.
 
 ## Key Generation
 
@@ -151,10 +164,11 @@ Diff colour styles (`diffAdded`, `diffRemoved`, `diffHunk`, `diffHeader`) live
 in `cli/styles.go` alongside table styles. View-specific styles are local to
 each command file.
 
-The `status` command uses a unified activity feed (`sdk.RecentActivity`) that
-queries documents, entities (tags/links), and task audit events in parallel,
-then merges by timestamp. The feed is implemented in `internal/llmd/llmd.go`
-(`Store.RecentActivity`) and wired through `internal/host/host.go`.
+The `status` command uses a unified activity feed (`sdk.Activities.Recent()`)
+that queries documents, entities (tags/links), and task audit events in parallel,
+then merges by timestamp. The feed is defined as `sdk.ActivityStore` (in
+`sdk/activity.go`), implemented in `internal/llmd/activity.go`, bridged through
+`internal/host/api.go` (`activityAPI`), and wired in `internal/host/host.go`.
 
 Task audit actions use past tense: `"created"`, `"moved"`, `"deleted"`,
 `"restored"`, `"edited:*"`, `"flagged"`, `"unflagged"`.
