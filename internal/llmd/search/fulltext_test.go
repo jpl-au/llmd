@@ -11,9 +11,15 @@ func TestFullText(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/auth", "authentication and authorization", testWriteOpts())
-	s.Documents.Write(ctx, "docs/api", "API endpoints for users", testWriteOpts())
-	s.Documents.Write(ctx, "docs/errors", "error handling and logging", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/auth", "authentication and authorization", testWriteOpts()); err != nil {
+		t.Fatalf("Write auth: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/api", "API endpoints for users", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/errors", "error handling and logging", testWriteOpts()); err != nil {
+		t.Fatalf("Write errors: %v", err)
+	}
 
 	results, err := s.Search.FullText(ctx, "auth*")
 	if err != nil {
@@ -32,8 +38,12 @@ func TestFullText_PathPrefix(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts())
-	s.Documents.Write(ctx, "notes/readme", "hello world", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts()); err != nil {
+		t.Fatalf("Write docs/readme: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "notes/readme", "hello world", testWriteOpts()); err != nil {
+		t.Fatalf("Write notes/readme: %v", err)
+	}
 
 	results, err := s.Search.FullText(ctx, "hello", search.Options{Path: "docs/"})
 	if err != nil {
@@ -50,7 +60,9 @@ func TestFullText_Limit(t *testing.T) {
 	ctx := context.Background()
 
 	for i := range 5 {
-		s.Documents.Write(ctx, "docs/"+string(rune('a'+i)), "common word here", testWriteOpts())
+		if _, err := s.Documents.Write(ctx, "docs/"+string(rune('a'+i)), "common word here", testWriteOpts()); err != nil {
+			t.Fatalf("Write docs/%c: %v", rune('a'+i), err)
+		}
 	}
 
 	results, err := s.Search.FullText(ctx, "common", search.Options{Limit: 2})
@@ -67,8 +79,12 @@ func TestFullText_ModePaths(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "hello world content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/guide", "hello again content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "hello world content", testWriteOpts()); err != nil {
+		t.Fatalf("Write readme: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/guide", "hello again content", testWriteOpts()); err != nil {
+		t.Fatalf("Write guide: %v", err)
+	}
 
 	results, err := s.Search.FullText(ctx, "hello", search.Options{Mode: search.ModePaths})
 	if err != nil {
@@ -90,7 +106,9 @@ func TestFullText_ModeLines(t *testing.T) {
 	ctx := context.Background()
 
 	content := "line one\nline two with target word\nline three\nline four\nline five"
-	s.Documents.Write(ctx, "docs/test", content, testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/test", content, testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	results, err := s.Search.FullText(ctx, "target", search.Options{
 		Mode:    search.ModeLines,
@@ -128,7 +146,9 @@ func TestFullText_ModeLines_MultipleMatches(t *testing.T) {
 	ctx := context.Background()
 
 	content := "first match here\nsecond line\nthird match here\nfourth line"
-	s.Documents.Write(ctx, "docs/test", content, testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/test", content, testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	results, err := s.Search.FullText(ctx, "match", search.Options{Mode: search.ModeLines})
 	if err != nil {
@@ -160,7 +180,9 @@ This section has the target keyword.
 
 Final thoughts here.`
 
-	s.Documents.Write(ctx, "docs/readme", content, testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", content, testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	results, err := s.Search.FullText(ctx, "target", search.Options{Mode: search.ModeSections})
 	if err != nil {
@@ -186,7 +208,9 @@ func TestFullText_ModeSections_NoHeadings(t *testing.T) {
 	ctx := context.Background()
 
 	content := "Just plain text with target word and no markdown headings."
-	s.Documents.Write(ctx, "docs/plain", content, testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/plain", content, testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	results, err := s.Search.FullText(ctx, "target", search.Options{Mode: search.ModeSections})
 	if err != nil {
@@ -212,7 +236,9 @@ func TestFullText_ModeSnippets(t *testing.T) {
 	ctx := context.Background()
 
 	content := "prefix text here then the target keyword appears in the middle of this document followed by more text"
-	s.Documents.Write(ctx, "docs/test", content, testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/test", content, testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	results, err := s.Search.FullText(ctx, "target", search.Options{Mode: search.ModeSnippets})
 	if err != nil {
@@ -238,7 +264,9 @@ func TestFullText_InvalidQuery(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/test", "some content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/test", "some content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	// Invalid FTS5 syntax
 	_, err := s.Search.FullText(ctx, "AND OR NOT")

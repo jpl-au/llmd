@@ -234,7 +234,9 @@ func TestImport_SkipsUnchanged(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "readme.md")
-	os.WriteFile(path, []byte("content"), 0644)
+	if err := os.WriteFile(path, []byte("content"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	// First import creates the document
 	result1, err := s.Bulk.Import(ctx, dir, testImportOpts())
@@ -267,7 +269,9 @@ func TestImport_UpdatesChanged(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "readme.md")
-	os.WriteFile(path, []byte("version 1"), 0644)
+	if err := os.WriteFile(path, []byte("version 1"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	// First import creates the document
 	result1, err := s.Bulk.Import(ctx, dir, testImportOpts())
@@ -279,7 +283,9 @@ func TestImport_UpdatesChanged(t *testing.T) {
 	}
 
 	// Modify the file
-	os.WriteFile(path, []byte("version 2"), 0644)
+	if err = os.WriteFile(path, []byte("version 2"), 0644); err != nil {
+		t.Fatalf("WriteFile v2: %v", err)
+	}
 
 	// Second import should update
 	result2, err := s.Bulk.Import(ctx, dir, testImportOpts())
@@ -312,7 +318,9 @@ func TestImport_ForceBypassesSkip(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "readme.md")
-	os.WriteFile(path, []byte("content"), 0644)
+	if err := os.WriteFile(path, []byte("content"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	// First import creates the document
 	_, err := s.Bulk.Import(ctx, dir, testImportOpts())

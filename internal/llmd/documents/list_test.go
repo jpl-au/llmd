@@ -13,9 +13,15 @@ func TestList(t *testing.T) {
 	ctx := context.Background()
 	opts := testWriteOpts()
 
-	s.Documents.Write(ctx, "docs/readme", "readme", opts)
-	s.Documents.Write(ctx, "docs/api", "api", opts)
-	s.Documents.Write(ctx, "notes/todo", "todo", opts)
+	if _, err := s.Documents.Write(ctx, "docs/readme", "readme", opts); err != nil {
+		t.Fatalf("Write readme: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/api", "api", opts); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "notes/todo", "todo", opts); err != nil {
+		t.Fatalf("Write todo: %v", err)
+	}
 
 	all, err := s.Documents.List(ctx)
 	if err != nil {
@@ -39,9 +45,15 @@ func TestList_OnlyLatestVersion(t *testing.T) {
 	ctx := context.Background()
 	opts := testWriteOpts()
 
-	s.Documents.Write(ctx, "docs/readme", "v1", opts)
-	s.Documents.Write(ctx, "docs/readme", "v2", opts)
-	s.Documents.Write(ctx, "docs/readme", "v3", opts)
+	if _, err := s.Documents.Write(ctx, "docs/readme", "v1", opts); err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "v2", opts); err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "v3", opts); err != nil {
+		t.Fatalf("Write v3: %v", err)
+	}
 
 	list, _ := s.Documents.List(ctx)
 	if len(list) != 1 {
@@ -56,8 +68,12 @@ func TestList_IncludeDeleted(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/active", "active", testWriteOpts())
-	s.Documents.Write(ctx, "docs/deleted", "deleted", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/active", "active", testWriteOpts()); err != nil {
+		t.Fatalf("Write active: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/deleted", "deleted", testWriteOpts()); err != nil {
+		t.Fatalf("Write deleted: %v", err)
+	}
 	if err := s.Documents.Delete(ctx, "docs/deleted", testDeleteOpts()); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
@@ -80,11 +96,17 @@ func TestList_SortByTime(t *testing.T) {
 
 	// Write in reverse alphabetical order with distinct timestamps
 	// so time order (newest first) differs from path order.
-	s.Documents.Write(ctx, "notes/c", "c", opts)
+	if _, err := s.Documents.Write(ctx, "notes/c", "c", opts); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
 	time.Sleep(2 * time.Millisecond)
-	s.Documents.Write(ctx, "notes/b", "b", opts)
+	if _, err := s.Documents.Write(ctx, "notes/b", "b", opts); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 	time.Sleep(2 * time.Millisecond)
-	s.Documents.Write(ctx, "notes/a", "a", opts)
+	if _, err := s.Documents.Write(ctx, "notes/a", "a", opts); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
 
 	list, err := s.Documents.List(ctx, documents.ListOptions{Sort: "time"})
 	if err != nil {

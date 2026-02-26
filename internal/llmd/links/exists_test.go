@@ -32,8 +32,12 @@ func TestExists_NotFound(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 
 	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b"); err != nil {
 		t.Fatalf("Exists() error = %v", err)
@@ -46,8 +50,12 @@ func TestExists_WithLabel(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 
 	opts := testOpts()
 	opts.Label = "related"
@@ -81,8 +89,14 @@ func TestExists_ByKey(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	docA, _ := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	docB, _ := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
+	docA, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	docB, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
 		t.Fatalf("Add link: %v", err)
 	}
@@ -98,8 +112,12 @@ func TestExists_RemovedLink(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
 		t.Fatalf("Add link: %v", err)
 	}

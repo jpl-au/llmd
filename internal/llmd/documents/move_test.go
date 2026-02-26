@@ -12,7 +12,9 @@ func TestMove(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/old", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/old", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	err := s.Documents.Move(ctx, "docs/old", "docs/new", testMoveOpts())
 	if err != nil {

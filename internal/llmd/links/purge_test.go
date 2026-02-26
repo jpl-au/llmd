@@ -10,9 +10,15 @@ func TestPurge(t *testing.T) {
 	ctx := context.Background()
 
 	// Create documents and add links
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
-	s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts()); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
 
 	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
 		t.Fatalf("Add a->b: %v", err)

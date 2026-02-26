@@ -10,7 +10,9 @@ import (
 func TestTagsAdd(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	if err := sdk.Tags.Add("doc", "important", "alice"); err != nil {
 		t.Fatalf("Add: %v", err)
@@ -31,7 +33,9 @@ func TestTagsAdd(t *testing.T) {
 func TestTagsAddMultiple(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 	if err := sdk.Tags.Add("doc", "feature", "alice"); err != nil {
 		t.Fatalf("Add feature: %v", err)
 	}
@@ -48,7 +52,9 @@ func TestTagsAddMultiple(t *testing.T) {
 func TestTagsRemove(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 	if err := sdk.Tags.Add("doc", "temp", "alice"); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
@@ -66,7 +72,9 @@ func TestTagsRemove(t *testing.T) {
 func TestTagsList(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	tags, err := sdk.Tags.List("doc")
 	if err != nil {
@@ -80,8 +88,12 @@ func TestTagsList(t *testing.T) {
 func TestTagsAll(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 	if err := sdk.Tags.Add("a", "feature", "alice"); err != nil {
 		t.Fatalf("Add a/feature: %v", err)
 	}
@@ -166,7 +178,9 @@ func TestTagsFindEmpty(t *testing.T) {
 func TestTagsAddDuplicate(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	if err := sdk.Tags.Add("doc", "dupe", "alice"); err != nil {
 		t.Fatalf("Tag dupe: %v", err)
@@ -182,7 +196,9 @@ func TestTagsAddDuplicate(t *testing.T) {
 func TestTagsRemoveNonexistent(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	err := sdk.Tags.Remove("doc", "nope", "alice")
 	if !errors.Is(err, sdk.ErrNotFound) {

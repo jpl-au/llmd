@@ -12,8 +12,12 @@ func TestRevert(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "original content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/readme", "modified content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "original content", testWriteOpts()); err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "modified content", testWriteOpts()); err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
 
 	doc, err := s.History.Revert(ctx, "docs/readme", 1, testRevertOpts())
 	if err != nil {
@@ -40,8 +44,12 @@ func TestRevert_CustomMessage(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "v1", testWriteOpts())
-	s.Documents.Write(ctx, "docs/readme", "v2", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "v1", testWriteOpts()); err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "v2", testWriteOpts()); err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
 
 	revertOpts := testRevertOpts()
 	revertOpts.Message = "Rolling back bad change"
@@ -59,9 +67,15 @@ func TestRevert_SkipsUnchanged(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "same content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/readme", "different", testWriteOpts())
-	s.Documents.Write(ctx, "docs/readme", "same content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "same content", testWriteOpts()); err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "different", testWriteOpts()); err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "same content", testWriteOpts()); err != nil {
+		t.Fatalf("Write v3: %v", err)
+	}
 
 	doc, err := s.History.Revert(ctx, "docs/readme", 1, testRevertOpts())
 	if err != nil {
@@ -77,7 +91,9 @@ func TestRevert_RequiresAuthor(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	_, err := s.History.Revert(ctx, "docs/readme", 1, history.RevertOptions{
 		Origin: core.Origin{Source: "cli"},

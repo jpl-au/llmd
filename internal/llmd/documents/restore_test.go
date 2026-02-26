@@ -9,7 +9,9 @@ func TestRestore(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 	if err := s.Documents.Delete(ctx, "docs/readme", testDeleteOpts()); err != nil {
 		t.Fatalf("Delete docs/readme: %v", err)
 	}

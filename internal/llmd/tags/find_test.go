@@ -13,10 +13,18 @@ func TestFind(t *testing.T) {
 	ctx := context.Background()
 
 	// Create documents and add tags
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
-	s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts())
-	s.Documents.Write(ctx, "notes/d", "content d", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts()); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "notes/d", "content d", testWriteOpts()); err != nil {
+		t.Fatalf("Write d: %v", err)
+	}
 
 	if _, err := s.Tags.Add(ctx, "docs/a", "important", testOpts()); err != nil {
 		t.Fatalf("Add() error = %v", err)
@@ -49,9 +57,15 @@ func TestFind_WithRelationPrefix(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
-	s.Documents.Write(ctx, "notes/c", "content c", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "notes/c", "content c", testWriteOpts()); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
 
 	if _, err := s.Tags.Add(ctx, "docs/a", "important", testOpts()); err != nil {
 		t.Fatalf("Add a: %v", err)

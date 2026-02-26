@@ -11,9 +11,15 @@ func TestList(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts()); err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts()); err != nil {
+		t.Fatalf("Write auth: %v", err)
+	}
 
 	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
 		t.Fatalf("Add(docs/api -> docs/models): %v", err)
@@ -36,8 +42,13 @@ func TestList_ByKey(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	doc, _ := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
+	doc, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts()); err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
 	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
 		t.Fatalf("Add(docs/api -> docs/models): %v", err)
 	}
@@ -56,7 +67,9 @@ func TestList_Empty(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
 
 	list, err := s.Links.List(ctx, "docs/api", testOpts())
 	if err != nil {
@@ -72,8 +85,12 @@ func TestList_Outgoing(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts()); err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
 	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
 		t.Fatalf("Add(docs/api -> docs/models): %v", err)
 	}
@@ -98,8 +115,12 @@ func TestList_Incoming(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts()); err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
 	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
 		t.Fatalf("Add(docs/api -> docs/models): %v", err)
 	}
@@ -125,9 +146,15 @@ func TestList_Both(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts()); err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts()); err != nil {
+		t.Fatalf("Write auth: %v", err)
+	}
 
 	// api -> models
 	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {

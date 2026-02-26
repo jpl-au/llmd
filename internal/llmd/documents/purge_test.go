@@ -12,9 +12,15 @@ func TestPurge(t *testing.T) {
 	ctx := context.Background()
 
 	// Create and delete some documents
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
-	s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts()); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
 
 	if err := s.Documents.Delete(ctx, "docs/a", testDeleteOpts()); err != nil {
 		t.Fatalf("Delete docs/a: %v", err)
@@ -67,9 +73,15 @@ func TestPurge_AllVersions(t *testing.T) {
 	ctx := context.Background()
 
 	// Create multiple versions
-	s.Documents.Write(ctx, "docs/versioned", "v1", testWriteOpts())
-	s.Documents.Write(ctx, "docs/versioned", "v2", testWriteOpts())
-	s.Documents.Write(ctx, "docs/versioned", "v3", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/versioned", "v1", testWriteOpts()); err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/versioned", "v2", testWriteOpts()); err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/versioned", "v3", testWriteOpts()); err != nil {
+		t.Fatalf("Write v3: %v", err)
+	}
 
 	// Delete the document (soft-deletes all versions)
 	if err := s.Documents.Delete(ctx, "docs/versioned", testDeleteOpts()); err != nil {

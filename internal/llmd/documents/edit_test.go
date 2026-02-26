@@ -33,7 +33,9 @@ func TestEdit_ReplaceAll(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "foo bar foo baz foo", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "foo bar foo baz foo", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	opts := testEditOpts()
 	opts.ReplaceAll = true
@@ -51,7 +53,9 @@ func TestEdit_NoMatch(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	_, err := s.Documents.Edit(ctx, "docs/readme", "notfound", "replacement", testEditOpts())
 	if !errors.Is(err, documents.ErrNoMatch) {

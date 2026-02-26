@@ -230,9 +230,15 @@ func TestLinksAddSelfLink(t *testing.T) {
 func TestLinksWithLabel(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
-	sdk.Documents.Write("c", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if err := sdk.Documents.Write("c", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
 
 	if err := sdk.Links.Add("a", "b", "blocks", "alice"); err != nil {
 		t.Fatalf("Add blocks: %v", err)

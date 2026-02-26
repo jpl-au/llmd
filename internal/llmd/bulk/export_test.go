@@ -111,7 +111,9 @@ func TestExport_SkipsExisting(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "readme", "new content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "readme", "new content", testWriteOpts()); err != nil {
+		t.Fatalf("Write readme: %v", err)
+	}
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "readme.md")
@@ -139,7 +141,9 @@ func TestExport_Overwrite(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "readme", "new content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "readme", "new content", testWriteOpts()); err != nil {
+		t.Fatalf("Write readme: %v", err)
+	}
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "readme.md")
@@ -166,8 +170,12 @@ func TestExport_SpecificVersion(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "readme", "version 1", testWriteOpts())
-	s.Documents.Write(ctx, "readme", "version 2", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "readme", "version 1", testWriteOpts()); err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "readme", "version 2", testWriteOpts()); err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "readme.md")
@@ -188,7 +196,9 @@ func TestExport_CreatesDirectories(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write readme: %v", err)
+	}
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "sub", "deep", "readme.md")

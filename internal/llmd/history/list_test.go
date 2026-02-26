@@ -60,7 +60,9 @@ func TestList_Limit(t *testing.T) {
 	opts := testWriteOpts()
 
 	for i := 1; i <= 5; i++ {
-		s.Documents.Write(ctx, "docs/readme", fmt.Sprintf("version %d", i), opts)
+		if _, err := s.Documents.Write(ctx, "docs/readme", fmt.Sprintf("version %d", i), opts); err != nil {
+			t.Fatalf("Write v%d: %v", i, err)
+		}
 	}
 
 	versions, err := s.History.List(ctx, "docs/readme", history.ListOptions{Limit: 2})

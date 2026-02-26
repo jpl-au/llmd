@@ -14,7 +14,9 @@ func TestRead(t *testing.T) {
 
 	opts := testWriteOpts()
 	opts.Message = "initial"
-	s.Documents.Write(ctx, "docs/readme", "# Hello", opts)
+	if _, err := s.Documents.Write(ctx, "docs/readme", "# Hello", opts); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	doc, err := s.Documents.Read(ctx, "docs/readme")
 	if err != nil {
@@ -44,9 +46,15 @@ func TestRead_SpecificVersion(t *testing.T) {
 	ctx := context.Background()
 	opts := testWriteOpts()
 
-	s.Documents.Write(ctx, "docs/readme", "version 1", opts)
-	s.Documents.Write(ctx, "docs/readme", "version 2", opts)
-	s.Documents.Write(ctx, "docs/readme", "version 3", opts)
+	if _, err := s.Documents.Write(ctx, "docs/readme", "version 1", opts); err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "version 2", opts); err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "version 3", opts); err != nil {
+		t.Fatalf("Write v3: %v", err)
+	}
 
 	v := 2
 	doc, err := s.Documents.Read(ctx, "docs/readme", documents.ReadOptions{Version: &v})
@@ -66,7 +74,10 @@ func TestReadByKey(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	written, _ := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	written, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	doc, err := s.Documents.ReadByKey(ctx, written.Key)
 	if err != nil {

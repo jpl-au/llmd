@@ -13,7 +13,9 @@ func TestResolve_ByPath(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	doc, err := s.Documents.Resolve(ctx, "docs/readme")
 	if err != nil {
@@ -31,7 +33,10 @@ func TestResolve_ByKey(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	written, _ := s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts())
+	written, err := s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	doc, err := s.Documents.Resolve(ctx, written.Key)
 	if err != nil {
@@ -80,7 +85,9 @@ func TestResolve_FilesystemPriority(t *testing.T) {
 	}
 
 	// Also create a document with the same path in the store
-	s.Documents.Write(ctx, path, "store content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, path, "store content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	// Filesystem should take priority
 	doc, err := s.Documents.Resolve(ctx, path)
