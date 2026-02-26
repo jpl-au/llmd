@@ -67,6 +67,7 @@ through the SDK boundary:
 | Internal error | SDK sentinel |
 |---------------|-------------|
 | `documents.ErrNotFound` | `sdk.ErrNotFound` |
+| `history.ErrNotFound` | `sdk.ErrNotFound` |
 | `tasks.ErrNotFound` | `sdk.ErrNotFound` |
 | `tasks.ErrNoSpec` | `sdk.ErrNoSpec` |
 | `tasks.ErrMissingTitle` | `sdk.ErrMissingArg` |

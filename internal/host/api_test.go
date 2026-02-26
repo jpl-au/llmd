@@ -1,6 +1,7 @@
 package host
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -350,8 +351,8 @@ func TestDocumentsReadNotFound(t *testing.T) {
 	testHost(t)
 
 	_, err := sdk.Documents.Read("nonexistent", 0)
-	if err == nil {
-		t.Error("Read returned nil error for missing document")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("Read error = %v, want sdk.ErrNotFound", err)
 	}
 }
 
@@ -359,8 +360,8 @@ func TestDocumentsDeleteNotFound(t *testing.T) {
 	testHost(t)
 
 	err := sdk.Documents.Delete("nonexistent", "alice")
-	if err == nil {
-		t.Error("Delete returned nil error for missing document")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("Delete error = %v, want sdk.ErrNotFound", err)
 	}
 }
 
@@ -368,8 +369,8 @@ func TestDocumentsMoveNotFound(t *testing.T) {
 	testHost(t)
 
 	err := sdk.Documents.Move("nonexistent", "dest", "alice")
-	if err == nil {
-		t.Error("Move returned nil error for missing source")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("Move error = %v, want sdk.ErrNotFound", err)
 	}
 }
 
@@ -377,8 +378,17 @@ func TestDocumentsEditNotFound(t *testing.T) {
 	testHost(t)
 
 	err := sdk.Documents.Edit("nonexistent", "old", "new", "alice", "")
-	if err == nil {
-		t.Error("Edit returned nil error for missing document")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("Edit error = %v, want sdk.ErrNotFound", err)
+	}
+}
+
+func TestDocumentsHistoryNotFound(t *testing.T) {
+	testHost(t)
+
+	_, err := sdk.Documents.History("nonexistent", 0)
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("History error = %v, want sdk.ErrNotFound", err)
 	}
 }
 

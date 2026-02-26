@@ -115,8 +115,8 @@ func TestTasksReadNotFound(t *testing.T) {
 	testHost(t)
 
 	_, err := sdk.Tasks.Read("nonexistent")
-	if err == nil {
-		t.Error("Read returned nil error for missing task")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("Read error = %v, want sdk.ErrNotFound", err)
 	}
 }
 
@@ -455,8 +455,8 @@ func TestTasksDeleteNotFound(t *testing.T) {
 	testHost(t)
 
 	_, err := sdk.Tasks.Delete("nonexistent", "alice")
-	if err == nil {
-		t.Error("Delete returned nil error for missing task")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("Delete error = %v, want sdk.ErrNotFound", err)
 	}
 }
 

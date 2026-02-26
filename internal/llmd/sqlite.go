@@ -1,3 +1,5 @@
+// sqlite.go runs schema migrations against the store's database.
+
 package llmd
 
 import (

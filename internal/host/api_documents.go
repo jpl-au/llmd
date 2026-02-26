@@ -13,16 +13,21 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// docErr translates internal document errors to SDK sentinel errors.
-// ErrNotFound is mapped; all other errors pass through unchanged.
+// docErr translates internal document and history errors to SDK sentinel
+// errors. Both packages define their own ErrNotFound; both map to
+// sdk.ErrNotFound. All other errors pass through unchanged.
 func docErr(err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, documents.ErrNotFound) {
+	switch {
+	case errors.Is(err, documents.ErrNotFound):
 		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+	case errors.Is(err, history.ErrNotFound):
+		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+	default:
+		return err
 	}
-	return err
 }
 
 // documentAPI implements [sdk.DocumentStore] by delegating to the
@@ -194,7 +199,7 @@ func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
 
 	infos, err := a.store.History.List(context.Background(), path, opts)
 	if err != nil {
-		return nil, err
+		return nil, docErr(err)
 	}
 
 	versions := make([]sdk.Version, len(infos))
@@ -233,7 +238,7 @@ func (a *documentAPI) Revert(path string, version int, author, msg string) error
 	_, err := a.store.History.Revert(context.Background(), path, version, history.RevertOptions{
 		Origin: o,
 	})
-	return err
+	return docErr(err)
 }
 
 // Vacuum permanently removes all soft-deleted data and reclaims disk
