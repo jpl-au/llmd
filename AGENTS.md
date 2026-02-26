@@ -101,7 +101,9 @@ Panics on duplicate names to catch programmer errors early.
 Discovered from `.llmd/plugins/<name>/` (project-local, takes priority) and
 `~/.llmd/plugins/<name>/` (user-global). Each directory's `.go` files are
 concatenated and evaluated by the Yaegi interpreter. The plugin must export
-a `New()` function returning a value that satisfies `sdk.Plugin`.
+a `New()` function returning a value that satisfies `sdk.Plugin`. Yaegi
+provides no security sandbox — plugins have full stdlib access and run with
+the same permissions as the `llmd` process. Only run trusted plugins.
 
 ### Yaegi Symbol Table (`internal/plugin/symbols.go`)
 
