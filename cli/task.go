@@ -71,6 +71,8 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return taskDiff(ctx, args)
 	case "files":
 		return taskFiles(ctx, args)
+	case "commits":
+		return taskCommits(ctx, args)
 	default:
 		return nil, fmt.Errorf("task: unknown subcommand: %s", sub)
 	}

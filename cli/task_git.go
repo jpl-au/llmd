@@ -287,6 +287,60 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Created branch %s for %s \"%s\"", name, t.Key, t.Title)), nil
 }
 
+// taskCommits lists commits on a task's branch that aren't on the base branch.
+func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
+	if err := gitAvailable(); err != nil {
+		return nil, fmt.Errorf("task commits: %w", err)
+	}
+
+	var key, base string
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--base":
+			i++
+			if i >= len(args) {
+				return nil, fmt.Errorf("task commits: --base requires a value")
+			}
+			base = args[i]
+		default:
+			if key == "" && !strings.HasPrefix(args[i], "-") {
+				key = args[i]
+			}
+		}
+	}
+
+	if key == "" {
+		return nil, fmt.Errorf("task commits: %w: id", sdk.ErrMissingArg)
+	}
+
+	t, err := sdk.Tasks.Read(key)
+	if err != nil {
+		return nil, fmt.Errorf("task commits: %w", err)
+	}
+	if t.Branch == "" {
+		return nil, fmt.Errorf("task commits: task has no branch — use 'task start' or 'task set --branch'")
+	}
+
+	if base == "" {
+		base, err = gitDefaultBranch()
+		if err != nil {
+			return nil, fmt.Errorf("task commits: %w — use --base to specify", err)
+		}
+	}
+
+	commits, err := gitCommits(base, t.Branch)
+	if err != nil {
+		return nil, fmt.Errorf("task commits: %w", err)
+	}
+
+	if len(commits) == 0 {
+		return sdk.Text("No commits"), nil
+	}
+
+	return sdk.Result{Text: strings.Join(commits, "\n"), Data: commits}, nil
+}
+
 // branchSlug converts a title to a git-friendly branch component.
 func branchSlug(title string) string {
 	var b strings.Builder
