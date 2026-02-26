@@ -11,8 +11,6 @@ import (
 )
 
 // linkErr translates internal link errors to SDK sentinel errors.
-// ErrNotFound and ErrSelfLink are mapped; all other errors pass
-// through unchanged.
 func linkErr(err error) error {
 	if err == nil {
 		return nil
@@ -22,6 +20,8 @@ func linkErr(err error) error {
 		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
 	case errors.Is(err, links.ErrSelfLink):
 		return fmt.Errorf("%w: %v", sdk.ErrInvalidArg, err)
+	case errors.Is(err, links.ErrExists):
+		return fmt.Errorf("%w: %v", sdk.ErrExists, err)
 	default:
 		return err
 	}

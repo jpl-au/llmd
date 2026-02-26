@@ -75,8 +75,10 @@ error types from leaking through the SDK boundary:
 | `tasks.ErrInvalidCol` | `sdk.ErrInvalidArg` |
 | `links.ErrNotFound` | `sdk.ErrNotFound` |
 | `links.ErrSelfLink` | `sdk.ErrInvalidArg` |
+| `links.ErrExists` | `sdk.ErrExists` |
 | `tags.ErrNotFound` | `sdk.ErrNotFound` |
 | `tags.ErrInvalid` | `sdk.ErrInvalidArg` |
+| `tags.ErrExists` | `sdk.ErrExists` |
 
 Plugins call these through globals:
 
@@ -174,7 +176,7 @@ The `status` command uses a unified activity feed (`sdk.Activities.Recent()`)
 that queries documents, entities (tags/links), and task audit events in parallel,
 then merges by timestamp. The feed is defined as `sdk.ActivityStore` (in
 `sdk/activity.go`), implemented in `internal/llmd/activity.go`, bridged through
-`internal/host/api.go` (`activityAPI`), and wired in `internal/host/host.go`.
+`internal/host/api_activity.go` (`activityAPI`), and wired in `internal/host/host.go`.
 
 Task audit actions use past tense: `"created"`, `"moved"`, `"deleted"`,
 `"restored"`, `"edited:*"`, `"flagged"`, `"unflagged"`.

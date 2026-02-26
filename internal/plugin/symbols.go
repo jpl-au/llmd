@@ -48,6 +48,7 @@ func symbols() interp.Exports {
 			"ErrUnknownCmd": reflect.ValueOf(&sdk.ErrUnknownCmd).Elem(),
 			"ErrNotFound":   reflect.ValueOf(&sdk.ErrNotFound).Elem(),
 			"ErrNoSpec":     reflect.ValueOf(&sdk.ErrNoSpec).Elem(),
+			"ErrExists":     reflect.ValueOf(&sdk.ErrExists).Elem(),
 
 			// Function globals
 			"Init": reflect.ValueOf(&sdk.Init).Elem(),

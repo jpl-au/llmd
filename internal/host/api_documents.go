@@ -68,7 +68,7 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 	_, err := a.store.Documents.Write(context.Background(), path, string(content), documents.WriteOptions{
 		Origin: o,
 	})
-	return err
+	return docErr(err)
 }
 
 // Delete soft-deletes a document. The document can be recovered via

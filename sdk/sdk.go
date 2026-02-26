@@ -25,6 +25,9 @@ var (
 
 	// ErrNoSpec means a task has no backing document.
 	ErrNoSpec = errors.New("task has no spec")
+
+	// ErrExists means the resource already exists.
+	ErrExists = errors.New("already exists")
 )
 
 // Domain stores. Each domain has its own focused interface with

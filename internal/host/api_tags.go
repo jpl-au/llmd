@@ -11,8 +11,6 @@ import (
 )
 
 // tagErr translates internal tag errors to SDK sentinel errors.
-// ErrNotFound and ErrInvalid are mapped; all other errors pass
-// through unchanged.
 func tagErr(err error) error {
 	if err == nil {
 		return nil
@@ -22,6 +20,8 @@ func tagErr(err error) error {
 		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
 	case errors.Is(err, tags.ErrInvalid):
 		return fmt.Errorf("%w: %v", sdk.ErrInvalidArg, err)
+	case errors.Is(err, tags.ErrExists):
+		return fmt.Errorf("%w: %v", sdk.ErrExists, err)
 	default:
 		return err
 	}
