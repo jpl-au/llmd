@@ -51,18 +51,19 @@ Four focused interfaces replace the old monolithic `Store`:
 
 | Interface | Defined in | Implemented by | Wired in |
 |-----------|-----------|----------------|----------|
-| `sdk.DocumentStore` | `sdk/documents.go` | `internal/host/api.go` (`documentAPI`) | `internal/host/host.go` |
+| `sdk.DocumentStore` | `sdk/documents.go` | `internal/host/api_documents.go` (`documentAPI`) | `internal/host/host.go` |
 | `sdk.TaskStore` | `sdk/tasks.go` | `internal/host/api_tasks.go` (`taskAPI`) | `internal/host/host.go` |
 | `sdk.LinkStore` | `sdk/links.go` | `internal/host/api_links.go` (`linkAPI`) | `internal/host/host.go` |
 | `sdk.TagStore` | `sdk/tags.go` | `internal/host/api_tags.go` (`tagAPI`) | `internal/host/host.go` |
+| `sdk.ActivityStore` | `sdk/activity.go` | `internal/host/api_activity.go` (`activityAPI`) | `internal/host/host.go` |
 
 Each bridge type in `internal/host/` translates SDK flat arguments into
 internal option structs and maps internal results back to SDK types. All
 mutating operations stamp a `core.Origin{Source: "cli"}` for audit tracking.
 
-Bridge types also translate internal errors to SDK sentinels via `docErr()`
-and `taskErr()` helpers. This prevents internal error types from leaking
-through the SDK boundary:
+Bridge types also translate internal errors to SDK sentinels via per-domain
+helpers (`docErr`, `taskErr`, `linkErr`, `tagErr`). This prevents internal
+error types from leaking through the SDK boundary:
 
 | Internal error | SDK sentinel |
 |---------------|-------------|
@@ -193,6 +194,34 @@ Git operations live in the CLI layer only — the SDK and backend just store
 the branch string. The `gitBranch`, `gitDefaultBranch`, `gitDiff`, and
 `gitFiles` helpers shell out to `git` via `os/exec`. Default branch
 detection tries `main` then `master`; override with `--base`.
+
+## Transaction Patterns
+
+All multi-statement write operations wrap their queries in a single
+`sql.Tx` so a crash cannot leave data partially updated.
+
+**Documents:** `Write` delegates to `writeInTx` inside a `BeginTx`/`Commit`
+pair. The event bus fires *after* commit so subscribers see committed data.
+`writeInTx` and `readInTx` exist for callers that need document operations
+within a larger transaction.
+
+**Tasks:** `Add`, `Move`, `Set`, `Delete`, and `Restore` each open a
+transaction, perform their UPDATE/INSERT, write the audit record via
+`recordTx`, and commit. `recordTx` (in `helpers.go`) mirrors `audit.Log.Record`
+but writes on the provided `*sql.Tx`. `repositionTx` (in `move.go`) renumbers
+column positions within a transaction.
+
+`Tasks.ensure()` calls `audit.Log.Ensure()` to guarantee the history table
+exists before any `recordTx` call. `audit.Log.Ensure` is exported and
+idempotent (guarded by `sync.Once`).
+
+**Links:** `Remove` wraps its soft-delete loop in a transaction so multiple
+link deletions are atomic.
+
+**When to use `recordTx` vs `audit.Record`:** Use `recordTx` inside a
+transaction to make audit records atomic with the surrounding operation.
+Use `audit.Record` only for standalone operations that do not share a
+transaction.
 
 ## Common Pitfalls
 
