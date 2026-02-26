@@ -13,6 +13,7 @@ package key
 
 import (
 	"errors"
+	"math/rand/v2"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -25,8 +26,14 @@ var (
 	ErrInvalidChar   = errors.New("key must be lowercase base36")
 )
 
-// counter ensures uniqueness within the same millisecond.
+// counter ensures uniqueness within the same millisecond. Seeded with
+// a random offset so concurrent processes starting at the same
+// millisecond produce different keys.
 var counter atomic.Int64
+
+func init() {
+	counter.Store(rand.Int64N(1000))
+}
 
 // Generate returns a new unique 9-character base36 key.
 // Uses timestamp in milliseconds plus an atomic counter for uniqueness.
