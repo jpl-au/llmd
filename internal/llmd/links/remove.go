@@ -64,10 +64,16 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 		return ErrNotFound
 	}
 
-	// Soft delete the links
+	// Soft delete the matching links in a single transaction.
+	tx, err := l.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	now := time.Now().UnixMilli()
 	for _, k := range keysToDelete {
-		_, err := l.db.ExecContext(ctx, `
+		_, err := tx.ExecContext(ctx, `
 			UPDATE entities SET deleted_at = ? WHERE key = ?
 		`, now, k)
 		if err != nil {
@@ -75,5 +81,5 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 		}
 	}
 
-	return nil
+	return tx.Commit()
 }
