@@ -57,6 +57,7 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 }
 
 // taskDiff shows the git diff for a task's branch against the default branch.
+// If no task ID is given, auto-detects from the current branch.
 func taskDiff(_ sdk.Context, args []string) (sdk.Response, error) {
 	var key, base string
 	stat := false
@@ -78,13 +79,9 @@ func taskDiff(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if key == "" {
-		return nil, fmt.Errorf("task diff: %w: id", sdk.ErrMissingArg)
-	}
-
-	t, err := sdk.Tasks.Read(key)
+	t, err := resolveTask("task diff", key)
 	if err != nil {
-		return nil, fmt.Errorf("task diff: %w", err)
+		return nil, err
 	}
 	if t.Branch == "" {
 		return nil, fmt.Errorf("task diff: task has no branch — use 'task start' or 'task set --branch'")
@@ -114,6 +111,7 @@ func taskDiff(_ sdk.Context, args []string) (sdk.Response, error) {
 }
 
 // taskFiles lists files changed on a task's branch.
+// If no task ID is given, auto-detects from the current branch.
 func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
 	var key, base string
 
@@ -132,13 +130,9 @@ func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if key == "" {
-		return nil, fmt.Errorf("task files: %w: id", sdk.ErrMissingArg)
-	}
-
-	t, err := sdk.Tasks.Read(key)
+	t, err := resolveTask("task files", key)
 	if err != nil {
-		return nil, fmt.Errorf("task files: %w", err)
+		return nil, err
 	}
 	if t.Branch == "" {
 		return nil, fmt.Errorf("task files: task has no branch — use 'task start' or 'task set --branch'")
@@ -191,16 +185,12 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if key == "" {
-		return nil, fmt.Errorf("task finish: %w: id", sdk.ErrMissingArg)
-	}
-
-	t, err := sdk.Tasks.Read(key)
+	t, err := resolveTask("task finish", key)
 	if err != nil {
-		return nil, fmt.Errorf("task finish: %w", err)
+		return nil, err
 	}
 
-	if err := sdk.Tasks.Move(key, column, ctx.Author); err != nil {
+	if err := sdk.Tasks.Move(t.Key, column, ctx.Author); err != nil {
 		return nil, fmt.Errorf("task finish: %w", err)
 	}
 
@@ -310,13 +300,9 @@ func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if key == "" {
-		return nil, fmt.Errorf("task commits: %w: id", sdk.ErrMissingArg)
-	}
-
-	t, err := sdk.Tasks.Read(key)
+	t, err := resolveTask("task commits", key)
 	if err != nil {
-		return nil, fmt.Errorf("task commits: %w", err)
+		return nil, err
 	}
 	if t.Branch == "" {
 		return nil, fmt.Errorf("task commits: task has no branch — use 'task start' or 'task set --branch'")
@@ -339,6 +325,43 @@ func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	return sdk.Result{Text: strings.Join(commits, "\n"), Data: commits}, nil
+}
+
+// taskForBranch finds the task linked to the current git branch.
+// Returns an error if git is unavailable, we're not on a branch,
+// or no task is linked to the current branch.
+func taskForBranch() (*sdk.Task, error) {
+	branch, err := gitBranch()
+	if err != nil {
+		return nil, err
+	}
+	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{})
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range tasks {
+		if t.Branch == branch {
+			return t, nil
+		}
+	}
+	return nil, fmt.Errorf("no task linked to branch %q", branch)
+}
+
+// resolveTask looks up a task by key, or auto-detects from the current
+// branch when key is empty. The cmd parameter is used for error messages.
+func resolveTask(cmd, key string) (*sdk.Task, error) {
+	if key != "" {
+		t, err := sdk.Tasks.Read(key)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", cmd, err)
+		}
+		return t, nil
+	}
+	t, err := taskForBranch()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", cmd, err)
+	}
+	return t, nil
 }
 
 // branchSlug converts a title to a git-friendly branch component.
