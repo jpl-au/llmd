@@ -188,19 +188,43 @@ Task audit actions use past tense: `"created"`, `"moved"`, `"deleted"`,
 
 ## Git-Aware Tasks
 
-Tasks can be linked to git branches via the `Branch` field. Three CLI
+Tasks can be linked to git branches via the `Branch` field. Six CLI
 subcommands provide the integration:
 
 | Command | File | Description |
 |---------|------|-------------|
 | `task start <id>` | `cli/task_git.go` | Move to in-progress + record current branch |
-| `task diff <id>` | `cli/task_git.go` | Git diff for task's branch vs default branch |
-| `task files <id>` | `cli/task_git.go` | List changed files on task's branch |
+| `task finish [id]` | `cli/task_git.go` | Move to done + show summary (files, commits) |
+| `task branch <id>` | `cli/task_git.go` | Create branch from task slug, checkout, start |
+| `task diff [id]` | `cli/task_git.go` | Git diff for task's branch vs default branch |
+| `task files [id]` | `cli/task_git.go` | List changed files on task's branch |
+| `task commits [id]` | `cli/task_git.go` | List commits on task's branch |
+
+Commands marked `[id]` auto-detect the task from the current git branch
+when no ID is given (`taskForBranch` in `cli/task_git.go` matches the
+current branch against all tasks). `task show` displays ahead/behind
+counts when the task has a branch and git is available.
 
 Git operations live in the CLI layer only — the SDK and backend just store
-the branch string. The `gitBranch`, `gitDefaultBranch`, `gitDiff`, and
-`gitFiles` helpers shell out to `git` via `os/exec`. Default branch
-detection tries `main` then `master`; override with `--base`.
+the branch string. Low-level helpers in `cli/git.go` shell out to `git`
+via `os/exec`:
+
+| Helper | Description |
+|--------|-------------|
+| `gitAvailable` | Checks git is installed and we're in a repo |
+| `gitBranch` | Current branch name |
+| `gitDefaultBranch` | Detects main or master |
+| `gitDiff` | Three-dot diff between branches |
+| `gitFiles` | Changed files between branches |
+| `gitCommits` | Commit log between branches |
+| `gitCheckoutNew` | Create and switch to new branch |
+| `gitRevCount` | Ahead/behind commit counts |
+
+All git subcommands degrade gracefully — `gitAvailable()` is checked
+first and returns a clear error if git is missing or we're not in a repo.
+`task finish` skips the git summary silently; other git commands return
+the error. Default branch detection tries `main` then `master`; override
+with `--base`.
 
 ## Transaction Patterns
 
