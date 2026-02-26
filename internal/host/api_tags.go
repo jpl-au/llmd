@@ -2,11 +2,30 @@ package host
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
 	"github.com/jpl-au/llmd/sdk"
 )
+
+// tagErr translates internal tag errors to SDK sentinel errors.
+// ErrNotFound and ErrInvalid are mapped; all other errors pass
+// through unchanged.
+func tagErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.Is(err, tags.ErrNotFound):
+		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+	case errors.Is(err, tags.ErrInvalid):
+		return fmt.Errorf("%w: %v", sdk.ErrInvalidArg, err)
+	default:
+		return err
+	}
+}
 
 // tagAPI implements [sdk.TagStore] by delegating to the internal tags
 // package. The mapping is straightforward since SDK and internal types
@@ -30,14 +49,14 @@ func (a *tagAPI) Add(path, name, author string) error {
 	_, err := a.store.Tags.Add(context.Background(), path, name, tags.Options{
 		Origin: origin(author),
 	})
-	return err
+	return tagErr(err)
 }
 
 // Remove detaches a tag from a document via soft-delete.
 func (a *tagAPI) Remove(path, name, author string) error {
-	return a.store.Tags.Remove(context.Background(), path, name, tags.Options{
+	return tagErr(a.store.Tags.Remove(context.Background(), path, name, tags.Options{
 		Origin: origin(author),
-	})
+	}))
 }
 
 // List returns all tags attached to a document. Converts internal tag

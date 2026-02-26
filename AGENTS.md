@@ -72,6 +72,10 @@ through the SDK boundary:
 | `tasks.ErrNoSpec` | `sdk.ErrNoSpec` |
 | `tasks.ErrMissingTitle` | `sdk.ErrMissingArg` |
 | `tasks.ErrInvalidCol` | `sdk.ErrInvalidArg` |
+| `links.ErrNotFound` | `sdk.ErrNotFound` |
+| `links.ErrSelfLink` | `sdk.ErrInvalidArg` |
+| `tags.ErrNotFound` | `sdk.ErrNotFound` |
+| `tags.ErrInvalid` | `sdk.ErrInvalidArg` |
 
 Plugins call these through globals:
 

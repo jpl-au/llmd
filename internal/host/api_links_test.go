@@ -1,6 +1,7 @@
 package host
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -151,10 +152,20 @@ func TestLinksRemoveNonexistent(t *testing.T) {
 	sdk.Documents.Write("a", []byte("x"), "alice", "")
 	sdk.Documents.Write("b", []byte("x"), "alice", "")
 
-	// Removing a link that was never created returns an error
 	err := sdk.Links.Remove("a", "b", "alice")
-	if err == nil {
-		t.Error("Remove nonexistent link: expected error")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("Remove error = %v, want sdk.ErrNotFound", err)
+	}
+}
+
+func TestLinksAddSelfLink(t *testing.T) {
+	testHost(t)
+
+	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+
+	err := sdk.Links.Add("doc", "doc", "", "alice")
+	if !errors.Is(err, sdk.ErrInvalidArg) {
+		t.Errorf("Add self-link error = %v, want sdk.ErrInvalidArg", err)
 	}
 }
 

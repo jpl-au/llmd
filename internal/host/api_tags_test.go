@@ -1,6 +1,7 @@
 package host
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -159,10 +160,9 @@ func TestTagsRemoveNonexistent(t *testing.T) {
 
 	sdk.Documents.Write("doc", []byte("x"), "alice", "")
 
-	// Removing a tag that was never added returns an error
 	err := sdk.Tags.Remove("doc", "nope", "alice")
-	if err == nil {
-		t.Error("Remove nonexistent tag: expected error")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("Remove error = %v, want sdk.ErrNotFound", err)
 	}
 }
 

@@ -2,11 +2,30 @@ package host
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/sdk"
 )
+
+// linkErr translates internal link errors to SDK sentinel errors.
+// ErrNotFound and ErrSelfLink are mapped; all other errors pass
+// through unchanged.
+func linkErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.Is(err, links.ErrNotFound):
+		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+	case errors.Is(err, links.ErrSelfLink):
+		return fmt.Errorf("%w: %v", sdk.ErrInvalidArg, err)
+	default:
+		return err
+	}
+}
 
 // linkAPI implements [sdk.LinkStore] by delegating to the internal links
 // package. It translates between the SDK's string-based direction parameter
@@ -29,14 +48,14 @@ func (a *linkAPI) Add(from, to, label, author string) error {
 		Origin: origin(author),
 		Label:  label,
 	})
-	return err
+	return linkErr(err)
 }
 
 // Remove deletes the link between two documents.
 func (a *linkAPI) Remove(from, to, author string) error {
-	return a.store.Links.Remove(context.Background(), from, to, links.Options{
+	return linkErr(a.store.Links.Remove(context.Background(), from, to, links.Options{
 		Origin: origin(author),
-	})
+	}))
 }
 
 // List returns links for a document. The dir parameter controls which
