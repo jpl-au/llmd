@@ -4,6 +4,7 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"slices"
 	"strings"
@@ -63,11 +64,12 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 	return nil
 }
 
-// reposition moves a task to a specific position within its column,
-// renumbering other tasks to maintain order.
-func (t *Tasks) reposition(ctx context.Context, key, status string, pos int, _ string) error {
+// repositionTx moves a task to a specific position within its column,
+// renumbering other tasks to maintain order. All updates run on the
+// provided transaction.
+func (t *Tasks) repositionTx(ctx context.Context, tx *sql.Tx, key, status string, pos int) error {
 	// Get all tasks in this column, ordered by position
-	rows, err := t.db.QueryContext(ctx, `
+	rows, err := tx.QueryContext(ctx, `
 		SELECT key FROM tasks
 		WHERE status = ? AND deleted_at IS NULL
 		ORDER BY position ASC, created_at ASC
@@ -113,7 +115,7 @@ func (t *Tasks) reposition(ctx context.Context, key, status string, pos int, _ s
 
 	// Update all positions
 	for i, k := range reordered {
-		_, err := t.db.ExecContext(ctx, `
+		_, err := tx.ExecContext(ctx, `
 			UPDATE tasks SET position = ? WHERE key = ? AND deleted_at IS NULL
 		`, i, k)
 		if err != nil {

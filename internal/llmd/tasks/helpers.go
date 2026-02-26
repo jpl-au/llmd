@@ -3,8 +3,10 @@
 package tasks
 
 import (
+	"context"
 	"database/sql"
 	"strings"
+	"time"
 )
 
 // addFlag appends a flag to the comma-separated flags string. Returns
@@ -35,6 +37,24 @@ func removeFlag(flags, flag string) string {
 		}
 	}
 	return strings.Join(result, ",")
+}
+
+// recordTx inserts an audit record within an existing transaction.
+// Mirrors audit.Log.Record but uses the provided tx so the audit
+// entry commits or rolls back with the surrounding operation.
+func recordTx(ctx context.Context, tx *sql.Tx, actor, action, subject, oldValue, newValue string) {
+	now := time.Now().UnixMilli()
+	var oldV, newV sql.NullString
+	if oldValue != "" {
+		oldV = sql.NullString{String: oldValue, Valid: true}
+	}
+	if newValue != "" {
+		newV = sql.NullString{String: newValue, Valid: true}
+	}
+	_, _ = tx.ExecContext(ctx, `
+		INSERT INTO history (timestamp, actor, action, subject, old_value, new_value)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, now, actor, action, subject, oldV, newV)
 }
 
 // nullStr converts a Go string to sql.NullString. Empty strings become

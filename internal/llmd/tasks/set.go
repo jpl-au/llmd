@@ -8,7 +8,8 @@ import (
 	"fmt"
 )
 
-// Set updates task metadata.
+// Set updates task metadata. All changes are applied in a single
+// transaction so a crash cannot leave a task partially updated.
 func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) error {
 	if err := t.ensure(); err != nil {
 		return err
@@ -19,22 +20,28 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		return err
 	}
 
+	tx, err := t.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	if opts.Title != nil {
 		old := tsk.Title
-		_, err = t.db.ExecContext(ctx, `UPDATE tasks SET title = ? WHERE key = ? AND deleted_at IS NULL`, *opts.Title, key)
+		_, err = tx.ExecContext(ctx, `UPDATE tasks SET title = ? WHERE key = ? AND deleted_at IS NULL`, *opts.Title, key)
 		if err != nil {
 			return fmt.Errorf("setting title: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "edited:title", key, old, *opts.Title)
+		recordTx(ctx, tx, author, "edited:title", key, old, *opts.Title)
 	}
 
 	if opts.Priority != nil {
 		old := fmt.Sprintf("%d", tsk.Priority)
-		_, err = t.db.ExecContext(ctx, `UPDATE tasks SET priority = ? WHERE key = ? AND deleted_at IS NULL`, *opts.Priority, key)
+		_, err = tx.ExecContext(ctx, `UPDATE tasks SET priority = ? WHERE key = ? AND deleted_at IS NULL`, *opts.Priority, key)
 		if err != nil {
 			return fmt.Errorf("setting priority: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "edited:priority", key, old, fmt.Sprintf("%d", *opts.Priority))
+		recordTx(ctx, tx, author, "edited:priority", key, old, fmt.Sprintf("%d", *opts.Priority))
 	}
 
 	if opts.AssignedTo != nil {
@@ -43,11 +50,11 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		if *opts.AssignedTo != "" {
 			v = sql.NullString{String: *opts.AssignedTo, Valid: true}
 		}
-		_, err = t.db.ExecContext(ctx, `UPDATE tasks SET assigned_to = ? WHERE key = ? AND deleted_at IS NULL`, v, key)
+		_, err = tx.ExecContext(ctx, `UPDATE tasks SET assigned_to = ? WHERE key = ? AND deleted_at IS NULL`, v, key)
 		if err != nil {
 			return fmt.Errorf("setting assigned_to: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "edited:assigned_to", key, old, *opts.AssignedTo)
+		recordTx(ctx, tx, author, "edited:assigned_to", key, old, *opts.AssignedTo)
 	}
 
 	if opts.Branch != nil {
@@ -56,40 +63,40 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		if *opts.Branch != "" {
 			v = sql.NullString{String: *opts.Branch, Valid: true}
 		}
-		_, err = t.db.ExecContext(ctx, `UPDATE tasks SET branch = ? WHERE key = ? AND deleted_at IS NULL`, v, key)
+		_, err = tx.ExecContext(ctx, `UPDATE tasks SET branch = ? WHERE key = ? AND deleted_at IS NULL`, v, key)
 		if err != nil {
 			return fmt.Errorf("setting branch: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "edited:branch", key, old, *opts.Branch)
+		recordTx(ctx, tx, author, "edited:branch", key, old, *opts.Branch)
 	}
 
 	if opts.Position != nil {
 		old := fmt.Sprintf("%d", tsk.Position)
-		if err := t.reposition(ctx, key, tsk.Status, *opts.Position, author); err != nil {
+		if err := t.repositionTx(ctx, tx, key, tsk.Status, *opts.Position); err != nil {
 			return err
 		}
-		_ = t.audit.Record(ctx, author, "edited:position", key, old, fmt.Sprintf("%d", *opts.Position))
+		recordTx(ctx, tx, author, "edited:position", key, old, fmt.Sprintf("%d", *opts.Position))
 	}
 
 	if opts.Flag != "" {
 		old := tsk.Flags
 		flags := addFlag(tsk.Flags, opts.Flag)
-		_, err = t.db.ExecContext(ctx, `UPDATE tasks SET flags = ? WHERE key = ? AND deleted_at IS NULL`, nullStr(flags), key)
+		_, err = tx.ExecContext(ctx, `UPDATE tasks SET flags = ? WHERE key = ? AND deleted_at IS NULL`, nullStr(flags), key)
 		if err != nil {
 			return fmt.Errorf("setting flag: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "flagged", key, old, flags)
+		recordTx(ctx, tx, author, "flagged", key, old, flags)
 	}
 
 	if opts.Unflag != "" {
 		old := tsk.Flags
 		flags := removeFlag(tsk.Flags, opts.Unflag)
-		_, err = t.db.ExecContext(ctx, `UPDATE tasks SET flags = ? WHERE key = ? AND deleted_at IS NULL`, nullStr(flags), key)
+		_, err = tx.ExecContext(ctx, `UPDATE tasks SET flags = ? WHERE key = ? AND deleted_at IS NULL`, nullStr(flags), key)
 		if err != nil {
 			return fmt.Errorf("removing flag: %w", err)
 		}
-		_ = t.audit.Record(ctx, author, "unflagged", key, old, flags)
+		recordTx(ctx, tx, author, "unflagged", key, old, flags)
 	}
 
-	return nil
+	return tx.Commit()
 }
