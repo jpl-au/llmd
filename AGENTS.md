@@ -141,6 +141,9 @@ timestamps plus an atomic counter. These are NOT nanoid. Format: lowercase
 alphanumeric, lexicographically sortable by creation time. Used for document
 keys, task keys, and other entities.
 
+The counter is seeded with a random offset in [0, 1000) at init to prevent
+collisions between concurrent processes starting in the same millisecond.
+
 ## Testing
 
 ```bash
