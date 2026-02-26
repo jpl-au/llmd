@@ -14,13 +14,23 @@ func TestPurge(t *testing.T) {
 	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
 	s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts())
 
-	s.Links.Add(ctx, "docs/a", "docs/b", testOpts())
-	s.Links.Add(ctx, "docs/a", "docs/c", testOpts())
-	s.Links.Add(ctx, "docs/b", "docs/c", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
+		t.Fatalf("Add a->b: %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/a", "docs/c", testOpts()); err != nil {
+		t.Fatalf("Add a->c: %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/b", "docs/c", testOpts()); err != nil {
+		t.Fatalf("Add b->c: %v", err)
+	}
 
 	// Remove some links
-	s.Links.Remove(ctx, "docs/a", "docs/b", testOpts())
-	s.Links.Remove(ctx, "docs/a", "docs/c", testOpts())
+	if err := s.Links.Remove(ctx, "docs/a", "docs/b", testOpts()); err != nil {
+		t.Fatalf("Remove a->b: %v", err)
+	}
+	if err := s.Links.Remove(ctx, "docs/a", "docs/c", testOpts()); err != nil {
+		t.Fatalf("Remove a->c: %v", err)
+	}
 
 	// Purge should remove 2 links
 	n, err := s.Links.Purge(ctx)

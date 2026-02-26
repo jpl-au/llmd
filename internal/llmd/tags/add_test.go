@@ -11,7 +11,9 @@ func TestAdd(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	tag, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts())
 	if err != nil {
@@ -50,7 +52,9 @@ func TestAdd_Duplicate(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
 
 	tag1, _ := s.Tags.Add(ctx, "docs/readme", "important", testOpts())
 	tag2, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts())
@@ -68,11 +72,19 @@ func TestAdd_MultipleTags(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
-	s.Tags.Add(ctx, "docs/readme", "important", testOpts())
-	s.Tags.Add(ctx, "docs/readme", "v1", testOpts())
-	s.Tags.Add(ctx, "docs/readme", "needs-review", testOpts())
+	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
+		t.Fatalf("Add important: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/readme", "v1", testOpts()); err != nil {
+		t.Fatalf("Add v1: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/readme", "needs-review", testOpts()); err != nil {
+		t.Fatalf("Add needs-review: %v", err)
+	}
 
 	tags, err := s.Tags.List(ctx, "docs/readme", testOpts())
 	if err != nil {

@@ -267,7 +267,9 @@ func TestSamplePluginExec(t *testing.T) {
 		t.Skipf("sample plugin not found: %v", err)
 	}
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "sample.go"), src, 0644)
+	if err := os.WriteFile(filepath.Join(dir, "sample.go"), src, 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	p, err := load(dir)
 	if err != nil {
@@ -358,7 +360,9 @@ func (p *P) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, erro
 `
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "taskplug.go"), []byte(pluginSrc), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "taskplug.go"), []byte(pluginSrc), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	p, err := load(dir)
 	if err != nil {
@@ -427,7 +431,9 @@ func (p *P) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, erro
 `
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "tlplug.go"), []byte(pluginSrc), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "tlplug.go"), []byte(pluginSrc), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	p, err := load(dir)
 	if err != nil {

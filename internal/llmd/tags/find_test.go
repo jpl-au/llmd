@@ -18,10 +18,18 @@ func TestFind(t *testing.T) {
 	s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts())
 	s.Documents.Write(ctx, "notes/d", "content d", testWriteOpts())
 
-	s.Tags.Add(ctx, "docs/a", "important", testOpts())
-	s.Tags.Add(ctx, "docs/b", "important", testOpts())
-	s.Tags.Add(ctx, "docs/c", "draft", testOpts())
-	s.Tags.Add(ctx, "notes/d", "important", testOpts())
+	if _, err := s.Tags.Add(ctx, "docs/a", "important", testOpts()); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/b", "important", testOpts()); err != nil {
+		t.Fatalf("Add(docs/b important): %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/c", "draft", testOpts()); err != nil {
+		t.Fatalf("Add(docs/c draft): %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "notes/d", "important", testOpts()); err != nil {
+		t.Fatalf("Add(notes/d important): %v", err)
+	}
 
 	paths, err := s.Tags.Find(ctx, "important")
 	if err != nil {
@@ -45,9 +53,15 @@ func TestFind_WithRelationPrefix(t *testing.T) {
 	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
 	s.Documents.Write(ctx, "notes/c", "content c", testWriteOpts())
 
-	s.Tags.Add(ctx, "docs/a", "important", testOpts())
-	s.Tags.Add(ctx, "docs/b", "important", testOpts())
-	s.Tags.Add(ctx, "notes/c", "important", testOpts())
+	if _, err := s.Tags.Add(ctx, "docs/a", "important", testOpts()); err != nil {
+		t.Fatalf("Add a: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/b", "important", testOpts()); err != nil {
+		t.Fatalf("Add b: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "notes/c", "important", testOpts()); err != nil {
+		t.Fatalf("Add c: %v", err)
+	}
 
 	paths, err := s.Tags.Find(ctx, "important", tags.FindOptions{RelationPrefix: "docs/"})
 	if err != nil {
@@ -67,8 +81,12 @@ func TestFind_NoResults(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/a", "content", testWriteOpts())
-	s.Tags.Add(ctx, "docs/a", "existing", testOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/a", "existing", testOpts()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	paths, err := s.Tags.Find(ctx, "nonexistent")
 	if err != nil {
@@ -84,9 +102,15 @@ func TestFind_ExcludesDeleted(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/a", "content", testWriteOpts())
-	s.Tags.Add(ctx, "docs/a", "important", testOpts())
-	s.Tags.Remove(ctx, "docs/a", "important", testOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/a", "important", testOpts()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if err := s.Tags.Remove(ctx, "docs/a", "important", testOpts()); err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
 
 	paths, err := s.Tags.Find(ctx, "important")
 	if err != nil {

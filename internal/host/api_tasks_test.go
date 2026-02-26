@@ -123,9 +123,15 @@ func TestTasksReadNotFound(t *testing.T) {
 func TestTasksList(t *testing.T) {
 	testHost(t)
 
-	sdk.Tasks.Add("One", nil, sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Add("Two", nil, sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Add("Three", nil, sdk.TaskAddOpts{Author: "alice", Status: "up-next"})
+	if _, err := sdk.Tasks.Add("One", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Add One: %v", err)
+	}
+	if _, err := sdk.Tasks.Add("Two", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Add Two: %v", err)
+	}
+	if _, err := sdk.Tasks.Add("Three", nil, sdk.TaskAddOpts{Author: "alice", Status: "up-next"}); err != nil {
+		t.Fatalf("Add Three: %v", err)
+	}
 
 	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{})
 	if err != nil {
@@ -139,8 +145,12 @@ func TestTasksList(t *testing.T) {
 func TestTasksListFilterByColumn(t *testing.T) {
 	testHost(t)
 
-	sdk.Tasks.Add("Backlog", nil, sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Add("Next", nil, sdk.TaskAddOpts{Author: "alice", Status: "up-next"})
+	if _, err := sdk.Tasks.Add("Backlog", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Add Backlog: %v", err)
+	}
+	if _, err := sdk.Tasks.Add("Next", nil, sdk.TaskAddOpts{Author: "alice", Status: "up-next"}); err != nil {
+		t.Fatalf("Add Next: %v", err)
+	}
 
 	tasks, _ := sdk.Tasks.List(sdk.TaskListOpts{Status: "up-next"})
 	if len(tasks) != 1 {
@@ -154,8 +164,12 @@ func TestTasksListFilterByColumn(t *testing.T) {
 func TestTasksListFilterByAssignee(t *testing.T) {
 	testHost(t)
 
-	sdk.Tasks.Add("Alice task", nil, sdk.TaskAddOpts{Author: "alice", AssignedTo: "alice"})
-	sdk.Tasks.Add("Bob task", nil, sdk.TaskAddOpts{Author: "bob", AssignedTo: "bob"})
+	if _, err := sdk.Tasks.Add("Alice task", nil, sdk.TaskAddOpts{Author: "alice", AssignedTo: "alice"}); err != nil {
+		t.Fatalf("Add Alice task: %v", err)
+	}
+	if _, err := sdk.Tasks.Add("Bob task", nil, sdk.TaskAddOpts{Author: "bob", AssignedTo: "bob"}); err != nil {
+		t.Fatalf("Add Bob task: %v", err)
+	}
 
 	tasks, _ := sdk.Tasks.List(sdk.TaskListOpts{AssignedTo: "alice"})
 	if len(tasks) != 1 {
@@ -223,13 +237,17 @@ func TestTasksSetFlags(t *testing.T) {
 
 	task, _ := sdk.Tasks.Add("Flagged", nil, sdk.TaskAddOpts{Author: "alice"})
 
-	sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Flag: "blocked"})
+	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Flag: "blocked"}); err != nil {
+		t.Fatalf("Set flag: %v", err)
+	}
 	updated, _ := sdk.Tasks.Read(task.Key)
 	if updated.Flags != "blocked" {
 		t.Errorf("flags = %q, want %q", updated.Flags, "blocked")
 	}
 
-	sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Unflag: "blocked"})
+	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Unflag: "blocked"}); err != nil {
+		t.Fatalf("Set unflag: %v", err)
+	}
 	updated, _ = sdk.Tasks.Read(task.Key)
 	if updated.Flags != "" {
 		t.Errorf("flags = %q, want empty after unflag", updated.Flags)
@@ -313,7 +331,9 @@ func TestTasksAddColumn(t *testing.T) {
 func TestTasksRemoveColumn(t *testing.T) {
 	testHost(t)
 
-	sdk.Tasks.AddColumn("temp", "", "alice")
+	if err := sdk.Tasks.AddColumn("temp", "", "alice"); err != nil {
+		t.Fatalf("AddColumn: %v", err)
+	}
 
 	if err := sdk.Tasks.RemoveColumn("temp", "alice"); err != nil {
 		t.Fatalf("RemoveColumn: %v", err)
@@ -330,7 +350,9 @@ func TestTasksRemoveColumn(t *testing.T) {
 func TestTasksMoveColumn(t *testing.T) {
 	testHost(t)
 
-	sdk.Tasks.AddColumn("qa", "", "alice")
+	if err := sdk.Tasks.AddColumn("qa", "", "alice"); err != nil {
+		t.Fatalf("AddColumn: %v", err)
+	}
 
 	if err := sdk.Tasks.MoveColumn("qa", "review", "alice"); err != nil {
 		t.Fatalf("MoveColumn: %v", err)
@@ -348,7 +370,9 @@ func TestTasksLog(t *testing.T) {
 	testHost(t)
 
 	task, _ := sdk.Tasks.Add("Logged", []byte("# Spec\n\nDetails here."), sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Move(task.Key, "in-progress", "alice")
+	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+		t.Fatalf("Move: %v", err)
+	}
 
 	events, err := sdk.Tasks.Log(task.Key, 0)
 	if err != nil {
@@ -374,9 +398,15 @@ func TestTasksLogLimit(t *testing.T) {
 	testHost(t)
 
 	task, _ := sdk.Tasks.Add("Many events", []byte("# Spec\n\nLots of changes."), sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Move(task.Key, "up-next", "alice")
-	sdk.Tasks.Move(task.Key, "in-progress", "alice")
-	sdk.Tasks.Move(task.Key, "review", "alice")
+	if err := sdk.Tasks.Move(task.Key, "up-next", "alice"); err != nil {
+		t.Fatalf("Move up-next: %v", err)
+	}
+	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+		t.Fatalf("Move in-progress: %v", err)
+	}
+	if err := sdk.Tasks.Move(task.Key, "review", "alice"); err != nil {
+		t.Fatalf("Move review: %v", err)
+	}
 
 	events, _ := sdk.Tasks.Log(task.Key, 2)
 	if len(events) > 2 {
@@ -387,9 +417,15 @@ func TestTasksLogLimit(t *testing.T) {
 func TestTasksListFilterByPriority(t *testing.T) {
 	testHost(t)
 
-	sdk.Tasks.Add("Normal", nil, sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Add("Urgent", nil, sdk.TaskAddOpts{Author: "alice", Priority: 1})
-	sdk.Tasks.Add("Critical", nil, sdk.TaskAddOpts{Author: "alice", Priority: 2})
+	if _, err := sdk.Tasks.Add("Normal", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Add Normal: %v", err)
+	}
+	if _, err := sdk.Tasks.Add("Urgent", nil, sdk.TaskAddOpts{Author: "alice", Priority: 1}); err != nil {
+		t.Fatalf("Add Urgent: %v", err)
+	}
+	if _, err := sdk.Tasks.Add("Critical", nil, sdk.TaskAddOpts{Author: "alice", Priority: 2}); err != nil {
+		t.Fatalf("Add Critical: %v", err)
+	}
 
 	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Priority: 1})
 	if err != nil {
@@ -518,7 +554,9 @@ func TestTasksLogEventDetails(t *testing.T) {
 	testHost(t)
 
 	task, _ := sdk.Tasks.Add("Detailed", []byte("# Spec\n\nLog details."), sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Move(task.Key, "in-progress", "alice")
+	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+		t.Fatalf("Move: %v", err)
+	}
 
 	events, _ := sdk.Tasks.Log(task.Key, 0)
 

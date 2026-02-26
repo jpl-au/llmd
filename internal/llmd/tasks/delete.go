@@ -26,7 +26,7 @@ func (t *Tasks) Delete(ctx context.Context, key, author string) (*task.Task, err
 	if err != nil {
 		return nil, fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	now := time.Now().UnixMilli()
 	_, err = tx.ExecContext(ctx, `
@@ -57,7 +57,7 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 	if err != nil {
 		return nil, fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	_, err = tx.ExecContext(ctx, `
 		UPDATE tasks SET deleted_at = NULL WHERE key = ? AND deleted_at IS NOT NULL

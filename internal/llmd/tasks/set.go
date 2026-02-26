@@ -24,7 +24,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	if opts.Title != nil {
 		old := tsk.Title

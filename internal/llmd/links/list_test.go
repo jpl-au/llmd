@@ -15,8 +15,12 @@ func TestList(t *testing.T) {
 	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
 	s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts())
 
-	s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
-	s.Links.Add(ctx, "docs/api", "docs/auth", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
+		t.Fatalf("Add(docs/api -> docs/models): %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/auth", testOpts()); err != nil {
+		t.Fatalf("Add(docs/api -> docs/auth): %v", err)
+	}
 
 	list, err := s.Links.List(ctx, "docs/api", testOpts())
 	if err != nil {
@@ -34,7 +38,9 @@ func TestList_ByKey(t *testing.T) {
 
 	doc, _ := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
 	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
-	s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
+		t.Fatalf("Add(docs/api -> docs/models): %v", err)
+	}
 
 	list, err := s.Links.List(ctx, doc.Key, testOpts())
 	if err != nil {
@@ -68,7 +74,9 @@ func TestList_Outgoing(t *testing.T) {
 
 	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
 	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
-	s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
+		t.Fatalf("Add(docs/api -> docs/models): %v", err)
+	}
 
 	opts := testOpts()
 	opts.Direction = links.Outgoing
@@ -92,7 +100,9 @@ func TestList_Incoming(t *testing.T) {
 
 	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
 	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
-	s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
+		t.Fatalf("Add(docs/api -> docs/models): %v", err)
+	}
 
 	opts := testOpts()
 	opts.Direction = links.Incoming
@@ -120,9 +130,13 @@ func TestList_Both(t *testing.T) {
 	s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts())
 
 	// api -> models
-	s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
+		t.Fatalf("Add(docs/api -> docs/models): %v", err)
+	}
 	// auth -> api
-	s.Links.Add(ctx, "docs/auth", "docs/api", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/auth", "docs/api", testOpts()); err != nil {
+		t.Fatalf("Add(docs/auth -> docs/api): %v", err)
+	}
 
 	opts := testOpts()
 	opts.Direction = links.Both

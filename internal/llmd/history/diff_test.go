@@ -10,8 +10,12 @@ func TestDiff(t *testing.T) {
 	ctx := context.Background()
 	opts := testWriteOpts()
 
-	s.Documents.Write(ctx, "docs/readme", "first version", opts)
-	s.Documents.Write(ctx, "docs/readme", "second version", opts)
+	if _, err := s.Documents.Write(ctx, "docs/readme", "first version", opts); err != nil {
+		t.Fatalf("Write(first version): %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "second version", opts); err != nil {
+		t.Fatalf("Write(second version): %v", err)
+	}
 
 	// Get keys for specific versions
 	versions, _ := s.History.List(ctx, "docs/readme")
@@ -36,8 +40,12 @@ func TestDiff_ByPath(t *testing.T) {
 	ctx := context.Background()
 	opts := testWriteOpts()
 
-	s.Documents.Write(ctx, "docs/readme", "readme content", opts)
-	s.Documents.Write(ctx, "docs/api", "api content", opts)
+	if _, err := s.Documents.Write(ctx, "docs/readme", "readme content", opts); err != nil {
+		t.Fatalf("Write(readme): %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", opts); err != nil {
+		t.Fatalf("Write(api): %v", err)
+	}
 
 	result, err := s.History.Diff(ctx, "docs/readme", "docs/api")
 	if err != nil {
@@ -57,7 +65,9 @@ func TestDiff_NotFound(t *testing.T) {
 	ctx := context.Background()
 	opts := testWriteOpts()
 
-	s.Documents.Write(ctx, "docs/readme", "content", opts)
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", opts); err != nil {
+		t.Fatalf("Write(readme): %v", err)
+	}
 
 	_, err := s.History.Diff(ctx, "docs/readme", "docs/nonexistent")
 	if err == nil {

@@ -12,7 +12,9 @@ func TestEdit(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	doc, err := s.Documents.Edit(ctx, "docs/readme", "world", "universe", testEditOpts())
 	if err != nil {

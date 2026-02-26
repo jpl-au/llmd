@@ -16,7 +16,9 @@ func TestImport_SingleFile(t *testing.T) {
 	// Create temp file
 	dir := t.TempDir()
 	path := filepath.Join(dir, "readme.md")
-	os.WriteFile(path, []byte("# Hello"), 0644)
+	if err := os.WriteFile(path, []byte("# Hello"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	result, err := s.Bulk.Import(ctx, path, testImportOpts())
 	if err != nil {
@@ -43,10 +45,18 @@ func TestImport_Directory(t *testing.T) {
 
 	// Create temp directory with files
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("readme"), 0644)
-	os.WriteFile(filepath.Join(dir, "guide.md"), []byte("guide"), 0644)
-	os.MkdirAll(filepath.Join(dir, "sub"), 0755)
-	os.WriteFile(filepath.Join(dir, "sub", "nested.md"), []byte("nested"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "readme.md"), []byte("readme"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "guide.md"), []byte("guide"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sub", "nested.md"), []byte("nested"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	result, err := s.Bulk.Import(ctx, dir, testImportOpts())
 	if err != nil {
@@ -72,7 +82,9 @@ func TestImport_WithPrefix(t *testing.T) {
 	ctx := context.Background()
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("content"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "readme.md"), []byte("content"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	opts := testImportOpts()
 	opts.Prefix = "docs/"
@@ -97,8 +109,12 @@ func TestImport_Flatten(t *testing.T) {
 	ctx := context.Background()
 
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "sub", "deep"), 0755)
-	os.WriteFile(filepath.Join(dir, "sub", "deep", "file.md"), []byte("content"), 0644)
+	if err := os.MkdirAll(filepath.Join(dir, "sub", "deep"), 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sub", "deep", "file.md"), []byte("content"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	opts := testImportOpts()
 	opts.Flatten = true
@@ -119,8 +135,12 @@ func TestImport_SkipsHidden(t *testing.T) {
 	ctx := context.Background()
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "visible.md"), []byte("visible"), 0644)
-	os.WriteFile(filepath.Join(dir, ".hidden.md"), []byte("hidden"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "visible.md"), []byte("visible"), 0644); err != nil {
+		t.Fatalf("WriteFile(visible): %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".hidden.md"), []byte("hidden"), 0644); err != nil {
+		t.Fatalf("WriteFile(hidden): %v", err)
+	}
 
 	result, err := s.Bulk.Import(ctx, dir, testImportOpts())
 	if err != nil {
@@ -137,8 +157,12 @@ func TestImport_IncludesHidden(t *testing.T) {
 	ctx := context.Background()
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "visible.md"), []byte("visible"), 0644)
-	os.WriteFile(filepath.Join(dir, ".hidden.md"), []byte("hidden"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "visible.md"), []byte("visible"), 0644); err != nil {
+		t.Fatalf("WriteFile(visible): %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".hidden.md"), []byte("hidden"), 0644); err != nil {
+		t.Fatalf("WriteFile(hidden): %v", err)
+	}
 
 	opts := testImportOpts()
 	opts.Hidden = true
@@ -157,7 +181,9 @@ func TestImport_DryRun(t *testing.T) {
 	ctx := context.Background()
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("content"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "readme.md"), []byte("content"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	opts := testImportOpts()
 	opts.DryRun = true
@@ -182,9 +208,15 @@ func TestImport_OnlyMarkdown(t *testing.T) {
 	ctx := context.Background()
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "readme.md"), []byte("markdown"), 0644)
-	os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("text"), 0644)
-	os.WriteFile(filepath.Join(dir, "readme.json"), []byte("{}"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "readme.md"), []byte("markdown"), 0644); err != nil {
+		t.Fatalf("WriteFile markdown: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("text"), 0644); err != nil {
+		t.Fatalf("WriteFile text: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "readme.json"), []byte("{}"), 0644); err != nil {
+		t.Fatalf("WriteFile json: %v", err)
+	}
 
 	result, err := s.Bulk.Import(ctx, dir, testImportOpts())
 	if err != nil {

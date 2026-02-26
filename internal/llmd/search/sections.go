@@ -122,7 +122,7 @@ func parseMarkdown(content string) []section {
 	lineOffsets[len(lines)] = len(content)
 
 	// Collect all headings
-	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+	if err := ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
@@ -140,7 +140,9 @@ func parseMarkdown(content string) []section {
 			}{title.String(), line})
 		}
 		return ast.WalkContinue, nil
-	})
+	}); err != nil {
+		return nil
+	}
 
 	if len(headings) == 0 {
 		// No headings: treat entire doc as one section

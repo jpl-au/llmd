@@ -32,8 +32,12 @@ func TestTagsAddMultiple(t *testing.T) {
 	testHost(t)
 
 	sdk.Documents.Write("doc", []byte("x"), "alice", "")
-	sdk.Tags.Add("doc", "feature", "alice")
-	sdk.Tags.Add("doc", "urgent", "alice")
+	if err := sdk.Tags.Add("doc", "feature", "alice"); err != nil {
+		t.Fatalf("Add feature: %v", err)
+	}
+	if err := sdk.Tags.Add("doc", "urgent", "alice"); err != nil {
+		t.Fatalf("Add urgent: %v", err)
+	}
 
 	tags, _ := sdk.Tags.List("doc")
 	if len(tags) != 2 {
@@ -45,7 +49,9 @@ func TestTagsRemove(t *testing.T) {
 	testHost(t)
 
 	sdk.Documents.Write("doc", []byte("x"), "alice", "")
-	sdk.Tags.Add("doc", "temp", "alice")
+	if err := sdk.Tags.Add("doc", "temp", "alice"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	if err := sdk.Tags.Remove("doc", "temp", "alice"); err != nil {
 		t.Fatalf("Remove: %v", err)
@@ -76,9 +82,15 @@ func TestTagsAll(t *testing.T) {
 
 	sdk.Documents.Write("a", []byte("x"), "alice", "")
 	sdk.Documents.Write("b", []byte("x"), "alice", "")
-	sdk.Tags.Add("a", "feature", "alice")
-	sdk.Tags.Add("b", "feature", "alice")
-	sdk.Tags.Add("a", "bug", "alice")
+	if err := sdk.Tags.Add("a", "feature", "alice"); err != nil {
+		t.Fatalf("Add a/feature: %v", err)
+	}
+	if err := sdk.Tags.Add("b", "feature", "alice"); err != nil {
+		t.Fatalf("Add b/feature: %v", err)
+	}
+	if err := sdk.Tags.Add("a", "bug", "alice"); err != nil {
+		t.Fatalf("Add a/bug: %v", err)
+	}
 
 	infos, err := sdk.Tags.All()
 	if err != nil {
@@ -114,11 +126,21 @@ func TestTagsAllEmpty(t *testing.T) {
 func TestTagsFind(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
-	sdk.Documents.Write("c", []byte("x"), "alice", "")
-	sdk.Tags.Add("a", "release", "alice")
-	sdk.Tags.Add("c", "release", "alice")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if err := sdk.Documents.Write("c", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
+	if err := sdk.Tags.Add("a", "release", "alice"); err != nil {
+		t.Fatalf("Tag a: %v", err)
+	}
+	if err := sdk.Tags.Add("c", "release", "alice"); err != nil {
+		t.Fatalf("Tag c: %v", err)
+	}
 
 	paths, err := sdk.Tags.Find("release")
 	if err != nil {
@@ -146,8 +168,10 @@ func TestTagsAddDuplicate(t *testing.T) {
 
 	sdk.Documents.Write("doc", []byte("x"), "alice", "")
 
-	sdk.Tags.Add("doc", "dupe", "alice")
-	sdk.Tags.Add("doc", "dupe", "alice")
+	if err := sdk.Tags.Add("doc", "dupe", "alice"); err != nil {
+		t.Fatalf("Tag dupe: %v", err)
+	}
+	_ = sdk.Tags.Add("doc", "dupe", "alice") // duplicate — expected to fail
 
 	tags, _ := sdk.Tags.List("doc")
 	if len(tags) != 1 {
@@ -169,10 +193,18 @@ func TestTagsRemoveNonexistent(t *testing.T) {
 func TestTagsListMultiple(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("doc", []byte("x"), "alice", "")
-	sdk.Tags.Add("doc", "alpha", "alice")
-	sdk.Tags.Add("doc", "beta", "alice")
-	sdk.Tags.Add("doc", "gamma", "alice")
+	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := sdk.Tags.Add("doc", "alpha", "alice"); err != nil {
+		t.Fatalf("Add alpha: %v", err)
+	}
+	if err := sdk.Tags.Add("doc", "beta", "alice"); err != nil {
+		t.Fatalf("Add beta: %v", err)
+	}
+	if err := sdk.Tags.Add("doc", "gamma", "alice"); err != nil {
+		t.Fatalf("Add gamma: %v", err)
+	}
 
 	tags, err := sdk.Tags.List("doc")
 	if err != nil {
@@ -194,13 +226,25 @@ func TestTagsListMultiple(t *testing.T) {
 func TestTagsFindMultipleDocs(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
-	sdk.Documents.Write("c", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if err := sdk.Documents.Write("c", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
 
-	sdk.Tags.Add("a", "shared", "alice")
-	sdk.Tags.Add("b", "shared", "alice")
-	sdk.Tags.Add("c", "unique", "alice")
+	if err := sdk.Tags.Add("a", "shared", "alice"); err != nil {
+		t.Fatalf("Add shared a: %v", err)
+	}
+	if err := sdk.Tags.Add("b", "shared", "alice"); err != nil {
+		t.Fatalf("Add shared b: %v", err)
+	}
+	if err := sdk.Tags.Add("c", "unique", "alice"); err != nil {
+		t.Fatalf("Add unique: %v", err)
+	}
 
 	paths, _ := sdk.Tags.Find("shared")
 	if len(paths) != 2 {

@@ -177,7 +177,9 @@ func TestDocumentsListDeleted(t *testing.T) {
 
 	sdk.Documents.Write("keep", []byte("x"), "alice", "")
 	sdk.Documents.Write("gone", []byte("x"), "alice", "")
-	sdk.Documents.Delete("gone", "alice")
+	if err := sdk.Documents.Delete("gone", "alice"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
 
 	docs, _ := sdk.Documents.List("", sdk.ListOpts{})
 	if len(docs) != 1 {
@@ -324,7 +326,9 @@ func TestDocumentsVacuum(t *testing.T) {
 	testHost(t)
 
 	sdk.Documents.Write("doc", []byte("x"), "alice", "")
-	sdk.Documents.Delete("doc", "alice")
+	if err := sdk.Documents.Delete("doc", "alice"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
 
 	result, err := sdk.Documents.Vacuum()
 	if err != nil {
@@ -551,8 +555,12 @@ func TestDocumentsImportExport(t *testing.T) {
 
 	// Create a temp directory with some files to import
 	importDir := t.TempDir()
-	os.WriteFile(filepath.Join(importDir, "one.md"), []byte("first"), 0644)
-	os.WriteFile(filepath.Join(importDir, "two.md"), []byte("second"), 0644)
+	if err := os.WriteFile(filepath.Join(importDir, "one.md"), []byte("first"), 0644); err != nil {
+		t.Fatalf("WriteFile one.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(importDir, "two.md"), []byte("second"), 0644); err != nil {
+		t.Fatalf("WriteFile two.md: %v", err)
+	}
 
 	result, err := sdk.Documents.Import(importDir, sdk.ImportOpts{})
 	if err != nil {
@@ -576,7 +584,9 @@ func TestDocumentsImportDryRun(t *testing.T) {
 	testHost(t)
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "doc.md"), []byte("content"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "doc.md"), []byte("content"), 0644); err != nil {
+		t.Fatalf("WriteFile doc.md: %v", err)
+	}
 
 	result, err := sdk.Documents.Import(dir, sdk.ImportOpts{DryRun: true})
 	if err != nil {
@@ -597,7 +607,9 @@ func TestDocumentsImportWithPrefix(t *testing.T) {
 	testHost(t)
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "note.md"), []byte("x"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "note.md"), []byte("x"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	result, err := sdk.Documents.Import(dir, sdk.ImportOpts{Prefix: "imported/"})
 	if err != nil {
@@ -647,7 +659,9 @@ func TestDocumentsExportSkipsExisting(t *testing.T) {
 
 	dir := t.TempDir()
 	// Export appends .md, so pre-create doc.md to trigger skip
-	os.WriteFile(filepath.Join(dir, "doc.md"), []byte("existing"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "doc.md"), []byte("existing"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	result, err := sdk.Documents.Export("exp/", dir, sdk.ExportOpts{Overwrite: false})
 	if err != nil {
@@ -670,7 +684,9 @@ func TestDocumentsExportOverwrite(t *testing.T) {
 	sdk.Documents.Write("exp/doc", []byte("new content"), "alice", "")
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "doc.md"), []byte("old"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "doc.md"), []byte("old"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	result, err := sdk.Documents.Export("exp/", dir, sdk.ExportOpts{Overwrite: true})
 	if err != nil {

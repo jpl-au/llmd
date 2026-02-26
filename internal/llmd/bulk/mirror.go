@@ -77,7 +77,7 @@ func docToFSPath(dir, docPath string) string {
 // files removed.
 func cleanStale(dir string, keep map[string]bool) int {
 	var removed int
-	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -86,14 +86,18 @@ func cleanStale(dir string, keep map[string]bool) int {
 			removed++
 		}
 		return nil
-	})
+	}); err != nil {
+		return removed
+	}
 	// Remove empty directories (only succeeds if empty).
-	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || !info.IsDir() || path == dir {
 			return nil
 		}
 		os.Remove(path)
 		return nil
-	})
+	}); err != nil {
+		return removed
+	}
 	return removed
 }

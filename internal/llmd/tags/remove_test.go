@@ -12,8 +12,12 @@ func TestRemove(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
-	s.Tags.Add(ctx, "docs/readme", "important", testOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	err := s.Tags.Remove(ctx, "docs/readme", "important", testOpts())
 	if err != nil {
@@ -31,7 +35,9 @@ func TestRemove_NotFound(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	err := s.Tags.Remove(ctx, "docs/readme", "nonexistent", testOpts())
 	if !errors.Is(err, tags.ErrNotFound) {
@@ -43,11 +49,16 @@ func TestRemove_ByKey(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	doc, _ := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
-	s.Tags.Add(ctx, "docs/readme", "important", testOpts())
+	doc, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	// Remove by document key
-	err := s.Tags.Remove(ctx, doc.Key, "important", testOpts())
+	err = s.Tags.Remove(ctx, doc.Key, "important", testOpts())
 	if err != nil {
 		t.Fatalf("Remove() error = %v", err)
 	}

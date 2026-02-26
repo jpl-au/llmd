@@ -12,9 +12,15 @@ func TestRemove(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
-	s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts()); err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	err := s.Links.Remove(ctx, "docs/api", "docs/models", testOpts())
 	if err != nil {
@@ -32,8 +38,12 @@ func TestRemove_WithLabel(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts()); err != nil {
+		t.Fatalf("Write auth: %v", err)
+	}
 
 	opts1 := testOpts()
 	opts1.Label = "requires"
@@ -41,8 +51,12 @@ func TestRemove_WithLabel(t *testing.T) {
 	opts2 := testOpts()
 	opts2.Label = "related"
 
-	s.Links.Add(ctx, "docs/api", "docs/auth", opts1)
-	s.Links.Add(ctx, "docs/api", "docs/auth", opts2)
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/auth", opts1); err != nil {
+		t.Fatalf("Add requires: %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/auth", opts2); err != nil {
+		t.Fatalf("Add related: %v", err)
+	}
 
 	// Remove only the "requires" link
 	removeOpts := testOpts()
@@ -66,8 +80,12 @@ func TestRemove_AllLinks(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts()); err != nil {
+		t.Fatalf("Write auth: %v", err)
+	}
 
 	opts1 := testOpts()
 	opts1.Label = "requires"
@@ -75,8 +93,12 @@ func TestRemove_AllLinks(t *testing.T) {
 	opts2 := testOpts()
 	opts2.Label = "related"
 
-	s.Links.Add(ctx, "docs/api", "docs/auth", opts1)
-	s.Links.Add(ctx, "docs/api", "docs/auth", opts2)
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/auth", opts1); err != nil {
+		t.Fatalf("Add requires: %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/auth", opts2); err != nil {
+		t.Fatalf("Add related: %v", err)
+	}
 
 	// Remove all links (no label specified)
 	err := s.Links.Remove(ctx, "docs/api", "docs/auth", testOpts())
@@ -95,8 +117,12 @@ func TestRemove_NotFound(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts()); err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
 
 	err := s.Links.Remove(ctx, "docs/api", "docs/models", testOpts())
 	if !errors.Is(err, links.ErrNotFound) {
@@ -108,11 +134,19 @@ func TestRemove_ByKey(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	fromDoc, _ := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	toDoc, _ := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
-	s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
+	fromDoc, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	toDoc, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
-	err := s.Links.Remove(ctx, fromDoc.Key, toDoc.Key, testOpts())
+	err = s.Links.Remove(ctx, fromDoc.Key, toDoc.Key, testOpts())
 	if err != nil {
 		t.Fatalf("Remove() error = %v", err)
 	}

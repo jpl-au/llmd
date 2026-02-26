@@ -14,11 +14,17 @@ func TestPurge(t *testing.T) {
 	// Write some entities
 	ent1, _ := s.Entities.Write(ctx, "test:item", `{"name":"a"}`, testWriteOpts())
 	ent2, _ := s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts())
-	s.Entities.Write(ctx, "test:item", `{"name":"c"}`, testWriteOpts())
+	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"c"}`, testWriteOpts()); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
 
 	// Delete some
-	s.Entities.Delete(ctx, ent1.Key, testDeleteOpts())
-	s.Entities.Delete(ctx, ent2.Key, testDeleteOpts())
+	if err := s.Entities.Delete(ctx, ent1.Key, testDeleteOpts()); err != nil {
+		t.Fatalf("Delete(%s): %v", ent1.Key, err)
+	}
+	if err := s.Entities.Delete(ctx, ent2.Key, testDeleteOpts()); err != nil {
+		t.Fatalf("Delete(%s): %v", ent2.Key, err)
+	}
 
 	// Purge should remove 2 entities
 	n, err := s.Entities.Purge(ctx)
@@ -55,8 +61,12 @@ func TestPurge_OnlyDeleted(t *testing.T) {
 	ctx := context.Background()
 
 	// Write entities but don't delete any
-	s.Entities.Write(ctx, "test:item", `{"name":"a"}`, testWriteOpts())
-	s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts())
+	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"a"}`, testWriteOpts()); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 
 	// Purge should do nothing
 	n, err := s.Entities.Purge(ctx)

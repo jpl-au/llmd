@@ -129,14 +129,18 @@ func run(args []string) int {
 		if jsonOut {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
-			enc.Encode(r.Data)
+			if err := enc.Encode(r.Data); err != nil {
+				return errorf(false, "encoding JSON: %v", err)
+			}
 		} else if r.Text != "" {
 			fmt.Println(r.Text)
 		}
 	case sdk.Data:
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(r.V)
+		if err := enc.Encode(r.V); err != nil {
+			return errorf(false, "encoding JSON: %v", err)
+		}
 	}
 
 	return 0
@@ -147,7 +151,7 @@ func run(args []string) int {
 func errorf(jsonOut bool, format string, args ...any) int {
 	msg := fmt.Sprintf(format, args...)
 	if jsonOut {
-		json.NewEncoder(os.Stderr).Encode(map[string]string{"error": msg})
+		_ = json.NewEncoder(os.Stderr).Encode(map[string]string{"error": msg})
 	} else {
 		fmt.Fprintf(os.Stderr, "error: %s\n", msg)
 	}

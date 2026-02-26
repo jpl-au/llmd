@@ -91,7 +91,9 @@ func TestBus_HandlerOrder(t *testing.T) {
 	}))
 
 	event := events.Event{Type: events.DocumentWritten, Path: "test"}
-	bus.Emit(context.Background(), event)
+	if err := bus.Emit(context.Background(), event); err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
 
 	if len(order) != 2 || order[0] != 1 || order[1] != 2 {
 		t.Errorf("expected order [1, 2], got %v", order)

@@ -38,7 +38,9 @@ func TestExists_Deleted(t *testing.T) {
 	ctx := context.Background()
 
 	ent, _ := s.Entities.Write(ctx, "test:item", `{"name":"foo"}`, testWriteOpts())
-	s.Entities.Delete(ctx, ent.Key, testDeleteOpts())
+	if err := s.Entities.Delete(ctx, ent.Key, testDeleteOpts()); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
 
 	exists, err := s.Entities.Exists(ctx, ent.Key)
 	if err != nil {
@@ -55,7 +57,9 @@ func TestExistsInNamespace(t *testing.T) {
 
 	opts := testWriteOpts()
 	opts.Relation = "docs/readme"
-	s.Entities.Write(ctx, "test:item", `{"x":1}`, opts)
+	if _, err := s.Entities.Write(ctx, "test:item", `{"x":1}`, opts); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	exists, err := s.Entities.ExistsInNamespace(ctx, "test:item", "docs/readme")
 	if err != nil {
@@ -72,7 +76,9 @@ func TestExistsInNamespace_NotFound(t *testing.T) {
 
 	opts := testWriteOpts()
 	opts.Relation = "docs/readme"
-	s.Entities.Write(ctx, "test:item", `{"x":1}`, opts)
+	if _, err := s.Entities.Write(ctx, "test:item", `{"x":1}`, opts); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	// Different relation
 	exists, err := s.Entities.ExistsInNamespace(ctx, "test:item", "docs/other")
@@ -90,8 +96,12 @@ func TestFindByValue(t *testing.T) {
 
 	opts := testWriteOpts()
 	opts.Relation = "docs/readme"
-	s.Entities.Write(ctx, "test:item", `{"tag":"important"}`, opts)
-	s.Entities.Write(ctx, "test:item", `{"tag":"draft"}`, opts)
+	if _, err := s.Entities.Write(ctx, "test:item", `{"tag":"important"}`, opts); err != nil {
+		t.Fatalf("Write important: %v", err)
+	}
+	if _, err := s.Entities.Write(ctx, "test:item", `{"tag":"draft"}`, opts); err != nil {
+		t.Fatalf("Write draft: %v", err)
+	}
 
 	// Find by JSON path
 	ent, err := s.Entities.FindByValue(ctx, "test:item", "docs/readme", "$.tag", "important")
@@ -110,7 +120,9 @@ func TestFindByValue_NotFound(t *testing.T) {
 
 	opts := testWriteOpts()
 	opts.Relation = "docs/readme"
-	s.Entities.Write(ctx, "test:item", `{"tag":"important"}`, opts)
+	if _, err := s.Entities.Write(ctx, "test:item", `{"tag":"important"}`, opts); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	_, err := s.Entities.FindByValue(ctx, "test:item", "docs/readme", "$.tag", "nonexistent")
 	if err == nil {

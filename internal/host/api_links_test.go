@@ -10,8 +10,12 @@ import (
 func TestLinksAdd(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 
 	if err := sdk.Links.Add("a", "b", "related", "alice"); err != nil {
 		t.Fatalf("Add: %v", err)
@@ -35,8 +39,12 @@ func TestLinksAdd(t *testing.T) {
 func TestLinksAddNoLabel(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("x", []byte("x"), "alice", "")
-	sdk.Documents.Write("y", []byte("y"), "alice", "")
+	if err := sdk.Documents.Write("x", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write x: %v", err)
+	}
+	if err := sdk.Documents.Write("y", []byte("y"), "alice", ""); err != nil {
+		t.Fatalf("Write y: %v", err)
+	}
 
 	if err := sdk.Links.Add("x", "y", "", "alice"); err != nil {
 		t.Fatalf("Add: %v", err)
@@ -54,9 +62,15 @@ func TestLinksAddNoLabel(t *testing.T) {
 func TestLinksRemove(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
-	sdk.Links.Add("a", "b", "", "alice")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if err := sdk.Links.Add("a", "b", "", "alice"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	if err := sdk.Links.Remove("a", "b", "alice"); err != nil {
 		t.Fatalf("Remove: %v", err)
@@ -71,12 +85,22 @@ func TestLinksRemove(t *testing.T) {
 func TestLinksListOutgoing(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("center", []byte("x"), "alice", "")
-	sdk.Documents.Write("out1", []byte("x"), "alice", "")
-	sdk.Documents.Write("out2", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("center", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write center: %v", err)
+	}
+	if err := sdk.Documents.Write("out1", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write out1: %v", err)
+	}
+	if err := sdk.Documents.Write("out2", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write out2: %v", err)
+	}
 
-	sdk.Links.Add("center", "out1", "", "alice")
-	sdk.Links.Add("center", "out2", "", "alice")
+	if err := sdk.Links.Add("center", "out1", "", "alice"); err != nil {
+		t.Fatalf("Add center->out1: %v", err)
+	}
+	if err := sdk.Links.Add("center", "out2", "", "alice"); err != nil {
+		t.Fatalf("Add center->out2: %v", err)
+	}
 
 	links, _ := sdk.Links.List("center", "out")
 	if len(links) != 2 {
@@ -87,12 +111,22 @@ func TestLinksListOutgoing(t *testing.T) {
 func TestLinksListIncoming(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("target", []byte("x"), "alice", "")
-	sdk.Documents.Write("src1", []byte("x"), "alice", "")
-	sdk.Documents.Write("src2", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("target", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write target: %v", err)
+	}
+	if err := sdk.Documents.Write("src1", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write src1: %v", err)
+	}
+	if err := sdk.Documents.Write("src2", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write src2: %v", err)
+	}
 
-	sdk.Links.Add("src1", "target", "", "alice")
-	sdk.Links.Add("src2", "target", "", "alice")
+	if err := sdk.Links.Add("src1", "target", "", "alice"); err != nil {
+		t.Fatalf("Add src1->target: %v", err)
+	}
+	if err := sdk.Links.Add("src2", "target", "", "alice"); err != nil {
+		t.Fatalf("Add src2->target: %v", err)
+	}
 
 	links, _ := sdk.Links.List("target", "in")
 	if len(links) != 2 {
@@ -103,12 +137,22 @@ func TestLinksListIncoming(t *testing.T) {
 func TestLinksListBoth(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
-	sdk.Documents.Write("c", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if err := sdk.Documents.Write("c", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
 
-	sdk.Links.Add("a", "b", "", "alice")
-	sdk.Links.Add("c", "b", "", "alice")
+	if err := sdk.Links.Add("a", "b", "", "alice"); err != nil {
+		t.Fatalf("Add a->b: %v", err)
+	}
+	if err := sdk.Links.Add("c", "b", "", "alice"); err != nil {
+		t.Fatalf("Add c->b: %v", err)
+	}
 
 	links, _ := sdk.Links.List("b", "both")
 	if len(links) != 2 {
@@ -119,7 +163,9 @@ func TestLinksListBoth(t *testing.T) {
 func TestLinksListEmpty(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("lonely", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("lonely", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	links, err := sdk.Links.List("lonely", "out")
 	if err != nil {
@@ -133,12 +179,18 @@ func TestLinksListEmpty(t *testing.T) {
 func TestLinksAddDuplicate(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 
-	sdk.Links.Add("a", "b", "related", "alice")
-	// Adding the same link again should not create a duplicate
-	sdk.Links.Add("a", "b", "related", "alice")
+	if err := sdk.Links.Add("a", "b", "related", "alice"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	// Adding the same link again should not create a duplicate.
+	_ = sdk.Links.Add("a", "b", "related", "alice")
 
 	links, _ := sdk.Links.List("a", "out")
 	if len(links) != 1 {
@@ -149,8 +201,12 @@ func TestLinksAddDuplicate(t *testing.T) {
 func TestLinksRemoveNonexistent(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("a", []byte("x"), "alice", "")
-	sdk.Documents.Write("b", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 
 	err := sdk.Links.Remove("a", "b", "alice")
 	if !errors.Is(err, sdk.ErrNotFound) {
@@ -161,7 +217,9 @@ func TestLinksRemoveNonexistent(t *testing.T) {
 func TestLinksAddSelfLink(t *testing.T) {
 	testHost(t)
 
-	sdk.Documents.Write("doc", []byte("x"), "alice", "")
+	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	err := sdk.Links.Add("doc", "doc", "", "alice")
 	if !errors.Is(err, sdk.ErrInvalidArg) {
@@ -176,8 +234,12 @@ func TestLinksWithLabel(t *testing.T) {
 	sdk.Documents.Write("b", []byte("x"), "alice", "")
 	sdk.Documents.Write("c", []byte("x"), "alice", "")
 
-	sdk.Links.Add("a", "b", "blocks", "alice")
-	sdk.Links.Add("a", "c", "relates", "alice")
+	if err := sdk.Links.Add("a", "b", "blocks", "alice"); err != nil {
+		t.Fatalf("Add blocks: %v", err)
+	}
+	if err := sdk.Links.Add("a", "c", "relates", "alice"); err != nil {
+		t.Fatalf("Add a->c: %v", err)
+	}
 
 	links, _ := sdk.Links.List("a", "out")
 	if len(links) != 2 {

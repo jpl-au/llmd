@@ -195,7 +195,9 @@ func TestRestore(t *testing.T) {
 	origin := core.Origin{Author: "alice", Source: "test"}
 
 	tsk, _ := ts.Add(ctx, "To restore", nil, AddOptions{Origin: origin})
-	ts.Delete(ctx, tsk.Key, "alice")
+	if _, err := ts.Delete(ctx, tsk.Key, "alice"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
 
 	restored, err := ts.Restore(ctx, tsk.Key, "alice")
 	if err != nil {
@@ -223,21 +225,27 @@ func TestFlags(t *testing.T) {
 	tsk, _ := ts.Add(ctx, "Flagged", nil, AddOptions{Origin: origin})
 
 	// Add flag
-	ts.Set(ctx, tsk.Key, "alice", SetOptions{Flag: "blocked"})
+	if err := ts.Set(ctx, tsk.Key, "alice", SetOptions{Flag: "blocked"}); err != nil {
+		t.Fatalf("Set flag blocked: %v", err)
+	}
 	got, _ := ts.Read(ctx, tsk.Key)
 	if got.Flags != "blocked" {
 		t.Errorf("flags = %q, want %q", got.Flags, "blocked")
 	}
 
 	// Add another
-	ts.Set(ctx, tsk.Key, "alice", SetOptions{Flag: "hold"})
+	if err := ts.Set(ctx, tsk.Key, "alice", SetOptions{Flag: "hold"}); err != nil {
+		t.Fatalf("Set flag hold: %v", err)
+	}
 	got, _ = ts.Read(ctx, tsk.Key)
 	if got.Flags != "blocked,hold" {
 		t.Errorf("flags = %q, want %q", got.Flags, "blocked,hold")
 	}
 
 	// Remove one
-	ts.Set(ctx, tsk.Key, "alice", SetOptions{Unflag: "blocked"})
+	if err := ts.Set(ctx, tsk.Key, "alice", SetOptions{Unflag: "blocked"}); err != nil {
+		t.Fatalf("Set unflag blocked: %v", err)
+	}
 	got, _ = ts.Read(ctx, tsk.Key)
 	if got.Flags != "hold" {
 		t.Errorf("flags = %q, want %q", got.Flags, "hold")
@@ -250,7 +258,9 @@ func TestColumns(t *testing.T) {
 	origin := core.Origin{Author: "alice", Source: "test"}
 
 	// Trigger board creation
-	ts.Add(ctx, "Trigger", nil, AddOptions{Origin: origin})
+	if _, err := ts.Add(ctx, "Trigger", nil, AddOptions{Origin: origin}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	cols, err := ts.Columns(ctx)
 	if err != nil {
@@ -311,7 +321,9 @@ func TestPosition(t *testing.T) {
 	t3, _ := ts.Add(ctx, "Third", nil, AddOptions{Origin: origin})
 
 	// Move third to top
-	ts.Set(ctx, t3.Key, "alice", SetOptions{Position: new(int)})
+	if err := ts.Set(ctx, t3.Key, "alice", SetOptions{Position: new(int)}); err != nil {
+		t.Fatalf("Set() error = %v", err)
+	}
 
 	all, _ := ts.List(ctx, ListOptions{})
 	if all[0].Key != t3.Key {
@@ -333,8 +345,12 @@ func TestLogSingleTask(t *testing.T) {
 	tsk, _ := ts.Add(ctx, "Logged task", []byte("# Logged task\n\nSpec content."), AddOptions{Origin: origin})
 
 	// Move and set to generate audit entries
-	ts.Move(ctx, tsk.Key, "up-next", "alice")
-	ts.Set(ctx, tsk.Key, "bob", SetOptions{Flag: "blocked"})
+	if err := ts.Move(ctx, tsk.Key, "up-next", "alice"); err != nil {
+		t.Fatalf("Move: %v", err)
+	}
+	if err := ts.Set(ctx, tsk.Key, "bob", SetOptions{Flag: "blocked"}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 
 	events, err := ts.Log(ctx, tsk.Key, 0)
 	if err != nil {
@@ -393,8 +409,12 @@ func TestLogLimit(t *testing.T) {
 	origin := core.Origin{Author: "alice", Source: "test"}
 
 	tsk, _ := ts.Add(ctx, "Many events", []byte("# Many events\n\nSpec."), AddOptions{Origin: origin})
-	ts.Move(ctx, tsk.Key, "up-next", "alice")
-	ts.Set(ctx, tsk.Key, "alice", SetOptions{Flag: "hold"})
+	if err := ts.Move(ctx, tsk.Key, "up-next", "alice"); err != nil {
+		t.Fatalf("Move: %v", err)
+	}
+	if err := ts.Set(ctx, tsk.Key, "alice", SetOptions{Flag: "hold"}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 
 	// Limit to 2
 	events, err := ts.Log(ctx, tsk.Key, 2)

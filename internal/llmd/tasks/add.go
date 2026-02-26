@@ -85,7 +85,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	if err != nil {
 		return nil, fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Next position in the target column
 	var maxPos int

@@ -25,7 +25,7 @@ func (d *Documents) Write(ctx context.Context, path, content string, opts WriteO
 	if err != nil {
 		return nil, fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	doc, err := d.writeInTx(ctx, tx, path, content, opts)
 	if err != nil {

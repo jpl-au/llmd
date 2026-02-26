@@ -16,16 +16,12 @@ func pluginsCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	names := extension.Names()
 	sort.Strings(names)
-	for _, n := range names {
-		lines = append(lines, n)
-	}
+	lines = append(lines, names...)
 
 	if sdk.PluginNames != nil {
 		pnames := sdk.PluginNames()
 		sort.Strings(pnames)
-		for _, n := range pnames {
-			lines = append(lines, n)
-		}
+		lines = append(lines, pnames...)
 	}
 
 	return sdk.Text(strings.Join(lines, "\n")), nil

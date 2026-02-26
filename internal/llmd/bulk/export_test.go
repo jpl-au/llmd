@@ -19,7 +19,9 @@ func TestExport_SingleDoc(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "# Hello", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "# Hello", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "readme.md")
@@ -46,7 +48,9 @@ func TestExport_ToDirectory(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	dir := t.TempDir()
 
@@ -73,9 +77,15 @@ func TestExport_Prefix(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "readme", testWriteOpts())
-	s.Documents.Write(ctx, "docs/guide", "guide", testWriteOpts())
-	s.Documents.Write(ctx, "notes/todo", "todo", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "readme", testWriteOpts()); err != nil {
+		t.Fatalf("Write readme: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/guide", "guide", testWriteOpts()); err != nil {
+		t.Fatalf("Write guide: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "notes/todo", "todo", testWriteOpts()); err != nil {
+		t.Fatalf("Write todo: %v", err)
+	}
 
 	dir := t.TempDir()
 
@@ -105,7 +115,9 @@ func TestExport_SkipsExisting(t *testing.T) {
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "readme.md")
-	os.WriteFile(dest, []byte("existing"), 0644)
+	if err := os.WriteFile(dest, []byte("existing"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	result, err := s.Bulk.Export(ctx, "readme", dest, bulk.ExportOptions{})
 	if err != nil {
@@ -131,7 +143,9 @@ func TestExport_Overwrite(t *testing.T) {
 
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "readme.md")
-	os.WriteFile(dest, []byte("existing"), 0644)
+	if err := os.WriteFile(dest, []byte("existing"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	result, err := s.Bulk.Export(ctx, "readme", dest, bulk.ExportOptions{Overwrite: true})
 	if err != nil {

@@ -12,7 +12,9 @@ func TestCopy(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/original", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/original", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	doc, err := s.Documents.Copy(ctx, "docs/original", "docs/copy", testCopyOpts())
 	if err != nil {

@@ -14,9 +14,15 @@ func TestList(t *testing.T) {
 	ctx := context.Background()
 	opts := testWriteOpts()
 
-	s.Documents.Write(ctx, "docs/readme", "version 1", opts)
-	s.Documents.Write(ctx, "docs/readme", "version 2", opts)
-	s.Documents.Write(ctx, "docs/readme", "version 3", opts)
+	if _, err := s.Documents.Write(ctx, "docs/readme", "version 1", opts); err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "version 2", opts); err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/readme", "version 3", opts); err != nil {
+		t.Fatalf("Write v3: %v", err)
+	}
 
 	versions, err := s.History.List(ctx, "docs/readme")
 	if err != nil {

@@ -47,7 +47,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Next position in target column
 	var maxPos int

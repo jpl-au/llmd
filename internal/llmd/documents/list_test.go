@@ -58,7 +58,9 @@ func TestList_IncludeDeleted(t *testing.T) {
 
 	s.Documents.Write(ctx, "docs/active", "active", testWriteOpts())
 	s.Documents.Write(ctx, "docs/deleted", "deleted", testWriteOpts())
-	s.Documents.Delete(ctx, "docs/deleted", testDeleteOpts())
+	if err := s.Documents.Delete(ctx, "docs/deleted", testDeleteOpts()); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
 
 	list, _ := s.Documents.List(ctx)
 	if len(list) != 1 {

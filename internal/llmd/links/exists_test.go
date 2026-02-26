@@ -11,9 +11,15 @@ func TestExists(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
-	s.Links.Add(ctx, "docs/a", "docs/b", testOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write docs/a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write docs/b: %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
+		t.Fatalf("Add link: %v", err)
+	}
 
 	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b"); err != nil {
 		t.Fatalf("Exists() error = %v", err)
@@ -45,7 +51,9 @@ func TestExists_WithLabel(t *testing.T) {
 
 	opts := testOpts()
 	opts.Label = "related"
-	s.Links.Add(ctx, "docs/a", "docs/b", opts)
+	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", opts); err != nil {
+		t.Fatalf("Add link: %v", err)
+	}
 
 	// Should find with matching label
 	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b", links.Options{Label: "related"}); err != nil {
@@ -75,7 +83,9 @@ func TestExists_ByKey(t *testing.T) {
 
 	docA, _ := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
 	docB, _ := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
-	s.Links.Add(ctx, "docs/a", "docs/b", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
+		t.Fatalf("Add link: %v", err)
+	}
 
 	if ok, err := s.Links.Exists(ctx, docA.Key, docB.Key); err != nil {
 		t.Fatalf("Exists(keys) error = %v", err)
@@ -90,8 +100,12 @@ func TestExists_RemovedLink(t *testing.T) {
 
 	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
 	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
-	s.Links.Add(ctx, "docs/a", "docs/b", testOpts())
-	s.Links.Remove(ctx, "docs/a", "docs/b", testOpts())
+	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
+		t.Fatalf("Add link: %v", err)
+	}
+	if err := s.Links.Remove(ctx, "docs/a", "docs/b", testOpts()); err != nil {
+		t.Fatalf("Remove link: %v", err)
+	}
 
 	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b"); err != nil {
 		t.Fatalf("Exists() error = %v", err)

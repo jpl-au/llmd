@@ -18,7 +18,7 @@ func testGitRepo(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chdir(orig) })
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -54,8 +54,10 @@ func TestGitAvailable(t *testing.T) {
 func TestGitAvailableOutsideRepo(t *testing.T) {
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
-	t.Cleanup(func() { os.Chdir(orig) })
-	os.Chdir(dir)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
 
 	err := gitAvailable()
 	if err == nil {
@@ -126,7 +128,7 @@ func TestGitCheckoutNew(t *testing.T) {
 	// Switch back to main first.
 	cmd := exec.Command("git", "checkout", "main")
 	cmd.Dir = dir
-	cmd.CombinedOutput()
+	_, _ = cmd.CombinedOutput()
 
 	err = gitCheckoutNew("task/my-feature")
 	if err == nil {
@@ -204,7 +206,9 @@ func TestGitFiles(t *testing.T) {
 	}
 
 	run("git", "checkout", "-b", "feature")
-	os.WriteFile(filepath.Join(dir, "new.txt"), []byte("hello"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "new.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 	run("git", "add", "new.txt")
 	run("git", "commit", "-m", "add file")
 

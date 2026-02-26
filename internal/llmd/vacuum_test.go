@@ -42,18 +42,34 @@ func TestVacuum(t *testing.T) {
 	ctx := context.Background()
 
 	// Create documents
-	s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
+		t.Fatalf("Write docs/a: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
+		t.Fatalf("Write docs/b: %v", err)
+	}
 
 	// Add tags and links
-	s.Tags.Add(ctx, "docs/a", "important", testTagOpts())
-	s.Tags.Add(ctx, "docs/a", "review", testTagOpts())
-	s.Links.Add(ctx, "docs/a", "docs/b", testLinkOpts())
+	if _, err := s.Tags.Add(ctx, "docs/a", "important", testTagOpts()); err != nil {
+		t.Fatalf("Add tag important: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/a", "review", testTagOpts()); err != nil {
+		t.Fatalf("Add tag review: %v", err)
+	}
+	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testLinkOpts()); err != nil {
+		t.Fatalf("Add link: %v", err)
+	}
 
 	// Soft delete some items
-	s.Documents.Delete(ctx, "docs/a", testDeleteOpts())
-	s.Tags.Remove(ctx, "docs/a", "important", testTagOpts())
-	s.Links.Remove(ctx, "docs/a", "docs/b", testLinkOpts())
+	if err := s.Documents.Delete(ctx, "docs/a", testDeleteOpts()); err != nil {
+		t.Fatalf("Delete docs/a: %v", err)
+	}
+	if err := s.Tags.Remove(ctx, "docs/a", "important", testTagOpts()); err != nil {
+		t.Fatalf("Remove tag: %v", err)
+	}
+	if err := s.Links.Remove(ctx, "docs/a", "docs/b", testLinkOpts()); err != nil {
+		t.Fatalf("Remove link: %v", err)
+	}
 
 	// Vacuum
 	result, err := s.Vacuum(ctx)

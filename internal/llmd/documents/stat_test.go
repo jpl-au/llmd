@@ -70,7 +70,9 @@ func TestStat_Deleted(t *testing.T) {
 	ctx := context.Background()
 
 	written, _ := s.Documents.Write(ctx, "docs/deleted", "content", testWriteOpts())
-	s.Documents.Delete(ctx, "docs/deleted", testDeleteOpts())
+	if err := s.Documents.Delete(ctx, "docs/deleted", testDeleteOpts()); err != nil {
+		t.Fatalf("Delete docs/deleted: %v", err)
+	}
 
 	// Stat by key should return ErrDeleted
 	stat, err := s.Documents.Stat(ctx, written.Key)

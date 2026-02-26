@@ -69,7 +69,7 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 	if err != nil {
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	now := time.Now().UnixMilli()
 	for _, k := range keysToDelete {

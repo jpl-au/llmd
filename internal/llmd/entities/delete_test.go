@@ -44,7 +44,9 @@ func TestDelete_AlreadyDeleted(t *testing.T) {
 
 	// Write and delete
 	written, _ := s.Entities.Write(ctx, "test:item", `{"name":"foo"}`, testWriteOpts())
-	s.Entities.Delete(ctx, written.Key, testDeleteOpts())
+	if err := s.Entities.Delete(ctx, written.Key, testDeleteOpts()); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
 
 	// Delete again should return not found
 	err := s.Entities.Delete(ctx, written.Key, testDeleteOpts())

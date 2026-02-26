@@ -12,7 +12,9 @@ func TestDelete(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	err := s.Documents.Delete(ctx, "docs/readme", testDeleteOpts())
 	if err != nil {

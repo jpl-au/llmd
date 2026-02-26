@@ -10,14 +10,26 @@ func TestPurge(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a document and add tags
-	s.Documents.Write(ctx, "docs/test", "content", testWriteOpts())
-	s.Tags.Add(ctx, "docs/test", "important", testOpts())
-	s.Tags.Add(ctx, "docs/test", "review", testOpts())
-	s.Tags.Add(ctx, "docs/test", "draft", testOpts())
+	if _, err := s.Documents.Write(ctx, "docs/test", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/test", "important", testOpts()); err != nil {
+		t.Fatalf("Add important: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/test", "review", testOpts()); err != nil {
+		t.Fatalf("Add review: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/test", "draft", testOpts()); err != nil {
+		t.Fatalf("Add draft: %v", err)
+	}
 
 	// Remove some tags
-	s.Tags.Remove(ctx, "docs/test", "important", testOpts())
-	s.Tags.Remove(ctx, "docs/test", "review", testOpts())
+	if err := s.Tags.Remove(ctx, "docs/test", "important", testOpts()); err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
+	if err := s.Tags.Remove(ctx, "docs/test", "review", testOpts()); err != nil {
+		t.Fatalf("Remove() error = %v", err)
+	}
 
 	// Purge should remove 2 tags
 	n, err := s.Tags.Purge(ctx)

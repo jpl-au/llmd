@@ -197,8 +197,12 @@ func load(dir string) (sdk.Plugin, error) {
 	}
 
 	i := interp.New(interp.Options{})
-	i.Use(stdlib.Symbols)
-	i.Use(symbols())
+	if err := i.Use(stdlib.Symbols); err != nil {
+		return nil, fmt.Errorf("loading stdlib: %w", err)
+	}
+	if err := i.Use(symbols()); err != nil {
+		return nil, fmt.Errorf("loading symbols: %w", err)
+	}
 
 	// Eval the plugin source (defines the package with New(), types, etc.)
 	if _, err := i.Eval(src); err != nil {

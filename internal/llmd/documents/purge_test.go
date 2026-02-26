@@ -16,8 +16,12 @@ func TestPurge(t *testing.T) {
 	s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
 	s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts())
 
-	s.Documents.Delete(ctx, "docs/a", testDeleteOpts())
-	s.Documents.Delete(ctx, "docs/b", testDeleteOpts())
+	if err := s.Documents.Delete(ctx, "docs/a", testDeleteOpts()); err != nil {
+		t.Fatalf("Delete docs/a: %v", err)
+	}
+	if err := s.Documents.Delete(ctx, "docs/b", testDeleteOpts()); err != nil {
+		t.Fatalf("Delete docs/b: %v", err)
+	}
 
 	// Purge should remove 2 documents
 	n, err := s.Documents.Purge(ctx)
@@ -68,7 +72,9 @@ func TestPurge_AllVersions(t *testing.T) {
 	s.Documents.Write(ctx, "docs/versioned", "v3", testWriteOpts())
 
 	// Delete the document (soft-deletes all versions)
-	s.Documents.Delete(ctx, "docs/versioned", testDeleteOpts())
+	if err := s.Documents.Delete(ctx, "docs/versioned", testDeleteOpts()); err != nil {
+		t.Fatalf("Delete docs/versioned: %v", err)
+	}
 
 	// Purge should remove all 3 versions
 	n, err := s.Documents.Purge(ctx)

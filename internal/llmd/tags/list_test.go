@@ -9,9 +9,15 @@ func TestList(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
-	s.Tags.Add(ctx, "docs/readme", "important", testOpts())
-	s.Tags.Add(ctx, "docs/readme", "v1", testOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
+		t.Fatalf("Add important: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/readme", "v1", testOpts()); err != nil {
+		t.Fatalf("Add v1: %v", err)
+	}
 
 	tags, err := s.Tags.List(ctx, "docs/readme", testOpts())
 	if err != nil {
@@ -27,8 +33,13 @@ func TestList_ByKey(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	doc, _ := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
-	s.Tags.Add(ctx, "docs/readme", "important", testOpts())
+	doc, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
 
 	tags, err := s.Tags.List(ctx, doc.Key, testOpts())
 	if err != nil {
@@ -44,7 +55,9 @@ func TestList_Empty(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
 
 	tags, err := s.Tags.List(ctx, "docs/readme", testOpts())
 	if err != nil {
@@ -60,13 +73,25 @@ func TestListAll(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
+		t.Fatalf("Write readme: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
 
-	s.Tags.Add(ctx, "docs/readme", "important", testOpts())
-	s.Tags.Add(ctx, "docs/readme", "v1", testOpts())
-	s.Tags.Add(ctx, "docs/api", "important", testOpts()) // duplicate tag name
-	s.Tags.Add(ctx, "docs/api", "needs-review", testOpts())
+	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
+		t.Fatalf("Add important: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/readme", "v1", testOpts()); err != nil {
+		t.Fatalf("Add v1: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/api", "important", testOpts()); err != nil { // duplicate tag name
+		t.Fatalf("Add important api: %v", err)
+	}
+	if _, err := s.Tags.Add(ctx, "docs/api", "needs-review", testOpts()); err != nil {
+		t.Fatalf("Add needs-review: %v", err)
+	}
 
 	all, err := s.Tags.ListAll(ctx)
 	if err != nil {

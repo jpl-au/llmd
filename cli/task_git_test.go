@@ -21,7 +21,7 @@ func testGitAndStore(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chdir(orig) })
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestTaskBranch(t *testing.T) {
 	// Switch back to main for cleanup
 	cmd := exec.Command("git", "checkout", "main")
 	cmd.Dir = dir
-	cmd.CombinedOutput()
+	_, _ = cmd.CombinedOutput()
 }
 
 func TestTaskBranchCustomName(t *testing.T) {
@@ -147,7 +147,7 @@ func TestTaskBranchCustomName(t *testing.T) {
 
 	cmd := exec.Command("git", "checkout", "main")
 	cmd.Dir = dir
-	cmd.CombinedOutput()
+	_, _ = cmd.CombinedOutput()
 }
 
 func TestTaskFinish(t *testing.T) {
@@ -164,13 +164,19 @@ func TestTaskFinish(t *testing.T) {
 	}
 
 	task, _ := sdk.Tasks.Add("Finish me", []byte("# Spec\n\nDo the thing."), sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Move(task.Key, "in-progress", "alice")
+	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+		t.Fatalf("Move: %v", err)
+	}
 
 	// Create a branch with a commit
 	run("git", "checkout", "-b", "feature/finish-test")
 	branch := "feature/finish-test"
-	sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Branch: &branch})
-	os.WriteFile(filepath.Join(dir, "change.txt"), []byte("hello"), 0644)
+	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Branch: &branch}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "change.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 	run("git", "add", "change.txt")
 	run("git", "commit", "-m", "test commit")
 
@@ -195,8 +201,10 @@ func TestTaskFinishWithoutGit(t *testing.T) {
 	// No git repo — should still move the task to done
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
-	t.Cleanup(func() { os.Chdir(orig) })
-	os.Chdir(dir)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
 
 	dbPath := filepath.Join(dir, ".llmd", "llmd.db")
 	store, err := llmd.Init(dbPath)
@@ -212,7 +220,9 @@ func TestTaskFinishWithoutGit(t *testing.T) {
 	t.Cleanup(func() { h.Close() })
 
 	task, _ := sdk.Tasks.Add("No git", []byte("# Spec\n\nPlain task."), sdk.TaskAddOpts{Author: "alice"})
-	sdk.Tasks.Move(task.Key, "in-progress", "alice")
+	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+		t.Fatalf("Move: %v", err)
+	}
 
 	ctx := sdk.Context{Author: "alice"}
 	_, err = taskFinish(ctx, []string{task.Key})
@@ -242,7 +252,9 @@ func TestTaskCommits(t *testing.T) {
 	task, _ := sdk.Tasks.Add("Commits task", []byte("# Spec\n\nHas commits."), sdk.TaskAddOpts{Author: "alice"})
 	run("git", "checkout", "-b", "feature/commits-test")
 	branch := "feature/commits-test"
-	sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Branch: &branch})
+	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Branch: &branch}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
 
 	run("git", "commit", "--allow-empty", "-m", "first")
 	run("git", "commit", "--allow-empty", "-m", "second")
@@ -331,8 +343,10 @@ func TestTaskStartWithoutGit(t *testing.T) {
 	// No git repo — should still move the task to in-progress
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
-	t.Cleanup(func() { os.Chdir(orig) })
-	os.Chdir(dir)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
 
 	dbPath := filepath.Join(dir, ".llmd", "llmd.db")
 	store, err := llmd.Init(dbPath)
@@ -371,9 +385,15 @@ func TestTaskStartWithoutGit(t *testing.T) {
 func TestListByBranch(t *testing.T) {
 	testGitAndStore(t)
 
-	sdk.Tasks.Add("On main", nil, sdk.TaskAddOpts{Author: "alice", Branch: "main"})
-	sdk.Tasks.Add("On feature", nil, sdk.TaskAddOpts{Author: "alice", Branch: "feature/x"})
-	sdk.Tasks.Add("No branch", nil, sdk.TaskAddOpts{Author: "alice"})
+	if _, err := sdk.Tasks.Add("On main", nil, sdk.TaskAddOpts{Author: "alice", Branch: "main"}); err != nil {
+		t.Fatalf("Add main: %v", err)
+	}
+	if _, err := sdk.Tasks.Add("On feature", nil, sdk.TaskAddOpts{Author: "alice", Branch: "feature/x"}); err != nil {
+		t.Fatalf("Add feature: %v", err)
+	}
+	if _, err := sdk.Tasks.Add("No branch", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Add no branch: %v", err)
+	}
 
 	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Branch: "main"})
 	if err != nil {

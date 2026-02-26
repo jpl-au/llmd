@@ -12,8 +12,12 @@ func TestAdd(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/models", "models content", testWriteOpts()); err != nil {
+		t.Fatalf("Write models: %v", err)
+	}
 
 	link, err := s.Links.Add(ctx, "docs/api", "docs/models", testOpts())
 	if err != nil {
@@ -35,8 +39,12 @@ func TestAdd_WithLabel(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 
-	s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts())
-	s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts())
+	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
+		t.Fatalf("Write api: %v", err)
+	}
+	if _, err := s.Documents.Write(ctx, "docs/auth", "auth content", testWriteOpts()); err != nil {
+		t.Fatalf("Write auth: %v", err)
+	}
 
 	opts := testOpts()
 	opts.Label = "requires"

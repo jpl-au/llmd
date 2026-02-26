@@ -12,9 +12,15 @@ func TestList(t *testing.T) {
 	ctx := context.Background()
 
 	// Write multiple entities
-	s.Entities.Write(ctx, "test:item", `{"name":"a"}`, testWriteOpts())
-	s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts())
-	s.Entities.Write(ctx, "other:item", `{"name":"c"}`, testWriteOpts())
+	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"a"}`, testWriteOpts()); err != nil {
+		t.Fatalf("Write(test:item a): %v", err)
+	}
+	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts()); err != nil {
+		t.Fatalf("Write(test:item b): %v", err)
+	}
+	if _, err := s.Entities.Write(ctx, "other:item", `{"name":"c"}`, testWriteOpts()); err != nil {
+		t.Fatalf("Write(other:item c): %v", err)
+	}
 
 	// List by namespace
 	list, err := s.Entities.List(ctx, "test:item", entities.ListOptions{})
@@ -37,9 +43,15 @@ func TestList_WithRelation(t *testing.T) {
 	opts2 := testWriteOpts()
 	opts2.Relation = "docs/b"
 
-	s.Entities.Write(ctx, "test:item", `{"x":1}`, opts1)
-	s.Entities.Write(ctx, "test:item", `{"x":2}`, opts1) // same relation
-	s.Entities.Write(ctx, "test:item", `{"x":3}`, opts2) // different relation
+	if _, err := s.Entities.Write(ctx, "test:item", `{"x":1}`, opts1); err != nil {
+		t.Fatalf("Write(x:1): %v", err)
+	}
+	if _, err := s.Entities.Write(ctx, "test:item", `{"x":2}`, opts1); err != nil { // same relation
+		t.Fatalf("Write(x:2): %v", err)
+	}
+	if _, err := s.Entities.Write(ctx, "test:item", `{"x":3}`, opts2); err != nil { // different relation
+		t.Fatalf("Write(x:3): %v", err)
+	}
 
 	// Filter by relation
 	list, err := s.Entities.List(ctx, "test:item", entities.ListOptions{Relation: "docs/a"})
@@ -72,7 +84,9 @@ func TestList_Limit(t *testing.T) {
 
 	// Write 5 entities
 	for range 5 {
-		s.Entities.Write(ctx, "test:item", `{"i":1}`, testWriteOpts())
+		if _, err := s.Entities.Write(ctx, "test:item", `{"i":1}`, testWriteOpts()); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
 	}
 
 	// List with limit
@@ -91,10 +105,14 @@ func TestList_ExcludesDeleted(t *testing.T) {
 	ctx := context.Background()
 
 	ent1, _ := s.Entities.Write(ctx, "test:item", `{"name":"a"}`, testWriteOpts())
-	s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts())
+	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts()); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
 
 	// Delete first one
-	s.Entities.Delete(ctx, ent1.Key, testDeleteOpts())
+	if err := s.Entities.Delete(ctx, ent1.Key, testDeleteOpts()); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
 
 	list, err := s.Entities.List(ctx, "test:item", entities.ListOptions{})
 	if err != nil {
