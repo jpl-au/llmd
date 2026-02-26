@@ -67,9 +67,15 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		}
 	}
 
+	tx, err := t.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	// Next position in the target column
 	var maxPos int
-	err = t.db.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		SELECT COALESCE(MAX(position), -1) FROM tasks
 		WHERE status = ? AND deleted_at IS NULL
 	`, status).Scan(&maxPos)
@@ -89,16 +95,21 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		branch = sql.NullString{String: opts.Branch, Valid: true}
 	}
 
-	_, err = t.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO tasks (key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
 	`, k, title, status, opts.Priority, maxPos+1, assignedTo, branch, path, opts.Author, opts.Source, now)
-
 	if err != nil {
 		return nil, fmt.Errorf("inserting task: %w", err)
 	}
 
-	tsk := &task.Task{
+	recordTx(ctx, tx, opts.Author, "created", k, "", title)
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("committing transaction: %w", err)
+	}
+
+	return &task.Task{
 		Key:        k,
 		Title:      title,
 		Status:     status,
@@ -109,11 +120,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		Path:       path,
 		Origin:     opts.Origin,
 		CreatedAt:  now,
-	}
-
-	_ = t.audit.Record(ctx, opts.Author, "created", k, "", title)
-
-	return tsk, nil
+	}, nil
 }
 
 // slug converts a title to a URL-friendly path component.

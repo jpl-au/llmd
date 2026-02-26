@@ -88,6 +88,8 @@ func (t *Tasks) ensure() error {
 		}
 		// Migration: add branch column for existing databases.
 		_, _ = t.db.Exec("ALTER TABLE tasks ADD COLUMN branch TEXT")
+		// Ensure audit table exists for recordTx.
+		t.err = t.audit.Ensure()
 	})
 	return t.err
 }

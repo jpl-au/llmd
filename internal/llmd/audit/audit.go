@@ -44,8 +44,9 @@ func New(db *sql.DB) *Log {
 	return &Log{db: db}
 }
 
-// ensure creates the history table if it does not exist.
-func (l *Log) ensure() error {
+// Ensure creates the history table if it does not exist. It is
+// idempotent and safe to call from multiple goroutines.
+func (l *Log) Ensure() error {
 	l.once.Do(func() {
 		_, l.err = l.db.Exec(schema)
 	})
@@ -66,7 +67,7 @@ type Event struct {
 // Query returns audit events, newest first. If subject is empty,
 // returns all events. Limit 0 means no limit.
 func (l *Log) Query(ctx context.Context, subject string, limit int) ([]Event, error) {
-	if err := l.ensure(); err != nil {
+	if err := l.Ensure(); err != nil {
 		return nil, fmt.Errorf("audit: creating table: %w", err)
 	}
 
@@ -111,7 +112,7 @@ func (l *Log) Query(ctx context.Context, subject string, limit int) ([]Event, er
 
 // Record writes an audit event.
 func (l *Log) Record(ctx context.Context, actor, action, subject, oldValue, newValue string) error {
-	if err := l.ensure(); err != nil {
+	if err := l.Ensure(); err != nil {
 		return fmt.Errorf("audit: creating table: %w", err)
 	}
 
