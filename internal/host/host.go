@@ -167,6 +167,10 @@ func (h *Host) Exec(cmd string, args []string, author string, stdin []byte, dbPa
 		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 	}
 
+	if entry.cmd.NeedsAuthor && author == "" {
+		return nil, fmt.Errorf("%w: author not configured", sdk.ErrMissingArg)
+	}
+
 	ctx := sdk.Context{Author: author, Stdin: stdin, DBPath: dbPath}
 	return entry.plugin.Exec(ctx, cmd, args)
 }

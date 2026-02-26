@@ -59,6 +59,20 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		}
 		path = opts.Path
 	} else if len(body) > 0 {
+		// Avoid squatting on an existing document. If the
+		// auto-generated path is already taken, append a numeric
+		// suffix to make it unique.
+		for i := 2; ; i++ {
+			exists, eerr := t.docs.Exists(ctx, path)
+			if eerr != nil {
+				return nil, fmt.Errorf("checking document: %w", eerr)
+			}
+			if !exists {
+				break
+			}
+			path = fmt.Sprintf("tasks/%s-%d", slug(title), i)
+		}
+
 		_, err = t.docs.Write(ctx, path, string(body), documents.WriteOptions{
 			Origin: opts.Origin,
 		})

@@ -228,6 +228,17 @@ transaction to make audit records atomic with the surrounding operation.
 Use `audit.Record` only for standalone operations that do not share a
 transaction.
 
+## MCP Server
+
+The MCP server (`cli/mcp.go`) exposes llmd commands as MCP tools over stdio.
+All tools share a single `toolInput` schema with `args`, `content`, and `author`
+fields. The `author` field lets the LLM identify itself per-call — this is the
+primary author source in MCP mode, since there is no interactive user.
+
+If the LLM omits `author`, the server falls back to the configured CLI author.
+If neither is set and the command has `NeedsAuthor: true`, `host.Exec()` rejects
+the call with `sdk.ErrMissingArg`.
+
 ## Common Pitfalls
 
 - **Version.Number** — `sdk.Version` uses `Number` for the 1-indexed
@@ -248,6 +259,11 @@ transaction.
 - **Remove returns errors for missing items** — `sdk.Links.Remove` and
   `sdk.Tags.Remove` return errors when the target link/tag does not exist.
   They are not idempotent.
+
+- **Task path deduplication** — When `task add` creates a spec document
+  automatically (no `--path`), it generates `tasks/<slug>`. If that path
+  already exists, it appends `-2`, `-3`, etc. to avoid silently versioning
+  an unrelated document. Explicit `--path` skips deduplication.
 
 - **Import cycle: host ↔ plugin** — `internal/host` imports `internal/plugin`.
   Plugin tests cannot import host. Use stub implementations instead.

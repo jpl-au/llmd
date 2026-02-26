@@ -28,9 +28,12 @@ import (
 // toolInput is the MCP input schema shared by all tools.
 // Args are passed directly to the plugin's Exec as command-line arguments.
 // Content, when non-empty, is delivered as stdin (used by write, edit).
+// Author identifies who is making the change — the LLM or agent should
+// supply this so mutations are attributed correctly.
 type toolInput struct {
 	Args    []string `json:"args"    jsonschema:"description=command arguments"`
 	Content string   `json:"content" jsonschema:"description=document content (for write/edit)"`
+	Author  string   `json:"author"  jsonschema:"description=author name for attributing changes"`
 }
 
 // mcpCmd starts an MCP server on stdin/stdout and blocks until the
@@ -93,7 +96,14 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 			stdin = []byte(input.Content)
 		}
 
-		result, err := sdk.Dispatch(cmdName, input.Args, author, stdin, "")
+		// Prefer the per-call author from the LLM; fall back to the
+		// server's configured author if none was supplied.
+		a := input.Author
+		if a == "" {
+			a = author
+		}
+
+		result, err := sdk.Dispatch(cmdName, input.Args, a, stdin, "")
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
