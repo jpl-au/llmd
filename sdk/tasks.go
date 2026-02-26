@@ -148,6 +148,9 @@ type TaskListOpts struct {
 	// Priority filters to tasks with this exact priority.
 	// Zero means no filter (returns all priorities).
 	Priority int
+
+	// Branch filters to tasks linked to this git branch.
+	Branch string
 }
 
 // TaskSetOpts configures which task fields to update. Pointer fields

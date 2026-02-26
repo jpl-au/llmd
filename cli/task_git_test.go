@@ -302,6 +302,91 @@ func TestResolveTaskByKey(t *testing.T) {
 	}
 }
 
+func TestTaskStartWithGit(t *testing.T) {
+	testGitAndStore(t)
+
+	task, _ := sdk.Tasks.Add("Start me", []byte("# Spec\n\nStart."), sdk.TaskAddOpts{Author: "alice"})
+
+	ctx := sdk.Context{Author: "alice"}
+	resp, err := taskStart(ctx, []string{task.Key})
+	if err != nil {
+		t.Fatalf("taskStart: %v", err)
+	}
+
+	text := string(resp.(sdk.Text))
+	if text == "" {
+		t.Error("taskStart returned empty response")
+	}
+
+	updated, _ := sdk.Tasks.Read(task.Key)
+	if updated.Status != "in-progress" {
+		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
+	}
+	if updated.Branch != "main" {
+		t.Errorf("branch = %q, want %q", updated.Branch, "main")
+	}
+}
+
+func TestTaskStartWithoutGit(t *testing.T) {
+	// No git repo — should still move the task to in-progress
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	t.Cleanup(func() { os.Chdir(orig) })
+	os.Chdir(dir)
+
+	dbPath := filepath.Join(dir, ".llmd", "llmd.db")
+	store, err := llmd.Init(dbPath)
+	if err != nil {
+		t.Fatalf("llmd.Init: %v", err)
+	}
+	store.Close()
+
+	h, err := host.Open(dbPath)
+	if err != nil {
+		t.Fatalf("host.Open: %v", err)
+	}
+	t.Cleanup(func() { h.Close() })
+
+	task, _ := sdk.Tasks.Add("No git start", []byte("# Spec\n\nPlain."), sdk.TaskAddOpts{Author: "alice"})
+	ctx := sdk.Context{Author: "alice"}
+	resp, err := taskStart(ctx, []string{task.Key})
+	if err != nil {
+		t.Fatalf("taskStart without git: %v", err)
+	}
+
+	text := string(resp.(sdk.Text))
+	if text == "" {
+		t.Error("taskStart returned empty response")
+	}
+
+	updated, _ := sdk.Tasks.Read(task.Key)
+	if updated.Status != "in-progress" {
+		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
+	}
+	if updated.Branch != "" {
+		t.Errorf("branch = %q, want empty", updated.Branch)
+	}
+}
+
+func TestListByBranch(t *testing.T) {
+	testGitAndStore(t)
+
+	sdk.Tasks.Add("On main", nil, sdk.TaskAddOpts{Author: "alice", Branch: "main"})
+	sdk.Tasks.Add("On feature", nil, sdk.TaskAddOpts{Author: "alice", Branch: "feature/x"})
+	sdk.Tasks.Add("No branch", nil, sdk.TaskAddOpts{Author: "alice"})
+
+	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Branch: "main"})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Errorf("expected 1 task on main, got %d", len(tasks))
+	}
+	if len(tasks) > 0 && tasks[0].Branch != "main" {
+		t.Errorf("branch = %q, want %q", tasks[0].Branch, "main")
+	}
+}
+
 func TestResolveTaskByBranch(t *testing.T) {
 	testGitAndStore(t)
 

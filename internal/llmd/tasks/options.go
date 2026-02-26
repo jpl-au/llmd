@@ -21,6 +21,7 @@ type ListOptions struct {
 	Status     string
 	AssignedTo string
 	Priority   int // 0 = all
+	Branch     string
 }
 
 // SetOptions configures which fields to update.

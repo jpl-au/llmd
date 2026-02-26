@@ -43,6 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_key ON tasks(key);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_tasks_path ON tasks(path);
 CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_branch ON tasks(branch) WHERE branch IS NOT NULL;
 `
 
 // Default columns for a new board.
@@ -86,8 +87,6 @@ func (t *Tasks) ensure() error {
 		if t.err != nil {
 			return
 		}
-		// Migration: add branch column for existing databases.
-		_, _ = t.db.Exec("ALTER TABLE tasks ADD COLUMN branch TEXT")
 		// Ensure audit table exists for recordTx.
 		t.err = t.audit.Ensure()
 	})

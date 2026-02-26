@@ -99,6 +99,7 @@ func (a *taskAPI) List(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
 		Status:     opts.Status,
 		AssignedTo: opts.AssignedTo,
 		Priority:   opts.Priority,
+		Branch:     opts.Branch,
 	})
 	if err != nil {
 		return nil, err

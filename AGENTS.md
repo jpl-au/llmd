@@ -193,7 +193,7 @@ subcommands provide the integration:
 
 | Command | File | Description |
 |---------|------|-------------|
-| `task start <id>` | `cli/task_git.go` | Move to in-progress + record current branch |
+| `task start <id>` | `cli/task_git.go` | Move to in-progress + record branch (git optional) |
 | `task finish [id]` | `cli/task_git.go` | Move to done + show summary (files, commits) |
 | `task branch <id>` | `cli/task_git.go` | Create branch from task slug, checkout, start |
 | `task diff [id]` | `cli/task_git.go` | Git diff for task's branch vs default branch |
@@ -202,7 +202,7 @@ subcommands provide the integration:
 
 Commands marked `[id]` auto-detect the task from the current git branch
 when no ID is given (`taskForBranch` in `cli/task_git.go` matches the
-current branch against all tasks). `task show` displays ahead/behind
+current branch against tasks via indexed `Branch` filter). `task show` displays ahead/behind
 counts when the task has a branch and git is available.
 
 Git operations live in the CLI layer only — the SDK and backend just store
@@ -213,7 +213,7 @@ via `os/exec`:
 |--------|-------------|
 | `gitAvailable` | Checks git is installed and we're in a repo |
 | `gitBranch` | Current branch name |
-| `gitDefaultBranch` | Detects main or master |
+| `gitDefaultBranch` | Detects default branch (origin/HEAD, then main/master) |
 | `gitDiff` | Three-dot diff between branches |
 | `gitFiles` | Changed files between branches |
 | `gitCommits` | Commit log between branches |
@@ -222,9 +222,10 @@ via `os/exec`:
 
 All git subcommands degrade gracefully — `gitAvailable()` is checked
 first and returns a clear error if git is missing or we're not in a repo.
-`task finish` skips the git summary silently; other git commands return
-the error. Default branch detection tries `main` then `master`; override
-with `--base`.
+`task start` and `task finish` work without git (skipping branch recording
+and git summary respectively); other git commands return the error.
+Default branch detection tries `origin/HEAD` first, then `main`, then
+`master`; override with `--base`.
 
 ## Transaction Patterns
 

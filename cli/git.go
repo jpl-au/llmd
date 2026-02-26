@@ -46,14 +46,26 @@ func gitBranch() (string, error) {
 	return branch, nil
 }
 
-// gitDefaultBranch returns the name of the default branch (main or master).
+// gitDefaultBranch returns the name of the default branch. It tries
+// the remote HEAD symbolic ref first (works when origin is configured),
+// then falls back to checking whether main or master exist locally.
 func gitDefaultBranch() (string, error) {
+	// Try remote HEAD (e.g. "refs/remotes/origin/HEAD" → "origin/main").
+	if out, err := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD").Output(); err == nil {
+		ref := strings.TrimSpace(string(out))
+		// "refs/remotes/origin/main" → "main"
+		if parts := strings.SplitN(ref, "/", 4); len(parts) == 4 {
+			return parts[3], nil
+		}
+	}
+
+	// Fall back to checking local branches.
 	for _, name := range []string{"main", "master"} {
 		if err := exec.Command("git", "rev-parse", "--verify", name).Run(); err == nil {
 			return name, nil
 		}
 	}
-	return "", fmt.Errorf("could not detect default branch (tried main, master)")
+	return "", fmt.Errorf("could not detect default branch (tried origin/HEAD, main, master)")
 }
 
 // gitDiff runs git diff between base and branch using three-dot notation.

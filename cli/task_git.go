@@ -16,7 +16,8 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// taskStart moves a task to in-progress and records the current git branch.
+// taskStart moves a task to in-progress and records the current git
+// branch if available. Git is optional — the task is started regardless.
 func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 	column := "in-progress"
 	var key string
@@ -40,20 +41,20 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task start: %w: id", sdk.ErrMissingArg)
 	}
 
-	branch, err := gitBranch()
-	if err != nil {
-		return nil, fmt.Errorf("task start: %w", err)
-	}
-
 	if err := sdk.Tasks.Move(key, column, ctx.Author); err != nil {
 		return nil, fmt.Errorf("task start: %w", err)
 	}
 
-	if err := sdk.Tasks.Set(key, ctx.Author, sdk.TaskSetOpts{Branch: &branch}); err != nil {
-		return nil, fmt.Errorf("task start: %w", err)
+	// Record branch if git is available — best effort.
+	branch, err := gitBranch()
+	if err == nil {
+		if err := sdk.Tasks.Set(key, ctx.Author, sdk.TaskSetOpts{Branch: &branch}); err != nil {
+			return nil, fmt.Errorf("task start: %w", err)
+		}
+		return sdk.Text(fmt.Sprintf("Started %s on branch %s", key, branch)), nil
 	}
 
-	return sdk.Text(fmt.Sprintf("Started %s on branch %s", key, branch)), nil
+	return sdk.Text(fmt.Sprintf("Started %s", key)), nil
 }
 
 // taskDiff shows the git diff for a task's branch against the default branch.
@@ -335,16 +336,14 @@ func taskForBranch() (*sdk.Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{})
+	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Branch: branch})
 	if err != nil {
 		return nil, err
 	}
-	for _, t := range tasks {
-		if t.Branch == branch {
-			return t, nil
-		}
+	if len(tasks) == 0 {
+		return nil, fmt.Errorf("no task linked to branch %q", branch)
 	}
-	return nil, fmt.Errorf("no task linked to branch %q", branch)
+	return tasks[0], nil
 }
 
 // resolveTask looks up a task by key, or auto-detects from the current
