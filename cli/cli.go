@@ -124,6 +124,7 @@ Subcommands (passed as first arg):
   log <id> [-n limit]       audit history for a task
   start <id>                start task (record branch, move to in-progress)
   finish <id>               complete task (move to done, show summary)
+  branch <id>               create git branch from task, checkout, start
   diff <id>                 show git diff for task's branch
   files <id>                list files changed on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
 			{Name: "column", Type: "string", Desc: "Filter by column"},

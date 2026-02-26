@@ -11,6 +11,7 @@ package cli
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -222,4 +223,83 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	return sdk.Text(b.String()), nil
+}
+
+// taskBranch creates a git branch from a task's title, checks it out,
+// records the branch on the task, and moves it to in-progress.
+func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
+	if err := gitAvailable(); err != nil {
+		return nil, fmt.Errorf("task branch: %w", err)
+	}
+
+	column := "in-progress"
+	var key, name string
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--name":
+			i++
+			if i >= len(args) {
+				return nil, fmt.Errorf("task branch: --name requires a value")
+			}
+			name = args[i]
+		case "--column":
+			i++
+			if i >= len(args) {
+				return nil, fmt.Errorf("task branch: --column requires a value")
+			}
+			column = args[i]
+		default:
+			if key == "" && !strings.HasPrefix(args[i], "-") {
+				key = args[i]
+			}
+		}
+	}
+
+	if key == "" {
+		return nil, fmt.Errorf("task branch: %w: id", sdk.ErrMissingArg)
+	}
+
+	t, err := sdk.Tasks.Read(key)
+	if err != nil {
+		return nil, fmt.Errorf("task branch: %w", err)
+	}
+	if t.Branch != "" {
+		return nil, fmt.Errorf("task branch: task already has branch %q — use 'task set --branch' to change", t.Branch)
+	}
+
+	if name == "" {
+		name = "task/" + branchSlug(t.Title)
+	}
+
+	if err := gitCheckoutNew(name); err != nil {
+		return nil, fmt.Errorf("task branch: %w", err)
+	}
+
+	if err := sdk.Tasks.Set(key, ctx.Author, sdk.TaskSetOpts{Branch: &name}); err != nil {
+		return nil, fmt.Errorf("task branch: %w", err)
+	}
+
+	if err := sdk.Tasks.Move(key, column, ctx.Author); err != nil {
+		return nil, fmt.Errorf("task branch: %w", err)
+	}
+
+	return sdk.Text(fmt.Sprintf("Created branch %s for %s \"%s\"", name, t.Key, t.Title)), nil
+}
+
+// branchSlug converts a title to a git-friendly branch component.
+func branchSlug(title string) string {
+	var b strings.Builder
+	prev := '-'
+	for _, r := range strings.ToLower(title) {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(r)
+			prev = r
+		case prev != '-':
+			b.WriteByte('-')
+			prev = '-'
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
 }
