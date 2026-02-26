@@ -43,9 +43,15 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 
 	oldStatus := tsk.Status
 
+	tx, err := t.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	// Next position in target column
 	var maxPos int
-	err = t.db.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		SELECT COALESCE(MAX(position), -1) FROM tasks
 		WHERE status = ? AND deleted_at IS NULL
 	`, status).Scan(&maxPos)
@@ -53,15 +59,15 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 		return fmt.Errorf("getting position: %w", err)
 	}
 
-	_, err = t.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		UPDATE tasks SET status = ?, position = ? WHERE key = ? AND deleted_at IS NULL
 	`, status, maxPos+1, key)
 	if err != nil {
 		return fmt.Errorf("moving task: %w", err)
 	}
 
-	_ = t.audit.Record(ctx, author, "moved", key, oldStatus, status)
-	return nil
+	recordTx(ctx, tx, author, "moved", key, oldStatus, status)
+	return tx.Commit()
 }
 
 // repositionTx moves a task to a specific position within its column,
