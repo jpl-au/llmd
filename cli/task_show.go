@@ -40,7 +40,15 @@ func taskShow(_ sdk.Context, args []string) (sdk.Response, error) {
 		fmt.Fprintf(&b, "| Assigned To | %s |\n", t.AssignedTo)
 	}
 	if t.Branch != "" {
-		fmt.Fprintf(&b, "| Branch | %s |\n", t.Branch)
+		branchVal := t.Branch
+		if gitAvailable() == nil {
+			if base, err := gitDefaultBranch(); err == nil {
+				if ahead, behind, err := gitRevCount(base, t.Branch); err == nil {
+					branchVal = fmt.Sprintf("%s (+%d/-%d)", t.Branch, ahead, behind)
+				}
+			}
+		}
+		fmt.Fprintf(&b, "| Branch | %s |\n", branchVal)
 	}
 	if t.Flags != "" {
 		fmt.Fprintf(&b, "| Flags | %s |\n", t.Flags)
