@@ -63,6 +63,8 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return taskLog(ctx, args)
 	case "start":
 		return taskStart(ctx, args)
+	case "finish":
+		return taskFinish(ctx, args)
 	case "diff":
 		return taskDiff(ctx, args)
 	case "files":

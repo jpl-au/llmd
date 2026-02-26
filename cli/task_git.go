@@ -1,7 +1,10 @@
-// task_git.go provides git-aware task subcommands: start, diff, files.
+// task_git.go provides git-aware task subcommands: start, finish, branch,
+// diff, files, commits.
 //
 // These commands bridge the task board with git, allowing users to
-// associate a task with a branch and then view what changed.
+// associate a task with a branch and then view what changed. All git
+// operations degrade gracefully — if git is unavailable, commands either
+// skip the git parts (finish) or return a clear error.
 
 package cli
 
@@ -157,4 +160,66 @@ func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	return sdk.Result{Text: strings.Join(files, "\n"), Data: files}, nil
+}
+
+// taskFinish moves a task to done and shows a summary. If the task has
+// a branch and git is available, the summary includes file and commit
+// counts. Without git, the task is still moved — git is optional.
+func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
+	column := "done"
+	var key, base string
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--column":
+			i++
+			if i >= len(args) {
+				return nil, fmt.Errorf("task finish: --column requires a value")
+			}
+			column = args[i]
+		case "--base":
+			i++
+			if i >= len(args) {
+				return nil, fmt.Errorf("task finish: --base requires a value")
+			}
+			base = args[i]
+		default:
+			if key == "" && !strings.HasPrefix(args[i], "-") {
+				key = args[i]
+			}
+		}
+	}
+
+	if key == "" {
+		return nil, fmt.Errorf("task finish: %w: id", sdk.ErrMissingArg)
+	}
+
+	t, err := sdk.Tasks.Read(key)
+	if err != nil {
+		return nil, fmt.Errorf("task finish: %w", err)
+	}
+
+	if err := sdk.Tasks.Move(key, column, ctx.Author); err != nil {
+		return nil, fmt.Errorf("task finish: %w", err)
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Finished %s \"%s\"", t.Key, t.Title)
+
+	// Git summary — best effort, skip if unavailable.
+	if t.Branch != "" && gitAvailable() == nil {
+		if base == "" {
+			base, _ = gitDefaultBranch()
+		}
+		if base != "" {
+			if files, err := gitFiles(base, t.Branch); err == nil && len(files) > 0 {
+				fmt.Fprintf(&b, "\n  %d file(s) changed", len(files))
+			}
+			if commits, err := gitCommits(base, t.Branch); err == nil && len(commits) > 0 {
+				fmt.Fprintf(&b, "\n  %d commit(s)", len(commits))
+			}
+		}
+	}
+
+	return sdk.Text(b.String()), nil
 }
