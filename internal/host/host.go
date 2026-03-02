@@ -11,6 +11,7 @@ import (
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/plugin"
+	"github.com/jpl-au/llmd/internal/validate"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -81,7 +82,7 @@ func setup(store *llmd.Store) *Host {
 
 	// Load validation limits from config.
 	cfg := config.Load()
-	lim := loadLimits(cfg)
+	lim := validate.LoadLimits(cfg)
 
 	// Set domain globals so plugins can call sdk.Documents.Read(), etc.
 	if store != nil {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/links"
+	"github.com/jpl-au/llmd/internal/validate"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -32,26 +33,26 @@ func linkErr(err error) error {
 // ("in", "out", "both") and the internal typed Direction constants.
 type linkAPI struct {
 	store *llmd.Store
-	lim   limits
+	lim   validate.Limits
 }
 
 // newLinkAPI creates a link API bridge wrapping the given store.
 // The returned value satisfies [sdk.LinkStore] and is assigned to the
 // sdk.Links global by [New].
-func newLinkAPI(store *llmd.Store, lim limits) *linkAPI {
+func newLinkAPI(store *llmd.Store, lim validate.Limits) *linkAPI {
 	return &linkAPI{store: store, lim: lim}
 }
 
 // Add creates a directed link from one document to another with an
 // optional label. Stamps a CLI origin for provenance tracking.
 func (a *linkAPI) Add(from, to, label, author string) error {
-	if err := checkPath(from, a.lim); err != nil {
+	if err := validate.Path(from, a.lim); err != nil {
 		return err
 	}
-	if err := checkPath(to, a.lim); err != nil {
+	if err := validate.Path(to, a.lim); err != nil {
 		return err
 	}
-	if err := checkText(label, "label"); err != nil {
+	if err := validate.Text(label, "label"); err != nil {
 		return err
 	}
 	_, err := a.store.Links.Add(context.Background(), from, to, links.Options{

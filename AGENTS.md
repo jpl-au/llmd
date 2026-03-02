@@ -23,6 +23,7 @@ internal/llmd/key/          ID generation: 9-char base36 from ms timestamps
 internal/llmd/hash/         Content hashing (xxh3, blake2b)
 internal/llmd/meta/         Document metadata helpers
 internal/config/            Configuration files and .llmd/.gitignore management
+internal/validate/          Input validation: null bytes, path length, content size
 internal/sql/               Schema migrations, SQL helpers
 pkg/model/core/             Core model types (Origin, etc.)
 pkg/events/                 Shared event type definitions

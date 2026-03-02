@@ -12,6 +12,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/history"
 	"github.com/jpl-au/llmd/internal/llmd/search"
 	docpath "github.com/jpl-au/llmd/internal/path"
+	"github.com/jpl-au/llmd/internal/validate"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -39,13 +40,13 @@ func docErr(err error) error {
 // a [core.Origin] with Source:"cli" so version history records the source.
 type documentAPI struct {
 	store *llmd.Store
-	lim   limits
+	lim   validate.Limits
 }
 
 // newDocumentAPI creates a document API bridge wrapping the given store.
 // The returned value satisfies [sdk.DocumentStore] and is assigned to
 // the sdk.Documents global by [New].
-func newDocumentAPI(store *llmd.Store, lim limits) *documentAPI {
+func newDocumentAPI(store *llmd.Store, lim validate.Limits) *documentAPI {
 	return &documentAPI{store: store, lim: lim}
 }
 
@@ -56,7 +57,7 @@ func (a *documentAPI) Read(path string, version int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := checkPath(path, a.lim); err != nil {
+	if err := validate.Path(path, a.lim); err != nil {
 		return nil, err
 	}
 	var opts documents.ReadOptions
@@ -77,10 +78,10 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 	if err != nil {
 		return err
 	}
-	if err := checkPath(path, a.lim); err != nil {
+	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
-	if err := checkContent(content, a.lim); err != nil {
+	if err := validate.Content(content, a.lim); err != nil {
 		return err
 	}
 	// Normalise line endings to \n so content is consistent regardless
@@ -103,7 +104,7 @@ func (a *documentAPI) Delete(path, author string) error {
 	if err != nil {
 		return err
 	}
-	if err := checkPath(path, a.lim); err != nil {
+	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
 	return docErr(a.store.Documents.Delete(context.Background(), path, documents.DeleteOptions{
@@ -118,7 +119,7 @@ func (a *documentAPI) Restore(path, author string) error {
 	if err != nil {
 		return err
 	}
-	if err := checkPath(path, a.lim); err != nil {
+	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
 	return docErr(a.store.Documents.Restore(context.Background(), path, documents.RestoreOptions{
@@ -133,14 +134,14 @@ func (a *documentAPI) Move(from, to, author string) error {
 	if err != nil {
 		return err
 	}
-	if err := checkPath(from, a.lim); err != nil {
+	if err := validate.Path(from, a.lim); err != nil {
 		return err
 	}
 	to, err = docpath.Normalise(to)
 	if err != nil {
 		return err
 	}
-	if err := checkPath(to, a.lim); err != nil {
+	if err := validate.Path(to, a.lim); err != nil {
 		return err
 	}
 	return docErr(a.store.Documents.Move(context.Background(), from, to, documents.MoveOptions{
@@ -152,7 +153,7 @@ func (a *documentAPI) Move(from, to, author string) error {
 // path prefix. Results are converted from internal Info structs to SDK
 // Doc structs. The Reverse option is applied after the database query.
 func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
-	if err := checkNull(prefix, "prefix"); err != nil {
+	if err := validate.Null(prefix, "prefix"); err != nil {
 		return nil, err
 	}
 	if strings.Contains(prefix, "..") {
@@ -194,7 +195,7 @@ func (a *documentAPI) Exists(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err := checkPath(path, a.lim); err != nil {
+	if err := validate.Path(path, a.lim); err != nil {
 		return false, err
 	}
 	return a.store.Documents.Exists(context.Background(), path)
@@ -207,13 +208,13 @@ func (a *documentAPI) Edit(path, old, new, author, msg string) error {
 	if err != nil {
 		return err
 	}
-	if err := checkPath(path, a.lim); err != nil {
+	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
-	if err := checkText(old, "old text"); err != nil {
+	if err := validate.Text(old, "old text"); err != nil {
 		return err
 	}
-	if err := checkText(new, "new text"); err != nil {
+	if err := validate.Text(new, "new text"); err != nil {
 		return err
 	}
 	o := origin(author)
@@ -236,10 +237,10 @@ func (a *documentAPI) Glob(pattern string) ([]string, error) {
 // contain multiple matches, which become individual sdk.GrepHit entries.
 // For GrepPaths mode, results have no matches — just a path.
 func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
-	if err := checkNull(query, "query"); err != nil {
+	if err := validate.Null(query, "query"); err != nil {
 		return nil, err
 	}
-	if err := checkNull(opts.Path, "path"); err != nil {
+	if err := validate.Null(opts.Path, "path"); err != nil {
 		return nil, err
 	}
 	if strings.Contains(opts.Path, "..") {
@@ -284,7 +285,7 @@ func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := checkPath(path, a.lim); err != nil {
+	if err := validate.Path(path, a.lim); err != nil {
 		return nil, err
 	}
 	var opts history.ListOptions
@@ -332,7 +333,7 @@ func (a *documentAPI) Revert(path string, version int, author, msg string) error
 	if err != nil {
 		return err
 	}
-	if err := checkPath(path, a.lim); err != nil {
+	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
 	o := origin(author)
