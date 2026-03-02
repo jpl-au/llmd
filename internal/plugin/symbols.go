@@ -159,6 +159,7 @@ type _sdk_DocumentStore struct {
 	WVacuum  func() (sdk.VacuumResult, error)
 	WImport  func(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error)
 	WExport  func(prefix string, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error)
+	WPreview func(path string, lines int) (string, error)
 }
 
 func (W _sdk_DocumentStore) Read(path string, version int) ([]byte, error) {
@@ -209,6 +210,9 @@ func (W _sdk_DocumentStore) Import(dir string, opts sdk.ImportOpts) (*sdk.Import
 func (W _sdk_DocumentStore) Export(prefix string, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error) {
 	return W.WExport(prefix, dir, opts)
 }
+func (W _sdk_DocumentStore) Preview(path string, lines int) (string, error) {
+	return W.WPreview(path, lines)
+}
 
 // _sdk_TaskStore is an interface wrapper for TaskStore type
 type _sdk_TaskStore struct {
@@ -228,6 +232,7 @@ type _sdk_TaskStore struct {
 	WStartBranch  func(key string, author string, opts sdk.StartBranchOpts) (*sdk.Task, error)
 	WFinish       func(key string, author string, opts sdk.FinishOpts) (*sdk.FinishResult, error)
 	WByBranch     func(branch string) (*sdk.Task, error)
+	WCheckSpecs   func(tasks []*sdk.Task) (map[string]bool, error)
 	WLog          func(key string, limit int) ([]sdk.TaskEvent, error)
 }
 
@@ -275,6 +280,9 @@ func (W _sdk_TaskStore) Finish(key string, author string, opts sdk.FinishOpts) (
 }
 func (W _sdk_TaskStore) ByBranch(branch string) (*sdk.Task, error) {
 	return W.WByBranch(branch)
+}
+func (W _sdk_TaskStore) CheckSpecs(tasks []*sdk.Task) (map[string]bool, error) {
+	return W.WCheckSpecs(tasks)
 }
 func (W _sdk_TaskStore) Log(key string, limit int) ([]sdk.TaskEvent, error) {
 	return W.WLog(key, limit)

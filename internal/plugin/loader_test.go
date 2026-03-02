@@ -155,6 +155,7 @@ func (s *stubDocs) Import(string, sdk.ImportOpts) (*sdk.ImportResult, error) {
 func (s *stubDocs) Export(string, string, sdk.ExportOpts) (*sdk.ExportResult, error) {
 	return &sdk.ExportResult{}, nil
 }
+func (s *stubDocs) Preview(string, int) (string, error) { return "", nil }
 
 // stubTasks is a minimal TaskStore for testing Yaegi access.
 type stubTasks struct {
@@ -190,8 +191,9 @@ func (s *stubTasks) StartBranch(string, string, sdk.StartBranchOpts) (*sdk.Task,
 func (s *stubTasks) Finish(string, string, sdk.FinishOpts) (*sdk.FinishResult, error) {
 	return nil, nil
 }
-func (s *stubTasks) ByBranch(string) (*sdk.Task, error)       { return nil, nil }
-func (s *stubTasks) Log(string, int) ([]sdk.TaskEvent, error) { return nil, nil }
+func (s *stubTasks) ByBranch(string) (*sdk.Task, error)              { return nil, nil }
+func (s *stubTasks) CheckSpecs([]*sdk.Task) (map[string]bool, error) { return nil, nil }
+func (s *stubTasks) Log(string, int) ([]sdk.TaskEvent, error)        { return nil, nil }
 
 // stubTags is a minimal TagStore for testing Yaegi access.
 type stubTags struct {

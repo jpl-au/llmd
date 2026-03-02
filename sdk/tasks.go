@@ -64,6 +64,10 @@ type TaskStore interface {
 	// ByBranch returns the task linked to the given branch name.
 	ByBranch(branch string) (*Task, error)
 
+	// CheckSpecs reports which tasks have a document at their spec
+	// path. Returns a map from task key to true for tasks with specs.
+	CheckSpecs(tasks []*Task) (map[string]bool, error)
+
 	// Log returns audit events for a task, newest first.
 	// Limit 0 means all events.
 	Log(key string, limit int) ([]TaskEvent, error)

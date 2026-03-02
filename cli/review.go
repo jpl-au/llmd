@@ -75,7 +75,7 @@ func review(_ sdk.Context, args []string) (sdk.Response, error) {
 	data := make([]entry, len(tasks))
 	for i, t := range tasks {
 		data[i] = entry{Task: t}
-		data[i].Spec = specPreview(t.Path, 5)
+		data[i].Spec, _ = sdk.Documents.Preview(t.Path, 5)
 		data[i].Links = linkedDocs(t.Path)
 	}
 
@@ -143,33 +143,6 @@ func review(_ sdk.Context, args []string) (sdk.Response, error) {
 	b.WriteByte('\n')
 
 	return sdk.Result{Text: b.String(), Data: data}, nil
-}
-
-// specPreview returns the first n non-blank lines of a task's spec,
-// skipping the title heading.
-func specPreview(path string, n int) string {
-	if path == "" {
-		return ""
-	}
-	body, err := sdk.Documents.Read(path, 0)
-	if err != nil {
-		return ""
-	}
-	lines := strings.Split(string(body), "\n")
-	var preview []string
-	for _, line := range lines {
-		if len(preview) == 0 && strings.HasPrefix(line, "# ") {
-			continue
-		}
-		if strings.TrimSpace(line) == "" && len(preview) == 0 {
-			continue
-		}
-		preview = append(preview, line)
-		if len(preview) >= n {
-			break
-		}
-	}
-	return strings.Join(preview, "\n")
 }
 
 // linkedDocs returns outgoing links for a task's spec path.

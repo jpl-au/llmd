@@ -39,7 +39,7 @@ var (
 
 // formatBoard renders the board view grouped by column.
 func formatBoard(cols []string, tasks []*sdk.Task) string {
-	specs := specExists(tasks)
+	specs, _ := sdk.Tasks.CheckSpecs(tasks)
 
 	byStatus := make(map[string][]*sdk.Task)
 	for _, t := range tasks {
@@ -74,31 +74,8 @@ func formatTaskTable(tasks []*sdk.Task) string {
 	if len(tasks) == 0 {
 		return emptyCol.Render("no tasks")
 	}
-	return taskTable(tasks, specExists(tasks))
-}
-
-// specExists checks which tasks have a document at their path.
-// Deduplicates paths so each unique path is queried at most once.
-func specExists(tasks []*sdk.Task) map[string]bool {
-	// Check each unique path once.
-	paths := make(map[string]bool)
-	for _, t := range tasks {
-		if t.Path == "" {
-			continue
-		}
-		if _, checked := paths[t.Path]; !checked {
-			ok, err := sdk.Documents.Exists(t.Path)
-			paths[t.Path] = err == nil && ok
-		}
-	}
-
-	m := make(map[string]bool, len(tasks))
-	for _, t := range tasks {
-		if paths[t.Path] {
-			m[t.Key] = true
-		}
-	}
-	return m
+	specs, _ := sdk.Tasks.CheckSpecs(tasks)
+	return taskTable(tasks, specs)
 }
 
 // taskTable renders a terminal table using lipgloss.

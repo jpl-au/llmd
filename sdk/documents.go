@@ -62,6 +62,12 @@ type DocumentStore interface {
 
 	// Export writes documents to a filesystem directory.
 	Export(prefix, dir string, opts ExportOpts) (*ExportResult, error)
+
+	// Preview returns the first lines of a document, skipping the title
+	// heading and leading blank lines. Useful for task board summaries
+	// and review views. Returns empty string if the path is empty or
+	// the document does not exist.
+	Preview(path string, lines int) (string, error)
 }
 
 // Doc represents a document's metadata (not its content — use Read for

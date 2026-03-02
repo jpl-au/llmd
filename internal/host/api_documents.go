@@ -378,6 +378,33 @@ func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult
 	}, nil
 }
 
+// Preview returns the first n non-blank lines of a document, skipping
+// the title heading. Returns empty string for missing documents.
+func (a *documentAPI) Preview(path string, n int) (string, error) {
+	if path == "" || n <= 0 {
+		return "", nil
+	}
+	body, err := a.Read(path, 0)
+	if err != nil {
+		return "", nil
+	}
+	lines := strings.Split(string(body), "\n")
+	var preview []string
+	for _, line := range lines {
+		if len(preview) == 0 && strings.HasPrefix(line, "# ") {
+			continue
+		}
+		if strings.TrimSpace(line) == "" && len(preview) == 0 {
+			continue
+		}
+		preview = append(preview, line)
+		if len(preview) >= n {
+			break
+		}
+	}
+	return strings.Join(preview, "\n"), nil
+}
+
 // Export writes store documents to a filesystem directory as .md files.
 // Preserves the document path hierarchy under the destination directory.
 func (a *documentAPI) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error) {

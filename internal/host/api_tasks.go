@@ -312,6 +312,28 @@ func (a *taskAPI) ByBranch(branch string) (*sdk.Task, error) {
 	return taskToSDK(tt[0]), nil
 }
 
+// CheckSpecs reports which tasks have a document at their spec path.
+// Each unique path is checked at most once.
+func (a *taskAPI) CheckSpecs(tasks []*sdk.Task) (map[string]bool, error) {
+	paths := make(map[string]bool)
+	for _, t := range tasks {
+		if t.Path == "" {
+			continue
+		}
+		if _, checked := paths[t.Path]; !checked {
+			ok, err := sdk.Documents.Exists(t.Path)
+			paths[t.Path] = err == nil && ok
+		}
+	}
+	m := make(map[string]bool, len(tasks))
+	for _, t := range tasks {
+		if paths[t.Path] {
+			m[t.Key] = true
+		}
+	}
+	return m, nil
+}
+
 // branchSlug converts a title to a git-friendly branch component.
 // Letters and digits are kept; everything else becomes a dash. Runs of
 // dashes collapse and trailing dashes are trimmed.
