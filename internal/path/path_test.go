@@ -1,6 +1,9 @@
 package path
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestNormalise(t *testing.T) {
 	tests := []struct {
@@ -89,6 +92,29 @@ func TestDirect(t *testing.T) {
 			got := Direct(tt.path, tt.prefix)
 			if got != tt.want {
 				t.Errorf("Direct(%q, %q) = %v, want %v", tt.path, tt.prefix, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveDB(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"", filepath.Join(".llmd", "llmd.db")},
+		{"docs", filepath.Join(".llmd", "llmd-docs.db")},
+		{"notes", filepath.Join(".llmd", "llmd-notes.db")},
+		{filepath.Join(".llmd", "llmd.db"), filepath.Join(".llmd", "llmd.db")},
+		{filepath.Join(".llmd", "custom.db"), filepath.Join(".llmd", "custom.db")},
+		{"my-store.db", "my-store.db"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := ResolveDB(tt.input)
+			if got != tt.want {
+				t.Errorf("ResolveDB(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

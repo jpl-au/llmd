@@ -35,6 +35,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/search"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
+	docpath "github.com/jpl-au/llmd/internal/path"
 	_ "modernc.org/sqlite"
 )
 
@@ -64,9 +65,7 @@ func DefaultPath() string {
 
 // Init creates a new store. Fails if it already exists.
 func Init(path string) (*Store, error) {
-	if path == "" {
-		path = DefaultPath()
-	}
+	path = docpath.ResolveDB(path)
 
 	// Check if already exists
 	if _, err := os.Stat(path); err == nil {
@@ -84,9 +83,7 @@ func Init(path string) (*Store, error) {
 
 // Open opens an existing store. Fails if it doesn't exist.
 func Open(path string) (*Store, error) {
-	if path == "" {
-		path = DefaultPath()
-	}
+	path = docpath.ResolveDB(path)
 
 	// Check exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {

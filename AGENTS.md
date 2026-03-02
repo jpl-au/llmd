@@ -294,6 +294,10 @@ the call with `sdk.ErrMissingArg`.
   already exists, it appends `-2`, `-3`, etc. to avoid silently versioning
   an unrelated document. Explicit `--path` skips deduplication.
 
+- **--db name resolution** — The `--db` flag accepts a bare name (e.g. `docs`)
+  which `path.ResolveDB` converts to `.llmd/llmd-docs.db`. A value with path
+  separators or ending in `.db` is used as-is. Empty defaults to `.llmd/llmd.db`.
+
 - **Import cycle: host ↔ plugin** — `internal/host` imports `internal/plugin`.
   Plugin tests cannot import host. Use stub implementations instead.
 
