@@ -334,6 +334,35 @@ func (a *taskAPI) CheckSpecs(tasks []*sdk.Task) (map[string]bool, error) {
 	return m, nil
 }
 
+// Link creates a directed link from a task's spec document to another
+// document.
+func (a *taskAPI) Link(key, target, author string) error {
+	t, err := a.store.Tasks.Read(context.Background(), key)
+	if err != nil {
+		return taskErr(err)
+	}
+	if t.Path == "" {
+		return fmt.Errorf("%w: task has no spec document", sdk.ErrNoSpec)
+	}
+	return sdk.Links.Add(t.Path, target, "", author)
+}
+
+// Links returns links for a task's spec document.
+func (a *taskAPI) Links(key, dir string) ([]sdk.Link, error) {
+	t, err := a.store.Tasks.Read(context.Background(), key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+	if t.Path == "" {
+		return nil, nil
+	}
+	links, err := sdk.Links.List(t.Path, dir)
+	if err != nil {
+		return nil, err
+	}
+	return links, nil
+}
+
 // branchSlug converts a title to a git-friendly branch component.
 // Letters and digits are kept; everything else becomes a dash. Runs of
 // dashes collapse and trailing dashes are trimmed.

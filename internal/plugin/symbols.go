@@ -233,6 +233,8 @@ type _sdk_TaskStore struct {
 	WFinish       func(key string, author string, opts sdk.FinishOpts) (*sdk.FinishResult, error)
 	WByBranch     func(branch string) (*sdk.Task, error)
 	WCheckSpecs   func(tasks []*sdk.Task) (map[string]bool, error)
+	WLink         func(key string, target string, author string) error
+	WLinks        func(key string, dir string) ([]sdk.Link, error)
 	WLog          func(key string, limit int) ([]sdk.TaskEvent, error)
 }
 
@@ -283,6 +285,12 @@ func (W _sdk_TaskStore) ByBranch(branch string) (*sdk.Task, error) {
 }
 func (W _sdk_TaskStore) CheckSpecs(tasks []*sdk.Task) (map[string]bool, error) {
 	return W.WCheckSpecs(tasks)
+}
+func (W _sdk_TaskStore) Link(key string, target string, author string) error {
+	return W.WLink(key, target, author)
+}
+func (W _sdk_TaskStore) Links(key string, dir string) ([]sdk.Link, error) {
+	return W.WLinks(key, dir)
 }
 func (W _sdk_TaskStore) Log(key string, limit int) ([]sdk.TaskEvent, error) {
 	return W.WLog(key, limit)

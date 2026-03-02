@@ -68,6 +68,14 @@ type TaskStore interface {
 	// path. Returns a map from task key to true for tasks with specs.
 	CheckSpecs(tasks []*Task) (map[string]bool, error)
 
+	// Link creates a directed link from a task's spec document to
+	// another document in the store.
+	Link(key, target, author string) error
+
+	// Links returns links for a task's spec document. Dir controls
+	// direction: "out" (default), "in", or "both".
+	Links(key, dir string) ([]Link, error)
+
 	// Log returns audit events for a task, newest first.
 	// Limit 0 means all events.
 	Log(key string, limit int) ([]TaskEvent, error)

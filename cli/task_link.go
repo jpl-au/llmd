@@ -10,40 +10,26 @@ import (
 )
 
 // taskLink creates a link from a task's spec document to another
-// document in the store. Requires two arguments: the task key and the
-// target document path. The link is created from the task's spec path,
-// not from the task key itself.
+// document in the store.
 func taskLink(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("task link: %w: id and path", sdk.ErrMissingArg)
 	}
 
-	// Look up the task to get its document path
-	t, err := sdk.Tasks.Read(args[0])
-	if err != nil {
-		return nil, fmt.Errorf("task link: %w", err)
-	}
-
-	if err := sdk.Links.Add(t.Path, args[1], "", ctx.Author); err != nil {
+	if err := sdk.Tasks.Link(args[0], args[1], ctx.Author); err != nil {
 		return nil, fmt.Errorf("task link: %w", err)
 	}
 
 	return sdk.Text(fmt.Sprintf("Linked task %s to %s", args[0], args[1])), nil
 }
 
-// taskLinks lists outgoing links from a task's spec document. Shows
-// each linked document path with its label (if any).
+// taskLinks lists links for a task's spec document.
 func taskLinks(_ sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task links: %w: id", sdk.ErrMissingArg)
 	}
 
-	t, err := sdk.Tasks.Read(args[0])
-	if err != nil {
-		return nil, fmt.Errorf("task links: %w", err)
-	}
-
-	links, err := sdk.Links.List(t.Path, "out")
+	links, err := sdk.Tasks.Links(args[0], "out")
 	if err != nil {
 		return nil, fmt.Errorf("task links: %w", err)
 	}
