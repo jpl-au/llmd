@@ -100,7 +100,7 @@ func TestTaskBranch(t *testing.T) {
 	}
 
 	// Verify we're on the new branch
-	branch, err := gitBranch()
+	branch, err := sdk.Git.Branch()
 	if err != nil {
 		t.Fatalf("gitBranch: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestTaskBranchCustomName(t *testing.T) {
 		t.Fatalf("taskBranch: %v", err)
 	}
 
-	branch, _ := gitBranch()
+	branch, _ := sdk.Git.Branch()
 	if branch != "feature/custom" {
 		t.Errorf("branch = %q, want %q", branch, "feature/custom")
 	}

@@ -41,9 +41,9 @@ func taskShow(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 	if t.Branch != "" {
 		branchVal := t.Branch
-		if gitAvailable() == nil {
-			if base, err := gitDefaultBranch(); err == nil {
-				if ahead, behind, err := gitRevCount(base, t.Branch); err == nil {
+		if sdk.Git.Available() == nil {
+			if base, err := sdk.Git.DefaultBranch(); err == nil {
+				if ahead, behind, err := sdk.Git.RevCount(base, t.Branch); err == nil {
 					branchVal = fmt.Sprintf("%s (+%d/-%d)", t.Branch, ahead, behind)
 				}
 			}

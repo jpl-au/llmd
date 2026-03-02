@@ -1,9 +1,9 @@
 //go:build !windows
 
-package cli
+package git
 
-// gitOutput converts raw git command output to a string.
+// output converts raw git command output to a string.
 // On Unix, git always uses LF line endings — no conversion needed.
-func gitOutput(out []byte) string {
+func output(out []byte) string {
 	return string(out)
 }

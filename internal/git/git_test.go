@@ -1,16 +1,18 @@
-package cli
+package git
 
 import (
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/jpl-au/llmd/sdk"
 )
 
-// testGitRepo creates a temporary git repository with an initial commit
+// testRepo creates a temporary git repository with an initial commit
 // on the "main" branch. It changes the working directory to the repo
 // for the duration of the test and restores it on cleanup.
-func testGitRepo(t *testing.T) string {
+func testRepo(t *testing.T) string {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -43,15 +45,15 @@ func testGitRepo(t *testing.T) string {
 	return dir
 }
 
-func TestGitAvailable(t *testing.T) {
-	// In a real git repo, gitAvailable should succeed.
-	testGitRepo(t)
-	if err := gitAvailable(); err != nil {
+func TestAvailable(t *testing.T) {
+	testRepo(t)
+	g := New()
+	if err := g.Available(); err != nil {
 		t.Fatalf("expected no error in git repo, got: %v", err)
 	}
 }
 
-func TestGitAvailableOutsideRepo(t *testing.T) {
+func TestAvailableOutsideRepo(t *testing.T) {
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
 	t.Cleanup(func() { _ = os.Chdir(orig) })
@@ -59,7 +61,8 @@ func TestGitAvailableOutsideRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := gitAvailable()
+	g := New()
+	err := g.Available()
 	if err == nil {
 		t.Fatal("expected error outside git repo")
 	}
@@ -68,8 +71,35 @@ func TestGitAvailableOutsideRepo(t *testing.T) {
 	}
 }
 
-func TestGitCommits(t *testing.T) {
-	dir := testGitRepo(t)
+func TestBranch(t *testing.T) {
+	testRepo(t)
+	g := New()
+
+	branch, err := g.Branch()
+	if err != nil {
+		t.Fatalf("Branch: %v", err)
+	}
+	if branch != "main" {
+		t.Fatalf("expected main, got %s", branch)
+	}
+}
+
+func TestDefaultBranch(t *testing.T) {
+	testRepo(t)
+	g := New()
+
+	branch, err := g.DefaultBranch()
+	if err != nil {
+		t.Fatalf("DefaultBranch: %v", err)
+	}
+	if branch != "main" {
+		t.Fatalf("expected main, got %s", branch)
+	}
+}
+
+func TestCommits(t *testing.T) {
+	dir := testRepo(t)
+	g := New()
 
 	run := func(args ...string) {
 		t.Helper()
@@ -86,39 +116,41 @@ func TestGitCommits(t *testing.T) {
 	run("git", "commit", "--allow-empty", "-m", "first change")
 	run("git", "commit", "--allow-empty", "-m", "second change")
 
-	commits, err := gitCommits("main", "feature")
+	commits, err := g.Commits("main", "feature")
 	if err != nil {
-		t.Fatalf("gitCommits: %v", err)
+		t.Fatalf("Commits: %v", err)
 	}
 	if len(commits) != 2 {
 		t.Fatalf("expected 2 commits, got %d: %v", len(commits), commits)
 	}
 }
 
-func TestGitCommitsEmpty(t *testing.T) {
-	testGitRepo(t)
+func TestCommitsEmpty(t *testing.T) {
+	testRepo(t)
+	g := New()
 
 	// No commits ahead of main on main itself.
-	commits, err := gitCommits("main", "main")
+	commits, err := g.Commits("main", "main")
 	if err != nil {
-		t.Fatalf("gitCommits: %v", err)
+		t.Fatalf("Commits: %v", err)
 	}
 	if len(commits) != 0 {
 		t.Fatalf("expected 0 commits, got %d", len(commits))
 	}
 }
 
-func TestGitCheckoutNew(t *testing.T) {
-	dir := testGitRepo(t)
+func TestCheckoutNew(t *testing.T) {
+	dir := testRepo(t)
+	g := New()
 
-	if err := gitCheckoutNew("task/my-feature"); err != nil {
-		t.Fatalf("gitCheckoutNew: %v", err)
+	if err := g.CheckoutNew("task/my-feature"); err != nil {
+		t.Fatalf("CheckoutNew: %v", err)
 	}
 
 	// Verify we're on the new branch.
-	branch, err := gitBranch()
+	branch, err := g.Branch()
 	if err != nil {
-		t.Fatalf("gitBranch: %v", err)
+		t.Fatalf("Branch: %v", err)
 	}
 	if branch != "task/my-feature" {
 		t.Fatalf("expected branch task/my-feature, got %s", branch)
@@ -130,14 +162,15 @@ func TestGitCheckoutNew(t *testing.T) {
 	cmd.Dir = dir
 	_, _ = cmd.CombinedOutput()
 
-	err = gitCheckoutNew("task/my-feature")
+	err = g.CheckoutNew("task/my-feature")
 	if err == nil {
 		t.Fatal("expected error creating duplicate branch")
 	}
 }
 
-func TestGitRevCount(t *testing.T) {
-	dir := testGitRepo(t)
+func TestRevCount(t *testing.T) {
+	dir := testRepo(t)
+	g := New()
 
 	run := func(args ...string) {
 		t.Helper()
@@ -153,9 +186,9 @@ func TestGitRevCount(t *testing.T) {
 	run("git", "commit", "--allow-empty", "-m", "ahead 1")
 	run("git", "commit", "--allow-empty", "-m", "ahead 2")
 
-	ahead, behind, err := gitRevCount("main", "feature")
+	ahead, behind, err := g.RevCount("main", "feature")
 	if err != nil {
-		t.Fatalf("gitRevCount: %v", err)
+		t.Fatalf("RevCount: %v", err)
 	}
 	if ahead != 2 {
 		t.Fatalf("expected ahead=2, got %d", ahead)
@@ -168,9 +201,9 @@ func TestGitRevCount(t *testing.T) {
 	run("git", "checkout", "main")
 	run("git", "commit", "--allow-empty", "-m", "main diverge")
 
-	ahead, behind, err = gitRevCount("main", "feature")
+	ahead, behind, err = g.RevCount("main", "feature")
 	if err != nil {
-		t.Fatalf("gitRevCount: %v", err)
+		t.Fatalf("RevCount: %v", err)
 	}
 	if ahead != 2 {
 		t.Fatalf("expected ahead=2, got %d", ahead)
@@ -180,20 +213,9 @@ func TestGitRevCount(t *testing.T) {
 	}
 }
 
-func TestGitDefaultBranch(t *testing.T) {
-	testGitRepo(t)
-
-	branch, err := gitDefaultBranch()
-	if err != nil {
-		t.Fatalf("gitDefaultBranch: %v", err)
-	}
-	if branch != "main" {
-		t.Fatalf("expected main, got %s", branch)
-	}
-}
-
-func TestGitFiles(t *testing.T) {
-	dir := testGitRepo(t)
+func TestFiles(t *testing.T) {
+	dir := testRepo(t)
+	g := New()
 
 	run := func(args ...string) {
 		t.Helper()
@@ -212,11 +234,51 @@ func TestGitFiles(t *testing.T) {
 	run("git", "add", "new.txt")
 	run("git", "commit", "-m", "add file")
 
-	files, err := gitFiles("main", "feature")
+	files, err := g.Files("main", "feature")
 	if err != nil {
-		t.Fatalf("gitFiles: %v", err)
+		t.Fatalf("Files: %v", err)
 	}
 	if len(files) != 1 || files[0] != "new.txt" {
 		t.Fatalf("expected [new.txt], got %v", files)
+	}
+}
+
+func TestDiff(t *testing.T) {
+	dir := testRepo(t)
+	g := New()
+
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v failed: %s", args, out)
+		}
+	}
+
+	run("git", "checkout", "-b", "feature")
+	if err := os.WriteFile(filepath.Join(dir, "new.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	run("git", "add", "new.txt")
+	run("git", "commit", "-m", "add file")
+
+	// Full diff should contain the file content.
+	diff, err := g.Diff("main", "feature", sdk.DiffOpts{})
+	if err != nil {
+		t.Fatalf("Diff: %v", err)
+	}
+	if diff == "" {
+		t.Fatal("expected non-empty diff")
+	}
+
+	// Stat diff should contain the filename.
+	stat, err := g.Diff("main", "feature", sdk.DiffOpts{Stat: true})
+	if err != nil {
+		t.Fatalf("Diff(stat): %v", err)
+	}
+	if stat == "" {
+		t.Fatal("expected non-empty stat diff")
 	}
 }

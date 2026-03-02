@@ -46,7 +46,7 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	// Record branch if git is available — best effort.
-	branch, err := gitBranch()
+	branch, err := sdk.Git.Branch()
 	if err == nil {
 		if err := sdk.Tasks.Set(key, ctx.Author, sdk.TaskSetOpts{Branch: &branch}); err != nil {
 			return nil, fmt.Errorf("task start: %w", err)
@@ -89,13 +89,13 @@ func taskDiff(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if base == "" {
-		base, err = gitDefaultBranch()
+		base, err = sdk.Git.DefaultBranch()
 		if err != nil {
 			return nil, fmt.Errorf("task diff: %w — use --base to specify", err)
 		}
 	}
 
-	output, err := gitDiff(base, t.Branch, stat)
+	output, err := sdk.Git.Diff(base, t.Branch, sdk.DiffOpts{Stat: stat})
 	if err != nil {
 		return nil, fmt.Errorf("task diff: %w", err)
 	}
@@ -140,13 +140,13 @@ func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if base == "" {
-		base, err = gitDefaultBranch()
+		base, err = sdk.Git.DefaultBranch()
 		if err != nil {
 			return nil, fmt.Errorf("task files: %w — use --base to specify", err)
 		}
 	}
 
-	files, err := gitFiles(base, t.Branch)
+	files, err := sdk.Git.Files(base, t.Branch)
 	if err != nil {
 		return nil, fmt.Errorf("task files: %w", err)
 	}
@@ -199,15 +199,15 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 	fmt.Fprintf(&b, "Finished %s \"%s\"", t.Key, t.Title)
 
 	// Git summary — best effort, skip if unavailable.
-	if t.Branch != "" && gitAvailable() == nil {
+	if t.Branch != "" && sdk.Git.Available() == nil {
 		if base == "" {
-			base, _ = gitDefaultBranch()
+			base, _ = sdk.Git.DefaultBranch()
 		}
 		if base != "" {
-			if files, err := gitFiles(base, t.Branch); err == nil && len(files) > 0 {
+			if files, err := sdk.Git.Files(base, t.Branch); err == nil && len(files) > 0 {
 				fmt.Fprintf(&b, "\n  %d file(s) changed", len(files))
 			}
-			if commits, err := gitCommits(base, t.Branch); err == nil && len(commits) > 0 {
+			if commits, err := sdk.Git.Commits(base, t.Branch); err == nil && len(commits) > 0 {
 				fmt.Fprintf(&b, "\n  %d commit(s)", len(commits))
 			}
 		}
@@ -219,7 +219,7 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 // taskBranch creates a git branch from a task's title, checks it out,
 // records the branch on the task, and moves it to in-progress.
 func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if err := gitAvailable(); err != nil {
+	if err := sdk.Git.Available(); err != nil {
 		return nil, fmt.Errorf("task branch: %w", err)
 	}
 
@@ -263,7 +263,7 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 		name = "task/" + branchSlug(t.Title)
 	}
 
-	if err := gitCheckoutNew(name); err != nil {
+	if err := sdk.Git.CheckoutNew(name); err != nil {
 		return nil, fmt.Errorf("task branch: %w", err)
 	}
 
@@ -280,7 +280,7 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 // taskCommits lists commits on a task's branch that aren't on the base branch.
 func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
-	if err := gitAvailable(); err != nil {
+	if err := sdk.Git.Available(); err != nil {
 		return nil, fmt.Errorf("task commits: %w", err)
 	}
 
@@ -310,13 +310,13 @@ func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if base == "" {
-		base, err = gitDefaultBranch()
+		base, err = sdk.Git.DefaultBranch()
 		if err != nil {
 			return nil, fmt.Errorf("task commits: %w — use --base to specify", err)
 		}
 	}
 
-	commits, err := gitCommits(base, t.Branch)
+	commits, err := sdk.Git.Commits(base, t.Branch)
 	if err != nil {
 		return nil, fmt.Errorf("task commits: %w", err)
 	}
@@ -332,7 +332,7 @@ func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
 // Returns an error if git is unavailable, we're not on a branch,
 // or no task is linked to the current branch.
 func taskForBranch() (*sdk.Task, error) {
-	branch, err := gitBranch()
+	branch, err := sdk.Git.Branch()
 	if err != nil {
 		return nil, err
 	}

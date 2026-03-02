@@ -40,6 +40,7 @@ var (
 	Tags       TagStore
 	Activities ActivityStore
 	Mirror     MirrorStore
+	Git        GitStore
 )
 
 // Plugin is the interface that command providers implement. The host

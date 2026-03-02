@@ -9,6 +9,7 @@ import (
 
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/config"
+	igit "github.com/jpl-au/llmd/internal/git"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/plugin"
 	"github.com/jpl-au/llmd/internal/validate"
@@ -83,6 +84,9 @@ func setup(store *llmd.Store) *Host {
 	// Load validation limits from config.
 	cfg := config.Load()
 	lim := validate.LoadLimits(cfg)
+
+	// Git is store-independent — always available.
+	sdk.Git = igit.New()
 
 	// Set domain globals so plugins can call sdk.Documents.Read(), etc.
 	if store != nil {

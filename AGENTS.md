@@ -1,12 +1,35 @@
 # Architecture Reference
 
+## Core Principle
+
+**The SDK is the single API surface. Everything goes through it.** CLI,
+MCP, HTTP (coming), plugins, extensions — all are thin consumers that
+call SDK interfaces. No domain logic lives in consumer layers.
+
+This is deliberate: the API controls all actions and interactions through
+a consistent code contract. Changes to internals are hidden behind the
+SDK boundary and don't impact consumers. If something is available to
+one consumer, it must be available to all of them through the SDK.
+
+Every domain follows the same pattern:
+1. Define the interface in `sdk/`
+2. Implement in `internal/`
+3. Bridge in `internal/host/`
+4. Consumer layers (CLI, MCP, HTTP) are thin callers — no domain logic
+
+Use structs-as-options for method parameters so that internal changes
+stay hidden behind the SDK boundary.
+
+**If logic is in a consumer layer and could be needed by another consumer,
+it's in the wrong place.** Move it behind the SDK.
+
 ## Package Map
 
 ```
-sdk/                        Plugin SDK: interfaces, types, globals
-cli/                        Core commands (cat, ls, write, rm, task, status, review, etc.)
+sdk/                        API surface: interfaces, types, globals
+cli/                        Thin CLI dispatch: calls SDK, formats output
 extension/                  Caddy-style compile-time plugin registry
-internal/host/              Plugin host: discovery, dispatch, SDK bridge
+internal/host/              SDK bridge: translates SDK calls to internal packages
 internal/plugin/            Yaegi dynamic plugin loader
 internal/llmd/              Store: opens database, coordinates sub-packages
 internal/llmd/documents/    Document CRUD, versioning, soft-delete
@@ -22,6 +45,7 @@ internal/llmd/audit/        Change log
 internal/llmd/key/          ID generation: 9-char base36 from ms timestamps
 internal/llmd/hash/         Content hashing (xxh3, blake2b)
 internal/llmd/meta/         Document metadata helpers
+internal/git/               Git CLI wrapper: sdk.GitStore implementation (build-tagged)
 internal/config/            Configuration files and .llmd/.gitignore management
 internal/line/              Platform-aware line ending conversion (build-tagged)
 internal/validate/          Input validation: null bytes, path length, content size
@@ -50,7 +74,7 @@ main.go
 
 ## Domain Interfaces
 
-Four focused interfaces replace the old monolithic `Store`:
+Focused interfaces per domain, each following the SDK-first pattern:
 
 | Interface | Defined in | Implemented by | Wired in |
 |-----------|-----------|----------------|----------|
@@ -59,10 +83,16 @@ Four focused interfaces replace the old monolithic `Store`:
 | `sdk.LinkStore` | `sdk/links.go` | `internal/host/api_links.go` (`linkAPI`) | `internal/host/host.go` |
 | `sdk.TagStore` | `sdk/tags.go` | `internal/host/api_tags.go` (`tagAPI`) | `internal/host/host.go` |
 | `sdk.ActivityStore` | `sdk/activity.go` | `internal/host/api_activity.go` (`activityAPI`) | `internal/host/host.go` |
+| `sdk.GitStore` | `sdk/git.go` | `internal/git/git.go` (`Git`) | `internal/host/host.go` |
 
 Each bridge type in `internal/host/` translates SDK flat arguments into
 internal option structs and maps internal results back to SDK types. All
 mutating operations stamp a `core.Origin{Source: "cli"}` for audit tracking.
+
+`sdk.GitStore` has no host bridge — the `internal/git.Git` struct implements
+the interface directly. Git is a system utility independent of the store, so
+a bridge would add indirection without value. It is wired in `setup()`
+outside the `if store != nil` block.
 
 Bridge types also translate internal errors to SDK sentinels via per-domain
 helpers (`docErr`, `taskErr`, `linkErr`, `tagErr`). This prevents internal
@@ -207,26 +237,11 @@ subcommands provide the integration:
 
 Commands marked `[id]` auto-detect the task from the current git branch
 when no ID is given (`taskForBranch` in `cli/task_git.go` matches the
-current branch against tasks via indexed `Branch` filter). `task show` displays ahead/behind
-counts when the task has a branch and git is available.
+current branch against tasks via indexed `Branch` filter). `task show`
+displays ahead/behind counts when the task has a branch and git is available.
 
-Git operations live in the CLI layer only — the SDK and backend just store
-the branch string. Low-level helpers in `cli/git.go` shell out to `git`
-via `os/exec`:
-
-| Helper | Description |
-|--------|-------------|
-| `gitAvailable` | Checks git is installed and we're in a repo |
-| `gitBranch` | Current branch name |
-| `gitDefaultBranch` | Detects default branch (origin/HEAD, then main/master) |
-| `gitDiff` | Three-dot diff between branches |
-| `gitFiles` | Changed files between branches |
-| `gitCommits` | Commit log between branches |
-| `gitCheckoutNew` | Create and switch to new branch |
-| `gitRevCount` | Ahead/behind commit counts |
-
-All git subcommands degrade gracefully — `gitAvailable()` is checked
-first and returns a clear error if git is missing or we're not in a repo.
+All git subcommands degrade gracefully — availability is checked first
+and returns a clear error if git is missing or we're not in a repo.
 `task start` and `task finish` work without git (skipping branch recording
 and git summary respectively); other git commands return the error.
 Default branch detection tries `origin/HEAD` first, then `main`, then
