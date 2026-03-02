@@ -65,7 +65,11 @@ func DefaultPath() string {
 
 // Init creates a new store. Fails if it already exists.
 func Init(path string) (*Store, error) {
-	path = docpath.ResolveDB(path)
+	var err error
+	path, err = docpath.ResolveDB(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolving database path: %w", err)
+	}
 
 	// Check if already exists
 	if _, err := os.Stat(path); err == nil {
@@ -83,7 +87,11 @@ func Init(path string) (*Store, error) {
 
 // Open opens an existing store. Fails if it doesn't exist.
 func Open(path string) (*Store, error) {
-	path = docpath.ResolveDB(path)
+	var err error
+	path, err = docpath.ResolveDB(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolving database path: %w", err)
+	}
 
 	// Check exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {

@@ -22,16 +22,6 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// mirrorDirFor returns the mirror directory for the active database.
-// Empty dbPath uses the default store, producing .llmd/llmd/.
-// A name like "docs" produces .llmd/llmd-docs/.
-func mirrorDirFor(dbPath string) string {
-	resolved := docpath.ResolveDB(dbPath)
-	base := filepath.Base(resolved)
-	name := strings.TrimSuffix(base, ".db")
-	return filepath.Join(".llmd", name)
-}
-
 func mirror(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) > 0 {
 		switch args[0] {
@@ -52,7 +42,10 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 		prefix = args[0]
 	}
 
-	dir := mirrorDirFor(ctx.DBPath)
+	dir, err := docpath.MirrorDir(ctx.DBPath)
+	if err != nil {
+		return nil, fmt.Errorf("mirror pull: %w", err)
+	}
 	r, err := sdk.Mirror.Pull(prefix, dir)
 	if err != nil {
 		return nil, fmt.Errorf("mirror pull: %w", err)
@@ -90,7 +83,10 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 		prefix = args[0]
 	}
 
-	dir := mirrorDirFor(ctx.DBPath)
+	dir, err := docpath.MirrorDir(ctx.DBPath)
+	if err != nil {
+		return nil, fmt.Errorf("mirror push: %w", err)
+	}
 	r, err := sdk.Mirror.Push(dir, sdk.PushOpts{
 		Prefix: prefix,
 	})

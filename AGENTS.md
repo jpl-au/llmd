@@ -327,6 +327,11 @@ llmd config ignore rm "*.db"       # remove pattern
 - **--db name resolution** — The `--db` flag accepts a bare name (e.g. `docs`)
   which `path.ResolveDB` converts to `.llmd/llmd-docs.db`. A value with path
   separators or ending in `.db` is used as-is. Empty defaults to `.llmd/llmd.db`.
+  `ResolveDB` returns `(string, error)` — shorthand names are sanitised (spaces
+  become dashes, consecutive dashes collapse, leading/trailing dashes trimmed)
+  and rejected if they contain control characters, Windows-illegal characters
+  (`< > : " | ? *`), or path traversal (`..`). Explicit paths skip sanitisation.
+  `MirrorDir` derives the mirror directory from a db path, propagating the error.
 
 - **Import cycle: host ↔ plugin** — `internal/host` imports `internal/plugin`.
   Plugin tests cannot import host. Use stub implementations instead.
