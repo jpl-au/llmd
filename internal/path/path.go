@@ -46,12 +46,3 @@ func ResolveDB(name string) string {
 	}
 	return filepath.Join(".llmd", "llmd-"+name+".db")
 }
-
-// ToFS converts a normalised document path to a filesystem path under dir.
-// Adds .md extension if the path has no extension.
-func ToFS(dir, docPath string) string {
-	if filepath.Ext(docPath) == "" {
-		docPath += ".md"
-	}
-	return filepath.Join(dir, filepath.FromSlash(docPath))
-}

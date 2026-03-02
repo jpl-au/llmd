@@ -2,6 +2,9 @@
 // agents can reference them. Files are written preserving the document
 // path structure, skipping unchanged content. Stale files not backed
 // by a current document are removed.
+//
+// All filesystem access is confined to the mirror directory via
+// os.OpenRoot, preventing path traversal and symlink escapes.
 
 package bulk
 
@@ -9,11 +12,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
-	docpath "github.com/jpl-au/llmd/internal/path"
 )
 
 // MirrorResult contains the counts from a mirror operation.
@@ -32,7 +35,18 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 		return nil, err
 	}
 
-	written := make(map[string]bool)
+	// Ensure the mirror directory exists before opening a root on it.
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("creating mirror directory: %w", err)
+	}
+
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("opening root %s: %w", dir, err)
+	}
+	defer root.Close()
+
+	keep := make(map[string]bool)
 	result := &MirrorResult{}
 
 	for _, doc := range docs {
@@ -41,55 +55,57 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 			return nil, fmt.Errorf("reading %s: %w", doc.Path, err)
 		}
 
-		fsPath := docpath.ToFS(dir, doc.Path)
-		written[fsPath] = true
+		rel := relFS(doc.Path)
+		keep[rel] = true
 
 		// Skip if file already has identical content.
-		existing, err := os.ReadFile(fsPath)
+		existing, err := root.ReadFile(rel)
 		if err == nil && bytes.Equal(existing, []byte(content.Content)) {
 			result.Skipped++
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(fsPath), 0755); err != nil {
-			return nil, fmt.Errorf("creating directory: %w", err)
+		if d := filepath.Dir(rel); d != "." {
+			if err := root.MkdirAll(d, 0755); err != nil {
+				return nil, fmt.Errorf("creating directory: %w", err)
+			}
 		}
-		if err := os.WriteFile(fsPath, []byte(content.Content), 0644); err != nil {
-			return nil, fmt.Errorf("writing %s: %w", fsPath, err)
+		if err := root.WriteFile(rel, []byte(content.Content), 0644); err != nil {
+			return nil, fmt.Errorf("writing %s: %w", rel, err)
 		}
 		result.Wrote++
 	}
 
-	result.Removed = cleanStale(dir, written)
+	result.Removed = cleanStale(root, keep)
 	return result, nil
 }
 
-// cleanStale removes files under dir that are not in the keep set.
+// cleanStale removes files under root that are not in the keep set.
 // Also removes empty directories left behind. Returns the number of
 // files removed.
-func cleanStale(dir string, keep map[string]bool) int {
+func cleanStale(root *os.Root, keep map[string]bool) int {
 	var removed int
-	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+
+	// First pass: remove stale files.
+	fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || p == "." {
 			return nil
 		}
-		if !keep[path] {
-			os.Remove(path)
+		if !keep[p] {
+			root.Remove(p)
 			removed++
 		}
 		return nil
-	}); err != nil {
-		return removed
-	}
-	// Remove empty directories (only succeeds if empty).
-	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || !info.IsDir() || path == dir {
+	})
+
+	// Second pass: remove empty directories (only succeeds if empty).
+	fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || p == "." {
 			return nil
 		}
-		os.Remove(path)
+		root.Remove(p)
 		return nil
-	}); err != nil {
-		return removed
-	}
+	})
+
 	return removed
 }

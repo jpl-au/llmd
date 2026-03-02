@@ -119,28 +119,3 @@ func TestResolveDB(t *testing.T) {
 		})
 	}
 }
-
-func TestToFS(t *testing.T) {
-	tests := []struct {
-		dir     string
-		docPath string
-		wantEnd string // just check the suffix since separator varies by OS
-	}{
-		{"/out", "docs/readme", "readme.md"},
-		{"/out", "docs/readme.txt", "readme.txt"},
-		{"/out", "api/v2/auth", "auth.md"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.docPath, func(t *testing.T) {
-			got := ToFS(tt.dir, tt.docPath)
-			if got == "" {
-				t.Errorf("ToFS(%q, %q) returned empty", tt.dir, tt.docPath)
-			}
-			// Verify it ends with the expected filename
-			if len(got) < len(tt.wantEnd) || got[len(got)-len(tt.wantEnd):] != tt.wantEnd {
-				t.Errorf("ToFS(%q, %q) = %q, want suffix %q", tt.dir, tt.docPath, got, tt.wantEnd)
-			}
-		})
-	}
-}

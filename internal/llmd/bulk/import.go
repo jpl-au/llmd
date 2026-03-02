@@ -47,6 +47,9 @@ const (
 )
 
 // Import imports markdown files from filesystem into the store.
+//
+// All filesystem reads are confined to the source path via os.OpenRoot,
+// preventing symlink escapes and path traversal.
 func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*ImportResult, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -60,8 +63,16 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 	}
 
 	if !info.IsDir() {
-		// Single file
-		storePath, status, err := b.importFile(ctx, path, "", opts)
+		// Single file — confine to its parent directory.
+		dir := filepath.Dir(path)
+		root, err := os.OpenRoot(dir)
+		if err != nil {
+			return nil, fmt.Errorf("opening root %s: %w", dir, err)
+		}
+		defer root.Close()
+
+		rel := filepath.Base(path)
+		storePath, status, err := b.importFile(ctx, root, rel, "", opts)
 		if err != nil {
 			result.Errors = append(result.Errors, ImportError{Path: path, Err: err})
 		} else {
@@ -70,32 +81,36 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 		return result, nil
 	}
 
-	// Directory walk
-	base := path
-	err = filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
+	// Directory — confine to the source directory.
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		return nil, fmt.Errorf("opening root %s: %w", path, err)
+	}
+	defer root.Close()
+
+	err = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip hidden files/directories unless requested
-		name := d.Name()
-		if !opts.Hidden && strings.HasPrefix(name, ".") {
-			if d.IsDir() {
+		if d.IsDir() {
+			// Skip hidden directories (but not the root ".").
+			if p != "." && !opts.Hidden && strings.HasPrefix(d.Name(), ".") {
 				return fs.SkipDir
 			}
 			return nil
 		}
 
-		if d.IsDir() {
+		// Skip hidden files.
+		if !opts.Hidden && strings.HasPrefix(d.Name(), ".") {
 			return nil
 		}
 
-		// Only import markdown files
-		if !strings.HasSuffix(strings.ToLower(name), ".md") {
+		if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 			return nil
 		}
 
-		storePath, status, err := b.importFile(ctx, p, base, opts)
+		storePath, status, err := b.importFile(ctx, root, p, ".", opts)
 		if err != nil {
 			result.Errors = append(result.Errors, ImportError{Path: p, Err: err})
 		} else {
@@ -125,13 +140,13 @@ func (b *Bulk) recordStatus(result *ImportResult, path string, status importStat
 	}
 }
 
-// importFile imports a single file. It reads the file, computes its
-// store path (based on relative position, prefix, and flatten settings),
-// compares the XXH3 hash to any existing document, and writes a new
-// version if the content has changed. Returns the store path, the
-// import status, and any error.
-func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOptions) (string, importStatus, error) {
-	content, err := os.ReadFile(path)
+// importFile imports a single file via the confined root. rel is the
+// path relative to the root, base is the root-relative base directory
+// for computing store paths (use "" or "." for root-level). It reads
+// the file, computes its store path, compares the XXH3 hash to any
+// existing document, and writes a new version if the content changed.
+func (b *Bulk) importFile(ctx context.Context, root *os.Root, rel, base string, opts ImportOptions) (string, importStatus, error) {
+	content, err := root.ReadFile(rel)
 	if err != nil {
 		return "", 0, err
 	}
@@ -140,13 +155,13 @@ func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOpt
 	// .md stripping, and traversal validation.
 	var raw string
 	if opts.Flatten || base == "" {
-		raw = filepath.Base(path)
+		raw = filepath.Base(rel)
 	} else {
-		rel, err := filepath.Rel(base, path)
+		r, err := filepath.Rel(base, rel)
 		if err != nil {
-			rel = filepath.Base(path)
+			r = filepath.Base(rel)
 		}
-		raw = rel
+		raw = r
 	}
 
 	storePath, err := docpath.Normalise(raw)
@@ -154,7 +169,6 @@ func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOpt
 		return "", 0, fmt.Errorf("normalise %q: %w", raw, err)
 	}
 
-	// Add prefix if specified
 	if opts.Prefix != "" {
 		storePath = strings.TrimSuffix(opts.Prefix, "/") + "/" + storePath
 	}
@@ -164,14 +178,12 @@ func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOpt
 	contentStr = strings.ReplaceAll(contentStr, "\r", "\n")
 	contentHash := hash.XXH3(contentStr)
 
-	// Check if document already exists
 	exists, err := b.docs.Exists(ctx, storePath)
 	if err != nil {
 		return "", 0, err
 	}
 
 	if exists && !opts.Force {
-		// Read current version to compare hash
 		doc, err := b.docs.Read(ctx, storePath)
 		if err != nil {
 			return "", 0, err
