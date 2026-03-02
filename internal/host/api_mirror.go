@@ -2,6 +2,8 @@ package host
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
@@ -17,6 +19,15 @@ type mirrorAPI struct {
 
 func newMirrorAPI(store *llmd.Store) *mirrorAPI {
 	return &mirrorAPI{store: store}
+}
+
+// Directory returns the mirror directory for the active store.
+// Derives the directory name from the database filename:
+// llmd.db → .llmd/llmd/, llmd-docs.db → .llmd/llmd-docs/.
+func (a *mirrorAPI) Directory() string {
+	base := filepath.Base(a.store.Path())
+	name := strings.TrimSuffix(base, ".db")
+	return filepath.Join(".llmd", name)
 }
 
 // Pull writes store documents to the filesystem, skipping unchanged

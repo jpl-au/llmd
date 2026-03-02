@@ -344,9 +344,8 @@ func (s *stubLinks) List(path, dir string) ([]sdk.Link, error) {
 // stubMirror is a minimal MirrorStore for testing.
 type stubMirror struct{}
 
-func (s *stubMirror) Pull(string, string) (*sdk.PullResult, error) {
-	return &sdk.PullResult{}, nil
-}
+func (s *stubMirror) Directory() string                            { return ".llmd/llmd" }
+func (s *stubMirror) Pull(string, string) (*sdk.PullResult, error) { return &sdk.PullResult{}, nil }
 func (s *stubMirror) Push(string, sdk.PushOpts) (*sdk.PushResult, error) {
 	return &sdk.PushResult{}, nil
 }

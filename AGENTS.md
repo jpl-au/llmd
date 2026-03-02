@@ -27,6 +27,7 @@ it's in the wrong place.** Move it behind the SDK.
 
 ```
 sdk/                        API surface: interfaces, types, globals
+app/                        Build-time metadata: version tag, commit, build time
 cli/                        Thin CLI dispatch: calls SDK, formats output
 extension/                  Caddy-style compile-time plugin registry
 internal/host/              SDK bridge: translates SDK calls to internal packages
@@ -370,7 +371,7 @@ llmd config ignore rm "*.db"       # remove pattern
   become dashes, consecutive dashes collapse, leading/trailing dashes trimmed)
   and rejected if they contain control characters, Windows-illegal characters
   (`< > : " | ? *`), or path traversal (`..`). Explicit paths skip sanitisation.
-  `MirrorDir` derives the mirror directory from a db path, propagating the error.
+  `sdk.Mirror.Directory()` returns the mirror directory for the active store.
 
 - **Import cycle: host ↔ plugin** — `internal/host` imports `internal/plugin`.
   Plugin tests cannot import host. Use stub implementations instead.

@@ -2,6 +2,9 @@ package sdk
 
 // MirrorStore syncs documents between the store and filesystem.
 type MirrorStore interface {
+	// Directory returns the mirror directory for the active store.
+	Directory() string
+
 	// Pull writes store documents matching prefix to dir as .md files.
 	// Unchanged files are skipped. Stale files are removed.
 	Pull(prefix, dir string) (*PullResult, error)

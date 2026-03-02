@@ -352,11 +352,15 @@ func (W _sdk_ActivityStore) Recent(limit int) ([]sdk.Activity, error) {
 
 // _sdk_MirrorStore is an interface wrapper for MirrorStore type
 type _sdk_MirrorStore struct {
-	IValue any
-	WPull  func(prefix string, dir string) (*sdk.PullResult, error)
-	WPush  func(dir string, opts sdk.PushOpts) (*sdk.PushResult, error)
+	IValue     any
+	WDirectory func() string
+	WPull      func(prefix string, dir string) (*sdk.PullResult, error)
+	WPush      func(dir string, opts sdk.PushOpts) (*sdk.PushResult, error)
 }
 
+func (W _sdk_MirrorStore) Directory() string {
+	return W.WDirectory()
+}
 func (W _sdk_MirrorStore) Pull(prefix string, dir string) (*sdk.PullResult, error) {
 	return W.WPull(prefix, dir)
 }

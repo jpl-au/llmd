@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jpl-au/llmd/internal/version"
+	"github.com/jpl-au/llmd/app"
 	"github.com/jpl-au/llmd/sdk"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -43,7 +43,7 @@ func mcpCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "llmd",
-		Version: version.Short(),
+		Version: app.Tag,
 	}, nil)
 
 	for _, cmd := range sdk.AllCommands() {

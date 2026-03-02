@@ -6,7 +6,7 @@
 package cli
 
 import (
-	"github.com/jpl-au/llmd/internal/version"
+	"github.com/jpl-au/llmd/app"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -14,6 +14,6 @@ import (
 // structured data. The version info is set at build time via ldflags;
 // during development it shows "dev" for the version tag.
 func versionCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	info := version.Get()
+	info := app.Version()
 	return sdk.Result{Text: info.String(), Data: info}, nil
 }

@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	docpath "github.com/jpl-au/llmd/internal/path"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -41,10 +40,7 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 		prefix = args[0]
 	}
 
-	dir, err := docpath.MirrorDir(ctx.DBPath)
-	if err != nil {
-		return nil, fmt.Errorf("mirror pull: %w", err)
-	}
+	dir := sdk.Mirror.Directory()
 	r, err := sdk.Mirror.Pull(prefix, dir)
 	if err != nil {
 		return nil, fmt.Errorf("mirror pull: %w", err)
@@ -82,10 +78,7 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 		prefix = args[0]
 	}
 
-	dir, err := docpath.MirrorDir(ctx.DBPath)
-	if err != nil {
-		return nil, fmt.Errorf("mirror push: %w", err)
-	}
+	dir := sdk.Mirror.Directory()
 	r, err := sdk.Mirror.Push(dir, sdk.PushOpts{
 		Prefix: prefix,
 	})
