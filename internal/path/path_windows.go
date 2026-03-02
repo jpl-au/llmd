@@ -1,3 +1,5 @@
+//go:build windows
+
 // path_windows.go provides Windows-specific path normalisation.
 //
 // On Windows, backslashes are native path separators. We use
