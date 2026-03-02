@@ -71,7 +71,7 @@ llmd llm                                     # quick command reference
 ## Commands
 
 ```
-Reading:    cat, ls, grep, find, glob
+Reading:    cat, ls (--tree), grep, find, glob
 Writing:    write, edit, sed, rm, mv, restore, revert
 History:    history, diff
 Tags:       tag, link, unlink
@@ -149,7 +149,7 @@ Full documentation is available via `llmd guide` or browse the
 | [go-sdk](https://github.com/modelcontextprotocol/go-sdk) | MCP protocol | MIT |
 | [yaegi](https://github.com/traefik/yaegi) | Go interpreter (plugins) | Apache 2.0 |
 | [glamour](https://github.com/charmbracelet/glamour) | Terminal markdown rendering | MIT |
-| [lipgloss](https://github.com/charmbracelet/lipgloss) | Terminal styling | MIT |
+| [lipgloss v2](https://charm.land/lipgloss/v2) | Terminal styling and tree rendering | MIT |
 | [go-udiff](https://github.com/aymanbagabas/go-udiff) | Unified diff | MIT |
 | [xxh3](https://github.com/zeebo/xxh3) | Content hashing | BSD 2-Clause |
 

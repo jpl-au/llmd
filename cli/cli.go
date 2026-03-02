@@ -53,6 +53,7 @@ func (c *CLI) Commands() []sdk.Command {
 			{Name: "a", Type: "bool", Desc: "Include deleted documents"},
 			{Name: "r", Type: "bool", Desc: "Reverse sort order"},
 			{Name: "t", Type: "bool", Desc: "Sort by time (newest first)"},
+			{Name: "tree", Type: "bool", Desc: "Render as directory tree"},
 		}},
 		{Name: "write", Desc: "Write a document", Usage: "write <path>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
 			{Name: "message", Type: "string", Desc: "Version message"},

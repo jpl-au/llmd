@@ -165,17 +165,19 @@ that interpreted plugin code can call methods on domain globals.
 ## CLI Views
 
 Three static terminal views provide human-friendly overviews. All use lipgloss
-for styled output in terminals and fall back to plain text when piped.
+v2 (`charm.land/lipgloss/v2`) for styled output in terminals and fall back to
+plain text when piped.
 
 | Command | File | Description |
 |---------|------|-------------|
 | `diff` | `cli/diff.go` | Coloured unified diffs (green/red/cyan) when TTY |
 | `status` | `cli/status.go` | Dashboard: recent docs, task summary, activity |
 | `review` | `cli/review.go` | Pending tasks with spec previews and links |
+| `ls --tree` | `cli/ls.go` | Directory hierarchy via `lipgloss/v2/tree` |
 
-Diff colour styles (`diffAdded`, `diffRemoved`, `diffHunk`, `diffHeader`) live
-in `cli/styles.go` alongside table styles. View-specific styles are local to
-each command file.
+Shared styles live in `cli/styles.go`: table styles (`tblHeader`, `tblCell`,
+`tblDim`, `tblBorder`) and diff colour styles (`diffAdded`, `diffRemoved`,
+`diffHunk`, `diffHeader`). View-specific styles are local to each command file.
 
 The `status` command uses a unified activity feed (`sdk.Activities.Recent()`)
 that queries documents, entities (tags/links), and task audit events in parallel,

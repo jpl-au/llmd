@@ -6,21 +6,29 @@ package cli
 // following standard Unix conventions.
 //
 // Default output is one path per line. Long format (-l) adds version
-// number, author, and date in a lipgloss table.
+// number, author, and date in a lipgloss table. Tree format (--tree)
+// renders paths as a directory hierarchy.
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/tree"
 	"github.com/jpl-au/llmd/sdk"
 )
 
 func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var long, all, reverse, sortByTime bool
+	var long, all, reverse, sortByTime, asTree bool
 	var prefix string
 
 	for _, arg := range args {
+		if arg == "--tree" {
+			asTree = true
+			continue
+		}
 		if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
 			for _, c := range arg[1:] {
 				switch c {
@@ -39,14 +47,14 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	sort := "path"
+	s := "path"
 	if sortByTime {
-		sort = "time"
+		s = "time"
 	}
 
 	docs, err := sdk.Documents.List(prefix, sdk.ListOpts{
 		Deleted: all,
-		Sort:    sort,
+		Sort:    s,
 		Reverse: reverse,
 	})
 	if err != nil {
@@ -72,9 +80,12 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	var text string
-	if long {
+	switch {
+	case asTree && isTTY():
+		text = buildTree(docs)
+	case long:
 		text = formatTable(docs)
-	} else {
+	default:
 		paths := make([]string, len(docs))
 		for i, d := range docs {
 			paths[i] = d.Path
@@ -85,7 +96,7 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: text, Data: data}, nil
 }
 
-// formatTable renders docs as a lipgloss table.
+// formatTable renders docs as a lipgloss table with styled path cells.
 func formatTable(docs []sdk.Doc) string {
 	if len(docs) == 0 {
 		return ""
@@ -100,6 +111,88 @@ func formatTable(docs []sdk.Doc) string {
 			path = d.Path + " (deleted)"
 		}
 		t.Row(fmt.Sprintf("%d", d.Version), d.Author, date, path)
+	}
+
+	return t.String()
+}
+
+// Tree styles for directory hierarchy rendering.
+var (
+	treeDir = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("12")).
+		Bold(true)
+
+	treeEnum = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("8"))
+)
+
+// buildTree renders document paths as a styled directory tree.
+func buildTree(docs []sdk.Doc) string {
+	// Collect paths sorted alphabetically for stable output.
+	paths := make([]string, len(docs))
+	deleted := make(map[string]bool)
+	for i, d := range docs {
+		paths[i] = d.Path
+		if d.Deleted {
+			deleted[d.Path] = true
+		}
+	}
+	sort.Strings(paths)
+
+	// Build a nested map of path segments → children.
+	type node struct {
+		children map[string]*node
+		order    []string
+		isLeaf   bool
+		path     string // full path for deleted lookup
+	}
+	root := &node{children: make(map[string]*node)}
+
+	for _, p := range paths {
+		parts := strings.Split(p, "/")
+		cur := root
+		for _, seg := range parts {
+			if cur.children[seg] == nil {
+				cur.children[seg] = &node{children: make(map[string]*node)}
+				cur.order = append(cur.order, seg)
+			}
+			cur = cur.children[seg]
+		}
+		cur.isLeaf = true
+		cur.path = p
+	}
+
+	// Recursively convert to lipgloss tree nodes.
+	var build func(n *node) []any
+	build = func(n *node) []any {
+		var items []any
+		for _, name := range n.order {
+			child := n.children[name]
+			if child.isLeaf && len(child.children) == 0 {
+				label := name
+				if deleted[child.path] {
+					label += " (deleted)"
+				}
+				items = append(items, label)
+			} else {
+				sub := tree.Root(treeDir.Render(name))
+				for _, c := range build(child) {
+					sub.Child(c)
+				}
+				// If this directory is also a leaf document, mark it.
+				if child.isLeaf && deleted[child.path] {
+					sub.Root(treeDir.Render(name) + " (deleted)")
+				}
+				items = append(items, sub)
+			}
+		}
+		return items
+	}
+
+	t := tree.Root(".").
+		EnumeratorStyle(treeEnum)
+	for _, c := range build(root) {
+		t.Child(c)
 	}
 
 	return t.String()

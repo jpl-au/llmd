@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	_ "github.com/jpl-au/llmd/cli"
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/config"
@@ -123,7 +124,7 @@ func run(args []string) int {
 	switch r := result.(type) {
 	case sdk.Text:
 		if string(r) != "" {
-			fmt.Println(string(r))
+			lipgloss.Println(string(r))
 		}
 	case sdk.Result:
 		if jsonOut {
@@ -133,7 +134,7 @@ func run(args []string) int {
 				return errorf(false, "encoding JSON: %v", err)
 			}
 		} else if r.Text != "" {
-			fmt.Println(r.Text)
+			lipgloss.Println(r.Text)
 		}
 	case sdk.Data:
 		enc := json.NewEncoder(os.Stdout)

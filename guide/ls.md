@@ -16,6 +16,7 @@ llmd ls [flags] [<prefix>]
 | `-a` | Include soft-deleted documents |
 | `-t` | Sort by time, newest first |
 | `-r` | Reverse sort order |
+| `--tree` | Render paths as a directory hierarchy |
 
 Short flags can be combined: `-lat` is equivalent to `-l -a -t`.
 
@@ -41,7 +42,16 @@ llmd ls -ltr
 llmd ls -la
 ```
 
+```bash
+# Directory tree view
+llmd ls --tree
+
+# Tree with deleted documents
+llmd ls --tree -a
+```
+
 ## Notes
 
-- Without `-l`, output is one path per line.
+- Without `-l` or `--tree`, output is one path per line.
+- `--tree` renders a styled directory hierarchy (falls back to flat paths when piped).
 - The prefix argument filters to documents whose path starts with the given string.
