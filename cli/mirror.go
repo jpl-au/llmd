@@ -59,7 +59,9 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	// Ensure the mirror directory is in .llmd/.gitignore.
-	config.EnsureIgnored(filepath.Base(dir) + "/")
+	if err := config.EnsureIgnored(filepath.Base(dir) + "/"); err != nil {
+		return nil, fmt.Errorf("updating gitignore: %w", err)
+	}
 
 	var parts []string
 	if r.Wrote > 0 {

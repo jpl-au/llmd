@@ -129,9 +129,7 @@ func RemoveIgnore(pattern string) error {
 	return os.WriteFile(path, []byte(strings.Join(out, "\n")), 0644)
 }
 
-// EnsureIgnored adds a pattern if not already present. Errors are
-// silently ignored — this is for best-effort auto-registration
-// (e.g. mirror adding its output directory).
-func EnsureIgnored(pattern string) {
-	_ = AddIgnore(pattern)
+// EnsureIgnored adds a pattern if not already present.
+func EnsureIgnored(pattern string) error {
+	return AddIgnore(pattern)
 }
