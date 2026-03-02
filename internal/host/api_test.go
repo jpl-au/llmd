@@ -6,22 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// testHost creates an in-memory store, wires up the SDK globals via
-// host.New, and returns both for direct access. The store is closed
-// automatically when the test finishes.
-func testHost(t *testing.T) (*Host, *llmd.Store) {
+func testHost(t *testing.T) {
 	t.Helper()
-	store, err := llmd.OpenMemory()
-	if err != nil {
-		t.Fatalf("OpenMemory: %v", err)
-	}
-	t.Cleanup(func() { store.Close() })
-	h := setup(store)
-	return h, store
+	TestSetup(t, TestMemory)
 }
 
 func TestDocumentsWriteRead(t *testing.T) {

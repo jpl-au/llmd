@@ -187,8 +187,15 @@ collisions between concurrent processes starting in the same millisecond.
 go test ./...
 ```
 
-**Host tests** (`internal/host/api*_test.go`) — use `testHost(t)` which opens
-an in-memory SQLite store, sets SDK globals, and cleans up after the test.
+**Test setup** — `host.TestSetup(t, mode)` is the standard way to initialise
+a store and wire SDK globals for testing. Two modes:
+
+- `host.TestMemory` — in-memory store, fast, no disk I/O
+- `host.TestDisk` — disk-backed store in a temp directory with chdir;
+  use when tests need a real filesystem (e.g. git operations)
+
+Host tests use `TestMemory`; CLI git tests use `TestDisk`. Plugin tests
+cannot import host (import cycle) — they use stubs instead (see below).
 
 **Plugin tests** (`internal/plugin/loader_test.go`) — use stub implementations
 of all four SDK interfaces to avoid import cycles (`internal/host` imports

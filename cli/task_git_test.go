@@ -7,26 +7,16 @@ import (
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/host"
-	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// testGitAndStore creates both a git repo and an llmd store, with the
-// working directory set to the git repo. Returns the repo dir.
+// testGitAndStore creates a disk-backed store and git repo in the same
+// temp directory, with the working directory set to it.
 func testGitAndStore(t *testing.T) string {
 	t.Helper()
 
-	dir := t.TempDir()
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(orig) })
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
+	dir := host.TestSetup(t, host.TestDisk)
 
-	// Init git repo
 	run := func(args ...string) {
 		t.Helper()
 		cmd := exec.Command(args[0], args[1:]...)
@@ -40,22 +30,6 @@ func testGitAndStore(t *testing.T) string {
 	run("git", "config", "user.email", "test@test.com")
 	run("git", "config", "user.name", "Test")
 	run("git", "commit", "--allow-empty", "-m", "initial")
-
-	// Init llmd store in the same directory. llmd.Init creates the db
-	// file; we close it and reopen via host.Open which wires up the
-	// SDK globals (sdk.Documents, sdk.Tasks, etc.).
-	dbPath := filepath.Join(dir, ".llmd", "llmd.db")
-	store, err := llmd.Init(dbPath)
-	if err != nil {
-		t.Fatalf("llmd.Init: %v", err)
-	}
-	store.Close()
-
-	h, err := host.Open(dbPath)
-	if err != nil {
-		t.Fatalf("host.Open: %v", err)
-	}
-	t.Cleanup(func() { h.Close() })
 
 	return dir
 }
@@ -177,26 +151,8 @@ func TestTaskFinish(t *testing.T) {
 }
 
 func TestTaskFinishWithoutGit(t *testing.T) {
-	// No git repo — should still move the task to done
-	dir := t.TempDir()
-	orig, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(orig) })
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-
-	dbPath := filepath.Join(dir, ".llmd", "llmd.db")
-	store, err := llmd.Init(dbPath)
-	if err != nil {
-		t.Fatalf("llmd.Init: %v", err)
-	}
-	store.Close()
-
-	h, err := host.Open(dbPath)
-	if err != nil {
-		t.Fatalf("host.Open: %v", err)
-	}
-	t.Cleanup(func() { h.Close() })
+	// No git repo — should still move the task to done.
+	host.TestSetup(t, host.TestDisk)
 
 	task, _ := sdk.Tasks.Add("No git", []byte("# Spec\n\nPlain task."), sdk.TaskAddOpts{Author: "alice"})
 	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
@@ -204,7 +160,7 @@ func TestTaskFinishWithoutGit(t *testing.T) {
 	}
 
 	ctx := sdk.Context{Author: "alice"}
-	_, err = taskFinish(ctx, []string{task.Key})
+	_, err := taskFinish(ctx, []string{task.Key})
 	if err != nil {
 		t.Fatalf("taskFinish without git: %v", err)
 	}
@@ -291,26 +247,8 @@ func TestTaskStartWithGit(t *testing.T) {
 }
 
 func TestTaskStartWithoutGit(t *testing.T) {
-	// No git repo — should still move the task to in-progress
-	dir := t.TempDir()
-	orig, _ := os.Getwd()
-	t.Cleanup(func() { _ = os.Chdir(orig) })
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("Chdir: %v", err)
-	}
-
-	dbPath := filepath.Join(dir, ".llmd", "llmd.db")
-	store, err := llmd.Init(dbPath)
-	if err != nil {
-		t.Fatalf("llmd.Init: %v", err)
-	}
-	store.Close()
-
-	h, err := host.Open(dbPath)
-	if err != nil {
-		t.Fatalf("host.Open: %v", err)
-	}
-	t.Cleanup(func() { h.Close() })
+	// No git repo — should still move the task to in-progress.
+	host.TestSetup(t, host.TestDisk)
 
 	task, _ := sdk.Tasks.Add("No git start", []byte("# Spec\n\nPlain."), sdk.TaskAddOpts{Author: "alice"})
 	ctx := sdk.Context{Author: "alice"}
