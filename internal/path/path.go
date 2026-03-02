@@ -35,13 +35,14 @@ var ErrTooLong = errors.New("document path too long")
 
 // ResolveDB converts a --db shorthand name to a full store path.
 // An empty string returns the default path (.llmd/llmd.db). A bare
-// name like "docs" becomes .llmd/llmd-docs.db. A path that already
-// contains a separator or ends in .db is returned unchanged.
+// name like "docs" becomes .llmd/llmd-docs.db. Absolute paths,
+// Windows volume names (e.g. C:), and .db suffixes are returned
+// unchanged.
 func ResolveDB(name string) string {
 	if name == "" {
 		return filepath.Join(".llmd", "llmd.db")
 	}
-	if strings.ContainsAny(name, "/\\") || strings.HasSuffix(name, ".db") {
+	if filepath.IsAbs(name) || filepath.VolumeName(name) != "" || strings.HasSuffix(name, ".db") {
 		return name
 	}
 	return filepath.Join(".llmd", "llmd-"+name+".db")
