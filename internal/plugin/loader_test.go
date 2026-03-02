@@ -107,6 +107,110 @@ func TestLoadSamplePlugin(t *testing.T) {
 	}
 }
 
+func TestLocalDir(t *testing.T) {
+	// localDir looks for .llmd/plugins/ relative to cwd.
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// No .llmd/plugins/ — should return empty.
+	if got := localDir(); got != "" {
+		t.Errorf("localDir() = %q, want empty", got)
+	}
+
+	// Create the directory — should return it.
+	pluginsDir := filepath.Join(dir, ".llmd", "plugins")
+	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if got := localDir(); got == "" {
+		t.Error("localDir() = empty, want path")
+	}
+}
+
+func TestGlobalDir(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("cannot determine home directory: %v", err)
+	}
+
+	globalPlugins := filepath.Join(home, ".llmd", "plugins")
+
+	// Snapshot: if the directory exists, back it up; restore after.
+	backupPath := globalPlugins + ".test-backup"
+	existed := false
+	if info, err := os.Stat(globalPlugins); err == nil && info.IsDir() {
+		existed = true
+		if err := os.Rename(globalPlugins, backupPath); err != nil {
+			t.Fatalf("backup global plugins: %v", err)
+		}
+		t.Cleanup(func() {
+			os.RemoveAll(globalPlugins)
+			os.Rename(backupPath, globalPlugins)
+		})
+	} else {
+		t.Cleanup(func() { os.RemoveAll(globalPlugins) })
+	}
+
+	// Directory doesn't exist — should return empty.
+	if got := globalDir(); got != "" {
+		t.Errorf("globalDir() without dir = %q, want empty", got)
+	}
+
+	// Create it — should return the path.
+	if err := os.MkdirAll(globalPlugins, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if got := globalDir(); got == "" {
+		t.Error("globalDir() with dir = empty, want path")
+	}
+
+	// Clean up so the backed-up version can be restored.
+	os.RemoveAll(globalPlugins)
+	if existed {
+		os.Rename(backupPath, globalPlugins)
+	}
+}
+
+func TestDiscoverLocalOverridesGlobal(t *testing.T) {
+	// Set up a temp directory as cwd with a local plugin.
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a local plugin.
+	localPlugin := filepath.Join(dir, ".llmd", "plugins", "myplugin")
+	if err := os.MkdirAll(localPlugin, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(localPlugin, "plug.go"), []byte("package myplugin\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	dirs := discover()
+	found := false
+	for _, d := range dirs {
+		if filepath.Base(d) == "myplugin" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("discover() did not find local plugin; dirs = %v", dirs)
+	}
+}
+
 // stubDocs is a minimal DocumentStore that returns canned data.
 // It proves Yaegi can resolve and call methods on sdk.Documents.
 type stubDocs struct {
