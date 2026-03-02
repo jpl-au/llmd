@@ -127,6 +127,10 @@ llmd init --db docs       # create llmd-docs.db
 llmd ls --db docs         # use it
 ```
 
+`llmd init` creates a `.llmd/.gitignore` that excludes SQLite temp files and
+mirrored output. The database itself is committed by default (shared context).
+Manage ignore patterns with `llmd config ignore add/rm/ls`.
+
 ## Documentation
 
 Full documentation is available via `llmd guide` or browse the

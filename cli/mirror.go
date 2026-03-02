@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/config"
 	docpath "github.com/jpl-au/llmd/internal/path"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -56,6 +57,9 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mirror pull: %w", err)
 	}
+
+	// Ensure the mirror directory is in .llmd/.gitignore.
+	config.EnsureIgnored(filepath.Base(dir) + "/")
 
 	var parts []string
 	if r.Wrote > 0 {

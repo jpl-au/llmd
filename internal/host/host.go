@@ -132,6 +132,12 @@ func setup(store *llmd.Store) *Host {
 		}
 		path := store.Path()
 		store.Close()
+
+		// Create default .llmd/.gitignore for new stores.
+		if err := config.InitGitignore(); err != nil {
+			return "", fmt.Errorf("creating gitignore: %w", err)
+		}
+
 		return path, nil
 	}
 	sdk.Dispatch = h.Exec

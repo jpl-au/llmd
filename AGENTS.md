@@ -15,13 +15,14 @@ internal/llmd/search/       FTS5 full-text search and glob matching
 internal/llmd/tasks/        Task board: columns, metadata, audit log
 internal/llmd/tags/         Key-value tags attached to documents
 internal/llmd/links/        Directed relationships between documents
-internal/llmd/bulk/         Import from / export to filesystem
+internal/llmd/bulk/         Import from / export to filesystem (os.OpenRoot confined)
 internal/llmd/events/       Internal synchronous event bus
 internal/llmd/entities/     Named entity extraction
 internal/llmd/audit/        Change log
 internal/llmd/key/          ID generation: 9-char base36 from ms timestamps
 internal/llmd/hash/         Content hashing (xxh3, blake2b)
 internal/llmd/meta/         Document metadata helpers
+internal/config/            Configuration files and .llmd/.gitignore management
 internal/sql/               Schema migrations, SQL helpers
 pkg/model/core/             Core model types (Origin, etc.)
 pkg/events/                 Shared event type definitions
@@ -267,6 +268,33 @@ primary author source in MCP mode, since there is no interactive user.
 If the LLM omits `author`, the server falls back to the configured CLI author.
 If neither is set and the command has `NeedsAuthor: true`, `host.Exec()` rejects
 the call with `sdk.ErrMissingArg`.
+
+## Gitignore Management
+
+llmd manages `.llmd/.gitignore` to exclude ephemeral files from version
+control. It never touches the project's root `.gitignore`.
+
+**Default `.llmd/.gitignore` (created by `llmd init`):**
+```
+*.db-wal
+*.db-shm
+llmd/
+```
+
+SQLite temp files and the default mirror directory are always ignored.
+The database (`llmd.db`) is committed by default — shared context is
+the intended use case. Users who want local-only stores can add the
+database to the ignore list.
+
+**Mirror auto-registration:** `llmd mirror` adds its output directory
+(e.g. `llmd/`, `llmd-docs/`) to the gitignore if not already present.
+
+**CLI management:**
+```bash
+llmd config ignore ls              # list patterns
+llmd config ignore add "*.db"      # ignore all databases
+llmd config ignore rm "*.db"       # remove pattern
+```
 
 ## Common Pitfalls
 

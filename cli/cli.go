@@ -154,7 +154,7 @@ Subcommands (passed as first arg):
 
 		// Admin and help
 		{Name: "version", Desc: "Show version information", Usage: "version"},
-		{Name: "config", Desc: "Manage configuration", Usage: "config [key] [value]"},
+		{Name: "config", Desc: "Manage configuration and gitignore", Usage: "config [key] [value] | config ignore [add|rm|ls] [pattern]"},
 		{Name: "init", Desc: "Initialise a new store", Usage: "init"},
 		{Name: "vacuum", Desc: "Clean up deleted documents", Usage: "vacuum"},
 		{Name: "mcp", Desc: "Start MCP stdio server", Usage: "mcp"},

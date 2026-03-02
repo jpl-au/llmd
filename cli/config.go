@@ -35,6 +35,11 @@ func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
+	// Subcommand dispatch.
+	if len(positional) > 0 && positional[0] == "ignore" {
+		return configIgnore(ctx, positional[1:])
+	}
+
 	switch len(positional) {
 	case 0:
 		var lines []string
