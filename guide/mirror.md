@@ -1,26 +1,47 @@
 # llmd mirror
 
-One-way push of documents to the filesystem as `.md` files under `.llmd/mirror/`.
+Sync documents between the store and filesystem. Mirrored files live
+under `.llmd/<dbname>/` (e.g. `.llmd/llmd/` for the default store,
+`.llmd/llmd-docs/` for `--db docs`).
 
 ## Usage
 
 ```
-llmd mirror [<prefix>]
+llmd mirror [pull|push] [<prefix>]
 ```
+
+## Subcommands
+
+**pull** (default) — Write store documents to the filesystem as `.md` files.
+Unchanged files are skipped. Stale files (documents since deleted or renamed)
+are removed from the mirror directory.
+
+**push** — Import filesystem changes back into the store. New and modified
+`.md` files are written as new document versions. Unchanged files are skipped.
+Requires an author (`llmd config author`).
 
 ## Examples
 
 ```bash
-# Mirror all documents
+# Pull all documents to filesystem (default)
 llmd mirror
 
-# Mirror only documents under a prefix
-llmd mirror notes/
+# Explicit pull
+llmd mirror pull
+
+# Pull only documents under a prefix
+llmd mirror pull notes/
+
+# Push filesystem changes back to store
+llmd mirror push
+
+# Push with a different database
+llmd mirror push --db docs
 ```
 
 ## Notes
 
-- Files are written to `.llmd/mirror/`, preserving document path structure.
-- Unchanged files are skipped.
-- Stale files (documents since deleted or renamed) are removed from the mirror directory.
-- This is a one-way operation; changes to mirrored files are not imported back.
+- Mirror directory is derived from the database name: `.llmd/llmd/` for
+  the default store, `.llmd/llmd-docs/` for `--db docs`.
+- Pull removes stale files; push does not delete store documents.
+- Use `import` and `export` for one-off bulk transfers to arbitrary directories.

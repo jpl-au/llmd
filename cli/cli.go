@@ -159,7 +159,7 @@ Subcommands (passed as first arg):
 		{Name: "vacuum", Desc: "Clean up deleted documents", Usage: "vacuum"},
 		{Name: "mcp", Desc: "Start MCP stdio server", Usage: "mcp"},
 		{Name: "serve", Desc: "Start HTTP API server (coming soon)", Usage: "serve"},
-		{Name: "mirror", Desc: "Mirror documents to filesystem", Usage: "mirror [prefix]"},
+		{Name: "mirror", Desc: "Sync documents between store and filesystem", Usage: "mirror [pull|push] [prefix]"},
 		{Name: "plugins", Desc: "List loaded plugins", Usage: "plugins"},
 		{Name: "guide", Desc: "Built-in documentation", Usage: "guide [--raw] [topic]", MCP: true, Flags: []sdk.Flag{
 			{Name: "raw", Type: "bool", Desc: "Output raw markdown without rendering"},
