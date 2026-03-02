@@ -159,7 +159,9 @@ func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOpt
 		storePath = strings.TrimSuffix(opts.Prefix, "/") + "/" + storePath
 	}
 
-	contentStr := string(content)
+	// Normalise line endings so content is consistent regardless of OS.
+	contentStr := strings.ReplaceAll(string(content), "\r\n", "\n")
+	contentStr = strings.ReplaceAll(contentStr, "\r", "\n")
 	contentHash := hash.XXH3(contentStr)
 
 	// Check if document already exists

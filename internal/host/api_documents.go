@@ -73,9 +73,14 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 	if err != nil {
 		return err
 	}
+	// Normalise line endings to \n so content is consistent regardless
+	// of which OS wrote it.
+	s := strings.ReplaceAll(string(content), "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+
 	o := origin(author)
 	o.Message = msg
-	_, err = a.store.Documents.Write(context.Background(), path, string(content), documents.WriteOptions{
+	_, err = a.store.Documents.Write(context.Background(), path, s, documents.WriteOptions{
 		Origin: o,
 	})
 	return docErr(err)
