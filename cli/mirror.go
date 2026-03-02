@@ -52,7 +52,7 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	dir := mirrorDirFor(ctx.DBPath)
-	r, err := sdk.Documents.Mirror(prefix, dir)
+	r, err := sdk.Mirror.Pull(prefix, dir)
 	if err != nil {
 		return nil, fmt.Errorf("mirror pull: %w", err)
 	}
@@ -85,7 +85,7 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	dir := mirrorDirFor(ctx.DBPath)
-	r, err := sdk.Documents.Import(dir, sdk.ImportOpts{
+	r, err := sdk.Mirror.Push(dir, sdk.PushOpts{
 		Prefix: prefix,
 	})
 	if err != nil {

@@ -155,9 +155,6 @@ func (s *stubDocs) Import(string, sdk.ImportOpts) (*sdk.ImportResult, error) {
 func (s *stubDocs) Export(string, string, sdk.ExportOpts) (*sdk.ExportResult, error) {
 	return &sdk.ExportResult{}, nil
 }
-func (s *stubDocs) Mirror(string, string) (*sdk.MirrorResult, error) {
-	return &sdk.MirrorResult{}, nil
-}
 
 // stubTasks is a minimal TaskStore for testing Yaegi access.
 type stubTasks struct {
@@ -228,11 +225,21 @@ func (s *stubLinks) List(path, dir string) ([]sdk.Link, error) {
 	return out, nil
 }
 
+// stubMirror is a minimal MirrorStore for testing.
+type stubMirror struct{}
+
+func (s *stubMirror) Pull(string, string) (*sdk.PullResult, error) {
+	return &sdk.PullResult{}, nil
+}
+func (s *stubMirror) Push(string, sdk.PushOpts) (*sdk.PushResult, error) {
+	return &sdk.PushResult{}, nil
+}
+
 // wireStubs sets the SDK globals to stub implementations and restores
 // them when the test finishes.
 func wireStubs(t *testing.T) (*stubDocs, *stubTasks, *stubTags, *stubLinks) {
 	t.Helper()
-	oldDocs, oldTasks, oldTags, oldLinks := sdk.Documents, sdk.Tasks, sdk.Tags, sdk.Links
+	oldDocs, oldTasks, oldTags, oldLinks, oldMirror := sdk.Documents, sdk.Tasks, sdk.Tags, sdk.Links, sdk.Mirror
 
 	d := &stubDocs{docs: map[string][]byte{}}
 	ta := &stubTasks{}
@@ -243,12 +250,14 @@ func wireStubs(t *testing.T) (*stubDocs, *stubTasks, *stubTags, *stubLinks) {
 	sdk.Tasks = ta
 	sdk.Tags = tg
 	sdk.Links = l
+	sdk.Mirror = &stubMirror{}
 
 	t.Cleanup(func() {
 		sdk.Documents = oldDocs
 		sdk.Tasks = oldTasks
 		sdk.Tags = oldTags
 		sdk.Links = oldLinks
+		sdk.Mirror = oldMirror
 	})
 
 	return d, ta, tg, l

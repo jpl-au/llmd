@@ -34,6 +34,7 @@ func symbols() interp.Exports {
 			"Links":      reflect.ValueOf(&sdk.Links).Elem(),
 			"Tags":       reflect.ValueOf(&sdk.Tags).Elem(),
 			"Activities": reflect.ValueOf(&sdk.Activities).Elem(),
+			"Mirror":     reflect.ValueOf(&sdk.Mirror).Elem(),
 
 			// Constants
 			"GrepFull":     reflect.ValueOf(sdk.GrepFull),
@@ -89,6 +90,10 @@ func symbols() interp.Exports {
 			"LinkStore":     reflect.ValueOf((*sdk.LinkStore)(nil)),
 			"TagStore":      reflect.ValueOf((*sdk.TagStore)(nil)),
 			"ActivityStore": reflect.ValueOf((*sdk.ActivityStore)(nil)),
+			"MirrorStore":   reflect.ValueOf((*sdk.MirrorStore)(nil)),
+			"PullResult":    reflect.ValueOf((*sdk.PullResult)(nil)),
+			"PushOpts":      reflect.ValueOf((*sdk.PushOpts)(nil)),
+			"PushResult":    reflect.ValueOf((*sdk.PushResult)(nil)),
 
 			// Interface wrappers
 			"_DocumentStore": reflect.ValueOf((*_sdk_DocumentStore)(nil)),
@@ -96,6 +101,7 @@ func symbols() interp.Exports {
 			"_LinkStore":     reflect.ValueOf((*_sdk_LinkStore)(nil)),
 			"_TagStore":      reflect.ValueOf((*_sdk_TagStore)(nil)),
 			"_ActivityStore": reflect.ValueOf((*_sdk_ActivityStore)(nil)),
+			"_MirrorStore":   reflect.ValueOf((*_sdk_MirrorStore)(nil)),
 			"_Plugin":        reflect.ValueOf((*_sdk_Plugin)(nil)),
 			"_Response":      reflect.ValueOf((*_sdk_Response)(nil)),
 		},
@@ -149,7 +155,6 @@ type _sdk_DocumentStore struct {
 	WVacuum  func() (sdk.VacuumResult, error)
 	WImport  func(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error)
 	WExport  func(prefix string, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error)
-	WMirror  func(prefix string, dir string) (*sdk.MirrorResult, error)
 }
 
 func (W _sdk_DocumentStore) Read(path string, version int) ([]byte, error) {
@@ -199,9 +204,6 @@ func (W _sdk_DocumentStore) Import(dir string, opts sdk.ImportOpts) (*sdk.Import
 }
 func (W _sdk_DocumentStore) Export(prefix string, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error) {
 	return W.WExport(prefix, dir, opts)
-}
-func (W _sdk_DocumentStore) Mirror(prefix string, dir string) (*sdk.MirrorResult, error) {
-	return W.WMirror(prefix, dir)
 }
 
 // _sdk_TaskStore is an interface wrapper for TaskStore type
@@ -310,4 +312,18 @@ type _sdk_ActivityStore struct {
 
 func (W _sdk_ActivityStore) Recent(limit int) ([]sdk.Activity, error) {
 	return W.WRecent(limit)
+}
+
+// _sdk_MirrorStore is an interface wrapper for MirrorStore type
+type _sdk_MirrorStore struct {
+	IValue any
+	WPull  func(prefix string, dir string) (*sdk.PullResult, error)
+	WPush  func(dir string, opts sdk.PushOpts) (*sdk.PushResult, error)
+}
+
+func (W _sdk_MirrorStore) Pull(prefix string, dir string) (*sdk.PullResult, error) {
+	return W.WPull(prefix, dir)
+}
+func (W _sdk_MirrorStore) Push(dir string, opts sdk.PushOpts) (*sdk.PushResult, error) {
+	return W.WPush(dir, opts)
 }

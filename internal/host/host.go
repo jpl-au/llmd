@@ -85,6 +85,7 @@ func setup(store *llmd.Store) *Host {
 		sdk.Links = newLinkAPI(store)
 		sdk.Tags = newTagAPI(store)
 		sdk.Activities = newActivityAPI(store)
+		sdk.Mirror = newMirrorAPI(store)
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.

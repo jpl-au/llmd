@@ -342,17 +342,3 @@ func (a *documentAPI) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.Expo
 		Skipped:  r.Skipped,
 	}, nil
 }
-
-// Mirror writes all documents matching prefix to a directory, skipping
-// unchanged files and removing stale ones not backed by a document.
-func (a *documentAPI) Mirror(prefix, dir string) (*sdk.MirrorResult, error) {
-	r, err := a.store.Bulk.Mirror(context.Background(), prefix, dir)
-	if err != nil {
-		return nil, err
-	}
-	return &sdk.MirrorResult{
-		Wrote:   r.Wrote,
-		Skipped: r.Skipped,
-		Removed: r.Removed,
-	}, nil
-}

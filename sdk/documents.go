@@ -62,10 +62,6 @@ type DocumentStore interface {
 
 	// Export writes documents to a filesystem directory.
 	Export(prefix, dir string, opts ExportOpts) (*ExportResult, error)
-
-	// Mirror writes all documents matching prefix to a filesystem
-	// directory, skipping unchanged files and removing stale ones.
-	Mirror(prefix, dir string) (*MirrorResult, error)
 }
 
 // Doc represents a document's metadata (not its content — use Read for
@@ -194,11 +190,4 @@ type ExportOpts struct {
 type ExportResult struct {
 	Exported []string
 	Skipped  []string
-}
-
-// MirrorResult contains the counts from a mirror operation.
-type MirrorResult struct {
-	Wrote   int
-	Skipped int
-	Removed int
 }
