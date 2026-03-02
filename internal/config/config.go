@@ -24,7 +24,7 @@ func Load() map[string]string {
 	loadFile(globalPath, cfg)
 
 	// Local overrides global.
-	loadFile(".llmd/config", cfg)
+	loadFile(filepath.Join(".llmd", "config"), cfg)
 
 	return cfg
 }
@@ -33,7 +33,7 @@ func Load() map[string]string {
 // values. When global is true it writes to ~/.llmd/config;
 // otherwise it writes to the local .llmd/config.
 func Save(key, value string, global bool) error {
-	path := ".llmd/config"
+	path := filepath.Join(".llmd", "config")
 	if global {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -65,8 +65,9 @@ func Save(key, value string, global bool) error {
 // Path returns the config file path that would be used for writes.
 // Local .llmd/config takes precedence over global config.
 func Path() string {
-	if _, err := os.Stat(".llmd/config"); err == nil {
-		return ".llmd/config"
+	local := filepath.Join(".llmd", "config")
+	if _, err := os.Stat(local); err == nil {
+		return local
 	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".llmd", "config")
