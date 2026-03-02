@@ -11,15 +11,14 @@ package cli
 import (
 	"fmt"
 	"strings"
-	"unicode"
 
 	"github.com/jpl-au/llmd/sdk"
 )
 
 // taskStart moves a task to in-progress and records the current git
-// branch if available. Git is optional — the task is started regardless.
+// branch if available. Delegates to sdk.Tasks.Start.
 func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
-	column := "in-progress"
+	var opts sdk.StartOpts
 	var key string
 
 	for i := 0; i < len(args); i++ {
@@ -29,7 +28,7 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 			if i >= len(args) {
 				return nil, fmt.Errorf("task start: --column requires a value")
 			}
-			column = args[i]
+			opts.Column = args[i]
 		default:
 			if key == "" && !strings.HasPrefix(args[i], "-") {
 				key = args[i]
@@ -41,20 +40,15 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task start: %w: id", sdk.ErrMissingArg)
 	}
 
-	if err := sdk.Tasks.Move(key, column, ctx.Author); err != nil {
+	t, err := sdk.Tasks.Start(key, ctx.Author, opts)
+	if err != nil {
 		return nil, fmt.Errorf("task start: %w", err)
 	}
 
-	// Record branch if git is available — best effort.
-	branch, err := sdk.Git.Branch()
-	if err == nil {
-		if err := sdk.Tasks.Set(key, ctx.Author, sdk.TaskSetOpts{Branch: &branch}); err != nil {
-			return nil, fmt.Errorf("task start: %w", err)
-		}
-		return sdk.Text(fmt.Sprintf("Started %s on branch %s", key, branch)), nil
+	if t.Branch != "" {
+		return sdk.Text(fmt.Sprintf("Started %s on branch %s", t.Key, t.Branch)), nil
 	}
-
-	return sdk.Text(fmt.Sprintf("Started %s", key)), nil
+	return sdk.Text(fmt.Sprintf("Started %s", t.Key)), nil
 }
 
 // taskDiff shows the git diff for a task's branch against the default branch.
@@ -158,12 +152,11 @@ func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: strings.Join(files, "\n"), Data: files}, nil
 }
 
-// taskFinish moves a task to done and shows a summary. If the task has
-// a branch and git is available, the summary includes file and commit
-// counts. Without git, the task is still moved — git is optional.
+// taskFinish moves a task to done and shows a summary. Delegates to
+// sdk.Tasks.Finish which handles git summary collection.
 func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
-	column := "done"
-	var key, base string
+	var opts sdk.FinishOpts
+	var key string
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -172,13 +165,13 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 			if i >= len(args) {
 				return nil, fmt.Errorf("task finish: --column requires a value")
 			}
-			column = args[i]
+			opts.Column = args[i]
 		case "--base":
 			i++
 			if i >= len(args) {
 				return nil, fmt.Errorf("task finish: --base requires a value")
 			}
-			base = args[i]
+			opts.Base = args[i]
 		default:
 			if key == "" && !strings.HasPrefix(args[i], "-") {
 				key = args[i]
@@ -191,26 +184,18 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 
-	if err := sdk.Tasks.Move(t.Key, column, ctx.Author); err != nil {
+	result, err := sdk.Tasks.Finish(t.Key, ctx.Author, opts)
+	if err != nil {
 		return nil, fmt.Errorf("task finish: %w", err)
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "Finished %s \"%s\"", t.Key, t.Title)
-
-	// Git summary — best effort, skip if unavailable.
-	if t.Branch != "" && sdk.Git.Available() == nil {
-		if base == "" {
-			base, _ = sdk.Git.DefaultBranch()
-		}
-		if base != "" {
-			if files, err := sdk.Git.Files(base, t.Branch); err == nil && len(files) > 0 {
-				fmt.Fprintf(&b, "\n  %d file(s) changed", len(files))
-			}
-			if commits, err := sdk.Git.Commits(base, t.Branch); err == nil && len(commits) > 0 {
-				fmt.Fprintf(&b, "\n  %d commit(s)", len(commits))
-			}
-		}
+	fmt.Fprintf(&b, "Finished %s \"%s\"", result.Task.Key, result.Task.Title)
+	if result.FilesChanged > 0 {
+		fmt.Fprintf(&b, "\n  %d file(s) changed", result.FilesChanged)
+	}
+	if result.Commits > 0 {
+		fmt.Fprintf(&b, "\n  %d commit(s)", result.Commits)
 	}
 
 	return sdk.Text(b.String()), nil
@@ -218,13 +203,10 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 // taskBranch creates a git branch from a task's title, checks it out,
 // records the branch on the task, and moves it to in-progress.
+// Delegates to sdk.Tasks.StartBranch.
 func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if err := sdk.Git.Available(); err != nil {
-		return nil, fmt.Errorf("task branch: %w", err)
-	}
-
-	column := "in-progress"
-	var key, name string
+	var opts sdk.StartBranchOpts
+	var key string
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -233,13 +215,13 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 			if i >= len(args) {
 				return nil, fmt.Errorf("task branch: --name requires a value")
 			}
-			name = args[i]
+			opts.Name = args[i]
 		case "--column":
 			i++
 			if i >= len(args) {
 				return nil, fmt.Errorf("task branch: --column requires a value")
 			}
-			column = args[i]
+			opts.Column = args[i]
 		default:
 			if key == "" && !strings.HasPrefix(args[i], "-") {
 				key = args[i]
@@ -251,31 +233,12 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task branch: %w: id", sdk.ErrMissingArg)
 	}
 
-	t, err := sdk.Tasks.Read(key)
+	t, err := sdk.Tasks.StartBranch(key, ctx.Author, opts)
 	if err != nil {
 		return nil, fmt.Errorf("task branch: %w", err)
 	}
-	if t.Branch != "" {
-		return nil, fmt.Errorf("task branch: task already has branch %q — use 'task set --branch' to change", t.Branch)
-	}
 
-	if name == "" {
-		name = "task/" + branchSlug(t.Title)
-	}
-
-	if err := sdk.Git.CheckoutNew(name); err != nil {
-		return nil, fmt.Errorf("task branch: %w", err)
-	}
-
-	if err := sdk.Tasks.Set(key, ctx.Author, sdk.TaskSetOpts{Branch: &name}); err != nil {
-		return nil, fmt.Errorf("task branch: %w", err)
-	}
-
-	if err := sdk.Tasks.Move(key, column, ctx.Author); err != nil {
-		return nil, fmt.Errorf("task branch: %w", err)
-	}
-
-	return sdk.Text(fmt.Sprintf("Created branch %s for %s \"%s\"", name, t.Key, t.Title)), nil
+	return sdk.Text(fmt.Sprintf("Created branch %s for %s \"%s\"", t.Branch, t.Key, t.Title)), nil
 }
 
 // taskCommits lists commits on a task's branch that aren't on the base branch.
@@ -328,24 +291,6 @@ func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: strings.Join(commits, "\n"), Data: commits}, nil
 }
 
-// taskForBranch finds the task linked to the current git branch.
-// Returns an error if git is unavailable, we're not on a branch,
-// or no task is linked to the current branch.
-func taskForBranch() (*sdk.Task, error) {
-	branch, err := sdk.Git.Branch()
-	if err != nil {
-		return nil, err
-	}
-	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Branch: branch})
-	if err != nil {
-		return nil, err
-	}
-	if len(tasks) == 0 {
-		return nil, fmt.Errorf("no task linked to branch %q", branch)
-	}
-	return tasks[0], nil
-}
-
 // resolveTask looks up a task by key, or auto-detects from the current
 // branch when key is empty. The cmd parameter is used for error messages.
 func resolveTask(cmd, key string) (*sdk.Task, error) {
@@ -356,26 +301,13 @@ func resolveTask(cmd, key string) (*sdk.Task, error) {
 		}
 		return t, nil
 	}
-	t, err := taskForBranch()
+	branch, err := sdk.Git.Branch()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", cmd, err)
+	}
+	t, err := sdk.Tasks.ByBranch(branch)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", cmd, err)
 	}
 	return t, nil
-}
-
-// branchSlug converts a title to a git-friendly branch component.
-func branchSlug(title string) string {
-	var b strings.Builder
-	prev := '-'
-	for _, r := range strings.ToLower(title) {
-		switch {
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			b.WriteRune(r)
-			prev = r
-		case prev != '-':
-			b.WriteByte('-')
-			prev = '-'
-		}
-	}
-	return strings.TrimRight(b.String(), "-")
 }

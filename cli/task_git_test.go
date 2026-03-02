@@ -60,27 +60,6 @@ func testGitAndStore(t *testing.T) string {
 	return dir
 }
 
-func TestBranchSlug(t *testing.T) {
-	tests := []struct {
-		title string
-		want  string
-	}{
-		{"Fix auth tokens", "fix-auth-tokens"},
-		{"Add API endpoint", "add-api-endpoint"},
-		{"Hello, World!", "hello-world"},
-		{"  spaces  everywhere  ", "spaces-everywhere"},
-		{"UPPER CASE", "upper-case"},
-		{"already-slugged", "already-slugged"},
-		{"special!@#chars", "special-chars"},
-	}
-	for _, tt := range tests {
-		got := branchSlug(tt.title)
-		if got != tt.want {
-			t.Errorf("branchSlug(%q) = %q, want %q", tt.title, got, tt.want)
-		}
-	}
-}
-
 func TestTaskBranch(t *testing.T) {
 	dir := testGitAndStore(t)
 
@@ -269,34 +248,6 @@ func TestTaskCommits(t *testing.T) {
 	commits := result.Data.([]string)
 	if len(commits) != 2 {
 		t.Errorf("expected 2 commits, got %d", len(commits))
-	}
-}
-
-func TestTaskForBranch(t *testing.T) {
-	testGitAndStore(t)
-
-	// Create a task linked to the current branch (main)
-	task, _ := sdk.Tasks.Add("Main task", nil, sdk.TaskAddOpts{
-		Author: "alice",
-		Branch: "main",
-	})
-
-	found, err := taskForBranch()
-	if err != nil {
-		t.Fatalf("taskForBranch: %v", err)
-	}
-	if found.Key != task.Key {
-		t.Errorf("found key = %q, want %q", found.Key, task.Key)
-	}
-}
-
-func TestTaskForBranchNotFound(t *testing.T) {
-	testGitAndStore(t)
-
-	// No task linked to main
-	_, err := taskForBranch()
-	if err == nil {
-		t.Fatal("expected error when no task linked to branch")
 	}
 }
 

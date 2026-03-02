@@ -55,34 +55,38 @@ func symbols() interp.Exports {
 			"Init": reflect.ValueOf(&sdk.Init).Elem(),
 
 			// Type definitions
-			"Activity":     reflect.ValueOf((*sdk.Activity)(nil)),
-			"Command":      reflect.ValueOf((*sdk.Command)(nil)),
-			"Context":      reflect.ValueOf((*sdk.Context)(nil)),
-			"Data":         reflect.ValueOf((*sdk.Data)(nil)),
-			"Doc":          reflect.ValueOf((*sdk.Doc)(nil)),
-			"ExportOpts":   reflect.ValueOf((*sdk.ExportOpts)(nil)),
-			"ExportResult": reflect.ValueOf((*sdk.ExportResult)(nil)),
-			"Flag":         reflect.ValueOf((*sdk.Flag)(nil)),
-			"GrepHit":      reflect.ValueOf((*sdk.GrepHit)(nil)),
-			"GrepMode":     reflect.ValueOf((*sdk.GrepMode)(nil)),
-			"GrepOpts":     reflect.ValueOf((*sdk.GrepOpts)(nil)),
-			"ImportOpts":   reflect.ValueOf((*sdk.ImportOpts)(nil)),
-			"ImportResult": reflect.ValueOf((*sdk.ImportResult)(nil)),
-			"Link":         reflect.ValueOf((*sdk.Link)(nil)),
-			"ListOpts":     reflect.ValueOf((*sdk.ListOpts)(nil)),
-			"Plugin":       reflect.ValueOf((*sdk.Plugin)(nil)),
-			"Response":     reflect.ValueOf((*sdk.Response)(nil)),
-			"Result":       reflect.ValueOf((*sdk.Result)(nil)),
-			"Tag":          reflect.ValueOf((*sdk.Tag)(nil)),
-			"TagInfo":      reflect.ValueOf((*sdk.TagInfo)(nil)),
-			"Task":         reflect.ValueOf((*sdk.Task)(nil)),
-			"TaskAddOpts":  reflect.ValueOf((*sdk.TaskAddOpts)(nil)),
-			"TaskEvent":    reflect.ValueOf((*sdk.TaskEvent)(nil)),
-			"TaskListOpts": reflect.ValueOf((*sdk.TaskListOpts)(nil)),
-			"TaskSetOpts":  reflect.ValueOf((*sdk.TaskSetOpts)(nil)),
-			"Text":         reflect.ValueOf((*sdk.Text)(nil)),
-			"VacuumResult": reflect.ValueOf((*sdk.VacuumResult)(nil)),
-			"Version":      reflect.ValueOf((*sdk.Version)(nil)),
+			"Activity":        reflect.ValueOf((*sdk.Activity)(nil)),
+			"Command":         reflect.ValueOf((*sdk.Command)(nil)),
+			"Context":         reflect.ValueOf((*sdk.Context)(nil)),
+			"Data":            reflect.ValueOf((*sdk.Data)(nil)),
+			"Doc":             reflect.ValueOf((*sdk.Doc)(nil)),
+			"ExportOpts":      reflect.ValueOf((*sdk.ExportOpts)(nil)),
+			"ExportResult":    reflect.ValueOf((*sdk.ExportResult)(nil)),
+			"Flag":            reflect.ValueOf((*sdk.Flag)(nil)),
+			"GrepHit":         reflect.ValueOf((*sdk.GrepHit)(nil)),
+			"GrepMode":        reflect.ValueOf((*sdk.GrepMode)(nil)),
+			"GrepOpts":        reflect.ValueOf((*sdk.GrepOpts)(nil)),
+			"ImportOpts":      reflect.ValueOf((*sdk.ImportOpts)(nil)),
+			"ImportResult":    reflect.ValueOf((*sdk.ImportResult)(nil)),
+			"Link":            reflect.ValueOf((*sdk.Link)(nil)),
+			"ListOpts":        reflect.ValueOf((*sdk.ListOpts)(nil)),
+			"Plugin":          reflect.ValueOf((*sdk.Plugin)(nil)),
+			"Response":        reflect.ValueOf((*sdk.Response)(nil)),
+			"Result":          reflect.ValueOf((*sdk.Result)(nil)),
+			"Tag":             reflect.ValueOf((*sdk.Tag)(nil)),
+			"TagInfo":         reflect.ValueOf((*sdk.TagInfo)(nil)),
+			"Task":            reflect.ValueOf((*sdk.Task)(nil)),
+			"TaskAddOpts":     reflect.ValueOf((*sdk.TaskAddOpts)(nil)),
+			"TaskEvent":       reflect.ValueOf((*sdk.TaskEvent)(nil)),
+			"TaskListOpts":    reflect.ValueOf((*sdk.TaskListOpts)(nil)),
+			"TaskSetOpts":     reflect.ValueOf((*sdk.TaskSetOpts)(nil)),
+			"StartOpts":       reflect.ValueOf((*sdk.StartOpts)(nil)),
+			"StartBranchOpts": reflect.ValueOf((*sdk.StartBranchOpts)(nil)),
+			"FinishOpts":      reflect.ValueOf((*sdk.FinishOpts)(nil)),
+			"FinishResult":    reflect.ValueOf((*sdk.FinishResult)(nil)),
+			"Text":            reflect.ValueOf((*sdk.Text)(nil)),
+			"VacuumResult":    reflect.ValueOf((*sdk.VacuumResult)(nil)),
+			"Version":         reflect.ValueOf((*sdk.Version)(nil)),
 
 			// Interface definitions
 			"DocumentStore": reflect.ValueOf((*sdk.DocumentStore)(nil)),
@@ -220,6 +224,10 @@ type _sdk_TaskStore struct {
 	WAddColumn    func(name string, after string, author string) error
 	WRemoveColumn func(name string, author string) error
 	WMoveColumn   func(name string, after string, author string) error
+	WStart        func(key string, author string, opts sdk.StartOpts) (*sdk.Task, error)
+	WStartBranch  func(key string, author string, opts sdk.StartBranchOpts) (*sdk.Task, error)
+	WFinish       func(key string, author string, opts sdk.FinishOpts) (*sdk.FinishResult, error)
+	WByBranch     func(branch string) (*sdk.Task, error)
 	WLog          func(key string, limit int) ([]sdk.TaskEvent, error)
 }
 
@@ -255,6 +263,18 @@ func (W _sdk_TaskStore) RemoveColumn(name string, author string) error {
 }
 func (W _sdk_TaskStore) MoveColumn(name string, after string, author string) error {
 	return W.WMoveColumn(name, after, author)
+}
+func (W _sdk_TaskStore) Start(key string, author string, opts sdk.StartOpts) (*sdk.Task, error) {
+	return W.WStart(key, author, opts)
+}
+func (W _sdk_TaskStore) StartBranch(key string, author string, opts sdk.StartBranchOpts) (*sdk.Task, error) {
+	return W.WStartBranch(key, author, opts)
+}
+func (W _sdk_TaskStore) Finish(key string, author string, opts sdk.FinishOpts) (*sdk.FinishResult, error) {
+	return W.WFinish(key, author, opts)
+}
+func (W _sdk_TaskStore) ByBranch(branch string) (*sdk.Task, error) {
+	return W.WByBranch(branch)
 }
 func (W _sdk_TaskStore) Log(key string, limit int) ([]sdk.TaskEvent, error) {
 	return W.WLog(key, limit)

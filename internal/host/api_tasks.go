@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"unicode"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
@@ -182,6 +184,151 @@ func (a *taskAPI) RemoveColumn(name, author string) error {
 // MoveColumn reorders a column to appear after the named column.
 func (a *taskAPI) MoveColumn(name, after, author string) error {
 	return a.store.Tasks.MoveColumn(context.Background(), name, after, author)
+}
+
+// Start moves a task to a column and records the current git branch
+// when available. Git is optional — the task starts regardless.
+func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, error) {
+	col := opts.Column
+	if col == "" {
+		col = "in-progress"
+	}
+	if err := taskErr(a.store.Tasks.Move(context.Background(), key, col, author)); err != nil {
+		return nil, err
+	}
+
+	// Best-effort: record current branch if git is available.
+	if branch, err := sdk.Git.Branch(); err == nil {
+		_ = taskErr(a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
+			Branch: &branch,
+		}))
+	}
+
+	t, err := a.store.Tasks.Read(context.Background(), key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+	return taskToSDK(t), nil
+}
+
+// StartBranch creates a git branch from the task title (or custom name),
+// records it on the task, and moves to a column.
+func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sdk.Task, error) {
+	if err := sdk.Git.Available(); err != nil {
+		return nil, err
+	}
+
+	t, err := a.store.Tasks.Read(context.Background(), key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+	if t.Branch != "" {
+		return nil, fmt.Errorf("%w: task already has branch %q", sdk.ErrInvalidArg, t.Branch)
+	}
+
+	name := opts.Name
+	if name == "" {
+		name = "task/" + branchSlug(t.Title)
+	}
+
+	if err := sdk.Git.CheckoutNew(name); err != nil {
+		return nil, err
+	}
+
+	if err := taskErr(a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
+		Branch: &name,
+	})); err != nil {
+		return nil, err
+	}
+
+	col := opts.Column
+	if col == "" {
+		col = "in-progress"
+	}
+	if err := taskErr(a.store.Tasks.Move(context.Background(), key, col, author)); err != nil {
+		return nil, err
+	}
+
+	t, err = a.store.Tasks.Read(context.Background(), key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+	return taskToSDK(t), nil
+}
+
+// Finish moves a task to done and returns a summary with optional git
+// statistics. Git is optional — the task moves regardless.
+func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishResult, error) {
+	t, err := a.store.Tasks.Read(context.Background(), key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+
+	col := opts.Column
+	if col == "" {
+		col = "done"
+	}
+	if err := taskErr(a.store.Tasks.Move(context.Background(), key, col, author)); err != nil {
+		return nil, err
+	}
+
+	t, err = a.store.Tasks.Read(context.Background(), key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+
+	result := &sdk.FinishResult{Task: taskToSDK(t)}
+
+	// Git summary — best effort, skip if unavailable.
+	if t.Branch != "" && sdk.Git.Available() == nil {
+		base := opts.Base
+		if base == "" {
+			base, _ = sdk.Git.DefaultBranch()
+		}
+		if base != "" {
+			if files, err := sdk.Git.Files(base, t.Branch); err == nil {
+				result.FilesChanged = len(files)
+			}
+			if commits, err := sdk.Git.Commits(base, t.Branch); err == nil {
+				result.Commits = len(commits)
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// ByBranch returns the task linked to the given branch name.
+func (a *taskAPI) ByBranch(branch string) (*sdk.Task, error) {
+	tt, err := a.store.Tasks.List(context.Background(), tasks.ListOptions{
+		Branch: branch,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(tt) == 0 {
+		return nil, fmt.Errorf("%w: no task linked to branch %q", sdk.ErrNotFound, branch)
+	}
+	return taskToSDK(tt[0]), nil
+}
+
+// branchSlug converts a title to a git-friendly branch component.
+// Letters and digits are kept; everything else becomes a dash. Runs of
+// dashes collapse and trailing dashes are trimmed.
+func branchSlug(title string) string {
+	var b strings.Builder
+	prev := '-'
+	for _, r := range strings.ToLower(title) {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(r)
+			prev = r
+		case prev != '-':
+			b.WriteByte('-')
+			prev = '-'
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
 }
 
 // Log returns audit events for a task, newest first. Converts internal

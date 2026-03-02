@@ -7,6 +7,115 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+func TestBranchSlug(t *testing.T) {
+	tests := []struct {
+		title string
+		want  string
+	}{
+		{"Fix auth tokens", "fix-auth-tokens"},
+		{"Add API endpoint", "add-api-endpoint"},
+		{"Hello, World!", "hello-world"},
+		{"  spaces  everywhere  ", "spaces-everywhere"},
+		{"UPPER CASE", "upper-case"},
+		{"already-slugged", "already-slugged"},
+		{"special!@#chars", "special-chars"},
+	}
+	for _, tt := range tests {
+		got := branchSlug(tt.title)
+		if got != tt.want {
+			t.Errorf("branchSlug(%q) = %q, want %q", tt.title, got, tt.want)
+		}
+	}
+}
+
+func TestTasksStart(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Start me", []byte("# Spec\n\nStart."), sdk.TaskAddOpts{Author: "alice"})
+
+	updated, err := sdk.Tasks.Start(task.Key, "alice", sdk.StartOpts{})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if updated.Status != "in-progress" {
+		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
+	}
+}
+
+func TestTasksStartCustomColumn(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Custom col", []byte("# Spec\n\nCustom."), sdk.TaskAddOpts{Author: "alice"})
+
+	updated, err := sdk.Tasks.Start(task.Key, "alice", sdk.StartOpts{Column: "up-next"})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if updated.Status != "up-next" {
+		t.Errorf("status = %q, want %q", updated.Status, "up-next")
+	}
+}
+
+func TestTasksFinish(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Finish me", []byte("# Spec\n\nDo it."), sdk.TaskAddOpts{Author: "alice"})
+	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+		t.Fatalf("Move: %v", err)
+	}
+
+	result, err := sdk.Tasks.Finish(task.Key, "alice", sdk.FinishOpts{})
+	if err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	if result.Task.Status != "done" {
+		t.Errorf("status = %q, want %q", result.Task.Status, "done")
+	}
+}
+
+func TestTasksFinishCustomColumn(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Review me", []byte("# Spec\n\nReview."), sdk.TaskAddOpts{Author: "alice"})
+	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+		t.Fatalf("Move: %v", err)
+	}
+
+	result, err := sdk.Tasks.Finish(task.Key, "alice", sdk.FinishOpts{Column: "review"})
+	if err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	if result.Task.Status != "review" {
+		t.Errorf("status = %q, want %q", result.Task.Status, "review")
+	}
+}
+
+func TestTasksByBranch(t *testing.T) {
+	testHost(t)
+
+	task, _ := sdk.Tasks.Add("Branched", nil, sdk.TaskAddOpts{
+		Author: "alice",
+		Branch: "feature/login",
+	})
+
+	found, err := sdk.Tasks.ByBranch("feature/login")
+	if err != nil {
+		t.Fatalf("ByBranch: %v", err)
+	}
+	if found.Key != task.Key {
+		t.Errorf("key = %q, want %q", found.Key, task.Key)
+	}
+}
+
+func TestTasksByBranchNotFound(t *testing.T) {
+	testHost(t)
+
+	_, err := sdk.Tasks.ByBranch("nonexistent")
+	if !errors.Is(err, sdk.ErrNotFound) {
+		t.Errorf("ByBranch error = %v, want sdk.ErrNotFound", err)
+	}
+}
+
 func TestTasksAdd(t *testing.T) {
 	testHost(t)
 

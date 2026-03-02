@@ -225,27 +225,42 @@ Task audit actions use past tense: `"created"`, `"moved"`, `"deleted"`,
 
 ## Git-Aware Tasks
 
-Tasks can be linked to git branches via the `Branch` field. Six CLI
-subcommands provide the integration:
+Tasks can be linked to git branches via the `Branch` field. Multi-step
+orchestration (start, finish, branch creation) lives in the SDK so all
+consumers (CLI, MCP, HTTP, plugins) can use it. The CLI provides thin
+dispatch on top.
+
+### SDK methods (`sdk.TaskStore`)
+
+| Method | Description |
+|--------|-------------|
+| `Start(key, author, StartOpts)` | Move to column + record current git branch (git optional) |
+| `StartBranch(key, author, StartBranchOpts)` | Create branch from title slug, checkout, record, move to column |
+| `Finish(key, author, FinishOpts)` | Move to done + return `FinishResult` with git summary counts |
+| `ByBranch(branch)` | Find task linked to a branch name |
+
+Implementation lives in `internal/host/api_tasks.go`. The `branchSlug`
+helper (title → git-safe branch name) is unexported in the same file.
+
+### CLI subcommands
 
 | Command | File | Description |
 |---------|------|-------------|
-| `task start <id>` | `cli/task_git.go` | Move to in-progress + record branch (git optional) |
-| `task finish [id]` | `cli/task_git.go` | Move to done + show summary (files, commits) |
-| `task branch <id>` | `cli/task_git.go` | Create branch from task slug, checkout, start |
-| `task diff [id]` | `cli/task_git.go` | Git diff for task's branch vs default branch |
-| `task files [id]` | `cli/task_git.go` | List changed files on task's branch |
-| `task commits [id]` | `cli/task_git.go` | List commits on task's branch |
+| `task start <id>` | `cli/task_git.go` | Parse flags → `sdk.Tasks.Start()` → format text |
+| `task finish [id]` | `cli/task_git.go` | Parse flags → `sdk.Tasks.Finish()` → format summary |
+| `task branch <id>` | `cli/task_git.go` | Parse flags → `sdk.Tasks.StartBranch()` → format text |
+| `task diff [id]` | `cli/task_git.go` | Resolve task + `sdk.Git.Diff()` → coloured output |
+| `task files [id]` | `cli/task_git.go` | Resolve task + `sdk.Git.Files()` → file list |
+| `task commits [id]` | `cli/task_git.go` | Resolve task + `sdk.Git.Commits()` → commit list |
 
 Commands marked `[id]` auto-detect the task from the current git branch
-when no ID is given (`taskForBranch` in `cli/task_git.go` matches the
-current branch against tasks via indexed `Branch` filter). `task show`
-displays ahead/behind counts when the task has a branch and git is available.
+when no ID is given (`sdk.Tasks.ByBranch` via the current branch).
+`task show` displays ahead/behind counts when the task has a branch
+and git is available.
 
-All git subcommands degrade gracefully — availability is checked first
-and returns a clear error if git is missing or we're not in a repo.
-`task start` and `task finish` work without git (skipping branch recording
-and git summary respectively); other git commands return the error.
+All git operations degrade gracefully — `Start` and `Finish` work
+without git (skipping branch recording and git summary respectively);
+`StartBranch` requires git and returns a clear error if unavailable.
 Default branch detection tries `origin/HEAD` first, then `main`, then
 `master`; override with `--base`.
 

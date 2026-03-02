@@ -174,16 +174,24 @@ func (s *stubTasks) Read(key string) (*sdk.Task, error) {
 	}
 	return nil, fmt.Errorf("not found: %s", key)
 }
-func (s *stubTasks) List(_ sdk.TaskListOpts) ([]*sdk.Task, error) { return s.tasks, nil }
-func (s *stubTasks) Move(string, string, string) error            { return nil }
-func (s *stubTasks) Set(string, string, sdk.TaskSetOpts) error    { return nil }
-func (s *stubTasks) Delete(string, string) (*sdk.Task, error)     { return nil, nil }
-func (s *stubTasks) Restore(string, string) (*sdk.Task, error)    { return nil, nil }
-func (s *stubTasks) Columns() ([]string, error)                   { return nil, nil }
-func (s *stubTasks) AddColumn(string, string, string) error       { return nil }
-func (s *stubTasks) RemoveColumn(string, string) error            { return nil }
-func (s *stubTasks) MoveColumn(string, string, string) error      { return nil }
-func (s *stubTasks) Log(string, int) ([]sdk.TaskEvent, error)     { return nil, nil }
+func (s *stubTasks) List(_ sdk.TaskListOpts) ([]*sdk.Task, error)           { return s.tasks, nil }
+func (s *stubTasks) Move(string, string, string) error                      { return nil }
+func (s *stubTasks) Set(string, string, sdk.TaskSetOpts) error              { return nil }
+func (s *stubTasks) Delete(string, string) (*sdk.Task, error)               { return nil, nil }
+func (s *stubTasks) Restore(string, string) (*sdk.Task, error)              { return nil, nil }
+func (s *stubTasks) Columns() ([]string, error)                             { return nil, nil }
+func (s *stubTasks) AddColumn(string, string, string) error                 { return nil }
+func (s *stubTasks) RemoveColumn(string, string) error                      { return nil }
+func (s *stubTasks) MoveColumn(string, string, string) error                { return nil }
+func (s *stubTasks) Start(string, string, sdk.StartOpts) (*sdk.Task, error) { return nil, nil }
+func (s *stubTasks) StartBranch(string, string, sdk.StartBranchOpts) (*sdk.Task, error) {
+	return nil, nil
+}
+func (s *stubTasks) Finish(string, string, sdk.FinishOpts) (*sdk.FinishResult, error) {
+	return nil, nil
+}
+func (s *stubTasks) ByBranch(string) (*sdk.Task, error)       { return nil, nil }
+func (s *stubTasks) Log(string, int) ([]sdk.TaskEvent, error) { return nil, nil }
 
 // stubTags is a minimal TagStore for testing Yaegi access.
 type stubTags struct {

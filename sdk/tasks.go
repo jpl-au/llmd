@@ -47,6 +47,23 @@ type TaskStore interface {
 	// MoveColumn reorders a column to appear after the named column.
 	MoveColumn(name, after, author string) error
 
+	// Start moves a task to a column and optionally records the current
+	// git branch. Returns the updated task.
+	Start(key, author string, opts StartOpts) (*Task, error)
+
+	// StartBranch creates a git branch from the task title (or custom
+	// name), records it on the task, and moves to a column. Returns
+	// the updated task.
+	StartBranch(key, author string, opts StartBranchOpts) (*Task, error)
+
+	// Finish moves a task to done and returns a summary. If the task
+	// has a branch and git is available, the summary includes file
+	// and commit counts.
+	Finish(key, author string, opts FinishOpts) (*FinishResult, error)
+
+	// ByBranch returns the task linked to the given branch name.
+	ByBranch(branch string) (*Task, error)
+
 	// Log returns audit events for a task, newest first.
 	// Limit 0 means all events.
 	Log(key string, limit int) ([]TaskEvent, error)
@@ -183,6 +200,48 @@ type TaskSetOpts struct {
 	// Unflag removes a flag from the task's flag set.
 	// No-op if the flag is not present.
 	Unflag string
+}
+
+// StartOpts configures a task start operation.
+type StartOpts struct {
+	// Column is the target column. Defaults to "in-progress".
+	Column string
+}
+
+// StartBranchOpts configures a task start-with-branch operation.
+type StartBranchOpts struct {
+	// Name is the git branch name. When empty, a name is generated
+	// from the task title as "task/<slug>".
+	Name string
+
+	// Column is the target column. Defaults to "in-progress".
+	Column string
+}
+
+// FinishOpts configures a task finish operation.
+type FinishOpts struct {
+	// Column is the target column. Defaults to "done".
+	Column string
+
+	// Base is the git base branch for the summary diff. When empty,
+	// the default branch is detected automatically.
+	Base string
+}
+
+// FinishResult contains the outcome of finishing a task.
+type FinishResult struct {
+	// Task is the updated task after moving to the done column.
+	Task *Task
+
+	// FilesChanged is the number of files changed on the task's
+	// branch relative to the base. Zero when git is unavailable
+	// or the task has no branch.
+	FilesChanged int
+
+	// Commits is the number of commits on the task's branch that
+	// are not on the base. Zero when git is unavailable or the
+	// task has no branch.
+	Commits int
 }
 
 // TaskEvent is a single audit log entry for a task. Every mutation to a
