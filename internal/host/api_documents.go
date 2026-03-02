@@ -39,13 +39,14 @@ func docErr(err error) error {
 // a [core.Origin] with Source:"cli" so version history records the source.
 type documentAPI struct {
 	store *llmd.Store
+	lim   limits
 }
 
 // newDocumentAPI creates a document API bridge wrapping the given store.
 // The returned value satisfies [sdk.DocumentStore] and is assigned to
 // the sdk.Documents global by [New].
-func newDocumentAPI(store *llmd.Store) *documentAPI {
-	return &documentAPI{store: store}
+func newDocumentAPI(store *llmd.Store, lim limits) *documentAPI {
+	return &documentAPI{store: store, lim: lim}
 }
 
 // Read returns document content. Version 0 means latest (nil pointer
@@ -53,6 +54,9 @@ func newDocumentAPI(store *llmd.Store) *documentAPI {
 func (a *documentAPI) Read(path string, version int) ([]byte, error) {
 	path, err := docpath.Normalise(path)
 	if err != nil {
+		return nil, err
+	}
+	if err := checkPath(path, a.lim); err != nil {
 		return nil, err
 	}
 	var opts documents.ReadOptions
@@ -71,6 +75,12 @@ func (a *documentAPI) Read(path string, version int) ([]byte, error) {
 func (a *documentAPI) Write(path string, content []byte, author, msg string) error {
 	path, err := docpath.Normalise(path)
 	if err != nil {
+		return err
+	}
+	if err := checkPath(path, a.lim); err != nil {
+		return err
+	}
+	if err := checkContent(content, a.lim); err != nil {
 		return err
 	}
 	// Normalise line endings to \n so content is consistent regardless
@@ -93,6 +103,9 @@ func (a *documentAPI) Delete(path, author string) error {
 	if err != nil {
 		return err
 	}
+	if err := checkPath(path, a.lim); err != nil {
+		return err
+	}
 	return docErr(a.store.Documents.Delete(context.Background(), path, documents.DeleteOptions{
 		Origin: origin(author),
 	}))
@@ -103,6 +116,9 @@ func (a *documentAPI) Delete(path, author string) error {
 func (a *documentAPI) Restore(path, author string) error {
 	path, err := docpath.Normalise(path)
 	if err != nil {
+		return err
+	}
+	if err := checkPath(path, a.lim); err != nil {
 		return err
 	}
 	return docErr(a.store.Documents.Restore(context.Background(), path, documents.RestoreOptions{
@@ -117,8 +133,14 @@ func (a *documentAPI) Move(from, to, author string) error {
 	if err != nil {
 		return err
 	}
+	if err := checkPath(from, a.lim); err != nil {
+		return err
+	}
 	to, err = docpath.Normalise(to)
 	if err != nil {
+		return err
+	}
+	if err := checkPath(to, a.lim); err != nil {
 		return err
 	}
 	return docErr(a.store.Documents.Move(context.Background(), from, to, documents.MoveOptions{
@@ -130,6 +152,9 @@ func (a *documentAPI) Move(from, to, author string) error {
 // path prefix. Results are converted from internal Info structs to SDK
 // Doc structs. The Reverse option is applied after the database query.
 func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
+	if err := checkNull(prefix, "prefix"); err != nil {
+		return nil, err
+	}
 	if strings.Contains(prefix, "..") {
 		return nil, docpath.ErrInvalid
 	}
@@ -169,6 +194,9 @@ func (a *documentAPI) Exists(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if err := checkPath(path, a.lim); err != nil {
+		return false, err
+	}
 	return a.store.Documents.Exists(context.Background(), path)
 }
 
@@ -177,6 +205,15 @@ func (a *documentAPI) Exists(path string) (bool, error) {
 func (a *documentAPI) Edit(path, old, new, author, msg string) error {
 	path, err := docpath.Normalise(path)
 	if err != nil {
+		return err
+	}
+	if err := checkPath(path, a.lim); err != nil {
+		return err
+	}
+	if err := checkText(old, "old text"); err != nil {
+		return err
+	}
+	if err := checkText(new, "new text"); err != nil {
 		return err
 	}
 	o := origin(author)
@@ -199,6 +236,12 @@ func (a *documentAPI) Glob(pattern string) ([]string, error) {
 // contain multiple matches, which become individual sdk.GrepHit entries.
 // For GrepPaths mode, results have no matches — just a path.
 func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
+	if err := checkNull(query, "query"); err != nil {
+		return nil, err
+	}
+	if err := checkNull(opts.Path, "path"); err != nil {
+		return nil, err
+	}
 	if strings.Contains(opts.Path, "..") {
 		return nil, docpath.ErrInvalid
 	}
@@ -239,6 +282,9 @@ func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, erro
 func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
 	path, err := docpath.Normalise(path)
 	if err != nil {
+		return nil, err
+	}
+	if err := checkPath(path, a.lim); err != nil {
 		return nil, err
 	}
 	var opts history.ListOptions
@@ -284,6 +330,9 @@ func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 func (a *documentAPI) Revert(path string, version int, author, msg string) error {
 	path, err := docpath.Normalise(path)
 	if err != nil {
+		return err
+	}
+	if err := checkPath(path, a.lim); err != nil {
 		return err
 	}
 	o := origin(author)

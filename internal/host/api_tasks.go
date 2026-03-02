@@ -16,13 +16,14 @@ import (
 // fields) and internal types (sql.NullString, core.Origin, etc.).
 type taskAPI struct {
 	store *llmd.Store
+	lim   limits
 }
 
 // newTaskAPI creates a task API bridge wrapping the given store.
 // The returned value satisfies [sdk.TaskStore] and is assigned to the
 // sdk.Tasks global by [New].
-func newTaskAPI(store *llmd.Store) *taskAPI {
-	return &taskAPI{store: store}
+func newTaskAPI(store *llmd.Store, lim limits) *taskAPI {
+	return &taskAPI{store: store, lim: lim}
 }
 
 // taskErr translates internal task errors to SDK sentinel errors.
@@ -68,6 +69,12 @@ func taskToSDK(t *task.Task) *sdk.Task {
 // Add creates a new task with the given title and optional spec body.
 // Maps SDK options to internal AddOptions and stamps a CLI origin.
 func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Task, error) {
+	if err := checkText(title, "title"); err != nil {
+		return nil, err
+	}
+	if err := checkContent(body, a.lim); err != nil {
+		return nil, err
+	}
 	t, err := a.store.Tasks.Add(context.Background(), title, body, tasks.AddOptions{
 		Origin:     origin(opts.Author),
 		Status:     opts.Status,
@@ -159,6 +166,9 @@ func (a *taskAPI) Columns() ([]string, error) {
 // AddColumn adds a new column to the board. When after is non-empty,
 // the column is inserted after the named column; otherwise it is appended.
 func (a *taskAPI) AddColumn(name, after, author string) error {
+	if err := checkText(name, "column name"); err != nil {
+		return err
+	}
 	return a.store.Tasks.AddColumn(context.Background(), name, after, author)
 }
 

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -71,6 +72,20 @@ func Path() string {
 	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".llmd", "config")
+}
+
+// Int returns the integer value for key, or fallback if the key is
+// missing or not a valid integer.
+func Int(cfg map[string]string, key string, fallback int) int {
+	s, ok := cfg[key]
+	if !ok {
+		return fallback
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return fallback
+	}
+	return v
 }
 
 // loadFile reads a "key=value" config file into cfg. Missing files

@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/jpl-au/llmd/extension"
+	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/plugin"
 	"github.com/jpl-au/llmd/sdk"
@@ -78,12 +79,16 @@ func setup(store *llmd.Store) *Host {
 		commands: make(map[string]*cmdEntry),
 	}
 
+	// Load validation limits from config.
+	cfg := config.Load()
+	lim := loadLimits(cfg)
+
 	// Set domain globals so plugins can call sdk.Documents.Read(), etc.
 	if store != nil {
-		sdk.Documents = newDocumentAPI(store)
-		sdk.Tasks = newTaskAPI(store)
-		sdk.Links = newLinkAPI(store)
-		sdk.Tags = newTagAPI(store)
+		sdk.Documents = newDocumentAPI(store, lim)
+		sdk.Tasks = newTaskAPI(store, lim)
+		sdk.Links = newLinkAPI(store, lim)
+		sdk.Tags = newTagAPI(store, lim)
 		sdk.Activities = newActivityAPI(store)
 		sdk.Mirror = newMirrorAPI(store)
 	}

@@ -34,18 +34,25 @@ func tagErr(err error) error {
 // Tag/TagInfo structs.
 type tagAPI struct {
 	store *llmd.Store
+	lim   limits
 }
 
 // newTagAPI creates a tag API bridge wrapping the given store.
 // The returned value satisfies [sdk.TagStore] and is assigned to the
 // sdk.Tags global by [New].
-func newTagAPI(store *llmd.Store) *tagAPI {
-	return &tagAPI{store: store}
+func newTagAPI(store *llmd.Store, lim limits) *tagAPI {
+	return &tagAPI{store: store, lim: lim}
 }
 
 // Add attaches a tag to a document. Creates the tag entity if it does
 // not already exist; no-ops if the tag is already present.
 func (a *tagAPI) Add(path, name, author string) error {
+	if err := checkPath(path, a.lim); err != nil {
+		return err
+	}
+	if err := checkText(name, "tag name"); err != nil {
+		return err
+	}
 	_, err := a.store.Tags.Add(context.Background(), path, name, tags.Options{
 		Origin: origin(author),
 	})
@@ -54,6 +61,9 @@ func (a *tagAPI) Add(path, name, author string) error {
 
 // Remove detaches a tag from a document via soft-delete.
 func (a *tagAPI) Remove(path, name, author string) error {
+	if err := checkText(name, "tag name"); err != nil {
+		return err
+	}
 	return tagErr(a.store.Tags.Remove(context.Background(), path, name, tags.Options{
 		Origin: origin(author),
 	}))
@@ -89,5 +99,8 @@ func (a *tagAPI) All() ([]sdk.TagInfo, error) {
 
 // Find returns document paths that have the given tag attached.
 func (a *tagAPI) Find(name string) ([]string, error) {
+	if err := checkText(name, "tag name"); err != nil {
+		return nil, err
+	}
 	return a.store.Tags.Find(context.Background(), name)
 }
