@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/line"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
@@ -126,7 +127,7 @@ func (b *Bulk) exportOne(ctx context.Context, src string, root *os.Root, rel str
 		}
 	}
 
-	return root.WriteFile(rel, []byte(doc.Content), 0644)
+	return root.WriteFile(rel, []byte(line.Native(doc.Content)), 0644)
 }
 
 // relFS converts a document path to a root-relative filesystem path.
