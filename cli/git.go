@@ -80,7 +80,7 @@ func gitDiff(base, branch string, stat bool) (string, error) {
 	if err != nil {
 		return "", gitError(err, branch)
 	}
-	return strings.TrimRight(string(out), "\n"), nil
+	return strings.TrimRight(gitOutput(out), "\n"), nil
 }
 
 // gitFiles returns the list of files changed between base and branch.
@@ -89,7 +89,7 @@ func gitFiles(base, branch string) ([]string, error) {
 	if err != nil {
 		return nil, gitError(err, branch)
 	}
-	text := strings.TrimSpace(string(out))
+	text := strings.TrimSpace(gitOutput(out))
 	if text == "" {
 		return nil, nil
 	}
@@ -103,7 +103,7 @@ func gitCommits(base, branch string) ([]string, error) {
 	if err != nil {
 		return nil, gitError(err, branch)
 	}
-	text := strings.TrimSpace(string(out))
+	text := strings.TrimSpace(gitOutput(out))
 	if text == "" {
 		return nil, nil
 	}
