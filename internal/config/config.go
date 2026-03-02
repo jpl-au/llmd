@@ -1,8 +1,8 @@
 // Package config reads and writes llmd configuration files.
 //
 // Config uses a simple "key=value" format. Two files are merged:
-// global (~/.config/llmd/config) and local (.llmd/config), with
-// local values taking precedence.
+// global (~/.llmd/config) and local (.llmd/config), with local
+// values taking precedence.
 package config
 
 import (
@@ -20,7 +20,7 @@ func Load() map[string]string {
 	cfg := make(map[string]string)
 
 	home, _ := os.UserHomeDir()
-	globalPath := filepath.Join(home, ".config", "llmd", "config")
+	globalPath := filepath.Join(home, ".llmd", "config")
 	loadFile(globalPath, cfg)
 
 	// Local overrides global.
@@ -30,7 +30,7 @@ func Load() map[string]string {
 }
 
 // Save writes a key=value to a config file, preserving any existing
-// values. When global is true it writes to ~/.config/llmd/config;
+// values. When global is true it writes to ~/.llmd/config;
 // otherwise it writes to the local .llmd/config.
 func Save(key, value string, global bool) error {
 	path := ".llmd/config"
@@ -39,7 +39,7 @@ func Save(key, value string, global bool) error {
 		if err != nil {
 			return err
 		}
-		path = filepath.Join(home, ".config", "llmd", "config")
+		path = filepath.Join(home, ".llmd", "config")
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -69,7 +69,7 @@ func Path() string {
 		return ".llmd/config"
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "llmd", "config")
+	return filepath.Join(home, ".llmd", "config")
 }
 
 // loadFile reads a "key=value" config file into cfg. Missing files

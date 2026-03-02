@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	docpath "github.com/jpl-au/llmd/internal/path"
 )
 
 // MirrorResult contains the counts from a mirror operation.
@@ -40,7 +41,7 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 			return nil, fmt.Errorf("reading %s: %w", doc.Path, err)
 		}
 
-		fsPath := docToFSPath(dir, doc.Path)
+		fsPath := docpath.ToFS(dir, doc.Path)
 		written[fsPath] = true
 
 		// Skip if file already has identical content.
@@ -61,15 +62,6 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 
 	result.Removed = cleanStale(dir, written)
 	return result, nil
-}
-
-// docToFSPath converts a document path to a filesystem path under dir.
-// Adds .md extension if the path has no extension.
-func docToFSPath(dir, docPath string) string {
-	if filepath.Ext(docPath) == "" {
-		docPath += ".md"
-	}
-	return filepath.Join(dir, docPath)
 }
 
 // cleanStale removes files under dir that are not in the keep set.

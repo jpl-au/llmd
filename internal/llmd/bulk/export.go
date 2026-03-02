@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	docpath "github.com/jpl-au/llmd/internal/path"
 )
 
 // ExportResult contains the results of an export operation.
@@ -47,7 +48,7 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 		for _, doc := range docs {
 			// Determine filesystem path
 			relPath := strings.TrimPrefix(doc.Path, path)
-			fsPath := filepath.Join(dest, relPath+".md")
+			fsPath := docpath.ToFS(dest, relPath)
 
 			if err := b.exportOne(ctx, doc.Path, fsPath, opts); err != nil {
 				if os.IsExist(err) {
@@ -66,8 +67,7 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 	// Single document export
 	fsPath := dest
 	if info, err := os.Stat(dest); err == nil && info.IsDir() {
-		// dest is a directory, use doc path as filename
-		fsPath = filepath.Join(dest, filepath.Base(path)+".md")
+		fsPath = docpath.ToFS(dest, filepath.Base(path))
 	}
 
 	if err := b.exportOne(ctx, path, fsPath, opts); err != nil {

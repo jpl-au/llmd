@@ -1,6 +1,6 @@
 // config.go implements the "llmd config" command for reading and writing
 // configuration values. Config is stored in simple key=value files:
-// global (~/.config/llmd/config) and local (.llmd/config).
+// global (~/.llmd/config) and local (.llmd/config).
 //
 // Usage:
 //

@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/history"
 	"github.com/jpl-au/llmd/internal/llmd/search"
+	docpath "github.com/jpl-au/llmd/internal/path"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -49,6 +51,10 @@ func newDocumentAPI(store *llmd.Store) *documentAPI {
 // Read returns document content. Version 0 means latest (nil pointer
 // in internal options); a positive version reads that specific version.
 func (a *documentAPI) Read(path string, version int) ([]byte, error) {
+	path, err := docpath.Normalise(path)
+	if err != nil {
+		return nil, err
+	}
 	var opts documents.ReadOptions
 	if version > 0 {
 		opts.Version = &version
@@ -63,9 +69,13 @@ func (a *documentAPI) Read(path string, version int) ([]byte, error) {
 // Write creates or updates a document, recording a new version.
 // The author and message are recorded in the version history.
 func (a *documentAPI) Write(path string, content []byte, author, msg string) error {
+	path, err := docpath.Normalise(path)
+	if err != nil {
+		return err
+	}
 	o := origin(author)
 	o.Message = msg
-	_, err := a.store.Documents.Write(context.Background(), path, string(content), documents.WriteOptions{
+	_, err = a.store.Documents.Write(context.Background(), path, string(content), documents.WriteOptions{
 		Origin: o,
 	})
 	return docErr(err)
@@ -74,6 +84,10 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 // Delete soft-deletes a document. The document can be recovered via
 // Restore until a Vacuum permanently removes it.
 func (a *documentAPI) Delete(path, author string) error {
+	path, err := docpath.Normalise(path)
+	if err != nil {
+		return err
+	}
 	return docErr(a.store.Documents.Delete(context.Background(), path, documents.DeleteOptions{
 		Origin: origin(author),
 	}))
@@ -82,6 +96,10 @@ func (a *documentAPI) Delete(path, author string) error {
 // Restore recovers a soft-deleted document, clearing its deleted_at
 // timestamp so it reappears in normal listings.
 func (a *documentAPI) Restore(path, author string) error {
+	path, err := docpath.Normalise(path)
+	if err != nil {
+		return err
+	}
 	return docErr(a.store.Documents.Restore(context.Background(), path, documents.RestoreOptions{
 		Origin: origin(author),
 	}))
@@ -90,6 +108,14 @@ func (a *documentAPI) Restore(path, author string) error {
 // Move renames a document, preserving its full version history.
 // Tags and links follow the document to the new path.
 func (a *documentAPI) Move(from, to, author string) error {
+	from, err := docpath.Normalise(from)
+	if err != nil {
+		return err
+	}
+	to, err = docpath.Normalise(to)
+	if err != nil {
+		return err
+	}
 	return docErr(a.store.Documents.Move(context.Background(), from, to, documents.MoveOptions{
 		Origin: origin(author),
 	}))
@@ -99,6 +125,9 @@ func (a *documentAPI) Move(from, to, author string) error {
 // path prefix. Results are converted from internal Info structs to SDK
 // Doc structs. The Reverse option is applied after the database query.
 func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) {
+	if strings.Contains(prefix, "..") {
+		return nil, docpath.ErrInvalid
+	}
 	infos, err := a.store.Documents.List(context.Background(), documents.ListOptions{
 		Prefix:         prefix,
 		IncludeDeleted: opts.Deleted,
@@ -131,15 +160,23 @@ func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) 
 
 // Exists reports whether a non-deleted document exists at the given path.
 func (a *documentAPI) Exists(path string) (bool, error) {
+	path, err := docpath.Normalise(path)
+	if err != nil {
+		return false, err
+	}
 	return a.store.Documents.Exists(context.Background(), path)
 }
 
 // Edit performs a search-and-replace within a document, creating a new
 // version with the substitution applied.
 func (a *documentAPI) Edit(path, old, new, author, msg string) error {
+	path, err := docpath.Normalise(path)
+	if err != nil {
+		return err
+	}
 	o := origin(author)
 	o.Message = msg
-	_, err := a.store.Documents.Edit(context.Background(), path, old, new, documents.EditOptions{
+	_, err = a.store.Documents.Edit(context.Background(), path, old, new, documents.EditOptions{
 		Origin: o,
 	})
 	return docErr(err)
@@ -157,6 +194,9 @@ func (a *documentAPI) Glob(pattern string) ([]string, error) {
 // contain multiple matches, which become individual sdk.GrepHit entries.
 // For GrepPaths mode, results have no matches — just a path.
 func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
+	if strings.Contains(opts.Path, "..") {
+		return nil, docpath.ErrInvalid
+	}
 	searchOpts := search.Options{
 		Path:    opts.Path,
 		Mode:    search.Mode(opts.Mode),
@@ -192,6 +232,10 @@ func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, erro
 // History returns version history for a document, newest first.
 // Converts internal Info structs to SDK Version structs.
 func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
+	path, err := docpath.Normalise(path)
+	if err != nil {
+		return nil, err
+	}
 	var opts history.ListOptions
 	if limit > 0 {
 		opts.Limit = limit
@@ -233,9 +277,13 @@ func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 // Revert creates a new version with the content from a previous version.
 // The old version is preserved — revert is non-destructive.
 func (a *documentAPI) Revert(path string, version int, author, msg string) error {
+	path, err := docpath.Normalise(path)
+	if err != nil {
+		return err
+	}
 	o := origin(author)
 	o.Message = msg
-	_, err := a.store.History.Revert(context.Background(), path, version, history.RevertOptions{
+	_, err = a.store.History.Revert(context.Background(), path, version, history.RevertOptions{
 		Origin: o,
 	})
 	return docErr(err)

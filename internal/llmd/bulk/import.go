@@ -2,6 +2,7 @@ package bulk
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/hash"
+	docpath "github.com/jpl-au/llmd/internal/path"
 )
 
 // ImportResult contains the results of an import operation.
@@ -134,20 +136,22 @@ func (b *Bulk) importFile(ctx context.Context, path, base string, opts ImportOpt
 		return "", 0, err
 	}
 
-	// Determine store path
-	var storePath string
+	// Determine store path. Normalise handles backslash conversion,
+	// .md stripping, and traversal validation.
+	var raw string
 	if opts.Flatten || base == "" {
-		// Just use filename without .md extension
-		storePath = strings.TrimSuffix(filepath.Base(path), ".md")
+		raw = filepath.Base(path)
 	} else {
-		// Preserve relative path structure
 		rel, err := filepath.Rel(base, path)
 		if err != nil {
 			rel = filepath.Base(path)
 		}
-		// Remove .md extension and convert to forward slashes
-		storePath = strings.TrimSuffix(rel, ".md")
-		storePath = filepath.ToSlash(storePath)
+		raw = rel
+	}
+
+	storePath, err := docpath.Normalise(raw)
+	if err != nil {
+		return "", 0, fmt.Errorf("normalise %q: %w", raw, err)
 	}
 
 	// Add prefix if specified

@@ -14,7 +14,7 @@ llmd config <key> <value>
 
 | Flag | Description |
 |------|-------------|
-| `--global` | Write to `~/.config/llmd/config` instead of `.llmd/config` |
+| `--global` | Write to `~/.llmd/config` instead of `.llmd/config` |
 
 ## Examples
 
@@ -35,5 +35,5 @@ llmd config --global author "Alice"
 ## Notes
 
 - The only supported key is `author`.
-- Two configuration files are consulted: global (`~/.config/llmd/config`) and local (`.llmd/config`).
+- Two configuration files are consulted: global (`~/.llmd/config`) and local (`.llmd/config`).
 - Local values override global values.
