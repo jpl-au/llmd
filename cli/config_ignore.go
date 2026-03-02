@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -35,7 +34,7 @@ func configIgnore(_ sdk.Context, args []string) (sdk.Response, error) {
 }
 
 func configIgnoreList() (sdk.Response, error) {
-	patterns, err := config.IgnorePatterns()
+	patterns, err := sdk.Config.IgnorePatterns()
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +51,7 @@ func configIgnoreAdd(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("config ignore add: %w: pattern required", sdk.ErrMissingArg)
 	}
-	if err := config.AddIgnore(args[0]); err != nil {
+	if err := sdk.Config.AddIgnore(args[0]); err != nil {
 		return nil, fmt.Errorf("config ignore add: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Added %s to .llmd/.gitignore", args[0])), nil
@@ -62,7 +61,7 @@ func configIgnoreRm(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("config ignore rm: %w: pattern required", sdk.ErrMissingArg)
 	}
-	if err := config.RemoveIgnore(args[0]); err != nil {
+	if err := sdk.Config.RemoveIgnore(args[0]); err != nil {
 		return nil, fmt.Errorf("config ignore rm: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Removed %s from .llmd/.gitignore", args[0])), nil

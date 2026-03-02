@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -23,7 +22,7 @@ var errConfigUsage = errors.New("config: usage: llmd config [--global] [key] [va
 
 // configCmd handles show-all, show-key, and set-key operations.
 func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	cfg := config.Load()
+	cfg := sdk.Config.Read()
 
 	var global bool
 	var positional []string
@@ -59,7 +58,7 @@ func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if key != "author" {
 			return nil, fmt.Errorf("config: unknown key: %s", key)
 		}
-		if err := config.Save(key, value, global); err != nil {
+		if err := sdk.Config.Write(key, value, sdk.WriteOpts{Global: global}); err != nil {
 			return nil, fmt.Errorf("config: saving: %w", err)
 		}
 		return nil, nil

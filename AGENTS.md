@@ -84,15 +84,17 @@ Focused interfaces per domain, each following the SDK-first pattern:
 | `sdk.TagStore` | `sdk/tags.go` | `internal/host/api_tags.go` (`tagAPI`) | `internal/host/host.go` |
 | `sdk.ActivityStore` | `sdk/activity.go` | `internal/host/api_activity.go` (`activityAPI`) | `internal/host/host.go` |
 | `sdk.GitStore` | `sdk/git.go` | `internal/git/git.go` (`Git`) | `internal/host/host.go` |
+| `sdk.ConfigStore` | `sdk/config.go` | `internal/config/store.go` (`Store`) | `internal/host/host.go` |
 
 Each bridge type in `internal/host/` translates SDK flat arguments into
 internal option structs and maps internal results back to SDK types. All
 mutating operations stamp a `core.Origin{Source: "cli"}` for audit tracking.
 
-`sdk.GitStore` has no host bridge — the `internal/git.Git` struct implements
-the interface directly. Git is a system utility independent of the store, so
-a bridge would add indirection without value. It is wired in `setup()`
-outside the `if store != nil` block.
+`sdk.GitStore` and `sdk.ConfigStore` have no host bridges — `internal/git.Git`
+and `internal/config.Store` implement their interfaces directly. Both are
+system utilities independent of the store, so bridges would add indirection
+without value. They are wired in `setup()` outside the `if store != nil`
+block.
 
 Bridge types also translate internal errors to SDK sentinels via per-domain
 helpers (`docErr`, `taskErr`, `linkErr`, `tagErr`). This prevents internal

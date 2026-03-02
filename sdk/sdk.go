@@ -41,6 +41,7 @@ var (
 	Activities ActivityStore
 	Mirror     MirrorStore
 	Git        GitStore
+	Config     ConfigStore
 )
 
 // Plugin is the interface that command providers implement. The host

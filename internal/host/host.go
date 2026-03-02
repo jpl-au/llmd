@@ -85,8 +85,9 @@ func setup(store *llmd.Store) *Host {
 	cfg := config.Load()
 	lim := validate.LoadLimits(cfg)
 
-	// Git is store-independent — always available.
+	// Store-independent globals — always available.
 	sdk.Git = igit.New()
+	sdk.Config = config.Store{}
 
 	// Set domain globals so plugins can call sdk.Documents.Read(), etc.
 	if store != nil {

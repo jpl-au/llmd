@@ -17,7 +17,6 @@ import (
 	"charm.land/lipgloss/v2"
 	_ "github.com/jpl-au/llmd/cli"
 	"github.com/jpl-au/llmd/extension"
-	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -109,7 +108,7 @@ func run(args []string) int {
 		return 0
 	}
 
-	author := config.Load()["author"]
+	author := sdk.Config.Read()["author"]
 	if author == "" && c.NeedsAuthor {
 		return errorf(jsonOut, "author not configured\n\nSet your author name:\n  llmd config author \"Your Name\"")
 	}
