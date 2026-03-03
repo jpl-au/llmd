@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"unicode"
 
@@ -199,9 +200,11 @@ func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, erro
 
 	// Best-effort: record current branch if git is available.
 	if branch, err := sdk.Git.Branch(); err == nil {
-		_ = taskErr(a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
+		if err := taskErr(a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
 			Branch: &branch,
-		}))
+		})); err != nil {
+			slog.Debug("recording branch on task", "key", key, "branch", branch, "error", err)
+		}
 	}
 
 	t, err := a.store.Tasks.Read(context.Background(), key)

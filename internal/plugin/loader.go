@@ -11,7 +11,7 @@ package plugin
 import (
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,7 +41,7 @@ func Load() ([]sdk.Plugin, error) {
 	for _, dir := range dirs {
 		p, err := load(dir)
 		if err != nil {
-			log.Printf("plugin %s: %v", filepath.Base(dir), err)
+			slog.Warn("loading plugin", "plugin", filepath.Base(dir), "error", err)
 			continue
 		}
 		plugins = append(plugins, p)
@@ -178,12 +178,20 @@ func (a *adapter) Exec(ctx sdk.Context, cmd string, args []string) (resp sdk.Res
 
 	var result sdk.Response
 	if ri := rv.Interface(); ri != nil {
-		result, _ = ri.(sdk.Response)
+		if r, ok := ri.(sdk.Response); ok {
+			result = r
+		} else {
+			slog.Warn("plugin returned unexpected response type", "plugin", a.name, "type", fmt.Sprintf("%T", ri))
+		}
 	}
 
 	var execErr error
 	if ei := ev.Interface(); ei != nil {
-		execErr, _ = ei.(error)
+		if e, ok := ei.(error); ok {
+			execErr = e
+		} else {
+			slog.Warn("plugin returned unexpected error type", "plugin", a.name, "type", fmt.Sprintf("%T", ei))
+		}
 	}
 
 	return result, execErr

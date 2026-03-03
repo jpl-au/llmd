@@ -22,6 +22,7 @@ package llmd
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -181,7 +182,9 @@ func (s *Store) wire() {
 // the database connection.
 func (s *Store) Close() error {
 	if s.path != ":memory:" {
-		_ = s.Checkpoint()
+		if err := s.Checkpoint(); err != nil {
+			slog.Warn("WAL checkpoint on close", "path", s.path, "error", err)
+		}
 	}
 	return s.db.Close()
 }

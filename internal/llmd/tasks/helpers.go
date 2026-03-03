@@ -5,6 +5,7 @@ package tasks
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -51,10 +52,12 @@ func recordTx(ctx context.Context, tx *sql.Tx, actor, action, subject, oldValue,
 	if newValue != "" {
 		newV = sql.NullString{String: newValue, Valid: true}
 	}
-	_, _ = tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO history (timestamp, actor, action, subject, old_value, new_value)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, now, actor, action, subject, oldV, newV)
+	`, now, actor, action, subject, oldV, newV); err != nil {
+		slog.Warn("recording audit event", "action", action, "subject", subject, "error", err)
+	}
 }
 
 // nullStr converts a Go string to sql.NullString. Empty strings become

@@ -61,7 +61,8 @@ guide/                      User-facing command guides (markdown)
 
 ```
 main.go
-  ↓ parse global flags (--json, --help, --db)
+  ↓ parse global flags (--json, --help, --db, --verbose)
+  ↓ config.Load() + initLog() — configure slog (level, format, stderr)
   ↓ check extension.Storeless — skip store for init, version, config
   ↓ host.Open(dbPath) or host.New() depending on needsStore
   │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags, sdk.Activities
@@ -337,6 +338,27 @@ llmd config ignore ls              # list patterns
 llmd config ignore add "*.db"      # ignore all databases
 llmd config ignore rm "*.db"       # remove pattern
 ```
+
+## Logging
+
+Uses `log/slog` from the standard library. The logger is initialised in
+`main.go` before any host creation.
+
+**Defaults:** level `warn`, format `text`, output to stderr. The CLI is
+quiet unless something needs attention.
+
+**`--verbose` flag:** overrides to `debug` level for instant diagnostics.
+
+**Config keys** (`.llmd/config`, local or global):
+- `log_level` — `debug`, `info`, `warn`, `error`
+- `log_format` — `text`, `json`
+
+`--json` implies `log_format=json` so structured output stays
+machine-readable. `--verbose` overrides any configured level.
+
+All packages use the process-wide `slog` default — call `slog.Debug`,
+`slog.Warn`, etc. directly. No logger is passed through context or
+structs.
 
 ## Common Pitfalls
 

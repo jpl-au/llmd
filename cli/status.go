@@ -4,6 +4,7 @@ package cli
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -39,13 +40,22 @@ func status(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	docs, _ := sdk.Documents.List("", sdk.ListOpts{Sort: "time"})
+	docs, err := sdk.Documents.List("", sdk.ListOpts{Sort: "time"})
+	if err != nil {
+		slog.Warn("listing documents", "error", err)
+	}
 	if len(docs) > limit {
 		docs = docs[:limit]
 	}
 
-	cols, _ := sdk.Tasks.Columns()
-	tasks, _ := sdk.Tasks.List(sdk.TaskListOpts{})
+	cols, err := sdk.Tasks.Columns()
+	if err != nil {
+		slog.Warn("listing columns", "error", err)
+	}
+	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{})
+	if err != nil {
+		slog.Warn("listing tasks", "error", err)
+	}
 
 	byStatus := make(map[string]int)
 	for _, t := range tasks {
@@ -54,7 +64,10 @@ func status(_ sdk.Context, args []string) (sdk.Response, error) {
 
 	var activity []sdk.Activity
 	if sdk.Activities != nil {
-		activity, _ = sdk.Activities.Recent(limit)
+		activity, err = sdk.Activities.Recent(limit)
+		if err != nil {
+			slog.Warn("listing activity", "error", err)
+		}
 	}
 
 	data := map[string]any{

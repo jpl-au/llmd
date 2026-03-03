@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"slices"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"charm.land/lipgloss/v2"
 	_ "github.com/jpl-au/llmd/cli"
 	"github.com/jpl-au/llmd/extension"
+	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -30,6 +32,7 @@ func main() {
 func run(args []string) int {
 	var jsonOut bool
 	var help bool
+	var verbose bool
 	var dbPath string
 	var cmd string
 	var cmdArgs []string
@@ -41,6 +44,8 @@ func run(args []string) int {
 			jsonOut = true
 		case arg == "--help" || arg == "-h":
 			help = true
+		case arg == "--verbose":
+			verbose = true
 		case arg == "--db":
 			if i+1 >= len(args) {
 				return errorf(jsonOut, "--db requires a path")
@@ -50,18 +55,22 @@ func run(args []string) int {
 		case cmd == "" && !strings.HasPrefix(arg, "-"):
 			cmd = arg
 			cmdArgs = args[i+1:]
-			// Scan remaining args for --help/--json (so "llmd cat --help" works).
+			// Scan remaining args for --help/--json/--verbose (so "llmd cat --help" works).
 			for _, a := range cmdArgs {
 				switch a {
 				case "--help", "-h":
 					help = true
 				case "--json":
 					jsonOut = true
+				case "--verbose":
+					verbose = true
 				}
 			}
 			i = len(args)
 		}
 	}
+
+	initLog(config.Load(), jsonOut, verbose)
 
 	// No command — show help. We create a host without a store just
 	// for command discovery (help/plugins listing).
@@ -156,6 +165,42 @@ func errorf(jsonOut bool, format string, args ...any) int {
 		fmt.Fprintf(os.Stderr, "error: %s\n", msg)
 	}
 	return 1
+}
+
+// initLog configures the process-wide slog logger. By default the level
+// is Warn (quiet CLI). --verbose overrides to Debug. Config keys
+// log_level and log_format provide persistent control. --json implies
+// JSON-formatted logs so structured output stays machine-readable.
+func initLog(cfg map[string]string, jsonOut, verbose bool) {
+	level := slog.LevelWarn
+	if verbose {
+		level = slog.LevelDebug
+	} else if v, ok := cfg["log_level"]; ok {
+		switch v {
+		case "debug":
+			level = slog.LevelDebug
+		case "info":
+			level = slog.LevelInfo
+		case "warn":
+			level = slog.LevelWarn
+		case "error":
+			level = slog.LevelError
+		}
+	}
+
+	format := cfg["log_format"]
+	if jsonOut {
+		format = "json"
+	}
+
+	opts := &slog.HandlerOptions{Level: level}
+	var handler slog.Handler
+	if format == "json" {
+		handler = slog.NewJSONHandler(os.Stderr, opts)
+	} else {
+		handler = slog.NewTextHandler(os.Stderr, opts)
+	}
+	slog.SetDefault(slog.New(handler))
 }
 
 // readStdin reads piped input if present, or returns nil for interactive
