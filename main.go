@@ -72,7 +72,11 @@ func run(args []string) int {
 		}
 	}
 
-	initLog(config.Load(), jsonOut, verbose)
+	cfg, cfgErr := config.Load()
+	initLog(cfg, jsonOut, verbose)
+	if cfgErr != nil {
+		slog.Warn("reading config", "err", cfgErr)
+	}
 
 	// Create a root context that cancels on SIGINT (Ctrl+C).
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -123,7 +127,11 @@ func run(args []string) int {
 		return 0
 	}
 
-	author := sdk.Config.Read()["author"]
+	authorCfg, err := sdk.Config.Read()
+	if err != nil {
+		slog.Warn("reading config for author", "err", err)
+	}
+	author := authorCfg["author"]
 	if author == "" && c.NeedsAuthor {
 		return errorf(jsonOut, "author not configured\n\nSet your author name:\n  llmd config author \"Your Name\"")
 	}

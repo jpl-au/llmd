@@ -4,8 +4,10 @@ package sdk
 // .llmd/.gitignore patterns.
 type ConfigStore interface {
 	// Read returns the merged configuration (global + local).
-	// Local values override global ones.
-	Read() map[string]string
+	// Local values override global ones. Returns partial config
+	// alongside any errors so callers can fall back to defaults
+	// when a file is unreadable.
+	Read() (map[string]string, error)
 
 	// Write sets a key=value pair in a config file.
 	Write(key, value string, opts WriteOpts) error

@@ -22,7 +22,10 @@ var errConfigUsage = errors.New("config: usage: llmd config [--global] [key] [va
 
 // configCmd handles show-all, show-key, and set-key operations.
 func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	cfg := ctx.Config.Read()
+	cfg, err := ctx.Config.Read()
+	if err != nil {
+		return nil, fmt.Errorf("config: reading: %w", err)
+	}
 
 	var global bool
 	var positional []string

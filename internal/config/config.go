@@ -7,6 +7,7 @@ package config
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,18 +17,27 @@ import (
 
 // Load merges global and local configuration. Local values override
 // global ones, so a project can set its own author without affecting
-// other stores.
-func Load() map[string]string {
+// other stores. Returns partial config alongside any errors so callers
+// can fall back to defaults when a file is unreadable.
+func Load() (map[string]string, error) {
 	cfg := make(map[string]string)
+	var errs []error
 
-	home, _ := os.UserHomeDir()
-	globalPath := filepath.Join(home, ".llmd", "config")
-	loadFile(globalPath, cfg)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		errs = append(errs, fmt.Errorf("global config: %w", err))
+	} else {
+		if err := loadFile(filepath.Join(home, ".llmd", "config"), cfg); err != nil {
+			errs = append(errs, fmt.Errorf("global config: %w", err))
+		}
+	}
 
 	// Local overrides global.
-	loadFile(filepath.Join(".llmd", "config"), cfg)
+	if err := loadFile(filepath.Join(".llmd", "config"), cfg); err != nil {
+		errs = append(errs, fmt.Errorf("local config: %w", err))
+	}
 
-	return cfg
+	return cfg, errors.Join(errs...)
 }
 
 // Save writes a key=value to a config file, preserving any existing
@@ -48,7 +58,9 @@ func Save(key, value string, global bool) error {
 	}
 
 	cfg := make(map[string]string)
-	loadFile(path, cfg)
+	if err := loadFile(path, cfg); err != nil {
+		return fmt.Errorf("reading existing config: %w", err)
+	}
 	cfg[key] = value
 
 	f, err := os.Create(path)
@@ -88,12 +100,16 @@ func Int(cfg map[string]string, key string, fallback int) int {
 	return v
 }
 
-// loadFile reads a "key=value" config file into cfg. Missing files
-// are silently ignored (config is optional).
-func loadFile(path string, cfg map[string]string) {
+// loadFile reads a "key=value" config file into cfg. Returns nil if
+// the file does not exist (config is optional). Returns an error for
+// permission failures or other I/O problems.
+func loadFile(path string, cfg map[string]string) error {
 	f, err := os.Open(path)
 	if err != nil {
-		return
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 	defer f.Close()
 
@@ -109,4 +125,5 @@ func loadFile(path string, cfg map[string]string) {
 			cfg[key] = value
 		}
 	}
+	return scanner.Err()
 }

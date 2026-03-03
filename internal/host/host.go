@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/config"
@@ -79,7 +80,10 @@ func (h *Host) Close() error {
 // should not take down the entire CLI.
 func setup(store *llmd.Store) *Host {
 	// Load validation limits from config.
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Warn("loading config for validation limits", "err", err)
+	}
 	lim := validate.LoadLimits(cfg)
 
 	h := &Host{

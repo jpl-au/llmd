@@ -6,7 +6,7 @@ import "github.com/jpl-au/llmd/sdk"
 // functions. Config is store-independent — no host bridge needed.
 type Store struct{}
 
-func (Store) Read() map[string]string                           { return Load() }
+func (Store) Read() (map[string]string, error)                  { return Load() }
 func (Store) Write(key, value string, opts sdk.WriteOpts) error { return Save(key, value, opts.Global) }
 func (Store) IgnorePatterns() ([]string, error)                 { return IgnorePatterns() }
 func (Store) AddIgnore(pattern string) error                    { return AddIgnore(pattern) }
