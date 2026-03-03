@@ -1,8 +1,7 @@
 // Package path provides document path normalisation and validation utilities.
 //
 // All document paths in llmd pass through this package before storage or
-// retrieval. Validation ensures paths are safe for both database storage
-// and filesystem mirroring.
+// retrieval. Validation ensures paths are safe for database storage.
 //
 // Security: Path traversal attacks are blocked by rejecting any path
 // containing "..". Combined with normalisation at the API boundary, this
@@ -15,15 +14,16 @@
 //   - Empty paths are rejected
 //   - .md extension is stripped (docs/readme.md becomes docs/readme)
 //
-// Platform-specific handling: The Normalise and Direct functions are
-// implemented separately for Windows and Unix systems (see
-// path_windows.go, path_unix.go). This ensures correct backslash
-// handling on each platform.
+// Document paths are DB keys, not filesystem paths. Normalise and Direct
+// use the path package (always forward-slash) so behaviour is identical on
+// all platforms. Filesystem path construction (ResolveDB, MirrorDir) uses
+// filepath, which is platform-aware.
 package path
 
 import (
 	"errors"
 	"fmt"
+	slashpath "path"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
@@ -116,4 +116,82 @@ func MirrorDir(dbPath string) (string, error) {
 	base := filepath.Base(resolved)
 	name := strings.TrimSuffix(base, ".db")
 	return filepath.Join(".llmd", name), nil
+}
+
+// Normalise cleans and validates a document path.
+// It ensures paths use forward slashes, have no leading/trailing slashes,
+// and contain no directory traversal sequences.
+//
+// Document paths are DB keys, not filesystem paths, so this function uses
+// the path package (always forward-slash) and behaves identically on all
+// platforms. Backslashes in user input are converted to forward slashes so
+// that Windows-style paths are accepted on any platform.
+func Normalise(p string) (string, error) {
+	if p == "" {
+		return "", ErrInvalid
+	}
+
+	// Convert backslashes to forward slashes. filepath.ToSlash won't do
+	// this on Unix (where backslash is a valid filename character), but we
+	// want to accept Windows-style input on any platform.
+	p = strings.ReplaceAll(p, "\\", "/")
+
+	p = slashpath.Clean(p)
+
+	// Reject absolute paths — document paths must always be relative.
+	if slashpath.IsAbs(p) {
+		return "", ErrInvalid
+	}
+
+	// Remove leading/trailing slashes left after cleaning.
+	p = strings.TrimPrefix(p, "/")
+	p = strings.TrimSuffix(p, "/")
+
+	// Strip .md extension (case-insensitive).
+	if len(p) > 3 && strings.EqualFold(p[len(p)-3:], ".md") {
+		p = p[:len(p)-3]
+	}
+
+	if p == "" || p == "." || p == ".." {
+		return "", ErrInvalid
+	}
+
+	if strings.Contains(p, "..") {
+		return "", ErrInvalid
+	}
+
+	return p, nil
+}
+
+// Direct reports whether path is a direct child of prefix.
+// Both paths should use forward slashes. Backslashes in prefix are
+// converted so that Windows-style input is accepted on any platform.
+//
+// Examples (prefix="docs"):
+//   - "docs/readme" -> true (direct child)
+//   - "docs/api/auth" -> false (nested)
+//   - "docs" -> true (exact match)
+//
+// Examples (prefix=""):
+//   - "readme" -> true (top level)
+//   - "docs/readme" -> false (nested)
+func Direct(p, prefix string) bool {
+	// Convert backslashes and remove trailing slash from prefix.
+	prefix = strings.ReplaceAll(prefix, "\\", "/")
+	prefix = strings.TrimSuffix(prefix, "/")
+
+	if p == prefix {
+		return true
+	}
+
+	var remainder string
+	if prefix == "" {
+		remainder = p
+	} else if strings.HasPrefix(p, prefix+"/") {
+		remainder = p[len(prefix)+1:]
+	} else {
+		return false
+	}
+
+	return !strings.Contains(remainder, "/")
 }

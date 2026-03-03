@@ -2,7 +2,7 @@ package search
 
 import (
 	"context"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -38,13 +38,13 @@ func (s *Search) Glob(ctx context.Context, pattern string, opts ...Options) ([]s
 
 	var matches []string
 	for rows.Next() {
-		var path string
-		if err := rows.Scan(&path); err != nil {
+		var p string
+		if err := rows.Scan(&p); err != nil {
 			return nil, err
 		}
 
-		if matchGlob(pattern, path) {
-			matches = append(matches, path)
+		if matchGlob(pattern, p) {
+			matches = append(matches, p)
 			if opt.Limit > 0 && len(matches) >= opt.Limit {
 				break
 			}
@@ -54,24 +54,24 @@ func (s *Search) Glob(ctx context.Context, pattern string, opts ...Options) ([]s
 	return matches, rows.Err()
 }
 
-// matchGlob matches a path against a glob pattern.
+// matchGlob matches a doc path against a glob pattern.
 // Supports ** for recursive matching.
-func matchGlob(pattern, path string) bool {
+func matchGlob(pattern, p string) bool {
 	// Handle ** (match any number of path segments)
 	if strings.Contains(pattern, "**") {
-		return matchDoublestar(pattern, path)
+		return matchDoublestar(pattern, p)
 	}
 
-	// Use filepath.Match for simple patterns
-	matched, _ := filepath.Match(pattern, path)
+	// Use path.Match — store paths always use forward slashes.
+	matched, _ := path.Match(pattern, p)
 	return matched
 }
 
 // validateGlob checks if a glob pattern is valid.
 func validateGlob(pattern string) error {
-	// Remove ** for validation since filepath.Match doesn't support it
+	// Remove ** for validation since path.Match doesn't support it
 	test := strings.ReplaceAll(pattern, "**", "*")
-	_, err := filepath.Match(test, "")
+	_, err := path.Match(test, "")
 	if err != nil {
 		return ErrInvalidGlob
 	}
@@ -79,36 +79,36 @@ func validateGlob(pattern string) error {
 }
 
 // matchDoublestar handles ** glob patterns.
-func matchDoublestar(pattern, path string) bool {
+func matchDoublestar(pattern, p string) bool {
 	parts := strings.Split(pattern, "**")
 	if len(parts) != 2 {
 		// Multiple ** not supported, fall back to simple match
-		matched, _ := filepath.Match(pattern, path)
+		matched, _ := path.Match(pattern, p)
 		return matched
 	}
 
 	prefix, suffix := parts[0], parts[1]
 
 	// Check prefix
-	if prefix != "" && !strings.HasPrefix(path, prefix) {
+	if prefix != "" && !strings.HasPrefix(p, prefix) {
 		return false
 	}
 
 	// Check suffix
 	if suffix != "" {
 		suffix = strings.TrimPrefix(suffix, "/")
-		remaining := strings.TrimPrefix(path, prefix)
+		remaining := strings.TrimPrefix(p, prefix)
 
 		// Try matching suffix at each path segment
 		segments := strings.Split(remaining, "/")
 		for i := range segments {
 			candidate := strings.Join(segments[i:], "/")
-			if matched, _ := filepath.Match(suffix, candidate); matched {
+			if matched, _ := path.Match(suffix, candidate); matched {
 				return true
 			}
 			// Also try matching just the filename part
 			if i == len(segments)-1 {
-				if matched, _ := filepath.Match(suffix, segments[i]); matched {
+				if matched, _ := path.Match(suffix, segments[i]); matched {
 					return true
 				}
 			}
