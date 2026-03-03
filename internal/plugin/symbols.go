@@ -23,18 +23,21 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// symbols returns Yaegi exports for the sdk package.
-// Plugins import "github.com/jpl-au/llmd/sdk" and get these symbols.
-func symbols() interp.Exports {
+// symbols returns Yaegi exports for the sdk package, wired to the
+// adapter's own store fields rather than package-level globals. This
+// means each adapter has isolated, request-scoped store access —
+// Exec populates the fields before each plugin call so Yaegi reads
+// the correct bridges for that request.
+func (a *adapter) symbols() interp.Exports {
 	return interp.Exports{
 		"github.com/jpl-au/llmd/sdk/sdk": {
-			// Domain store globals
-			"Documents":  reflect.ValueOf(&sdk.Documents).Elem(),
-			"Tasks":      reflect.ValueOf(&sdk.Tasks).Elem(),
-			"Links":      reflect.ValueOf(&sdk.Links).Elem(),
-			"Tags":       reflect.ValueOf(&sdk.Tags).Elem(),
-			"Activities": reflect.ValueOf(&sdk.Activities).Elem(),
-			"Mirror":     reflect.ValueOf(&sdk.Mirror).Elem(),
+			// Domain stores — point at adapter fields, not package globals.
+			"Documents":  reflect.ValueOf(&a.documents).Elem(),
+			"Tasks":      reflect.ValueOf(&a.tasks).Elem(),
+			"Links":      reflect.ValueOf(&a.links).Elem(),
+			"Tags":       reflect.ValueOf(&a.tags).Elem(),
+			"Activities": reflect.ValueOf(&a.activities).Elem(),
+			"Mirror":     reflect.ValueOf(&a.mirror).Elem(),
 
 			// Constants
 			"GrepFull":     reflect.ValueOf(sdk.GrepFull),

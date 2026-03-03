@@ -350,40 +350,12 @@ func (s *stubMirror) Push(string, sdk.PushOpts) (*sdk.PushResult, error) {
 	return &sdk.PushResult{}, nil
 }
 
-// wireStubs sets the SDK globals to stub implementations and restores
-// them when the test finishes.
-func wireStubs(t *testing.T) (*stubDocs, *stubTasks, *stubTags, *stubLinks) {
-	t.Helper()
-	oldDocs, oldTasks, oldTags, oldLinks, oldMirror := sdk.Documents, sdk.Tasks, sdk.Tags, sdk.Links, sdk.Mirror
-
-	d := &stubDocs{docs: map[string][]byte{}}
-	ta := &stubTasks{}
-	tg := &stubTags{tags: map[string][]string{}}
-	l := &stubLinks{}
-
-	sdk.Documents = d
-	sdk.Tasks = ta
-	sdk.Tags = tg
-	sdk.Links = l
-	sdk.Mirror = &stubMirror{}
-
-	t.Cleanup(func() {
-		sdk.Documents = oldDocs
-		sdk.Tasks = oldTasks
-		sdk.Tags = oldTags
-		sdk.Links = oldLinks
-		sdk.Mirror = oldMirror
-	})
-
-	return d, ta, tg, l
-}
-
 // TestSamplePluginExec loads the sample plugin through Yaegi and runs its
 // commands against stub implementations. This verifies that the Yaegi
 // symbol table correctly exposes sdk.Documents so that interpreted plugin
-// code can resolve and call methods on the domain globals.
+// code can resolve and call methods on the domain stores.
 func TestSamplePluginExec(t *testing.T) {
-	d, _, _, _ := wireStubs(t)
+	d := &stubDocs{docs: map[string][]byte{}}
 	d.docs["notes/hello"] = []byte("hello world\nline two\n")
 
 	src, err := os.ReadFile(filepath.Join("..", "..", "plugins", "sample", "sample.go"))
@@ -400,7 +372,7 @@ func TestSamplePluginExec(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 
-	ctx := sdk.Context{Author: "alice"}
+	ctx := sdk.Context{Author: "alice", Documents: d}
 
 	// Test "stat" — calls sdk.Documents.Exists and sdk.Documents.History
 	resp, err := p.Exec(ctx, "stat", []string{"notes/hello"})
@@ -459,9 +431,9 @@ func TestSamplePluginExec(t *testing.T) {
 }
 
 // TestYaegiTasksAccess loads a minimal plugin that calls sdk.Tasks and
-// verifies the domain global is accessible from interpreted code.
+// verifies the domain store is accessible from interpreted code.
 func TestYaegiTasksAccess(t *testing.T) {
-	_, ta, _, _ := wireStubs(t)
+	ta := &stubTasks{}
 
 	pluginSrc := `package taskplug
 
@@ -493,7 +465,7 @@ func (p *P) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, erro
 		t.Fatalf("load: %v", err)
 	}
 
-	resp, err := p.Exec(sdk.Context{Author: "alice"}, "addtask", nil)
+	resp, err := p.Exec(sdk.Context{Author: "alice", Tasks: ta}, "addtask", nil)
 	if err != nil {
 		t.Fatalf("addtask: %v", err)
 	}
@@ -515,9 +487,11 @@ func (p *P) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, erro
 }
 
 // TestYaegiTagsLinksAccess loads a plugin that calls sdk.Tags and sdk.Links
-// to verify all four domain globals work from interpreted code.
+// to verify all four domain stores work from interpreted code.
 func TestYaegiTagsLinksAccess(t *testing.T) {
-	d, _, tg, l := wireStubs(t)
+	d := &stubDocs{docs: map[string][]byte{}}
+	tg := &stubTags{tags: map[string][]string{}}
+	l := &stubLinks{}
 	d.docs["a"] = []byte("x")
 	d.docs["b"] = []byte("y")
 
@@ -564,7 +538,7 @@ func (p *P) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, erro
 		t.Fatalf("load: %v", err)
 	}
 
-	resp, err := p.Exec(sdk.Context{Author: "alice"}, "wire", nil)
+	resp, err := p.Exec(sdk.Context{Author: "alice", Tags: tg, Links: l}, "wire", nil)
 	if err != nil {
 		t.Fatalf("wire: %v", err)
 	}

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"sync"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
@@ -141,9 +142,15 @@ type adapter struct {
 	name string
 	cmds []sdk.Command
 
+	// mu serialises concurrent Exec calls on the same adapter. Each
+	// adapter owns its store fields; concurrent callers would race on
+	// them without this lock. Different adapters (different plugins) are
+	// fully independent and run concurrently.
+	mu sync.Mutex
+
 	// Per-request store holders — populated by Exec before each plugin
-	// call. The symbol table will be wired to these fields so that
-	// Yaegi reads the request-scoped bridges rather than package globals.
+	// call. The symbol table points at these fields so Yaegi reads the
+	// request-scoped bridges rather than package-level globals.
 	documents  sdk.DocumentStore
 	tasks      sdk.TaskStore
 	links      sdk.LinkStore
@@ -156,6 +163,11 @@ func (a *adapter) Name() string            { return a.name }
 func (a *adapter) Commands() []sdk.Command { return a.cmds }
 
 func (a *adapter) Exec(ctx sdk.Context, cmd string, args []string) (resp sdk.Response, err error) {
+	// Serialise concurrent calls on this adapter — the store fields are
+	// shared state on the adapter and must not be overwritten mid-flight.
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	// Populate per-adapter store holders from the incoming request context
 	// so the symbol table has the right bridges for this call.
 	a.documents = ctx.Documents
@@ -237,10 +249,16 @@ func load(dir string) (sdk.Plugin, error) {
 	}
 
 	i := interp.New(interp.Options{})
+
+	// Create the adapter before registering symbols so that a.symbols()
+	// can point at its store fields. Exec will populate those fields from
+	// the incoming sdk.Context before each plugin call.
+	a := &adapter{i: i}
+
 	if err := i.Use(stdlib.Symbols); err != nil {
 		return nil, fmt.Errorf("loading stdlib: %w", err)
 	}
-	if err := i.Use(symbols()); err != nil {
+	if err := i.Use(a.symbols()); err != nil {
 		return nil, fmt.Errorf("loading symbols: %w", err)
 	}
 
@@ -276,15 +294,16 @@ func load(dir string) (sdk.Plugin, error) {
 	if !ok {
 		return nil, ErrNotPlugin
 	}
+	a.name = name
 
 	// Cache Commands
 	v, err = i.Eval(`_p.Commands()`)
 	if err != nil {
 		return nil, fmt.Errorf("Commands(): %w", err)
 	}
-	cmds, _ := v.Interface().([]sdk.Command)
+	a.cmds, _ = v.Interface().([]sdk.Command)
 
-	return &adapter{i: i, name: name, cmds: cmds}, nil
+	return a, nil
 }
 
 // readSource concatenates all .go files in dir into a single source string.
