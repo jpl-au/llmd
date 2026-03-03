@@ -138,7 +138,13 @@ type adapter struct {
 func (a *adapter) Name() string            { return a.name }
 func (a *adapter) Commands() []sdk.Command { return a.cmds }
 
-func (a *adapter) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
+func (a *adapter) Exec(ctx sdk.Context, cmd string, args []string) (resp sdk.Response, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("plugin %s panicked: %v", a.name, r)
+		}
+	}()
+
 	// Build []string literal for args
 	var ab strings.Builder
 	ab.WriteString("[]string{")
