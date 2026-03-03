@@ -104,8 +104,8 @@ store fields (`Documents`, `Tasks`, `Links`, `Tags`, `Activities`,
 etc. rather than package globals.
 
 Package globals (`sdk.Documents`, `sdk.Tasks`, etc.) remain wired with
-`context.Background()` in `setup()` for backward compatibility with tests
-and Yaegi plugins.
+`context.Background()` in `setup()`. They are still used by `sdk.Git` and
+`sdk.Config` which have no per-request instances.
 
 `sdk.GitStore` and `sdk.ConfigStore` have no host bridges — `internal/git.Git`
 and `internal/config.Store` implement their interfaces directly. Both are
@@ -141,8 +141,9 @@ ctx.Tags.Add("path", "name", ctx.Author)
 ctx.Links.Add("a", "b", "label", ctx.Author)
 ```
 
-Yaegi plugins still use package globals (`sdk.Documents`, `sdk.Tasks`, etc.)
-because the interpreter resolves symbols through the Yaegi symbol table.
+Yaegi plugins also use `sdk.Documents`, `sdk.Tasks`, etc. — but these
+resolve through the Yaegi symbol table to per-adapter store fields, not
+package globals. See the Plugin System section below.
 
 ## Plugin System
 
@@ -162,8 +163,16 @@ the same permissions as the `llmd` process. Only run trusted plugins.
 
 ### Yaegi Symbol Table (`internal/plugin/symbols.go`)
 
-The symbol table exports SDK globals, types, constants, and errors so that
-interpreted plugin code can `import "github.com/jpl-au/llmd/sdk"`.
+The symbol table exports SDK types, constants, errors, and domain stores so
+that interpreted plugin code can `import "github.com/jpl-au/llmd/sdk"`.
+
+Domain stores (`sdk.Documents`, `sdk.Tasks`, etc.) in the symbol table point
+at per-adapter fields, not package-level globals. `load()` creates the adapter
+before registering the symbol table so the reflect values are bound to adapter
+fields from the start. `Exec` acquires the adapter mutex and populates those
+fields from `ctx` before each call — giving each request its own request-scoped
+stores. Plugin source is unchanged: `sdk.Documents.Read(...)` works
+transparently regardless of how the underlying store is wired.
 
 Interface wrappers (`_sdk_DocumentStore`, `_sdk_TaskStore`, etc.) exist because
 Yaegi uses reflection to bridge interpreted types to Go interfaces. Each wrapper
@@ -218,11 +227,12 @@ Host tests use `TestMemory`; CLI git tests use `TestDisk`. Plugin tests
 cannot import host (import cycle) — they use stubs instead (see below).
 
 **Plugin tests** (`internal/plugin/loader_test.go`) — use stub implementations
-of all four SDK interfaces to avoid import cycles (`internal/host` imports
-`internal/plugin`, so plugin tests cannot import host). The `wireStubs(t)`
-helper sets SDK globals to stubs and restores them on cleanup. Yaegi
-integration tests load real `.go` source through the interpreter and verify
-that interpreted plugin code can call methods on domain globals.
+of all SDK store interfaces to avoid import cycles (`internal/host` imports
+`internal/plugin`, so plugin tests cannot import host). Stubs are passed
+directly via `sdk.Context` fields (`ctx.Documents`, `ctx.Tasks`, etc.) —
+the same way the real host wires stores. Yaegi integration tests load real
+`.go` source through the interpreter and verify that interpreted plugin code
+can call methods on the domain stores.
 
 ## CLI Views
 
