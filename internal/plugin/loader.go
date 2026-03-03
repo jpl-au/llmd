@@ -130,16 +130,41 @@ func globalDir() string {
 // Yaegi-interpreted types can't directly satisfy host interfaces, so
 // we bridge the gap: call methods by name via Eval, type-assert the
 // concrete return values (strings, sdk.Command, sdk.Result, etc.).
+//
+// The store fields (documents, tasks, etc.) are per-request holders.
+// Exec populates them from the incoming sdk.Context before calling the
+// plugin so that the symbol table can point at adapter-owned fields
+// rather than package-level globals, giving each adapter isolated,
+// request-scoped store access.
 type adapter struct {
 	i    *interp.Interpreter
 	name string
 	cmds []sdk.Command
+
+	// Per-request store holders — populated by Exec before each plugin
+	// call. The symbol table will be wired to these fields so that
+	// Yaegi reads the request-scoped bridges rather than package globals.
+	documents  sdk.DocumentStore
+	tasks      sdk.TaskStore
+	links      sdk.LinkStore
+	tags       sdk.TagStore
+	activities sdk.ActivityStore
+	mirror     sdk.MirrorStore
 }
 
 func (a *adapter) Name() string            { return a.name }
 func (a *adapter) Commands() []sdk.Command { return a.cmds }
 
 func (a *adapter) Exec(ctx sdk.Context, cmd string, args []string) (resp sdk.Response, err error) {
+	// Populate per-adapter store holders from the incoming request context
+	// so the symbol table has the right bridges for this call.
+	a.documents = ctx.Documents
+	a.tasks = ctx.Tasks
+	a.links = ctx.Links
+	a.tags = ctx.Tags
+	a.activities = ctx.Activities
+	a.mirror = ctx.Mirror
+
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("plugin %s panicked: %v\n%s", a.name, r, debug.Stack())
