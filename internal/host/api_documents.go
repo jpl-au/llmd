@@ -39,15 +39,15 @@ func docErr(err error) error {
 // and maps internal results back to SDK types. Mutating operations stamp
 // a [core.Origin] with Source:"cli" so version history records the source.
 type documentAPI struct {
+	ctx   context.Context
 	store *llmd.Store
 	lim   validate.Limits
 }
 
 // newDocumentAPI creates a document API bridge wrapping the given store.
-// The returned value satisfies [sdk.DocumentStore] and is assigned to
-// the sdk.Documents global by [New].
-func newDocumentAPI(store *llmd.Store, lim validate.Limits) *documentAPI {
-	return &documentAPI{store: store, lim: lim}
+// The context controls cancellation and timeout for all store operations.
+func newDocumentAPI(store *llmd.Store, lim validate.Limits, ctx context.Context) *documentAPI {
+	return &documentAPI{ctx: ctx, store: store, lim: lim}
 }
 
 // Read returns document content. Version 0 means latest (nil pointer
@@ -64,7 +64,7 @@ func (a *documentAPI) Read(path string, version int) ([]byte, error) {
 	if version > 0 {
 		opts.Version = &version
 	}
-	doc, err := a.store.Documents.Read(context.Background(), path, opts)
+	doc, err := a.store.Documents.Read(a.ctx, path, opts)
 	if err != nil {
 		return nil, docErr(err)
 	}
@@ -91,7 +91,7 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 
 	o := origin(author)
 	o.Message = msg
-	_, err = a.store.Documents.Write(context.Background(), path, s, documents.WriteOptions{
+	_, err = a.store.Documents.Write(a.ctx, path, s, documents.WriteOptions{
 		Origin: o,
 	})
 	return docErr(err)
@@ -107,7 +107,7 @@ func (a *documentAPI) Delete(path, author string) error {
 	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
-	return docErr(a.store.Documents.Delete(context.Background(), path, documents.DeleteOptions{
+	return docErr(a.store.Documents.Delete(a.ctx, path, documents.DeleteOptions{
 		Origin: origin(author),
 	}))
 }
@@ -122,7 +122,7 @@ func (a *documentAPI) Restore(path, author string) error {
 	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
-	return docErr(a.store.Documents.Restore(context.Background(), path, documents.RestoreOptions{
+	return docErr(a.store.Documents.Restore(a.ctx, path, documents.RestoreOptions{
 		Origin: origin(author),
 	}))
 }
@@ -146,7 +146,7 @@ func (a *documentAPI) Move(from, to, author string) error {
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	return docErr(a.store.Documents.Move(context.Background(), from, to, documents.MoveOptions{
+	return docErr(a.store.Documents.Move(a.ctx, from, to, documents.MoveOptions{
 		Origin: origin(author),
 	}))
 }
@@ -161,7 +161,7 @@ func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) 
 	if strings.Contains(prefix, "..") {
 		return nil, docpath.ErrInvalid
 	}
-	infos, err := a.store.Documents.List(context.Background(), documents.ListOptions{
+	infos, err := a.store.Documents.List(a.ctx, documents.ListOptions{
 		Prefix:         prefix,
 		IncludeDeleted: opts.Deleted,
 		Sort:           opts.Sort,
@@ -200,7 +200,7 @@ func (a *documentAPI) Exists(path string) (bool, error) {
 	if err := validate.Path(path, a.lim); err != nil {
 		return false, err
 	}
-	return a.store.Documents.Exists(context.Background(), path)
+	return a.store.Documents.Exists(a.ctx, path)
 }
 
 // Edit performs a search-and-replace within a document, creating a new
@@ -219,7 +219,7 @@ func (a *documentAPI) Edit(path, old, new, author, msg string) error {
 	}
 	o := origin(author)
 	o.Message = msg
-	_, err = a.store.Documents.Edit(context.Background(), path, old, new, documents.EditOptions{
+	_, err = a.store.Documents.Edit(a.ctx, path, old, new, documents.EditOptions{
 		Origin: o,
 	})
 	return docErr(err)
@@ -228,7 +228,7 @@ func (a *documentAPI) Edit(path, old, new, author, msg string) error {
 // Glob returns document paths matching a shell-style glob pattern.
 // Delegates to the search package's glob implementation.
 func (a *documentAPI) Glob(pattern string) ([]string, error) {
-	return a.store.Search.Glob(context.Background(), pattern)
+	return a.store.Search.Glob(a.ctx, pattern)
 }
 
 // Grep performs FTS5 full-text search. Maps sdk.GrepOpts to internal
@@ -255,7 +255,7 @@ func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, erro
 		Context: opts.Context,
 	}
 
-	results, err := a.store.Search.FullText(context.Background(), query, searchOpts)
+	results, err := a.store.Search.FullText(a.ctx, query, searchOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
 		opts.Limit = limit
 	}
 
-	infos, err := a.store.History.List(context.Background(), path, opts)
+	infos, err := a.store.History.List(a.ctx, path, opts)
 	if err != nil {
 		return nil, docErr(err)
 	}
@@ -321,7 +321,7 @@ func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 		opts.Context = ctx
 	}
 
-	result, err := a.store.History.Diff(context.Background(), src, dst, opts)
+	result, err := a.store.History.Diff(a.ctx, src, dst, opts)
 	if err != nil {
 		return "", 0, 0, err
 	}
@@ -341,7 +341,7 @@ func (a *documentAPI) Revert(path string, version int, author, msg string) error
 	}
 	o := origin(author)
 	o.Message = msg
-	_, err = a.store.History.Revert(context.Background(), path, version, history.RevertOptions{
+	_, err = a.store.History.Revert(a.ctx, path, version, history.RevertOptions{
 		Origin: o,
 	})
 	return docErr(err)
@@ -350,7 +350,7 @@ func (a *documentAPI) Revert(path string, version int, author, msg string) error
 // Vacuum permanently removes all soft-deleted data and reclaims disk
 // space. Returns counts of deleted documents, tags, and links.
 func (a *documentAPI) Vacuum() (sdk.VacuumResult, error) {
-	r, err := a.store.Vacuum(context.Background())
+	r, err := a.store.Vacuum(a.ctx)
 	if err != nil {
 		return sdk.VacuumResult{}, err
 	}
@@ -365,7 +365,7 @@ func (a *documentAPI) Vacuum() (sdk.VacuumResult, error) {
 // Files are attributed to the "import" author. Results report which
 // documents were created, updated, or skipped.
 func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error) {
-	r, err := a.store.Bulk.Import(context.Background(), dir, bulk.ImportOptions{
+	r, err := a.store.Bulk.Import(a.ctx, dir, bulk.ImportOptions{
 		Origin: origin("import"),
 		Prefix: opts.Prefix,
 		DryRun: opts.DryRun,
@@ -389,7 +389,7 @@ func (a *documentAPI) Preview(path string, n int) (string, error) {
 	}
 	body, err := a.Read(path, 0)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	lines := strings.Split(string(body), "\n")
 	var preview []string
@@ -411,7 +411,7 @@ func (a *documentAPI) Preview(path string, n int) (string, error) {
 // Export writes store documents to a filesystem directory as .md files.
 // Preserves the document path hierarchy under the destination directory.
 func (a *documentAPI) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.ExportResult, error) {
-	r, err := a.store.Bulk.Export(context.Background(), prefix, dir, bulk.ExportOptions{
+	r, err := a.store.Bulk.Export(a.ctx, prefix, dir, bulk.ExportOptions{
 		Overwrite: opts.Overwrite,
 	})
 	if err != nil {

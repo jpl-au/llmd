@@ -77,13 +77,13 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	title := strings.Join(positional, " ")
-	t, err := sdk.Tasks.Add(title, body, opts)
+	t, err := ctx.Tasks.Add(title, body, opts)
 	if err != nil {
 		return nil, fmt.Errorf("task add: %w", err)
 	}
 
 	text := fmt.Sprintf("Created task %s \"%s\" in %s", t.Key, t.Title, t.Status)
-	if ok, _ := sdk.Documents.Exists(t.Path); ok {
+	if ok, _ := ctx.Documents.Exists(t.Path); ok {
 		text += fmt.Sprintf("\nSpec: %s", t.Path)
 	}
 	return sdk.Result{Text: text, Data: t}, nil

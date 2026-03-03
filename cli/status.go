@@ -31,7 +31,7 @@ var (
 // status renders a single-screen dashboard showing recent documents,
 // task board summary, and activity feed. Falls back to plain text when
 // output is not a terminal.
-func status(_ sdk.Context, args []string) (sdk.Response, error) {
+func status(ctx sdk.Context, args []string) (sdk.Response, error) {
 	limit := 5
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-n" && i+1 < len(args) {
@@ -40,7 +40,7 @@ func status(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	docs, err := sdk.Documents.List("", sdk.ListOpts{Sort: "time"})
+	docs, err := ctx.Documents.List("", sdk.ListOpts{Sort: "time"})
 	if err != nil {
 		slog.Warn("listing documents", "error", err)
 	}
@@ -48,11 +48,11 @@ func status(_ sdk.Context, args []string) (sdk.Response, error) {
 		docs = docs[:limit]
 	}
 
-	cols, err := sdk.Tasks.Columns()
+	cols, err := ctx.Tasks.Columns()
 	if err != nil {
 		slog.Warn("listing columns", "error", err)
 	}
-	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{})
+	tasks, err := ctx.Tasks.List(sdk.TaskListOpts{})
 	if err != nil {
 		slog.Warn("listing tasks", "error", err)
 	}
@@ -63,8 +63,8 @@ func status(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	var activity []sdk.Activity
-	if sdk.Activities != nil {
-		activity, err = sdk.Activities.Recent(limit)
+	if ctx.Activities != nil {
+		activity, err = ctx.Activities.Recent(limit)
 		if err != nil {
 			slog.Warn("listing activity", "error", err)
 		}

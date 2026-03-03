@@ -1,6 +1,7 @@
 package host
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
@@ -36,7 +37,7 @@ func BenchmarkExecLS(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = h.Exec("ls", nil, "", nil, "")
+		_, _ = h.Exec(context.Background(), "ls", nil, "", nil, "")
 	}
 }
 
@@ -50,11 +51,11 @@ func BenchmarkExecCat(b *testing.B) {
 	h := setup(store)
 
 	// Create a test document
-	_, _ = h.Exec("write", []string{"test.md"}, "bench", []byte("# Test"), "")
+	_, _ = h.Exec(context.Background(), "write", []string{"test.md"}, "bench", []byte("# Test"), "")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = h.Exec("cat", []string{"test.md"}, "", nil, "")
+		_, _ = h.Exec(context.Background(), "cat", []string{"test.md"}, "", nil, "")
 	}
 }
 
@@ -70,6 +71,6 @@ func BenchmarkExecWrite(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = h.Exec("write", []string{"bench.md"}, "bench", content, "")
+		_, _ = h.Exec(context.Background(), "write", []string{"bench.md"}, "bench", content, "")
 	}
 }

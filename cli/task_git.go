@@ -16,7 +16,7 @@ import (
 )
 
 // taskStart moves a task to in-progress and records the current git
-// branch if available. Delegates to sdk.Tasks.Start.
+// branch if available. Delegates to ctx.Tasks.Start.
 func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var opts sdk.StartOpts
 	var key string
@@ -40,7 +40,7 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task start: %w: id", sdk.ErrMissingArg)
 	}
 
-	t, err := sdk.Tasks.Start(key, ctx.Author, opts)
+	t, err := ctx.Tasks.Start(key, ctx.Author, opts)
 	if err != nil {
 		return nil, fmt.Errorf("task start: %w", err)
 	}
@@ -53,7 +53,7 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 // taskDiff shows the git diff for a task's branch against the default branch.
 // If no task ID is given, auto-detects from the current branch.
-func taskDiff(_ sdk.Context, args []string) (sdk.Response, error) {
+func taskDiff(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var key, base string
 	stat := false
 
@@ -74,7 +74,7 @@ func taskDiff(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	t, err := resolveTask("task diff", key)
+	t, err := resolveTask(ctx, "task diff", key)
 	if err != nil {
 		return nil, err
 	}
@@ -83,13 +83,13 @@ func taskDiff(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if base == "" {
-		base, err = sdk.Git.DefaultBranch()
+		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
 			return nil, fmt.Errorf("task diff: %w — use --base to specify", err)
 		}
 	}
 
-	output, err := sdk.Git.Diff(base, t.Branch, sdk.DiffOpts{Stat: stat})
+	output, err := ctx.Git.Diff(base, t.Branch, sdk.DiffOpts{Stat: stat})
 	if err != nil {
 		return nil, fmt.Errorf("task diff: %w", err)
 	}
@@ -107,7 +107,7 @@ func taskDiff(_ sdk.Context, args []string) (sdk.Response, error) {
 
 // taskFiles lists files changed on a task's branch.
 // If no task ID is given, auto-detects from the current branch.
-func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
+func taskFiles(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var key, base string
 
 	for i := 0; i < len(args); i++ {
@@ -125,7 +125,7 @@ func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	t, err := resolveTask("task files", key)
+	t, err := resolveTask(ctx, "task files", key)
 	if err != nil {
 		return nil, err
 	}
@@ -134,13 +134,13 @@ func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if base == "" {
-		base, err = sdk.Git.DefaultBranch()
+		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
 			return nil, fmt.Errorf("task files: %w — use --base to specify", err)
 		}
 	}
 
-	files, err := sdk.Git.Files(base, t.Branch)
+	files, err := ctx.Git.Files(base, t.Branch)
 	if err != nil {
 		return nil, fmt.Errorf("task files: %w", err)
 	}
@@ -153,7 +153,7 @@ func taskFiles(_ sdk.Context, args []string) (sdk.Response, error) {
 }
 
 // taskFinish moves a task to done and shows a summary. Delegates to
-// sdk.Tasks.Finish which handles git summary collection.
+// ctx.Tasks.Finish which handles git summary collection.
 func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var opts sdk.FinishOpts
 	var key string
@@ -179,12 +179,12 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	t, err := resolveTask("task finish", key)
+	t, err := resolveTask(ctx, "task finish", key)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := sdk.Tasks.Finish(t.Key, ctx.Author, opts)
+	result, err := ctx.Tasks.Finish(t.Key, ctx.Author, opts)
 	if err != nil {
 		return nil, fmt.Errorf("task finish: %w", err)
 	}
@@ -203,7 +203,7 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 // taskBranch creates a git branch from a task's title, checks it out,
 // records the branch on the task, and moves it to in-progress.
-// Delegates to sdk.Tasks.StartBranch.
+// Delegates to ctx.Tasks.StartBranch.
 func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var opts sdk.StartBranchOpts
 	var key string
@@ -233,7 +233,7 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task branch: %w: id", sdk.ErrMissingArg)
 	}
 
-	t, err := sdk.Tasks.StartBranch(key, ctx.Author, opts)
+	t, err := ctx.Tasks.StartBranch(key, ctx.Author, opts)
 	if err != nil {
 		return nil, fmt.Errorf("task branch: %w", err)
 	}
@@ -242,8 +242,8 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 }
 
 // taskCommits lists commits on a task's branch that aren't on the base branch.
-func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
-	if err := sdk.Git.Available(); err != nil {
+func taskCommits(ctx sdk.Context, args []string) (sdk.Response, error) {
+	if err := ctx.Git.Available(); err != nil {
 		return nil, fmt.Errorf("task commits: %w", err)
 	}
 
@@ -264,7 +264,7 @@ func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	t, err := resolveTask("task commits", key)
+	t, err := resolveTask(ctx, "task commits", key)
 	if err != nil {
 		return nil, err
 	}
@@ -273,13 +273,13 @@ func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if base == "" {
-		base, err = sdk.Git.DefaultBranch()
+		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
 			return nil, fmt.Errorf("task commits: %w — use --base to specify", err)
 		}
 	}
 
-	commits, err := sdk.Git.Commits(base, t.Branch)
+	commits, err := ctx.Git.Commits(base, t.Branch)
 	if err != nil {
 		return nil, fmt.Errorf("task commits: %w", err)
 	}
@@ -293,19 +293,19 @@ func taskCommits(_ sdk.Context, args []string) (sdk.Response, error) {
 
 // resolveTask looks up a task by key, or auto-detects from the current
 // branch when key is empty. The cmd parameter is used for error messages.
-func resolveTask(cmd, key string) (*sdk.Task, error) {
+func resolveTask(ctx sdk.Context, cmd, key string) (*sdk.Task, error) {
 	if key != "" {
-		t, err := sdk.Tasks.Read(key)
+		t, err := ctx.Tasks.Read(key)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", cmd, err)
 		}
 		return t, nil
 	}
-	branch, err := sdk.Git.Branch()
+	branch, err := ctx.Git.Branch()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", cmd, err)
 	}
-	t, err := sdk.Tasks.ByBranch(branch)
+	t, err := ctx.Tasks.ByBranch(branch)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", cmd, err)
 	}

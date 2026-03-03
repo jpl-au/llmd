@@ -34,15 +34,15 @@ func tagErr(err error) error {
 // from the author string and converting internal tag entities to SDK
 // Tag/TagInfo structs.
 type tagAPI struct {
+	ctx   context.Context
 	store *llmd.Store
 	lim   validate.Limits
 }
 
 // newTagAPI creates a tag API bridge wrapping the given store.
-// The returned value satisfies [sdk.TagStore] and is assigned to the
-// sdk.Tags global by [New].
-func newTagAPI(store *llmd.Store, lim validate.Limits) *tagAPI {
-	return &tagAPI{store: store, lim: lim}
+// The context controls cancellation and timeout for all store operations.
+func newTagAPI(store *llmd.Store, lim validate.Limits, ctx context.Context) *tagAPI {
+	return &tagAPI{ctx: ctx, store: store, lim: lim}
 }
 
 // Add attaches a tag to a document. Creates the tag entity if it does
@@ -54,7 +54,7 @@ func (a *tagAPI) Add(path, name, author string) error {
 	); err != nil {
 		return err
 	}
-	_, err := a.store.Tags.Add(context.Background(), path, name, tags.Options{
+	_, err := a.store.Tags.Add(a.ctx, path, name, tags.Options{
 		Origin: origin(author),
 	})
 	return tagErr(err)
@@ -65,7 +65,7 @@ func (a *tagAPI) Remove(path, name, author string) error {
 	if err := validate.Text(name, "tag name"); err != nil {
 		return err
 	}
-	return tagErr(a.store.Tags.Remove(context.Background(), path, name, tags.Options{
+	return tagErr(a.store.Tags.Remove(a.ctx, path, name, tags.Options{
 		Origin: origin(author),
 	}))
 }
@@ -73,7 +73,7 @@ func (a *tagAPI) Remove(path, name, author string) error {
 // List returns all tags attached to a document. Converts internal tag
 // entities to SDK Tag structs.
 func (a *tagAPI) List(path string) ([]sdk.Tag, error) {
-	tt, err := a.store.Tags.List(context.Background(), path)
+	tt, err := a.store.Tags.List(a.ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (a *tagAPI) List(path string) ([]sdk.Tag, error) {
 // All returns every tag in the store with usage counts. Each TagInfo
 // contains the tag name and the number of documents it appears on.
 func (a *tagAPI) All() ([]sdk.TagInfo, error) {
-	infos, err := a.store.Tags.ListAll(context.Background())
+	infos, err := a.store.Tags.ListAll(a.ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -103,5 +103,5 @@ func (a *tagAPI) Find(name string) ([]string, error) {
 	if err := validate.Text(name, "tag name"); err != nil {
 		return nil, err
 	}
-	return a.store.Tags.Find(context.Background(), name)
+	return a.store.Tags.Find(a.ctx, name)
 }

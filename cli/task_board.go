@@ -38,8 +38,8 @@ var (
 )
 
 // formatBoard renders the board view grouped by column.
-func formatBoard(cols []string, tasks []*sdk.Task) string {
-	specs, _ := sdk.Tasks.CheckSpecs(tasks)
+func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task) string {
+	specs, _ := ctx.Tasks.CheckSpecs(tasks)
 
 	byStatus := make(map[string][]*sdk.Task)
 	for _, t := range tasks {
@@ -70,11 +70,11 @@ func formatBoard(cols []string, tasks []*sdk.Task) string {
 }
 
 // formatTaskTable renders a flat table of tasks.
-func formatTaskTable(tasks []*sdk.Task) string {
+func formatTaskTable(ctx sdk.Context, tasks []*sdk.Task) string {
 	if len(tasks) == 0 {
 		return emptyCol.Render("no tasks")
 	}
-	specs, _ := sdk.Tasks.CheckSpecs(tasks)
+	specs, _ := ctx.Tasks.CheckSpecs(tasks)
 	return taskTable(tasks, specs)
 }
 

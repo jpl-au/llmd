@@ -40,14 +40,14 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 		prefix = args[0]
 	}
 
-	dir := sdk.Mirror.Directory()
-	r, err := sdk.Mirror.Pull(prefix, dir)
+	dir := ctx.Mirror.Directory()
+	r, err := ctx.Mirror.Pull(prefix, dir)
 	if err != nil {
 		return nil, fmt.Errorf("mirror pull: %w", err)
 	}
 
 	// Ensure the mirror directory is in .llmd/.gitignore.
-	if err := sdk.Config.AddIgnore(filepath.Base(dir) + "/"); err != nil {
+	if err := ctx.Config.AddIgnore(filepath.Base(dir) + "/"); err != nil {
 		return nil, fmt.Errorf("updating gitignore: %w", err)
 	}
 
@@ -78,8 +78,8 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 		prefix = args[0]
 	}
 
-	dir := sdk.Mirror.Directory()
-	r, err := sdk.Mirror.Push(dir, sdk.PushOpts{
+	dir := ctx.Mirror.Directory()
+	r, err := ctx.Mirror.Push(dir, sdk.PushOpts{
 		Prefix: prefix,
 	})
 	if err != nil {

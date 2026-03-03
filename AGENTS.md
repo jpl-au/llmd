@@ -69,8 +69,10 @@ main.go
   │   ├─ load compiled extensions via extension.All()
   │   ├─ wire extension EventHandlers to internal bus
   │   └─ load Yaegi plugins from .llmd/plugins/ and ~/.llmd/plugins/
-  ↓ host.Exec(cmd, args, author, stdin, dbPath)
-  ↓ plugin.Exec(ctx, cmd, args) → sdk.Response
+  ↓ signal.NotifyContext — Ctrl+C cancellation
+  ↓ host.Exec(ctx, cmd, args, author, stdin, dbPath)
+  │   └─ creates per-request bridge instances bound to ctx
+  ↓ plugin.Exec(sctx, cmd, args) → sdk.Response
   ↓ type-switch on Response: Text → print, Data → JSON, Result → text or JSON
 ```
 
@@ -88,15 +90,28 @@ Focused interfaces per domain, each following the SDK-first pattern:
 | `sdk.GitStore` | `sdk/git.go` | `internal/git/git.go` (`Git`) | `internal/host/host.go` |
 | `sdk.ConfigStore` | `sdk/config.go` | `internal/config/store.go` (`Store`) | `internal/host/host.go` |
 
-Each bridge type in `internal/host/` translates SDK flat arguments into
-internal option structs and maps internal results back to SDK types. All
-mutating operations stamp a `core.Origin{Source: "cli"}` for audit tracking.
+Each bridge type in `internal/host/` holds a `context.Context` field and
+translates SDK flat arguments into internal option structs, passing the
+bound context to every internal store call. All mutating operations stamp
+a `core.Origin{Source: "cli"}` for audit tracking.
+
+**Context-Bound Bridges:** `host.Exec` creates fresh bridge instances per
+command, each bound to the request's `context.Context`. This provides
+cancellation and timeout support without changing any SDK interface
+signatures. `sdk.Context` embeds `context.Context` and carries domain
+store fields (`Documents`, `Tasks`, `Links`, `Tags`, `Activities`,
+`Mirror`, `Git`, `Config`). CLI commands access stores via `ctx.Documents`
+etc. rather than package globals.
+
+Package globals (`sdk.Documents`, `sdk.Tasks`, etc.) remain wired with
+`context.Background()` in `setup()` for backward compatibility with tests
+and Yaegi plugins.
 
 `sdk.GitStore` and `sdk.ConfigStore` have no host bridges — `internal/git.Git`
 and `internal/config.Store` implement their interfaces directly. Both are
 system utilities independent of the store, so bridges would add indirection
-without value. They are wired in `setup()` outside the `if store != nil`
-block.
+without value. They are shared via `sdk.Git`/`sdk.Config` globals rather
+than per-request instances.
 
 Bridge types also translate internal errors to SDK sentinels via per-domain
 helpers (`docErr`, `taskErr`, `linkErr`, `tagErr`). This prevents internal
@@ -117,14 +132,17 @@ error types from leaking through the SDK boundary:
 | `tags.ErrInvalid` | `sdk.ErrInvalidArg` |
 | `tags.ErrExists` | `sdk.ErrExists` |
 
-Plugins call these through globals:
+CLI commands use context-local stores:
 
 ```go
-sdk.Documents.Read("path", 0)
-sdk.Tasks.Add("title", body, sdk.TaskAddOpts{Author: ctx.Author})
-sdk.Tags.Add("path", "name", ctx.Author)
-sdk.Links.Add("a", "b", "label", ctx.Author)
+ctx.Documents.Read("path", 0)
+ctx.Tasks.Add("title", body, sdk.TaskAddOpts{Author: ctx.Author})
+ctx.Tags.Add("path", "name", ctx.Author)
+ctx.Links.Add("a", "b", "label", ctx.Author)
 ```
+
+Yaegi plugins still use package globals (`sdk.Documents`, `sdk.Tasks`, etc.)
+because the interpreter resolves symbols through the Yaegi symbol table.
 
 ## Plugin System
 

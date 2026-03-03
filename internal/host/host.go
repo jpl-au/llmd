@@ -4,6 +4,7 @@
 package host
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -24,6 +25,7 @@ import (
 // the store without direct dependencies.
 type Host struct {
 	store    *llmd.Store
+	lim      validate.Limits
 	commands map[string]*cmdEntry
 	plugins  []sdk.Plugin
 }
@@ -76,27 +78,31 @@ func (h *Host) Close() error {
 // errors are logged but don't prevent startup — a broken user plugin
 // should not take down the entire CLI.
 func setup(store *llmd.Store) *Host {
-	h := &Host{
-		store:    store,
-		commands: make(map[string]*cmdEntry),
-	}
-
 	// Load validation limits from config.
 	cfg := config.Load()
 	lim := validate.LoadLimits(cfg)
+
+	h := &Host{
+		store:    store,
+		lim:      lim,
+		commands: make(map[string]*cmdEntry),
+	}
 
 	// Store-independent globals — always available.
 	sdk.Git = igit.New()
 	sdk.Config = config.Store{}
 
-	// Set domain globals so plugins can call sdk.Documents.Read(), etc.
+	// Set domain globals with a background context. These are used
+	// by tests and Yaegi plugins. CLI commands use per-request
+	// bridges from sdk.Context instead.
+	bg := context.Background()
 	if store != nil {
-		sdk.Documents = newDocumentAPI(store, lim)
-		sdk.Tasks = newTaskAPI(store, lim)
-		sdk.Links = newLinkAPI(store, lim)
-		sdk.Tags = newTagAPI(store, lim)
-		sdk.Activities = newActivityAPI(store)
-		sdk.Mirror = newMirrorAPI(store)
+		sdk.Documents = newDocumentAPI(store, lim, bg)
+		sdk.Tasks = newTaskAPI(store, lim, bg)
+		sdk.Links = newLinkAPI(store, lim, bg)
+		sdk.Tags = newTagAPI(store, lim, bg)
+		sdk.Activities = newActivityAPI(store, bg)
+		sdk.Mirror = newMirrorAPI(store, bg)
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
@@ -146,7 +152,9 @@ func setup(store *llmd.Store) *Host {
 
 		return path, nil
 	}
-	sdk.Dispatch = h.Exec
+	sdk.Dispatch = func(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
+		return h.Exec(ctx, cmd, args, author, stdin, dbPath)
+	}
 	sdk.AllCommands = h.Commands
 	sdk.PluginNames = h.pluginNames
 
@@ -175,11 +183,11 @@ func (h *Host) pluginNames() []string {
 	return names
 }
 
-// Exec dispatches a command to its owning plugin. It builds an
-// sdk.Context from the author and stdin, then delegates to the
-// plugin's Exec method. Returns sdk.ErrUnknownCmd if cmd is not
-// registered.
-func (h *Host) Exec(cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
+// Exec dispatches a command to its owning plugin. It creates fresh
+// per-request bridge instances bound to the given context, populates
+// an sdk.Context with them, and delegates to the plugin's Exec method.
+// Returns sdk.ErrUnknownCmd if cmd is not registered.
+func (h *Host) Exec(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
 	entry, ok := h.commands[cmd]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
@@ -189,8 +197,27 @@ func (h *Host) Exec(cmd string, args []string, author string, stdin []byte, dbPa
 		return nil, fmt.Errorf("%w: author not configured", sdk.ErrMissingArg)
 	}
 
-	ctx := sdk.Context{Author: author, Stdin: stdin, DBPath: dbPath}
-	return entry.plugin.Exec(ctx, cmd, args)
+	sctx := sdk.Context{
+		Context: ctx,
+		Author:  author,
+		Stdin:   stdin,
+		DBPath:  dbPath,
+		Git:     sdk.Git,
+		Config:  sdk.Config,
+	}
+
+	// Create per-request bridges bound to the caller's context so
+	// cancellation and timeouts propagate to store operations.
+	if h.store != nil {
+		sctx.Documents = newDocumentAPI(h.store, h.lim, ctx)
+		sctx.Tasks = newTaskAPI(h.store, h.lim, ctx)
+		sctx.Links = newLinkAPI(h.store, h.lim, ctx)
+		sctx.Tags = newTagAPI(h.store, h.lim, ctx)
+		sctx.Activities = newActivityAPI(h.store, ctx)
+		sctx.Mirror = newMirrorAPI(h.store, ctx)
+	}
+
+	return entry.plugin.Exec(sctx, cmd, args)
 }
 
 // Commands returns a copy of all registered commands, keyed by name.

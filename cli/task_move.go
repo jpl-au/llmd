@@ -19,9 +19,9 @@ func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task move: %w: id and column", sdk.ErrMissingArg)
 	}
 
-	if err := sdk.Tasks.Move(args[0], args[1], ctx.Author); err != nil {
+	if err := ctx.Tasks.Move(args[0], args[1], ctx.Author); err != nil {
 		if errors.Is(err, sdk.ErrNoSpec) {
-			tsk, rerr := sdk.Tasks.Read(args[0])
+			tsk, rerr := ctx.Tasks.Read(args[0])
 			if rerr == nil {
 				return nil, fmt.Errorf("task move: task has no spec — write a document with `llmd write %s` or link an existing one with `task link %s <path>`", tsk.Path, args[0])
 			}
@@ -100,7 +100,7 @@ func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if err := sdk.Tasks.Set(key, ctx.Author, opts); err != nil {
+	if err := ctx.Tasks.Set(key, ctx.Author, opts); err != nil {
 		return nil, fmt.Errorf("task set: %w", err)
 	}
 
@@ -114,13 +114,13 @@ func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task rm: %w: id", sdk.ErrMissingArg)
 	}
 
-	t, err := sdk.Tasks.Delete(args[0], ctx.Author)
+	t, err := ctx.Tasks.Delete(args[0], ctx.Author)
 	if err != nil {
 		return nil, fmt.Errorf("task rm: %w", err)
 	}
 
 	text := fmt.Sprintf("Removed task %s \"%s\"", t.Key, t.Title)
-	if ok, _ := sdk.Documents.Exists(t.Path); ok {
+	if ok, _ := ctx.Documents.Exists(t.Path); ok {
 		text += fmt.Sprintf("\nNote: the document at %s still exists. To remove it: llmd rm %s", t.Path, t.Path)
 	}
 	return sdk.Text(text), nil
@@ -133,7 +133,7 @@ func taskRestore(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task restore: %w: id", sdk.ErrMissingArg)
 	}
 
-	t, err := sdk.Tasks.Restore(args[0], ctx.Author)
+	t, err := ctx.Tasks.Restore(args[0], ctx.Author)
 	if err != nil {
 		return nil, fmt.Errorf("task restore: %w", err)
 	}

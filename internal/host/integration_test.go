@@ -9,6 +9,7 @@
 package host
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -24,7 +25,7 @@ import (
 // dispatch calls sdk.Dispatch and fails the test on error.
 func dispatch(t *testing.T, cmd string, args []string, author string, stdin []byte) sdk.Response {
 	t.Helper()
-	r, err := sdk.Dispatch(cmd, args, author, stdin, "")
+	r, err := sdk.Dispatch(context.Background(), cmd, args, author, stdin, "")
 	if err != nil {
 		t.Fatalf("dispatch %s %v: %v", cmd, args, err)
 	}
@@ -34,7 +35,7 @@ func dispatch(t *testing.T, cmd string, args []string, author string, stdin []by
 // dispatchErr calls sdk.Dispatch and returns the error.
 func dispatchErr(t *testing.T, cmd string, args []string, author string, stdin []byte) error {
 	t.Helper()
-	_, err := sdk.Dispatch(cmd, args, author, stdin, "")
+	_, err := sdk.Dispatch(context.Background(), cmd, args, author, stdin, "")
 	return err
 }
 

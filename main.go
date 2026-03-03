@@ -6,11 +6,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"os/signal"
 	"slices"
 	"strings"
 	"time"
@@ -72,6 +74,10 @@ func run(args []string) int {
 
 	initLog(config.Load(), jsonOut, verbose)
 
+	// Create a root context that cancels on SIGINT (Ctrl+C).
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	// No command — show help. We create a host without a store just
 	// for command discovery (help/plugins listing).
 	if cmd == "" {
@@ -124,7 +130,7 @@ func run(args []string) int {
 
 	stdin := readStdin()
 
-	result, err := h.Exec(cmd, cmdArgs, author, stdin, dbPath)
+	result, err := h.Exec(ctx, cmd, cmdArgs, author, stdin, dbPath)
 	if err != nil {
 		return errorf(jsonOut, "%v", err)
 	}

@@ -19,15 +19,15 @@ import (
 // package. It translates between SDK types (flat structs with string
 // fields) and internal types (sql.NullString, core.Origin, etc.).
 type taskAPI struct {
+	ctx   context.Context
 	store *llmd.Store
 	lim   validate.Limits
 }
 
 // newTaskAPI creates a task API bridge wrapping the given store.
-// The returned value satisfies [sdk.TaskStore] and is assigned to the
-// sdk.Tasks global by [New].
-func newTaskAPI(store *llmd.Store, lim validate.Limits) *taskAPI {
-	return &taskAPI{store: store, lim: lim}
+// The context controls cancellation and timeout for all store operations.
+func newTaskAPI(store *llmd.Store, lim validate.Limits, ctx context.Context) *taskAPI {
+	return &taskAPI{ctx: ctx, store: store, lim: lim}
 }
 
 // taskErr translates internal task errors to SDK sentinel errors.
@@ -79,7 +79,7 @@ func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Tas
 	); err != nil {
 		return nil, err
 	}
-	t, err := a.store.Tasks.Add(context.Background(), title, body, tasks.AddOptions{
+	t, err := a.store.Tasks.Add(a.ctx, title, body, tasks.AddOptions{
 		Origin:     origin(opts.Author),
 		Status:     opts.Status,
 		Priority:   opts.Priority,
@@ -96,7 +96,7 @@ func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Tas
 // Read returns a single task by its key. Returns sdk.ErrNotFound if the
 // task does not exist or has been deleted.
 func (a *taskAPI) Read(key string) (*sdk.Task, error) {
-	t, err := a.store.Tasks.Read(context.Background(), key)
+	t, err := a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -106,7 +106,7 @@ func (a *taskAPI) Read(key string) (*sdk.Task, error) {
 // List returns all non-deleted tasks matching the filter criteria.
 // Results are ordered by position then creation time within each column.
 func (a *taskAPI) List(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
-	tt, err := a.store.Tasks.List(context.Background(), tasks.ListOptions{
+	tt, err := a.store.Tasks.List(a.ctx, tasks.ListOptions{
 		Status:     opts.Status,
 		AssignedTo: opts.AssignedTo,
 		Priority:   opts.Priority,
@@ -125,13 +125,13 @@ func (a *taskAPI) List(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
 // Move changes a task's column. Translates internal task errors to SDK
 // sentinels (ErrNotFound, ErrNoSpec, ErrInvalidArg).
 func (a *taskAPI) Move(key, column, author string) error {
-	return taskErr(a.store.Tasks.Move(context.Background(), key, column, author))
+	return taskErr(a.store.Tasks.Move(a.ctx, key, column, author))
 }
 
 // Set updates task metadata. Maps SDK pointer fields directly to
 // internal SetOptions — the nil-means-no-change convention is shared.
 func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
-	return taskErr(a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
+	return taskErr(a.store.Tasks.Set(a.ctx, key, author, tasks.SetOptions{
 		Title:      opts.Title,
 		Priority:   opts.Priority,
 		Position:   opts.Position,
@@ -145,7 +145,7 @@ func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
 // Delete soft-deletes a task. Returns the task as it was before
 // deletion so the caller can display confirmation with the title.
 func (a *taskAPI) Delete(key, author string) (*sdk.Task, error) {
-	t, err := a.store.Tasks.Delete(context.Background(), key, author)
+	t, err := a.store.Tasks.Delete(a.ctx, key, author)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -155,7 +155,7 @@ func (a *taskAPI) Delete(key, author string) (*sdk.Task, error) {
 // Restore undeletes a soft-deleted task. Returns the restored task
 // so the caller can confirm which task was recovered.
 func (a *taskAPI) Restore(key, author string) (*sdk.Task, error) {
-	t, err := a.store.Tasks.Restore(context.Background(), key, author)
+	t, err := a.store.Tasks.Restore(a.ctx, key, author)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -164,7 +164,7 @@ func (a *taskAPI) Restore(key, author string) (*sdk.Task, error) {
 
 // Columns returns the board column names in display order.
 func (a *taskAPI) Columns() ([]string, error) {
-	return a.store.Tasks.Columns(context.Background())
+	return a.store.Tasks.Columns(a.ctx)
 }
 
 // AddColumn adds a new column to the board. When after is non-empty,
@@ -173,18 +173,18 @@ func (a *taskAPI) AddColumn(name, after, author string) error {
 	if err := validate.Text(name, "column name"); err != nil {
 		return err
 	}
-	return a.store.Tasks.AddColumn(context.Background(), name, after, author)
+	return a.store.Tasks.AddColumn(a.ctx, name, after, author)
 }
 
 // RemoveColumn removes a column from the board. Fails if the column
 // still contains tasks — they must be moved or deleted first.
 func (a *taskAPI) RemoveColumn(name, author string) error {
-	return a.store.Tasks.RemoveColumn(context.Background(), name, author)
+	return a.store.Tasks.RemoveColumn(a.ctx, name, author)
 }
 
 // MoveColumn reorders a column to appear after the named column.
 func (a *taskAPI) MoveColumn(name, after, author string) error {
-	return a.store.Tasks.MoveColumn(context.Background(), name, after, author)
+	return a.store.Tasks.MoveColumn(a.ctx, name, after, author)
 }
 
 // Start moves a task to a column and records the current git branch
@@ -194,20 +194,20 @@ func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, erro
 	if col == "" {
 		col = "in-progress"
 	}
-	if err := taskErr(a.store.Tasks.Move(context.Background(), key, col, author)); err != nil {
+	if err := taskErr(a.store.Tasks.Move(a.ctx, key, col, author)); err != nil {
 		return nil, err
 	}
 
 	// Best-effort: record current branch if git is available.
 	if branch, err := sdk.Git.Branch(); err == nil {
-		if err := taskErr(a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
+		if err := taskErr(a.store.Tasks.Set(a.ctx, key, author, tasks.SetOptions{
 			Branch: &branch,
 		})); err != nil {
 			slog.Debug("recording branch on task", "key", key, "branch", branch, "error", err)
 		}
 	}
 
-	t, err := a.store.Tasks.Read(context.Background(), key)
+	t, err := a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -221,7 +221,7 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 		return nil, err
 	}
 
-	t, err := a.store.Tasks.Read(context.Background(), key)
+	t, err := a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -238,7 +238,7 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 		return nil, err
 	}
 
-	if err := taskErr(a.store.Tasks.Set(context.Background(), key, author, tasks.SetOptions{
+	if err := taskErr(a.store.Tasks.Set(a.ctx, key, author, tasks.SetOptions{
 		Branch: &name,
 	})); err != nil {
 		return nil, err
@@ -248,11 +248,11 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 	if col == "" {
 		col = "in-progress"
 	}
-	if err := taskErr(a.store.Tasks.Move(context.Background(), key, col, author)); err != nil {
+	if err := taskErr(a.store.Tasks.Move(a.ctx, key, col, author)); err != nil {
 		return nil, err
 	}
 
-	t, err = a.store.Tasks.Read(context.Background(), key)
+	t, err = a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -262,7 +262,7 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 // Finish moves a task to done and returns a summary with optional git
 // statistics. Git is optional — the task moves regardless.
 func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishResult, error) {
-	t, err := a.store.Tasks.Read(context.Background(), key)
+	t, err := a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -271,11 +271,11 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 	if col == "" {
 		col = "done"
 	}
-	if err := taskErr(a.store.Tasks.Move(context.Background(), key, col, author)); err != nil {
+	if err := taskErr(a.store.Tasks.Move(a.ctx, key, col, author)); err != nil {
 		return nil, err
 	}
 
-	t, err = a.store.Tasks.Read(context.Background(), key)
+	t, err = a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -286,13 +286,21 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 	if t.Branch != "" && sdk.Git.Available() == nil {
 		base := opts.Base
 		if base == "" {
-			base, _ = sdk.Git.DefaultBranch()
+			var err error
+			base, err = sdk.Git.DefaultBranch()
+			if err != nil {
+				slog.Debug("detecting default branch", "error", err)
+			}
 		}
 		if base != "" {
-			if files, err := sdk.Git.Files(base, t.Branch); err == nil {
+			if files, err := sdk.Git.Files(base, t.Branch); err != nil {
+				slog.Debug("listing changed files", "base", base, "branch", t.Branch, "error", err)
+			} else {
 				result.FilesChanged = len(files)
 			}
-			if commits, err := sdk.Git.Commits(base, t.Branch); err == nil {
+			if commits, err := sdk.Git.Commits(base, t.Branch); err != nil {
+				slog.Debug("listing commits", "base", base, "branch", t.Branch, "error", err)
+			} else {
 				result.Commits = len(commits)
 			}
 		}
@@ -303,7 +311,7 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 
 // ByBranch returns the task linked to the given branch name.
 func (a *taskAPI) ByBranch(branch string) (*sdk.Task, error) {
-	tt, err := a.store.Tasks.List(context.Background(), tasks.ListOptions{
+	tt, err := a.store.Tasks.List(a.ctx, tasks.ListOptions{
 		Branch: branch,
 	})
 	if err != nil {
@@ -340,7 +348,7 @@ func (a *taskAPI) CheckSpecs(tasks []*sdk.Task) (map[string]bool, error) {
 // Link creates a directed link from a task's spec document to another
 // document.
 func (a *taskAPI) Link(key, target, author string) error {
-	t, err := a.store.Tasks.Read(context.Background(), key)
+	t, err := a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return taskErr(err)
 	}
@@ -352,7 +360,7 @@ func (a *taskAPI) Link(key, target, author string) error {
 
 // Links returns links for a task's spec document.
 func (a *taskAPI) Links(key, dir string) ([]sdk.Link, error) {
-	t, err := a.store.Tasks.Read(context.Background(), key)
+	t, err := a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -388,7 +396,7 @@ func branchSlug(title string) string {
 // Log returns audit events for a task, newest first. Converts internal
 // audit.Event structs to SDK TaskEvent structs.
 func (a *taskAPI) Log(key string, limit int) ([]sdk.TaskEvent, error) {
-	events, err := a.store.Tasks.Log(context.Background(), key, limit)
+	events, err := a.store.Tasks.Log(a.ctx, key, limit)
 	if err != nil {
 		return nil, err
 	}

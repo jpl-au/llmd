@@ -10,8 +10,8 @@ import (
 )
 
 // taskColumns lists all board columns in display order, one per line.
-func taskColumns(_ sdk.Context, _ []string) (sdk.Response, error) {
-	cols, err := sdk.Tasks.Columns()
+func taskColumns(ctx sdk.Context, _ []string) (sdk.Response, error) {
+	cols, err := ctx.Tasks.Columns()
 	if err != nil {
 		return nil, fmt.Errorf("task columns: %w", err)
 	}
@@ -34,7 +34,7 @@ func taskAddColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if err := sdk.Tasks.AddColumn(name, after, ctx.Author); err != nil {
+	if err := ctx.Tasks.AddColumn(name, after, ctx.Author); err != nil {
 		return nil, fmt.Errorf("task column add: %w", err)
 	}
 
@@ -48,7 +48,7 @@ func taskRmColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task column rm: %w: name", sdk.ErrMissingArg)
 	}
 
-	if err := sdk.Tasks.RemoveColumn(args[0], ctx.Author); err != nil {
+	if err := ctx.Tasks.RemoveColumn(args[0], ctx.Author); err != nil {
 		return nil, fmt.Errorf("task column rm: %w", err)
 	}
 
@@ -75,7 +75,7 @@ func taskMvColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task column mv: --after is required")
 	}
 
-	if err := sdk.Tasks.MoveColumn(name, after, ctx.Author); err != nil {
+	if err := ctx.Tasks.MoveColumn(name, after, ctx.Author); err != nil {
 		return nil, fmt.Errorf("task column mv: %w", err)
 	}
 

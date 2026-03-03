@@ -16,7 +16,7 @@ func taskLink(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task link: %w: id and path", sdk.ErrMissingArg)
 	}
 
-	if err := sdk.Tasks.Link(args[0], args[1], ctx.Author); err != nil {
+	if err := ctx.Tasks.Link(args[0], args[1], ctx.Author); err != nil {
 		return nil, fmt.Errorf("task link: %w", err)
 	}
 
@@ -24,12 +24,12 @@ func taskLink(ctx sdk.Context, args []string) (sdk.Response, error) {
 }
 
 // taskLinks lists links for a task's spec document.
-func taskLinks(_ sdk.Context, args []string) (sdk.Response, error) {
+func taskLinks(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task links: %w: id", sdk.ErrMissingArg)
 	}
 
-	links, err := sdk.Tasks.Links(args[0], "out")
+	links, err := ctx.Tasks.Links(args[0], "out")
 	if err != nil {
 		return nil, fmt.Errorf("task links: %w", err)
 	}

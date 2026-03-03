@@ -13,18 +13,18 @@ import (
 // markdown document with a metadata table (ID, status, priority,
 // assignee, branch, flags, spec path) followed by the spec document
 // content if it exists.
-func taskShow(_ sdk.Context, args []string) (sdk.Response, error) {
+func taskShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task show: %w: id", sdk.ErrMissingArg)
 	}
 
-	t, err := sdk.Tasks.Read(args[0])
+	t, err := ctx.Tasks.Read(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("task show: %w", err)
 	}
 
 	// Read the document body
-	body, err := sdk.Documents.Read(t.Path, 0)
+	body, err := ctx.Documents.Read(t.Path, 0)
 	if err != nil {
 		body = nil
 	}
@@ -41,9 +41,9 @@ func taskShow(_ sdk.Context, args []string) (sdk.Response, error) {
 	}
 	if t.Branch != "" {
 		branchVal := t.Branch
-		if sdk.Git.Available() == nil {
-			if base, err := sdk.Git.DefaultBranch(); err == nil {
-				if ahead, behind, err := sdk.Git.RevCount(base, t.Branch); err == nil {
+		if ctx.Git.Available() == nil {
+			if base, err := ctx.Git.DefaultBranch(); err == nil {
+				if ahead, behind, err := ctx.Git.RevCount(base, t.Branch); err == nil {
 					branchVal = fmt.Sprintf("%s (+%d/-%d)", t.Branch, ahead, behind)
 				}
 			}

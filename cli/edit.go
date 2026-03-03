@@ -31,7 +31,7 @@ func edit(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if err := sdk.Documents.Edit(path, old, new, ctx.Author, message); err != nil {
+	if err := ctx.Documents.Edit(path, old, new, ctx.Author, message); err != nil {
 		return nil, fmt.Errorf("edit: %w", err)
 	}
 

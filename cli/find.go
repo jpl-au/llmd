@@ -27,7 +27,7 @@ func find(ctx sdk.Context, args []string) (sdk.Response, error) {
 		pathPrefix = args[1]
 	}
 
-	results, err := sdk.Documents.Grep(query, sdk.GrepOpts{
+	results, err := ctx.Documents.Grep(query, sdk.GrepOpts{
 		Path: pathPrefix,
 		Mode: sdk.GrepPaths,
 	})

@@ -45,7 +45,7 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	switch len(paths) {
 	case 1:
 		// Single path: compare current version to its predecessor.
-		versions, err := sdk.Documents.History(paths[0], 2)
+		versions, err := ctx.Documents.History(paths[0], 2)
 		if err != nil || len(versions) < 2 {
 			return nil, fmt.Errorf("diff: no previous version for %s", paths[0])
 		}
@@ -57,7 +57,7 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("diff: %w: expected 1 or 2 paths, got %d", sdk.ErrInvalidArg, len(paths))
 	}
 
-	diffText, added, removed, err := sdk.Documents.Diff(source, target, contextLines)
+	diffText, added, removed, err := ctx.Documents.Diff(source, target, contextLines)
 	if err != nil {
 		return nil, fmt.Errorf("diff: %w", err)
 	}

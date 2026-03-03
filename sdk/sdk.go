@@ -1,7 +1,10 @@
 // Package sdk provides the plugin SDK for llmd.
 package sdk
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 // Common errors returned by commands. These allow callers to
 // programmatically distinguish error categories without parsing
@@ -88,13 +91,31 @@ type Flag struct {
 	Desc  string
 }
 
-// Context carries per-invocation data to commands. Author is the
-// configured user identity (required for write operations). Stdin
-// contains piped input when present, or nil for interactive terminals.
+// Context carries per-invocation data to commands. It embeds
+// [context.Context] for cancellation and timeout propagation, and
+// holds request-scoped domain store instances so commands access the
+// store through the context rather than package-level globals.
+//
+// Author is the configured user identity (required for write
+// operations). Stdin contains piped input when present, or nil for
+// interactive terminals.
 type Context struct {
+	context.Context
+
 	Author string
 	Stdin  []byte
 	DBPath string // Override database path (empty = default)
+
+	// Domain stores bound to this request's lifecycle context.
+	// Commands should use these instead of the package-level globals.
+	Documents  DocumentStore
+	Tasks      TaskStore
+	Links      LinkStore
+	Tags       TagStore
+	Activities ActivityStore
+	Mirror     MirrorStore
+	Git        GitStore
+	Config     ConfigStore
 }
 
 // Response is the marker interface for command return values. It uses
@@ -139,8 +160,9 @@ var Init func(dbPath string) (string, error)
 
 // Dispatch executes a command by name through the host. Set by the host
 // at startup. Used by commands that need to invoke other commands (e.g.
-// MCP server dispatching tool calls).
-var Dispatch func(cmd string, args []string, author string, stdin []byte, dbPath string) (Response, error)
+// MCP server dispatching tool calls). The context controls cancellation
+// and timeout for the dispatched command.
+var Dispatch func(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (Response, error)
 
 // AllCommands returns all registered commands. Set by the host at startup.
 var AllCommands func() map[string]*Command

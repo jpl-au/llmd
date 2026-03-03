@@ -16,25 +16,25 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func configIgnore(_ sdk.Context, args []string) (sdk.Response, error) {
+func configIgnore(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return configIgnoreList()
+		return configIgnoreList(ctx)
 	}
 
 	switch args[0] {
 	case "ls", "list":
-		return configIgnoreList()
+		return configIgnoreList(ctx)
 	case "add":
-		return configIgnoreAdd(args[1:])
+		return configIgnoreAdd(ctx, args[1:])
 	case "rm", "remove":
-		return configIgnoreRm(args[1:])
+		return configIgnoreRm(ctx, args[1:])
 	default:
 		return nil, fmt.Errorf("config ignore: unknown subcommand %q", args[0])
 	}
 }
 
-func configIgnoreList() (sdk.Response, error) {
-	patterns, err := sdk.Config.IgnorePatterns()
+func configIgnoreList(ctx sdk.Context) (sdk.Response, error) {
+	patterns, err := ctx.Config.IgnorePatterns()
 	if err != nil {
 		return nil, err
 	}
@@ -47,21 +47,21 @@ func configIgnoreList() (sdk.Response, error) {
 	}, nil
 }
 
-func configIgnoreAdd(args []string) (sdk.Response, error) {
+func configIgnoreAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("config ignore add: %w: pattern required", sdk.ErrMissingArg)
 	}
-	if err := sdk.Config.AddIgnore(args[0]); err != nil {
+	if err := ctx.Config.AddIgnore(args[0]); err != nil {
 		return nil, fmt.Errorf("config ignore add: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Added %s to .llmd/.gitignore", args[0])), nil
 }
 
-func configIgnoreRm(args []string) (sdk.Response, error) {
+func configIgnoreRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("config ignore rm: %w: pattern required", sdk.ErrMissingArg)
 	}
-	if err := sdk.Config.RemoveIgnore(args[0]); err != nil {
+	if err := ctx.Config.RemoveIgnore(args[0]); err != nil {
 		return nil, fmt.Errorf("config ignore rm: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Removed %s from .llmd/.gitignore", args[0])), nil

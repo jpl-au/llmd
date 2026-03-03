@@ -10,17 +10,19 @@ import (
 // activityAPI implements [sdk.ActivityStore] by delegating to the
 // internal store's RecentActivity method.
 type activityAPI struct {
+	ctx   context.Context
 	store *llmd.Store
 }
 
 // newActivityAPI creates an activity API bridge wrapping the given store.
-func newActivityAPI(store *llmd.Store) *activityAPI {
-	return &activityAPI{store: store}
+// The context controls cancellation and timeout for all store operations.
+func newActivityAPI(store *llmd.Store, ctx context.Context) *activityAPI {
+	return &activityAPI{ctx: ctx, store: store}
 }
 
 // Recent returns the most recent events across all domains.
 func (a *activityAPI) Recent(limit int) ([]sdk.Activity, error) {
-	events, err := a.store.RecentActivity(context.Background(), limit)
+	events, err := a.store.RecentActivity(a.ctx, limit)
 	if err != nil {
 		return nil, err
 	}

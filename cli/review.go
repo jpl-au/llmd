@@ -4,6 +4,7 @@ package cli
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -33,7 +34,7 @@ var (
 
 // review shows pending tasks with inline spec previews and linked
 // documents, giving a quick picture of what needs attention.
-func review(_ sdk.Context, args []string) (sdk.Response, error) {
+func review(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var column string
 	limit := 0
 
@@ -58,7 +59,7 @@ func review(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Status: column})
+	tasks, err := ctx.Tasks.List(sdk.TaskListOpts{Status: column})
 	if err != nil {
 		return nil, fmt.Errorf("review: %w", err)
 	}
@@ -75,8 +76,12 @@ func review(_ sdk.Context, args []string) (sdk.Response, error) {
 	data := make([]entry, len(tasks))
 	for i, t := range tasks {
 		data[i] = entry{Task: t}
-		data[i].Spec, _ = sdk.Documents.Preview(t.Path, 5)
-		data[i].Links = linkedDocs(t.Path)
+		if spec, err := ctx.Documents.Preview(t.Path, 5); err != nil {
+			slog.Debug("preview failed", "path", t.Path, "error", err)
+		} else {
+			data[i].Spec = spec
+		}
+		data[i].Links = linkedDocs(ctx, t.Path)
 	}
 
 	if !isTTY() {
@@ -146,11 +151,11 @@ func review(_ sdk.Context, args []string) (sdk.Response, error) {
 }
 
 // linkedDocs returns outgoing links for a task's spec path.
-func linkedDocs(path string) []sdk.Link {
-	if path == "" || sdk.Links == nil {
+func linkedDocs(ctx sdk.Context, path string) []sdk.Link {
+	if path == "" || ctx.Links == nil {
 		return nil
 	}
-	links, err := sdk.Links.List(path, "out")
+	links, err := ctx.Links.List(path, "out")
 	if err != nil {
 		return nil
 	}

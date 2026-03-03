@@ -42,7 +42,7 @@ func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	var results []string
 	for _, path := range paths {
-		content, err := sdk.Documents.Read(path, version)
+		content, err := ctx.Documents.Read(path, version)
 		if err != nil {
 			return nil, fmt.Errorf("cat: %s: %w", path, err)
 		}

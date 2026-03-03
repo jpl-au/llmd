@@ -81,7 +81,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 // taskList renders the task board. When filtered by column (--column or
 // positional arg), shows a flat table for that column. Otherwise renders
 // the full board view with all columns grouped under headings.
-func taskList(_ sdk.Context, args []string) (sdk.Response, error) {
+func taskList(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var opts sdk.TaskListOpts
 
 	for i := 0; i < len(args); i++ {
@@ -116,23 +116,23 @@ func taskList(_ sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	tasks, err := sdk.Tasks.List(opts)
+	tasks, err := ctx.Tasks.List(opts)
 	if err != nil {
 		return nil, fmt.Errorf("task list: %w", err)
 	}
 
 	// If filtering by status, just show a flat table
 	if opts.Status != "" {
-		text := formatTaskTable(tasks)
+		text := formatTaskTable(ctx, tasks)
 		return sdk.Result{Text: text, Data: tasks}, nil
 	}
 
 	// Board view: group by column
-	cols, err := sdk.Tasks.Columns()
+	cols, err := ctx.Tasks.Columns()
 	if err != nil {
 		return nil, fmt.Errorf("task list: %w", err)
 	}
 
-	text := formatBoard(cols, tasks)
+	text := formatBoard(ctx, cols, tasks)
 	return sdk.Result{Text: text, Data: tasks}, nil
 }

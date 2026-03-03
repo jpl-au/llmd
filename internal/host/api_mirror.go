@@ -14,11 +14,14 @@ import (
 // bulk package for both pull (store → filesystem) and push (filesystem
 // → store) operations.
 type mirrorAPI struct {
+	ctx   context.Context
 	store *llmd.Store
 }
 
-func newMirrorAPI(store *llmd.Store) *mirrorAPI {
-	return &mirrorAPI{store: store}
+// newMirrorAPI creates a mirror API bridge wrapping the given store.
+// The context controls cancellation and timeout for all store operations.
+func newMirrorAPI(store *llmd.Store, ctx context.Context) *mirrorAPI {
+	return &mirrorAPI{ctx: ctx, store: store}
 }
 
 // Directory returns the mirror directory for the active store.
@@ -33,7 +36,7 @@ func (a *mirrorAPI) Directory() string {
 // Pull writes store documents to the filesystem, skipping unchanged
 // files and removing stale ones.
 func (a *mirrorAPI) Pull(prefix, dir string) (*sdk.PullResult, error) {
-	r, err := a.store.Bulk.Mirror(context.Background(), prefix, dir)
+	r, err := a.store.Bulk.Mirror(a.ctx, prefix, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +49,7 @@ func (a *mirrorAPI) Pull(prefix, dir string) (*sdk.PullResult, error) {
 
 // Push imports .md files from the filesystem back into the store.
 func (a *mirrorAPI) Push(dir string, opts sdk.PushOpts) (*sdk.PushResult, error) {
-	r, err := a.store.Bulk.Import(context.Background(), dir, bulk.ImportOptions{
+	r, err := a.store.Bulk.Import(a.ctx, dir, bulk.ImportOptions{
 		Origin: origin("mirror"),
 		Prefix: opts.Prefix,
 	})

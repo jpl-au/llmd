@@ -32,15 +32,15 @@ func linkErr(err error) error {
 // package. It translates between the SDK's string-based direction parameter
 // ("in", "out", "both") and the internal typed Direction constants.
 type linkAPI struct {
+	ctx   context.Context
 	store *llmd.Store
 	lim   validate.Limits
 }
 
 // newLinkAPI creates a link API bridge wrapping the given store.
-// The returned value satisfies [sdk.LinkStore] and is assigned to the
-// sdk.Links global by [New].
-func newLinkAPI(store *llmd.Store, lim validate.Limits) *linkAPI {
-	return &linkAPI{store: store, lim: lim}
+// The context controls cancellation and timeout for all store operations.
+func newLinkAPI(store *llmd.Store, lim validate.Limits, ctx context.Context) *linkAPI {
+	return &linkAPI{ctx: ctx, store: store, lim: lim}
 }
 
 // Add creates a directed link from one document to another with an
@@ -53,7 +53,7 @@ func (a *linkAPI) Add(from, to, label, author string) error {
 	); err != nil {
 		return err
 	}
-	_, err := a.store.Links.Add(context.Background(), from, to, links.Options{
+	_, err := a.store.Links.Add(a.ctx, from, to, links.Options{
 		Origin: origin(author),
 		Label:  label,
 	})
@@ -62,7 +62,7 @@ func (a *linkAPI) Add(from, to, label, author string) error {
 
 // Remove deletes the link between two documents.
 func (a *linkAPI) Remove(from, to, author string) error {
-	return linkErr(a.store.Links.Remove(context.Background(), from, to, links.Options{
+	return linkErr(a.store.Links.Remove(a.ctx, from, to, links.Options{
 		Origin: origin(author),
 	}))
 }
@@ -81,7 +81,7 @@ func (a *linkAPI) List(path, dir string) ([]sdk.Link, error) {
 	default:
 		d = links.Outgoing
 	}
-	ll, err := a.store.Links.List(context.Background(), path, links.Options{
+	ll, err := a.store.Links.List(a.ctx, path, links.Options{
 		Direction: d,
 	})
 	if err != nil {

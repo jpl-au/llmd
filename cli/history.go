@@ -37,7 +37,7 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("history: %w", sdk.ErrMissingArg)
 	}
 
-	versions, err := sdk.Documents.History(path, limit)
+	versions, err := ctx.Documents.History(path, limit)
 	if err != nil {
 		return nil, fmt.Errorf("history: %w", err)
 	}

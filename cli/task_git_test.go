@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,16 @@ import (
 	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/sdk"
 )
+
+func testCtx(author string) sdk.Context {
+	return sdk.Context{
+		Context:   context.Background(),
+		Author:    author,
+		Documents: sdk.Documents,
+		Tasks:     sdk.Tasks,
+		Git:       sdk.Git,
+	}
+}
 
 // testGitAndStore creates a disk-backed store and git repo in the same
 // temp directory, with the working directory set to it.
@@ -43,7 +54,7 @@ func TestTaskBranch(t *testing.T) {
 		t.Fatalf("Add: %v", err)
 	}
 
-	ctx := sdk.Context{Author: "alice"}
+	ctx := testCtx("alice")
 	resp, err := taskBranch(ctx, []string{task.Key})
 	if err != nil {
 		t.Fatalf("taskBranch: %v", err)
@@ -87,7 +98,7 @@ func TestTaskBranchCustomName(t *testing.T) {
 
 	task, _ := sdk.Tasks.Add("Custom branch", []byte("# Spec\n\nCustom."), sdk.TaskAddOpts{Author: "alice"})
 
-	ctx := sdk.Context{Author: "alice"}
+	ctx := testCtx("alice")
 	_, err := taskBranch(ctx, []string{task.Key, "--name", "feature/custom"})
 	if err != nil {
 		t.Fatalf("taskBranch: %v", err)
@@ -133,7 +144,7 @@ func TestTaskFinish(t *testing.T) {
 	run("git", "add", "change.txt")
 	run("git", "commit", "-m", "test commit")
 
-	ctx := sdk.Context{Author: "alice"}
+	ctx := testCtx("alice")
 	resp, err := taskFinish(ctx, []string{task.Key})
 	if err != nil {
 		t.Fatalf("taskFinish: %v", err)
@@ -159,7 +170,7 @@ func TestTaskFinishWithoutGit(t *testing.T) {
 		t.Fatalf("Move: %v", err)
 	}
 
-	ctx := sdk.Context{Author: "alice"}
+	ctx := testCtx("alice")
 	_, err := taskFinish(ctx, []string{task.Key})
 	if err != nil {
 		t.Fatalf("taskFinish without git: %v", err)
@@ -194,7 +205,7 @@ func TestTaskCommits(t *testing.T) {
 	run("git", "commit", "--allow-empty", "-m", "first")
 	run("git", "commit", "--allow-empty", "-m", "second")
 
-	ctx := sdk.Context{Author: "alice"}
+	ctx := testCtx("alice")
 	resp, err := taskCommits(ctx, []string{task.Key})
 	if err != nil {
 		t.Fatalf("taskCommits: %v", err)
@@ -212,7 +223,7 @@ func TestResolveTaskByKey(t *testing.T) {
 
 	task, _ := sdk.Tasks.Add("By key", nil, sdk.TaskAddOpts{Author: "alice"})
 
-	found, err := resolveTask("test", task.Key)
+	found, err := resolveTask(testCtx("alice"), "test", task.Key)
 	if err != nil {
 		t.Fatalf("resolveTask: %v", err)
 	}
@@ -226,7 +237,7 @@ func TestTaskStartWithGit(t *testing.T) {
 
 	task, _ := sdk.Tasks.Add("Start me", []byte("# Spec\n\nStart."), sdk.TaskAddOpts{Author: "alice"})
 
-	ctx := sdk.Context{Author: "alice"}
+	ctx := testCtx("alice")
 	resp, err := taskStart(ctx, []string{task.Key})
 	if err != nil {
 		t.Fatalf("taskStart: %v", err)
@@ -251,7 +262,7 @@ func TestTaskStartWithoutGit(t *testing.T) {
 	host.TestSetup(t, host.TestDisk)
 
 	task, _ := sdk.Tasks.Add("No git start", []byte("# Spec\n\nPlain."), sdk.TaskAddOpts{Author: "alice"})
-	ctx := sdk.Context{Author: "alice"}
+	ctx := testCtx("alice")
 	resp, err := taskStart(ctx, []string{task.Key})
 	if err != nil {
 		t.Fatalf("taskStart without git: %v", err)
@@ -305,7 +316,7 @@ func TestResolveTaskByBranch(t *testing.T) {
 	})
 
 	// Empty key should auto-detect from current branch
-	found, err := resolveTask("test", "")
+	found, err := resolveTask(testCtx("alice"), "test", "")
 	if err != nil {
 		t.Fatalf("resolveTask: %v", err)
 	}

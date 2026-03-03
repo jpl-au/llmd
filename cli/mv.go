@@ -14,7 +14,7 @@ func mv(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("mv: %w", sdk.ErrMissingArg)
 	}
 
-	if err := sdk.Documents.Move(args[0], args[1], ctx.Author); err != nil {
+	if err := ctx.Documents.Move(args[0], args[1], ctx.Author); err != nil {
 		return nil, fmt.Errorf("mv: %w", err)
 	}
 
