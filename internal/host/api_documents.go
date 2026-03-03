@@ -25,9 +25,9 @@ func docErr(err error) error {
 	}
 	switch {
 	case errors.Is(err, documents.ErrNotFound):
-		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, history.ErrNotFound):
-		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	default:
 		return err
 	}

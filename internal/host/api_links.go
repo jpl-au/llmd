@@ -18,11 +18,11 @@ func linkErr(err error) error {
 	}
 	switch {
 	case errors.Is(err, links.ErrNotFound):
-		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, links.ErrSelfLink):
-		return fmt.Errorf("%w: %v", sdk.ErrInvalidArg, err)
+		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
 	case errors.Is(err, links.ErrExists):
-		return fmt.Errorf("%w: %v", sdk.ErrExists, err)
+		return fmt.Errorf("%w: %w", sdk.ErrExists, err)
 	default:
 		return err
 	}

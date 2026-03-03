@@ -54,7 +54,7 @@ func mcpCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
-		return nil, fmt.Errorf("mcp: %v", err)
+		return nil, fmt.Errorf("mcp: %w", err)
 	}
 	return nil, nil
 }

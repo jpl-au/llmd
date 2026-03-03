@@ -38,13 +38,13 @@ func taskErr(err error) error {
 	}
 	switch {
 	case errors.Is(err, tasks.ErrNotFound):
-		return fmt.Errorf("%w: %v", sdk.ErrNotFound, err)
+		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, tasks.ErrNoSpec):
-		return fmt.Errorf("%w: %v", sdk.ErrNoSpec, err)
+		return fmt.Errorf("%w: %w", sdk.ErrNoSpec, err)
 	case errors.Is(err, tasks.ErrMissingTitle):
-		return fmt.Errorf("%w: %v", sdk.ErrMissingArg, err)
+		return fmt.Errorf("%w: %w", sdk.ErrMissingArg, err)
 	case errors.Is(err, tasks.ErrInvalidCol):
-		return fmt.Errorf("%w: %v", sdk.ErrInvalidArg, err)
+		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
 	default:
 		return err
 	}

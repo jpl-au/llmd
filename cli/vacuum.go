@@ -12,7 +12,7 @@ import (
 func vacuumCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	result, err := sdk.Documents.Vacuum()
 	if err != nil {
-		return nil, fmt.Errorf("vacuum: %v", err)
+		return nil, fmt.Errorf("vacuum: %w", err)
 	}
 	total := result.Documents + result.Tags + result.Links
 	if total == 0 {
