@@ -49,7 +49,32 @@ llmd task add "Fix auth bug" --path docs/auth-spec
 ```
 
 If no body is provided, the task is created without a document.
-Tasks without a spec cannot leave backlog — write one with
+
+### Spec gating
+
+Tasks cannot leave the backlog until their spec document has real
+content beyond the title heading. A document containing only
+`# Fix auth tokens` is not enough — add context, acceptance criteria,
+or any detail that describes what the work actually is.
+
+```bash
+# This won't pass spec gating (title only):
+echo "# Fix auth tokens" | llmd write tasks/fix-auth-tokens
+
+# This will (content after the heading):
+cat <<'EOF' | llmd write tasks/fix-auth-tokens
+# Fix auth tokens
+
+Tokens never expire, causing security issues.
+
+## Acceptance Criteria
+
+- Tokens expire after 1 hour
+- Expired tokens return 401
+EOF
+```
+
+If a task has no document at all, write one with
 `llmd write tasks/<slug>` or link an existing document with
 `llmd task link <id> <path>`.
 
@@ -167,8 +192,8 @@ llmd task set a1b2c3d4e --branch feature-auth
 - Task IDs are 9-character keys (e.g. `a1b2c3d4e`).
 - `task rm` only deletes the task row. The document at the task's path
   is never touched. Use `llmd rm <path>` separately if needed.
-- Spec gating: tasks with no real document content cannot be moved out
-  of backlog. Write the spec first.
+- Spec gating: tasks cannot leave the backlog until their document has
+  content beyond the title heading. See "Spec gating" above.
 - Flags (`blocked`, `hold`) are metadata on the task, not columns. A
   flagged task stays in its current column.
 - All state changes are recorded in the history table for observability.

@@ -383,11 +383,12 @@ structs.
 - **Version.Number** — `sdk.Version` uses `Number` for the 1-indexed
   version number field (not `Num`, not `Version`).
 
-- **Task Move requires a spec** — Tasks in backlog cannot move to other
-  columns without a spec. `hasSpec()` in `internal/llmd/tasks/` strips the
-  first line (the heading) and checks whether content remains. A single-line
-  body like `[]byte("has spec")` has no spec; use multi-line like
-  `[]byte("# Title\n\nBody content.")`.
+- **Task Move requires a spec** — Tasks cannot leave the backlog until
+  their spec document has content beyond the title heading. `hasSpec()`
+  in `internal/llmd/tasks/move.go` strips the first line (the `# Title`
+  heading) and checks whether any non-whitespace content remains. A
+  document with only `# Title` fails; use multi-line content like
+  `[]byte("# Title\n\nBody content.")` in tests.
 
 - **Import author** — The import bridge uses `origin("import")` for the author
   field. The internal validation requires a non-empty author.

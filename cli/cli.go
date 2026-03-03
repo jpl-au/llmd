@@ -112,7 +112,7 @@ Subcommands (passed as first arg):
   add <title>               create task (body via content/stdin)
   list                      board view (all columns)
   show <id>                 task metadata + spec body
-  move <id> <column>        move task to column
+  move <id> <column>        move task to column (needs spec to leave backlog)
   set <id> [flags]          update metadata
   rm <id>                   soft-delete task
   restore <id>              restore deleted task

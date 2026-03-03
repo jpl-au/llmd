@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/traefik/yaegi/interp"
@@ -141,7 +142,7 @@ func (a *adapter) Commands() []sdk.Command { return a.cmds }
 func (a *adapter) Exec(ctx sdk.Context, cmd string, args []string) (resp sdk.Response, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("plugin %s panicked: %v", a.name, r)
+			err = fmt.Errorf("plugin %s panicked: %v\n%s", a.name, r, debug.Stack())
 		}
 	}()
 
@@ -287,8 +288,13 @@ func readSource(dir string) (string, error) {
 		if first {
 			first = false
 		} else {
+			// Replace (not remove) the package declaration so that all
+			// subsequent line numbers stay correct for the //line directive.
 			src = stripPackageDecl(src)
 		}
+		// Inject a //line directive so Yaegi reports errors against the
+		// original filename and line number, not the concatenated source.
+		fmt.Fprintf(&sb, "//line %s:1\n", e.Name())
 		sb.WriteString(src)
 		sb.WriteByte('\n')
 	}
@@ -299,18 +305,18 @@ func readSource(dir string) (string, error) {
 	return sb.String(), nil
 }
 
-// stripPackageDecl removes the "package ..." line from source.
+// stripPackageDecl replaces the "package ..." declaration with a blank
+// line. Replacing rather than removing preserves line numbers so that
+// //line directives correctly map Yaegi errors back to the original file.
 func stripPackageDecl(src string) string {
-	var sb strings.Builder
-	for line := range strings.SplitSeq(src, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "package ") {
-			continue
+	lines := strings.Split(src, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "package ") {
+			lines[i] = ""
+			break
 		}
-		sb.WriteString(line)
-		sb.WriteByte('\n')
 	}
-	return sb.String()
+	return strings.Join(lines, "\n")
 }
 
 // pkgName extracts the package name from Go source.

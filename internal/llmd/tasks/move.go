@@ -30,7 +30,9 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 		return fmt.Errorf("%w: %s", ErrInvalidCol, status)
 	}
 
-	// Spec gating: cannot leave backlog without content
+	// Spec gating: a task cannot leave the backlog until its document
+	// contains real content beyond the title heading. This enforces
+	// that every active task has a written spec describing the work.
 	if tsk.Status == "backlog" && status != "backlog" {
 		specced, err := t.hasSpec(ctx, tsk.Path)
 		if err != nil {
@@ -133,13 +135,15 @@ func (t *Tasks) repositionTx(ctx context.Context, tx *sql.Tx, key, status string
 }
 
 // hasSpec checks whether a task's document has real content beyond
-// the template heading.
+// the title heading. A document that is missing, empty, or contains
+// only a single "# Title" line does not count — the spec must
+// describe the work (context, acceptance criteria, etc.) before the
+// task can leave the backlog.
 func (t *Tasks) hasSpec(ctx context.Context, path string) (bool, error) {
 	doc, err := t.docs.Read(ctx, path)
 	if err != nil {
 		return false, nil // No document = no spec
 	}
-	// Strip the template heading and check if anything remains
 	content := strings.TrimSpace(doc.Content)
 	if idx := strings.Index(content, "\n"); idx >= 0 {
 		after := strings.TrimSpace(content[idx:])

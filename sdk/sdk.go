@@ -26,7 +26,9 @@ var (
 	// ErrNotFound means the requested resource does not exist.
 	ErrNotFound = errors.New("not found")
 
-	// ErrNoSpec means a task has no backing document.
+	// ErrNoSpec means a task's spec document is missing or has no
+	// content beyond the title heading. Tasks cannot leave the
+	// backlog until the spec describes what the work actually is.
 	ErrNoSpec = errors.New("task has no spec")
 
 	// ErrExists means the resource already exists.
