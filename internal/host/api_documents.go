@@ -78,10 +78,10 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 	if err != nil {
 		return err
 	}
-	if err := validate.Path(path, a.lim); err != nil {
-		return err
-	}
-	if err := validate.Content(content, a.lim); err != nil {
+	if err := errors.Join(
+		validate.Path(path, a.lim),
+		validate.Content(content, a.lim),
+	); err != nil {
 		return err
 	}
 	// Normalise line endings to \n so content is consistent regardless
@@ -130,18 +130,20 @@ func (a *documentAPI) Restore(path, author string) error {
 // Move renames a document, preserving its full version history.
 // Tags and links follow the document to the new path.
 func (a *documentAPI) Move(from, to, author string) error {
+	var errs []error
 	from, err := docpath.Normalise(from)
 	if err != nil {
-		return err
-	}
-	if err := validate.Path(from, a.lim); err != nil {
-		return err
+		errs = append(errs, err)
+	} else if err := validate.Path(from, a.lim); err != nil {
+		errs = append(errs, err)
 	}
 	to, err = docpath.Normalise(to)
 	if err != nil {
-		return err
+		errs = append(errs, err)
+	} else if err := validate.Path(to, a.lim); err != nil {
+		errs = append(errs, err)
 	}
-	if err := validate.Path(to, a.lim); err != nil {
+	if err := errors.Join(errs...); err != nil {
 		return err
 	}
 	return docErr(a.store.Documents.Move(context.Background(), from, to, documents.MoveOptions{
@@ -208,13 +210,11 @@ func (a *documentAPI) Edit(path, old, new, author, msg string) error {
 	if err != nil {
 		return err
 	}
-	if err := validate.Path(path, a.lim); err != nil {
-		return err
-	}
-	if err := validate.Text(old, "old text"); err != nil {
-		return err
-	}
-	if err := validate.Text(new, "new text"); err != nil {
+	if err := errors.Join(
+		validate.Path(path, a.lim),
+		validate.Text(old, "old text"),
+		validate.Text(new, "new text"),
+	); err != nil {
 		return err
 	}
 	o := origin(author)
@@ -237,14 +237,17 @@ func (a *documentAPI) Glob(pattern string) ([]string, error) {
 // contain multiple matches, which become individual sdk.GrepHit entries.
 // For GrepPaths mode, results have no matches — just a path.
 func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
+	var errs []error
 	if err := validate.Null(query, "query"); err != nil {
-		return nil, err
+		errs = append(errs, err)
 	}
 	if err := validate.Null(opts.Path, "path"); err != nil {
-		return nil, err
+		errs = append(errs, err)
+	} else if strings.Contains(opts.Path, "..") {
+		errs = append(errs, docpath.ErrInvalid)
 	}
-	if strings.Contains(opts.Path, "..") {
-		return nil, docpath.ErrInvalid
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
 	}
 	searchOpts := search.Options{
 		Path:    opts.Path,

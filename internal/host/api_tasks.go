@@ -73,10 +73,10 @@ func taskToSDK(t *task.Task) *sdk.Task {
 // Add creates a new task with the given title and optional spec body.
 // Maps SDK options to internal AddOptions and stamps a CLI origin.
 func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Task, error) {
-	if err := validate.Text(title, "title"); err != nil {
-		return nil, err
-	}
-	if err := validate.Content(body, a.lim); err != nil {
+	if err := errors.Join(
+		validate.Text(title, "title"),
+		validate.Content(body, a.lim),
+	); err != nil {
 		return nil, err
 	}
 	t, err := a.store.Tasks.Add(context.Background(), title, body, tasks.AddOptions{

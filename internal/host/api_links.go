@@ -46,13 +46,11 @@ func newLinkAPI(store *llmd.Store, lim validate.Limits) *linkAPI {
 // Add creates a directed link from one document to another with an
 // optional label. Stamps a CLI origin for provenance tracking.
 func (a *linkAPI) Add(from, to, label, author string) error {
-	if err := validate.Path(from, a.lim); err != nil {
-		return err
-	}
-	if err := validate.Path(to, a.lim); err != nil {
-		return err
-	}
-	if err := validate.Text(label, "label"); err != nil {
+	if err := errors.Join(
+		validate.Path(from, a.lim),
+		validate.Path(to, a.lim),
+		validate.Text(label, "label"),
+	); err != nil {
 		return err
 	}
 	_, err := a.store.Links.Add(context.Background(), from, to, links.Options{

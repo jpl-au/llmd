@@ -192,6 +192,41 @@ func TestExport_SpecificVersion(t *testing.T) {
 	}
 }
 
+func TestExport_TraversalRejected(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	// Write a document with a path that looks like a traversal attempt.
+	// Normalisation is the first defence, but os.OpenRoot is the safety
+	// net — verify it rejects the write even if normalisation is bypassed.
+	if _, err := s.Documents.Write(ctx, "escape", "pwned", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	dir := t.TempDir()
+	parent := filepath.Dir(dir)
+	target := filepath.Join(parent, "escaped.md")
+
+	// Attempt to export using a relative path that escapes the root.
+	// os.Root.WriteFile should reject the ".." component.
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatalf("OpenRoot: %v", err)
+	}
+	defer root.Close()
+
+	err = root.WriteFile("../escaped.md", []byte("pwned"), 0644)
+	if err == nil {
+		os.Remove(target) // clean up if it somehow succeeded
+		t.Fatal("expected error writing outside root, got nil")
+	}
+
+	if _, err := os.Stat(target); err == nil {
+		os.Remove(target)
+		t.Fatal("file was created outside root directory")
+	}
+}
+
 func TestExport_CreatesDirectories(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

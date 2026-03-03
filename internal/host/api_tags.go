@@ -48,10 +48,10 @@ func newTagAPI(store *llmd.Store, lim validate.Limits) *tagAPI {
 // Add attaches a tag to a document. Creates the tag entity if it does
 // not already exist; no-ops if the tag is already present.
 func (a *tagAPI) Add(path, name, author string) error {
-	if err := validate.Path(path, a.lim); err != nil {
-		return err
-	}
-	if err := validate.Text(name, "tag name"); err != nil {
+	if err := errors.Join(
+		validate.Path(path, a.lim),
+		validate.Text(name, "tag name"),
+	); err != nil {
 		return err
 	}
 	_, err := a.store.Tags.Add(context.Background(), path, name, tags.Options{
