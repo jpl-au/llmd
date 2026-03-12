@@ -8,6 +8,10 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var pluginsSpec = sdk.Command{
+	Name: "plugins", Desc: "List loaded plugins", Usage: "plugins",
+}
+
 // pluginsCmd lists all loaded plugins: compiled extensions first,
 // then yaegi dynamic plugins. This is a storeless command — it runs
 // without an open store since it only queries the registry.

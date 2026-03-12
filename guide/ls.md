@@ -5,7 +5,7 @@ List documents in the store.
 ## Usage
 
 ```
-llmd ls [flags] [<prefix>]
+llmd ls [flags] [<path>]
 ```
 
 ## Flags
@@ -54,4 +54,4 @@ llmd ls --tree -a
 
 - Without `-l` or `--tree`, output is one path per line.
 - `--tree` renders a styled directory hierarchy (falls back to flat paths when piped).
-- The prefix argument filters to documents whose path starts with the given string.
+- The path argument filters to documents whose path starts with the given string.

@@ -17,6 +17,15 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var historySpec = sdk.Command{
+	Name: "history", Desc: `Show the version history of a document
+
+Displays a table of all versions with version number, author, date,
+and commit message. Newest versions are shown first.`, Usage: "history [-n limit] <path>", MCP: true, Flags: []sdk.Flag{
+		{Name: "n", Type: "int", Desc: "Maximum versions to show"},
+	},
+}
+
 func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var path string
 	var limit int

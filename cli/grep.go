@@ -20,6 +20,19 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var grepSpec = sdk.Command{
+	Name: "grep", Desc: `Search document content using full-text search
+
+Searches all documents (or those under <path>) for the given query
+using SQLite FTS5 syntax: AND (implicit), OR, NOT, NEAR(), prefix
+*, and phrases "...".`, Usage: "grep [options] <pattern> [path]", MCP: true, MCPName: "llmd_grep", Flags: []sdk.Flag{
+		{Name: "n", Type: "bool", Desc: "Show line numbers"},
+		{Name: "l", Type: "bool", Desc: "Show only filenames"},
+		{Name: "c", Type: "bool", Desc: "Show match count only"},
+		{Name: "C", Type: "int", Desc: "Lines of context"},
+	},
+}
+
 func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var pattern, pathPrefix string
 	var showLineNums, filesOnly, countOnly bool

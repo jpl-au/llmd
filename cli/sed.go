@@ -16,6 +16,14 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var sedSpec = sdk.Command{
+	Name: "sed", Desc: `Sed-style substitution on a document
+
+Only the s (substitute) command is supported. The delimiter can be
+any character, which is useful when replacing paths. Replaces the
+first occurrence and creates a new version.`, Usage: "sed [-i] 's/old/new/' <path>", MCP: true, NeedsAuthor: true,
+}
+
 func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var expr, path string
 

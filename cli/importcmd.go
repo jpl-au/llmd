@@ -16,6 +16,18 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var importSpec = sdk.Command{
+	Name: "import", Desc: `Import .md files from a directory into the store
+
+Reads .md files from <dir> and creates documents in the store. File
+paths relative to the directory become document paths. Unchanged
+files are skipped unless --force is used.`, Usage: "import [options] <dir>", NeedsAuthor: true, Flags: []sdk.Flag{
+		{Name: "prefix", Type: "string", Desc: "Target path prefix for imported documents"},
+		{Name: "dry-run", Type: "bool", Desc: "Preview without importing"},
+		{Name: "force", Type: "bool", Desc: "Import even if unchanged"},
+	},
+}
+
 func importCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var opts sdk.ImportOpts
 	var dir string

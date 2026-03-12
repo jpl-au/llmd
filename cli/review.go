@@ -12,6 +12,16 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var reviewSpec = sdk.Command{
+	Name: "review", Desc: `Review pending tasks with inline context and spec previews
+
+Shows task metadata, spec document previews, and linked documents
+for each task. Filter by column to focus on specific workflow stages.`, Usage: "review [--column name] [-n limit]", Flags: []sdk.Flag{
+		{Name: "column", Type: "string", Desc: "Filter by column"},
+		{Name: "n", Type: "int", Desc: "Maximum tasks to show"},
+	},
+}
+
 var (
 	reviewTitle = lipgloss.NewStyle().
 			Bold(true).

@@ -37,3 +37,23 @@ llmd config --global author "Alice"
 - The only supported key is `author`.
 - Two configuration files are consulted: global (`~/.llmd/config`) and local (`.llmd/config`).
 - Local values override global values.
+
+## Author and attribution
+
+The `config author` setting identifies the **human user** at the terminal.
+It is used automatically when you run commands interactively.
+
+LLMs and scripts must **not** rely on `config author`. They must pass
+`--author` explicitly on every mutation command so that changes are
+correctly attributed:
+
+```bash
+# Human at a terminal — config author is used automatically
+llmd write notes/meeting
+
+# LLM or script — must use --author
+llmd --author "Claude" write notes/summary
+```
+
+When connected via MCP, the LLM must include `"author"` in every mutation
+tool call. See `llmd guide mcp` for details.

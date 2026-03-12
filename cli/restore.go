@@ -10,6 +10,14 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var restoreSpec = sdk.Command{
+	Name: "restore", Desc: `Recover a soft-deleted document
+
+Brings back a document removed with rm. Only works if vacuum has
+not been run since the deletion. The restored document retains its
+full version history.`, Usage: "restore <path>", MCP: true, NeedsAuthor: true,
+}
+
 func restore(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("restore: %w", sdk.ErrMissingArg)

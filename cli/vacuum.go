@@ -6,6 +6,13 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var vacuumSpec = sdk.Command{
+	Name: "vacuum", Desc: `Permanently purge soft-deleted documents and reclaim space
+
+Removes all documents deleted with rm, along with their version
+history, orphaned tags, and orphaned links. This cannot be undone.`, Usage: "vacuum",
+}
+
 // vacuumCmd permanently deletes all soft-deleted documents, tags, and
 // links, then runs SQLite VACUUM to reclaim disk space. This is
 // irreversible — soft-deleted documents cannot be restored after vacuum.

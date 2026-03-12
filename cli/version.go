@@ -10,6 +10,10 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var versionSpec = sdk.Command{
+	Name: "version", Desc: "Show version information", Usage: "version",
+}
+
 // versionCmd returns build information as both human-readable text and
 // structured data. The version info is set at build time via ldflags;
 // during development it shows "dev" for the version tag.

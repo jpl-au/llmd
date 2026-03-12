@@ -1,6 +1,6 @@
 package cli
 
-// ls lists documents in the store, optionally filtered by path prefix.
+// ls lists documents in the store, optionally filtered by path.
 //
 // Short flags can be combined ("-lat" for long + all + time-sorted),
 // following standard Unix conventions.
@@ -19,6 +19,20 @@ import (
 	"charm.land/lipgloss/v2/tree"
 	"github.com/jpl-au/llmd/sdk"
 )
+
+var lsSpec = sdk.Command{
+	Name: "ls", Desc: `List documents in the store
+
+Shows all documents, or those under a given <path>. Without flags,
+prints one document path per line. Use -l for detailed output with
+version, author, and date. Use --tree for a directory hierarchy.`, Usage: "ls [path]", MCP: true, Flags: []sdk.Flag{
+		{Name: "l", Type: "bool", Desc: "Long format with details"},
+		{Name: "a", Type: "bool", Desc: "Include deleted documents"},
+		{Name: "r", Type: "bool", Desc: "Reverse sort order"},
+		{Name: "t", Type: "bool", Desc: "Sort by time (newest first)"},
+		{Name: "tree", Type: "bool", Desc: "Render as directory tree"},
+	},
+}
 
 func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var long, all, reverse, sortByTime, asTree bool

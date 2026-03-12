@@ -17,6 +17,17 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var tagSpec = sdk.Command{
+	Name: "tag", Desc: `Add, remove, or find tags on documents
+
+With no arguments, lists all tags with counts. With just a path,
+lists tags on that document. With a path and a name, adds the tag.
+Use -d to remove a tag, or -f to find documents by tag.`, Usage: "tag [options] [path] [name]", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+		{Name: "delete", Short: "d", Type: "bool", Desc: "Remove a tag"},
+		{Name: "find", Short: "f", Type: "bool", Desc: "Find documents with tag"},
+	},
+}
+
 func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var remove, find bool
 

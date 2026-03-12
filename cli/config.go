@@ -18,6 +18,14 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var configSpec = sdk.Command{
+	Name: "config", Desc: `View or set configuration (e.g. author name)
+
+With no arguments, shows all settings. With a key, shows that value.
+With a key and value, sets it. Use --global to write to the global
+config (~/.llmd/config) instead of the local store config.`, Usage: "config [key] [value] | config ignore [add|rm|ls] [pattern]",
+}
+
 var errConfigUsage = errors.New("config: usage: llmd config [--global] [key] [value]")
 
 // configCmd handles show-all, show-key, and set-key operations.

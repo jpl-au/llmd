@@ -10,6 +10,45 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var taskSpec = sdk.Command{
+	Name: "task", Desc: `Manage tasks on the board.
+
+Subcommands (passed as first arg):
+  add <title>               create task (body via content/stdin)
+  list                      board view (all columns)
+  show <id>                 task metadata + spec body
+  move <id> <column>        move task to column (needs spec to leave backlog)
+  set <id> [flags]          update metadata
+  rm <id>                   soft-delete task
+  restore <id>              restore deleted task
+  column list               list columns
+  column add <name>         add column
+  column rm <name>          remove empty column
+  column mv <name> --after  reorder column
+  link <id> <path>          link task to document
+  links <id>                list linked documents
+  log <id> [-n limit]       audit history for a task
+  start <id>                start task (record branch, move to in-progress)
+  finish [id]               complete task (move to done, show summary)
+  branch <id>               create git branch from task, checkout, start
+  diff [id]                 show git diff for task's branch
+  files [id]                list files changed on task's branch
+  commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
+		{Name: "column", Type: "string", Desc: "Filter by column"},
+		{Name: "priority", Type: "int", Desc: "Filter or set priority"},
+		{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},
+		{Name: "branch", Type: "string", Desc: "Git branch for this task"},
+		{Name: "path", Type: "string", Desc: "Use existing store document as spec"},
+		{Name: "file", Type: "string", Desc: "Read spec from filesystem path"},
+		{Name: "flag", Type: "string", Desc: "Set a flag (blocked, hold)"},
+		{Name: "unflag", Type: "string", Desc: "Remove a flag"},
+		{Name: "position", Type: "int", Desc: "Set position within column"},
+		{Name: "after", Type: "string", Desc: "Insert/move column after this one"},
+		{Name: "base", Type: "string", Desc: "Base branch for diff (default: main/master)"},
+		{Name: "stat", Type: "bool", Desc: "Show diffstat instead of full diff"},
+	},
+}
+
 // taskCmd dispatches to task subcommands. It peels off the first
 // positional argument as the subcommand name and delegates to the
 // appropriate handler. Column subcommands are nested one level deeper

@@ -11,6 +11,13 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var globSpec = sdk.Command{
+	Name: "glob", Desc: `Find documents by shell-style path pattern
+
+Supports * (single level), ** (recursive), and ? (one character).
+Output is one path per line.`, Usage: "glob <pattern>", MCP: true, MCPName: "llmd_glob",
+}
+
 func glob(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("glob: %w", sdk.ErrMissingArg)

@@ -5,7 +5,7 @@ Full-text search across document content using FTS5 syntax.
 ## Usage
 
 ```
-llmd grep [flags] <query> [<prefix>]
+llmd grep [flags] <query> [<path>]
 ```
 
 ## Flags
@@ -35,7 +35,7 @@ llmd grep 'postgres OR mysql'
 # Proximity search (words within 5 tokens of each other)
 llmd grep 'NEAR(deploy production)'
 
-# Restrict to a path prefix
+# Restrict to documents under a path
 llmd grep database notes/
 
 # Show line numbers
@@ -55,4 +55,4 @@ llmd grep -C3 database
 
 - Queries use SQLite FTS5 syntax, not regular expressions.
 - FTS5 operators: `AND` (implicit), `OR`, `NOT`, `NEAR()`, prefix `*`, phrases `"..."`.
-- The optional prefix argument restricts the search to documents under that path.
+- The optional path argument restricts the search to documents under that path.

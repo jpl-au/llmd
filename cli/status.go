@@ -14,6 +14,15 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var statusSpec = sdk.Command{
+	Name: "status", Desc: `Overview dashboard showing recent documents, tasks, and activity
+
+Shows recent documents, task board summary, and latest task events
+in a single view. Use -n to control how many items per section.`, Usage: "status [-n limit]", Flags: []sdk.Flag{
+		{Name: "n", Type: "int", Desc: "Items per section (default 5)"},
+	},
+}
+
 var (
 	sectionTitle = lipgloss.NewStyle().
 			Bold(true).

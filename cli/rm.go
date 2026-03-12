@@ -10,6 +10,14 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var rmSpec = sdk.Command{
+	Name: "rm", Desc: `Soft-delete a document (recoverable with restore)
+
+The document is hidden from ls but its content and history are
+preserved. Use restore to bring it back, or vacuum to permanently
+purge all deleted documents.`, Usage: "rm <path>", MCP: true, NeedsAuthor: true,
+}
+
 func rm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("rm: %w", sdk.ErrMissingArg)

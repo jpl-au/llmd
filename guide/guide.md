@@ -33,9 +33,9 @@ llmd grep hello                              # full-text search
 
 | Command | Description                            | Usage                         |
 |---------|----------------------------------------|-------------------------------|
-| `ls`    | List documents                         | `ls [-l] [-a] [-t] [prefix]`  |
+| `ls`    | List documents                         | `ls [-l] [-a] [-t] [path]`   |
 | `grep`  | Full-text search (FTS5 syntax)         | `grep [-n] [-l] [-c] <query>` |
-| `find`  | Full-text search, paths only           | `find <query> [prefix]`       |
+| `find`  | Full-text search, paths only           | `find <query> [path]`         |
 | `glob`  | Match documents by path pattern        | `glob <pattern>`              |
 
 ### Version control
@@ -74,8 +74,8 @@ files, column, link, links, log. See `llmd guide task`.
 | Command  | Description                        | Usage                        |
 |----------|------------------------------------|------------------------------|
 | `import` | Import .md files from a directory  | `import [--prefix p] <dir>`  |
-| `export` | Export documents to the filesystem | `export <prefix> <dir>`      |
-| `mirror` | One-way snapshot to .llmd/mirror/  | `mirror [prefix]`            |
+| `export` | Export documents to the filesystem | `export <path> [dir]`        |
+| `mirror` | One-way snapshot to .llmd/mirror/  | `mirror [path]`              |
 
 ### Admin
 
@@ -93,6 +93,7 @@ files, column, link, links, log. See `llmd guide task`.
 
 ## Global flags
 
+- `--author <name>` — author for mutations (required for LLMs and scripts)
 - `--json` — output structured JSON instead of text
 - `--db <path>` — use a different database file
 

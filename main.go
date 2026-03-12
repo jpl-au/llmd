@@ -36,6 +36,7 @@ func run(args []string) int {
 	var help bool
 	var verbose bool
 	var dbPath string
+	var authorFlag string
 	var cmd string
 	var cmdArgs []string
 
@@ -54,18 +55,32 @@ func run(args []string) int {
 			}
 			i++
 			dbPath = args[i]
+		case arg == "--author":
+			if i+1 >= len(args) {
+				return errorf(jsonOut, "--author requires a name")
+			}
+			i++
+			authorFlag = args[i]
+		case strings.HasPrefix(arg, "--author="):
+			authorFlag = strings.TrimPrefix(arg, "--author=")
 		case cmd == "" && !strings.HasPrefix(arg, "-"):
 			cmd = arg
 			cmdArgs = args[i+1:]
-			// Scan remaining args for --help/--json/--verbose (so "llmd cat --help" works).
-			for _, a := range cmdArgs {
-				switch a {
-				case "--help", "-h":
+			// Scan remaining args for global flags (so "llmd cat --help" works).
+			for j := 0; j < len(cmdArgs); j++ {
+				a := cmdArgs[j]
+				switch {
+				case a == "--help" || a == "-h":
 					help = true
-				case "--json":
+				case a == "--json":
 					jsonOut = true
-				case "--verbose":
+				case a == "--verbose":
 					verbose = true
+				case a == "--author" && j+1 < len(cmdArgs):
+					j++
+					authorFlag = cmdArgs[j]
+				case strings.HasPrefix(a, "--author="):
+					authorFlag = strings.TrimPrefix(a, "--author=")
 				}
 			}
 			i = len(args)
@@ -127,13 +142,25 @@ func run(args []string) int {
 		return 0
 	}
 
-	authorCfg, err := sdk.Config.Read()
-	if err != nil {
-		slog.Warn("reading config for author", "err", err)
+	// Resolve author. --author flag takes precedence over config.
+	// Non-interactive callers (LLMs, scripts) must always use --author
+	// so that mutations are correctly attributed.
+	author := authorFlag
+	if author == "" {
+		authorCfg, err := sdk.Config.Read()
+		if err != nil {
+			slog.Warn("reading config for author", "err", err)
+		}
+		author = authorCfg["author"]
 	}
-	author := authorCfg["author"]
-	if author == "" && c.NeedsAuthor {
-		return errorf(jsonOut, "author not configured\n\nSet your author name:\n  llmd config author \"Your Name\"")
+
+	if c.NeedsAuthor {
+		if author == "" {
+			return errorf(jsonOut, "author not configured\n\nSet your author name:\n  llmd config author \"Your Name\"\n\nOr pass --author on the command line:\n  llmd --author \"Name\" %s ...", cmd)
+		}
+		if authorFlag == "" && !stdoutIsTTY() {
+			return errorf(jsonOut, "--author is required for non-interactive use\n\nLLMs and scripts must identify themselves:\n  llmd --author \"Claude\" %s ...\n\nThe config author (%q) is reserved for interactive terminal use.", cmd, author)
+		}
 	}
 
 	stdin := readStdin()
@@ -215,6 +242,18 @@ func initLog(cfg map[string]string, jsonOut, verbose bool) {
 		handler = slog.NewTextHandler(os.Stderr, opts)
 	}
 	slog.SetDefault(slog.New(handler))
+}
+
+// stdoutIsTTY reports whether stdout is connected to a terminal.
+// Used to distinguish interactive (human) use from non-interactive
+// (LLM/script) use when enforcing --author.
+func stdoutIsTTY() bool {
+	f, err := os.Stdout.Stat()
+	if err != nil {
+		slog.Debug("cannot stat stdout, assuming non-interactive", "err", err)
+		return false
+	}
+	return f.Mode()&os.ModeCharDevice != 0
 }
 
 // readStdin reads piped input if present, or returns nil for interactive

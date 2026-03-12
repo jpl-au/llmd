@@ -11,6 +11,15 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var writeSpec = sdk.Command{
+	Name: "write", Desc: `Create or update a document from standard input
+
+Reads content from stdin and writes it as a new document version.
+If the document does not exist, it is created at version 1.`, Usage: "write <path>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+		{Name: "message", Type: "string", Desc: "Version message"},
+	},
+}
+
 func write(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("write: %w", sdk.ErrMissingArg)

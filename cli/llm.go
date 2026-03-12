@@ -5,6 +5,10 @@ package cli
 
 import "github.com/jpl-au/llmd/sdk"
 
+var llmSpec = sdk.Command{
+	Name: "llm", Desc: "Quick command reference for AI agents", Usage: "llm", MCP: true,
+}
+
 func llm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(llmRef), nil
 }
@@ -31,22 +35,26 @@ to avoid collisions with common tool names:
 
 All other tool names match their command name (cat, write, edit, ls, etc.).
 
-All tools accept: {"args": [...], "content": "..."}
+All tools accept: {"args": [...], "content": "...", "author": "..."}
 Use content for document bodies (write, edit). Use args for everything else.
+
+IMPORTANT: You MUST include "author" in every mutation tool call (write,
+edit, rm, mv, tag, link, task, etc.) to identify yourself. Calls without
+author will be rejected.
 
 ## Commands
 
 READ     cat <path>                  read document
          cat -n <path>               with line numbers
          cat --version N <path>      specific version
-         ls [prefix]                 list documents
+         ls [path]                   list documents
 
 WRITE    write <path>                create/update (body via content/stdin)
          edit <path> <old> <new>     search and replace
          sed 's/old/new/' <path>     sed-style substitution
 
-SEARCH   grep <pattern> [prefix]     full-text search
-         find <query> [prefix]       search (paths only)
+SEARCH   grep <pattern> [path]       full-text search
+         find <query> [path]         search (paths only)
          glob "docs/*.md"            path pattern match
 
 ORGANISE tag <path> <name>           add tag
@@ -69,8 +77,15 @@ TASKS    task list                   board view (all columns)
          task set <id> --flag hold   set flag, priority, assign, etc.
          task rm <id>                soft-delete task (doc untouched)
 
-## Configuration
+## Author attribution
 
-Author must be set before any write operation:
+You MUST identify yourself on every mutation (write, edit, rm, mv, tag,
+link, task, etc.). This is how llmd tracks who made each change.
 
-  config author "Name"`
+Via MCP tools — include "author" in every tool call:
+  {"author": "Claude", "args": ["notes/summary"], "content": "..."}
+
+Via CLI — pass --author on the command line:
+  llmd --author "Claude" write notes/summary
+
+The "config author" setting is for the human user only — do not rely on it.`

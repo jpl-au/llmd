@@ -7,7 +7,7 @@ under `.llmd/<dbname>/` (e.g. `.llmd/llmd/` for the default store,
 ## Usage
 
 ```
-llmd mirror [pull|push] [<prefix>]
+llmd mirror [pull|push] [<path>]
 ```
 
 ## Subcommands
@@ -29,7 +29,7 @@ llmd mirror
 # Explicit pull
 llmd mirror pull
 
-# Pull only documents under a prefix
+# Pull only documents under a path
 llmd mirror pull notes/
 
 # Push filesystem changes back to store

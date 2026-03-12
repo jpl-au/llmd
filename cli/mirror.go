@@ -6,9 +6,9 @@
 //
 // Usage:
 //
-//	llmd mirror [prefix]          Pull documents to filesystem
-//	llmd mirror pull [prefix]     Pull documents to filesystem
-//	llmd mirror push [prefix]     Push filesystem changes back to store
+//	llmd mirror [path]          Pull documents to filesystem
+//	llmd mirror pull [path]     Pull documents to filesystem
+//	llmd mirror push [path]     Push filesystem changes back to store
 
 package cli
 
@@ -19,6 +19,14 @@ import (
 
 	"github.com/jpl-au/llmd/sdk"
 )
+
+var mirrorSpec = sdk.Command{
+	Name: "mirror", Desc: `Sync documents between the store and a local directory
+
+Pull writes store documents to .llmd/<dbname>/ as .md files. Push
+imports filesystem changes back into the store. Useful for editor
+integration and AI agent access (e.g. @ mentions in Claude Code).`, Usage: "mirror [pull|push] [path]",
+}
 
 func mirror(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) > 0 {

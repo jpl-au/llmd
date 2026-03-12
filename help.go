@@ -111,6 +111,7 @@ func printCmdHelp(c *sdk.Command) {
 		fmt.Println()
 	}
 	fmt.Println("Global Flags:")
+	fmt.Println("  --author <name>     Author for mutations (required for LLMs/scripts)")
 	fmt.Println("  --db <path>         Use a specific database file")
 	fmt.Println("  --json              Output as JSON")
 	fmt.Println("  --help              Show help")

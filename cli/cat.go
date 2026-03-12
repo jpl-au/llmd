@@ -17,6 +17,16 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var catSpec = sdk.Command{
+	Name: "cat", Desc: `Read and display one or more documents
+
+Prints document content to stdout. Multiple paths are concatenated
+with newlines, like Unix cat.`, Usage: "cat [options] <path>...", MCP: true, Flags: []sdk.Flag{
+		{Name: "version", Type: "int", Desc: "Read specific version"},
+		{Name: "n", Type: "bool", Desc: "Number output lines"},
+	},
+}
+
 func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var paths []string
 	var version int

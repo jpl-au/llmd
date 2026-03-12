@@ -15,6 +15,16 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var revertSpec = sdk.Command{
+	Name: "revert", Desc: `Roll back a document to a previous version
+
+Creates a new version containing the content from an older version.
+Non-destructive — existing versions are preserved in the history.
+Use history to see available version numbers.`, Usage: "revert <path> <version>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+		{Name: "message", Type: "string", Desc: "Revert message"},
+	},
+}
+
 func revert(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("revert: %w", sdk.ErrMissingArg)

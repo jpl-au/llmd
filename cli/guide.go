@@ -19,6 +19,16 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var guideSpec = sdk.Command{
+	Name: "guide", Desc: `Read built-in documentation on any command or topic
+
+Without a topic, shows the overview with all available commands.
+Topics include any command name as well as workflow, install, and
+other guides. Use --raw for unrendered markdown.`, Usage: "guide [--raw] [topic]", MCP: true, Flags: []sdk.Flag{
+		{Name: "raw", Type: "bool", Desc: "Output raw markdown without rendering"},
+	},
+}
+
 func guideCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var topic string
 	var raw bool

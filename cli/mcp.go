@@ -25,6 +25,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+var mcpSpec = sdk.Command{
+	Name: "mcp", Desc: "Start MCP stdio server for AI agent integration", Usage: "mcp",
+}
+
 // toolInput is the MCP input schema shared by all tools.
 // Args are passed directly to the plugin's Exec as command-line arguments.
 // Content, when non-empty, is delivered as stdin (used by write, edit).
@@ -86,6 +90,7 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 	}
 
 	cmdName := cmd.Name
+	needsAuthor := cmd.NeedsAuthor
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        name,
@@ -96,9 +101,17 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 			stdin = []byte(input.Content)
 		}
 
-		// Prefer the per-call author from the LLM; fall back to the
-		// server's configured author if none was supplied.
+		// LLMs must supply author on mutation calls. No silent fallback
+		// to the configured author — the LLM must identify itself.
 		a := input.Author
+		if a == "" && needsAuthor {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{
+					Text: fmt.Sprintf("%s requires an author. Include \"author\" in your tool call to identify yourself, e.g. {\"author\": \"Claude\", \"args\": [...]}", cmdName),
+				}},
+				IsError: true,
+			}, nil, nil
+		}
 		if a == "" {
 			a = author
 		}

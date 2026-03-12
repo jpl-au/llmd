@@ -18,6 +18,17 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var diffSpec = sdk.Command{
+	Name: "diff", Desc: `Compare document versions or two documents
+
+With one path, diffs the latest version against the previous. With
+two paths (optionally using :version suffix), compares them directly.
+Output is coloured in a terminal.`, Usage: "diff <source> [target]", MCP: true, Flags: []sdk.Flag{
+		{Name: "C", Type: "int", Desc: "Lines of context"},
+		{Name: "stat", Type: "bool", Desc: "Show stats only"},
+	},
+}
+
 // diffCmd compares document versions and displays a unified diff.
 func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var paths []string

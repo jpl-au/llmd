@@ -16,6 +16,17 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var linkSpec = sdk.Command{
+	Name: "link", Desc: `Create or list links between documents
+
+With two paths, creates a directional link from source to target.
+With one path, lists outgoing links from that document. Use --in
+to see incoming links instead.`, Usage: "link [options] <from> [to]", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+		{Name: "label", Type: "string", Desc: "Link label"},
+		{Name: "in", Type: "bool", Desc: "Show incoming links"},
+	},
+}
+
 func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var label, dir string
 	var positional []string

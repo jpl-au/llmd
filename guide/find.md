@@ -5,7 +5,7 @@ Full-text search returning matching paths only.
 ## Usage
 
 ```
-llmd find <query> [<prefix>]
+llmd find <query> [<path>]
 ```
 
 ## Examples
@@ -23,7 +23,7 @@ llmd find 'deploy*'
 # Boolean OR
 llmd find 'postgres OR mysql'
 
-# Restrict to a path prefix
+# Restrict to documents under a path
 llmd find database notes/
 ```
 

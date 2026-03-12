@@ -16,6 +16,13 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var findSpec = sdk.Command{
+	Name: "find", Desc: `Full-text search returning matching paths only
+
+Like grep, but prints only document paths — no content. Useful for
+piping or getting a quick overview of which documents match.`, Usage: "find <query> [path]", MCP: true, MCPName: "llmd_find",
+}
+
 func find(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("find: %w", sdk.ErrMissingArg)
