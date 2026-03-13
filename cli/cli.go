@@ -47,7 +47,7 @@ func (c *CLI) Commands() []sdk.Command {
 		grepSpec, findSpec, globSpec, historySpec, diffSpec, restoreSpec, revertSpec,
 		tagSpec, linkSpec, unlinkSpec,
 		importSpec, exportSpec,
-		taskSpec,
+		taskSpec, auditSpec,
 		statusSpec, reviewSpec,
 		versionSpec, configSpec, initSpec, vacuumSpec,
 		mcpSpec, serveSpec, mirrorSpec, pluginsSpec, guideSpec, llmSpec,
@@ -93,6 +93,8 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return unlink(ctx, args)
 	case "task":
 		return taskCmd(ctx, args)
+	case "audit":
+		return auditCmd(ctx, args)
 	case "status":
 		return status(ctx, args)
 	case "review":
