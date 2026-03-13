@@ -65,10 +65,14 @@ func run(args []string) int {
 			authorFlag = strings.TrimPrefix(arg, "--author=")
 		case cmd == "" && !strings.HasPrefix(arg, "-"):
 			cmd = arg
-			cmdArgs = args[i+1:]
-			// Scan remaining args for global flags (so "llmd cat --help" works).
-			for j := 0; j < len(cmdArgs); j++ {
-				a := cmdArgs[j]
+			raw := args[i+1:]
+			// Strip global flags from command args so they don't
+			// reach per-command ParseArgs (which would reject them
+			// as unknown). Values are consumed here and passed to
+			// the command via separate channels (author param, etc.).
+			cmdArgs = make([]string, 0, len(raw))
+			for j := 0; j < len(raw); j++ {
+				a := raw[j]
 				switch {
 				case a == "--help" || a == "-h":
 					help = true
@@ -76,11 +80,13 @@ func run(args []string) int {
 					jsonOut = true
 				case a == "--verbose":
 					verbose = true
-				case a == "--author" && j+1 < len(cmdArgs):
+				case a == "--author" && j+1 < len(raw):
 					j++
-					authorFlag = cmdArgs[j]
+					authorFlag = raw[j]
 				case strings.HasPrefix(a, "--author="):
 					authorFlag = strings.TrimPrefix(a, "--author=")
+				default:
+					cmdArgs = append(cmdArgs, a)
 				}
 			}
 			i = len(args)
