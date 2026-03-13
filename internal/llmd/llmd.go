@@ -189,11 +189,12 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-// Checkpoint writes WAL data to the main database file and truncates
-// the WAL. This removes the -wal and -shm files if no other connections
-// exist, leaving a clean single-file database on disk.
+// Checkpoint flushes WAL data into the main database file and truncates
+// the WAL to zero bytes. This leaves a self-contained .db file safe for
+// git commits (the gitignored -wal and -shm files become empty/absent).
+// The database stays in WAL mode for the next session.
 func (s *Store) Checkpoint() error {
-	_, err := s.db.Exec("PRAGMA journal_mode=DELETE")
+	_, err := s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	return err
 }
 
