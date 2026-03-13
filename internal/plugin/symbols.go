@@ -37,6 +37,7 @@ func (a *adapter) symbols() interp.Exports {
 			"Links":      reflect.ValueOf(&a.links).Elem(),
 			"Tags":       reflect.ValueOf(&a.tags).Elem(),
 			"Activities": reflect.ValueOf(&a.activities).Elem(),
+			"Audits":     reflect.ValueOf(&a.audits).Elem(),
 			"Mirror":     reflect.ValueOf(&a.mirror).Elem(),
 
 			// Constants
@@ -60,6 +61,11 @@ func (a *adapter) symbols() interp.Exports {
 
 			// Type definitions
 			"Activity":        reflect.ValueOf((*sdk.Activity)(nil)),
+			"Audit":           reflect.ValueOf((*sdk.Audit)(nil)),
+			"AuditOpts":       reflect.ValueOf((*sdk.AuditOpts)(nil)),
+			"AuditListOpts":   reflect.ValueOf((*sdk.AuditListOpts)(nil)),
+			"AuditStatus":     reflect.ValueOf((*sdk.AuditStatus)(nil)),
+			"AuditSummary":    reflect.ValueOf((*sdk.AuditSummary)(nil)),
 			"Command":         reflect.ValueOf((*sdk.Command)(nil)),
 			"Context":         reflect.ValueOf((*sdk.Context)(nil)),
 			"Data":            reflect.ValueOf((*sdk.Data)(nil)),
@@ -99,6 +105,7 @@ func (a *adapter) symbols() interp.Exports {
 			"LinkStore":     reflect.ValueOf((*sdk.LinkStore)(nil)),
 			"TagStore":      reflect.ValueOf((*sdk.TagStore)(nil)),
 			"ActivityStore": reflect.ValueOf((*sdk.ActivityStore)(nil)),
+			"AuditStore":    reflect.ValueOf((*sdk.AuditStore)(nil)),
 			"MirrorStore":   reflect.ValueOf((*sdk.MirrorStore)(nil)),
 			"PullResult":    reflect.ValueOf((*sdk.PullResult)(nil)),
 			"PushOpts":      reflect.ValueOf((*sdk.PushOpts)(nil)),
@@ -110,6 +117,7 @@ func (a *adapter) symbols() interp.Exports {
 			"_LinkStore":     reflect.ValueOf((*_sdk_LinkStore)(nil)),
 			"_TagStore":      reflect.ValueOf((*_sdk_TagStore)(nil)),
 			"_ActivityStore": reflect.ValueOf((*_sdk_ActivityStore)(nil)),
+			"_AuditStore":    reflect.ValueOf((*_sdk_AuditStore)(nil)),
 			"_MirrorStore":   reflect.ValueOf((*_sdk_MirrorStore)(nil)),
 			"_Plugin":        reflect.ValueOf((*_sdk_Plugin)(nil)),
 			"_Response":      reflect.ValueOf((*_sdk_Response)(nil)),
@@ -353,6 +361,44 @@ type _sdk_ActivityStore struct {
 
 func (W _sdk_ActivityStore) Recent(limit int) ([]sdk.Activity, error) {
 	return W.WRecent(limit)
+}
+
+// _sdk_AuditStore is an interface wrapper for AuditStore type
+type _sdk_AuditStore struct {
+	IValue   any
+	WAdd     func(opts sdk.AuditOpts) (*sdk.Audit, error)
+	WReply   func(id string, opts sdk.AuditOpts) (*sdk.Audit, error)
+	WRead    func(id string) (*sdk.Audit, error)
+	WList    func(opts sdk.AuditListOpts) ([]sdk.Audit, error)
+	WThread  func(id string) ([]sdk.Audit, error)
+	WResolve func(id, author string) (*sdk.Audit, error)
+	WDelete  func(id, author string) error
+	WStatus  func(author string) (*sdk.AuditStatus, error)
+}
+
+func (W _sdk_AuditStore) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
+	return W.WAdd(opts)
+}
+func (W _sdk_AuditStore) Reply(id string, opts sdk.AuditOpts) (*sdk.Audit, error) {
+	return W.WReply(id, opts)
+}
+func (W _sdk_AuditStore) Read(id string) (*sdk.Audit, error) {
+	return W.WRead(id)
+}
+func (W _sdk_AuditStore) List(opts sdk.AuditListOpts) ([]sdk.Audit, error) {
+	return W.WList(opts)
+}
+func (W _sdk_AuditStore) Thread(id string) ([]sdk.Audit, error) {
+	return W.WThread(id)
+}
+func (W _sdk_AuditStore) Resolve(id, author string) (*sdk.Audit, error) {
+	return W.WResolve(id, author)
+}
+func (W _sdk_AuditStore) Delete(id, author string) error {
+	return W.WDelete(id, author)
+}
+func (W _sdk_AuditStore) Status(author string) (*sdk.AuditStatus, error) {
+	return W.WStatus(author)
 }
 
 // _sdk_MirrorStore is an interface wrapper for MirrorStore type

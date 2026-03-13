@@ -156,6 +156,7 @@ type adapter struct {
 	links      sdk.LinkStore
 	tags       sdk.TagStore
 	activities sdk.ActivityStore
+	audits     sdk.AuditStore
 	mirror     sdk.MirrorStore
 }
 
@@ -175,6 +176,7 @@ func (a *adapter) Exec(ctx sdk.Context, cmd string, args []string) (resp sdk.Res
 	a.links = ctx.Links
 	a.tags = ctx.Tags
 	a.activities = ctx.Activities
+	a.audits = ctx.Audits
 	a.mirror = ctx.Mirror
 
 	defer func() {
