@@ -63,6 +63,10 @@ type Audit struct {
 	// Author identifies who created this entry.
 	Author string
 
+	// Assignee identifies who needs to act on this audit. Propagates
+	// through replies — the effective assignee is from the latest entry.
+	Assignee string
+
 	// Status at the time of this entry (e.g. "pending", "approved",
 	// "needs-work"). The thread's effective status is the status of
 	// its most recent entry.
@@ -95,6 +99,10 @@ type AuditOpts struct {
 	// Author identifies who is creating this entry. Required.
 	Author string
 
+	// Assignee identifies who should act on this audit. For Reply,
+	// inherits from the parent if empty.
+	Assignee string
+
 	// Status sets the status on this entry. Default: "pending".
 	Status string
 
@@ -110,8 +118,11 @@ type AuditListOpts struct {
 	// Target filters to audits on this document path or task key.
 	Target string
 
-	// Author filters to audits by this author.
-	Author string
+	// ByAuthor filters to audits created by this author.
+	ByAuthor string
+
+	// Assignee filters to audits assigned to this person.
+	Assignee string
 
 	// Status filters to threads with this effective status.
 	Status string

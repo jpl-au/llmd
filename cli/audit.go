@@ -23,9 +23,11 @@ Subcommands (passed as first arg):
   rm <id>                    soft-delete
   status                     inbox: what needs my response`, Usage: "audit <subcommand> [options]", MCP: true, MCPName: "audit", Flags: []sdk.Flag{
 		{Name: "status", Short: "s", Type: "string", Desc: "Set or filter by status"},
+		{Name: "assignee", Type: "string", Desc: "Assign to or filter by assignee"},
 		{Name: "file", Type: "string", Desc: "Read content from filesystem path"},
 		{Name: "version", Type: "int", Desc: "Pin to specific document version"},
 		{Name: "pending", Type: "bool", Desc: "Filter to pending/needs-work"},
+		{Name: "by-author", Type: "string", Desc: "Filter by who created the audit"},
 	},
 }
 
@@ -73,6 +75,7 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 // auditAdd creates a top-level audit.
 var auditAddFlags = []sdk.Flag{
 	{Name: "status", Short: "s", Type: "string"},
+	{Name: "assignee", Type: "string"},
 	{Name: "file", Type: "string"},
 	{Name: "version", Type: "int"},
 }
@@ -103,11 +106,12 @@ func auditAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	aud, err := ctx.Audits.Add(sdk.AuditOpts{
-		Target:  target,
-		Content: content,
-		Author:  ctx.Author,
-		Status:  flags.String("status"),
-		Version: flags.Int("version"),
+		Target:   target,
+		Content:  content,
+		Author:   ctx.Author,
+		Assignee: flags.String("assignee"),
+		Status:   flags.String("status"),
+		Version:  flags.Int("version"),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("audit add: %w", err)
@@ -120,6 +124,7 @@ func auditAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 // auditReply responds to an existing audit thread.
 var auditReplyFlags = []sdk.Flag{
 	{Name: "status", Short: "s", Type: "string"},
+	{Name: "assignee", Type: "string"},
 	{Name: "file", Type: "string"},
 }
 
@@ -148,9 +153,10 @@ func auditReply(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	aud, err := ctx.Audits.Reply(id, sdk.AuditOpts{
-		Content: content,
-		Author:  ctx.Author,
-		Status:  flags.String("status"),
+		Content:  content,
+		Author:   ctx.Author,
+		Assignee: flags.String("assignee"),
+		Status:   flags.String("status"),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("audit reply: %w", err)
@@ -163,7 +169,8 @@ func auditReply(ctx sdk.Context, args []string) (sdk.Response, error) {
 // auditList lists audits with optional filters.
 var auditListFlags = []sdk.Flag{
 	{Name: "status", Short: "s", Type: "string"},
-	{Name: "author", Type: "string"},
+	{Name: "assignee", Type: "string", Desc: "Filter by assignee"},
+	{Name: "by-author", Type: "string", Desc: "Filter by creator"},
 	{Name: "pending", Type: "bool"},
 }
 
@@ -174,9 +181,10 @@ func auditList(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	opts := sdk.AuditListOpts{
-		Author:  flags.String("author"),
-		Status:  flags.String("status"),
-		Pending: flags.Bool("pending"),
+		ByAuthor: flags.String("by-author"),
+		Assignee: flags.String("assignee"),
+		Status:   flags.String("status"),
+		Pending:  flags.Bool("pending"),
 	}
 	if len(positional) > 0 {
 		opts.Target = positional[0]

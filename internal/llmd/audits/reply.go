@@ -38,13 +38,18 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 		status = parent.Status
 	}
 
+	assignee := opts.Assignee
+	if assignee == "" {
+		assignee = parent.Assignee
+	}
+
 	id := "aud_" + key.Generate()
 	now := time.Now().UnixMilli()
 
 	_, err = a.db.ExecContext(ctx, `
-		INSERT INTO audits (id, target, target_type, version, author, status, content, parent_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, status, opts.Content, threadID, now)
+		INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, assignee, status, opts.Content, threadID, now)
 	if err != nil {
 		return nil, fmt.Errorf("inserting reply: %w", err)
 	}
@@ -55,6 +60,7 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 		TargetType: parent.TargetType,
 		Version:    parent.Version,
 		Author:     opts.Author,
+		Assignee:   assignee,
 		Status:     status,
 		Content:    opts.Content,
 		ParentID:   threadID,

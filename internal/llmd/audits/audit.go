@@ -13,6 +13,7 @@ type Audit struct {
 	TargetType string
 	Version    int
 	Author     string
+	Assignee   string
 	Status     string
 	Content    string
 	ParentID   string
@@ -33,7 +34,7 @@ func scanAudit(s scanner) (*Audit, error) {
 
 	err := s.Scan(
 		&a.ID, &a.Target, &a.TargetType, &version,
-		&a.Author, &a.Status, &a.Content, &parentID,
+		&a.Author, &a.Assignee, &a.Status, &a.Content, &parentID,
 		&a.CreatedAt, &deletedAt,
 	)
 	if err != nil {
@@ -49,4 +50,4 @@ func scanAudit(s scanner) (*Audit, error) {
 	return &a, nil
 }
 
-const columns = `id, target, target_type, version, author, status, content, parent_id, created_at, deleted_at`
+const columns = `id, target, target_type, version, author, assignee, status, content, parent_id, created_at, deleted_at`

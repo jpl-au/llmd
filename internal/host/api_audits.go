@@ -46,6 +46,7 @@ func auditToSDK(a *audits.Audit) sdk.Audit {
 		TargetType: a.TargetType,
 		Version:    a.Version,
 		Author:     a.Author,
+		Assignee:   a.Assignee,
 		Status:     a.Status,
 		Content:    a.Content,
 		ParentID:   a.ParentID,
@@ -55,11 +56,12 @@ func auditToSDK(a *audits.Audit) sdk.Audit {
 
 func (api *auditAPI) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
 	a, err := api.store.Audits.Add(api.ctx, audits.AddOptions{
-		Target:  opts.Target,
-		Content: opts.Content,
-		Author:  opts.Author,
-		Status:  opts.Status,
-		Version: opts.Version,
+		Target:   opts.Target,
+		Content:  opts.Content,
+		Author:   opts.Author,
+		Assignee: opts.Assignee,
+		Status:   opts.Status,
+		Version:  opts.Version,
 	})
 	if err != nil {
 		return nil, auditErr(err)
@@ -70,9 +72,10 @@ func (api *auditAPI) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
 
 func (api *auditAPI) Reply(id string, opts sdk.AuditOpts) (*sdk.Audit, error) {
 	a, err := api.store.Audits.Reply(api.ctx, id, audits.AddOptions{
-		Content: opts.Content,
-		Author:  opts.Author,
-		Status:  opts.Status,
+		Content:  opts.Content,
+		Author:   opts.Author,
+		Assignee: opts.Assignee,
+		Status:   opts.Status,
 	})
 	if err != nil {
 		return nil, auditErr(err)
@@ -92,10 +95,11 @@ func (api *auditAPI) Read(id string) (*sdk.Audit, error) {
 
 func (api *auditAPI) List(opts sdk.AuditListOpts) ([]sdk.Audit, error) {
 	aa, err := api.store.Audits.List(api.ctx, audits.ListOptions{
-		Target:  opts.Target,
-		Author:  opts.Author,
-		Status:  opts.Status,
-		Pending: opts.Pending,
+		Target:   opts.Target,
+		ByAuthor: opts.ByAuthor,
+		Assignee: opts.Assignee,
+		Status:   opts.Status,
+		Pending:  opts.Pending,
 	})
 	if err != nil {
 		return nil, auditErr(err)

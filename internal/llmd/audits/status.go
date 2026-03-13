@@ -21,13 +21,10 @@ type Summary struct {
 	Pending   int
 }
 
-// Status returns pending audit threads requiring the given author's
-// attention. A thread requires attention when:
-//   - The effective status is "pending" or "needs-work"
-//   - The last entry in the thread is NOT from the given author
-//
-// Target ownership (document author, task assignee) is handled at the
-// bridge layer where both AuditStore and TaskStore are available.
+// Status returns pending audit threads assigned to the given author.
+// A thread is pending when its effective status (latest entry) is
+// "pending" or "needs-work" and the effective assignee matches the
+// queried author.
 func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, error) {
 	if author == "" {
 		return nil, ErrMissingAuthor
@@ -38,7 +35,7 @@ func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, erro
 
 	// Find top-level audits where:
 	// 1. The thread's effective status is pending or needs-work
-	// 2. The last entry in the thread is NOT from this author
+	// 2. The effective assignee (latest entry) matches the author
 	rows, err := a.db.QueryContext(ctx, `
 		SELECT `+columns+` FROM audits AS top
 		WHERE top.deleted_at IS NULL
@@ -51,12 +48,12 @@ func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, erro
 			LIMIT 1
 		  ) IN ('pending', 'needs-work')
 		  AND (
-			SELECT author FROM audits
+			SELECT assignee FROM audits
 			WHERE (id = top.id OR parent_id = top.id)
 			  AND deleted_at IS NULL
 			ORDER BY created_at DESC, id DESC
 			LIMIT 1
-		  ) != ?
+		  ) = ?
 		ORDER BY top.created_at DESC
 	`, author)
 	if err != nil {
@@ -72,10 +69,6 @@ func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, erro
 	var summary Summary
 	summary.Total = len(pending)
 	for _, aud := range pending {
-		// Use the effective status (latest entry) for counting.
-		// Since we filtered for pending/needs-work, we need to
-		// re-derive from the thread. For simplicity, query the
-		// effective status per thread.
 		effStatus := a.effectiveStatus(ctx, aud.ID)
 		switch effStatus {
 		case "needs-work":

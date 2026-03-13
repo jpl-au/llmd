@@ -24,9 +24,10 @@ func TestAdd(t *testing.T) {
 	ctx := context.Background()
 
 	aud, err := store.Add(ctx, AddOptions{
-		Target:  "docs/api",
-		Content: "Needs error handling.",
-		Author:  "gemini",
+		Target:   "docs/api",
+		Content:  "Needs error handling.",
+		Author:   "gemini",
+		Assignee: "claude-code",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -40,6 +41,9 @@ func TestAdd(t *testing.T) {
 	}
 	if aud.Status != "pending" {
 		t.Errorf("status = %q, want pending", aud.Status)
+	}
+	if aud.Assignee != "claude-code" {
+		t.Errorf("assignee = %q, want claude-code", aud.Assignee)
 	}
 	if aud.ParentID != "" {
 		t.Errorf("parent_id = %q, want empty", aud.ParentID)
@@ -98,9 +102,10 @@ func TestReply(t *testing.T) {
 	ctx := context.Background()
 
 	parent, err := store.Add(ctx, AddOptions{
-		Target:  "docs/api",
-		Content: "Needs error handling.",
-		Author:  "gemini",
+		Target:   "docs/api",
+		Content:  "Needs error handling.",
+		Author:   "gemini",
+		Assignee: "claude-code",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -123,6 +128,31 @@ func TestReply(t *testing.T) {
 	}
 	if reply.Status != "approved" {
 		t.Errorf("status = %q, want approved", reply.Status)
+	}
+	// Assignee inherited from parent.
+	if reply.Assignee != "claude-code" {
+		t.Errorf("assignee = %q, want claude-code (inherited)", reply.Assignee)
+	}
+}
+
+func TestReplyReassign(t *testing.T) {
+	db := openTestDB(t)
+	store := New(db)
+	ctx := context.Background()
+
+	parent, _ := store.Add(ctx, AddOptions{
+		Target: "docs/api", Content: "Review.", Author: "gemini", Assignee: "claude-code",
+	})
+
+	// Reply reassigns to gemini.
+	reply, err := store.Reply(ctx, parent.ID, AddOptions{
+		Content: "Done, please check.", Author: "claude-code", Assignee: "gemini",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply.Assignee != "gemini" {
+		t.Errorf("assignee = %q, want gemini", reply.Assignee)
 	}
 }
 
@@ -219,9 +249,9 @@ func TestList(t *testing.T) {
 	store := New(db)
 	ctx := context.Background()
 
-	store.Add(ctx, AddOptions{Target: "docs/api", Content: "A.", Author: "gemini"})
-	store.Add(ctx, AddOptions{Target: "docs/auth", Content: "B.", Author: "claude-code"})
-	store.Add(ctx, AddOptions{Target: "docs/api", Content: "C.", Author: "gemini"})
+	store.Add(ctx, AddOptions{Target: "docs/api", Content: "A.", Author: "gemini", Assignee: "claude-code"})
+	store.Add(ctx, AddOptions{Target: "docs/auth", Content: "B.", Author: "claude-code", Assignee: "gemini"})
+	store.Add(ctx, AddOptions{Target: "docs/api", Content: "C.", Author: "gemini", Assignee: "claude-code"})
 
 	// All audits.
 	all, err := store.List(ctx, ListOptions{})
@@ -238,10 +268,16 @@ func TestList(t *testing.T) {
 		t.Errorf("len(byTarget) = %d, want 2", len(byTarget))
 	}
 
-	// Filter by author.
-	byAuthor, _ := store.List(ctx, ListOptions{Author: "gemini"})
+	// Filter by creator.
+	byAuthor, _ := store.List(ctx, ListOptions{ByAuthor: "gemini"})
 	if len(byAuthor) != 2 {
 		t.Errorf("len(byAuthor) = %d, want 2", len(byAuthor))
+	}
+
+	// Filter by assignee.
+	byAssignee, _ := store.List(ctx, ListOptions{Assignee: "claude-code"})
+	if len(byAssignee) != 2 {
+		t.Errorf("len(byAssignee) = %d, want 2", len(byAssignee))
 	}
 }
 
@@ -317,19 +353,25 @@ func TestStatus(t *testing.T) {
 	store := New(db)
 	ctx := context.Background()
 
-	// Gemini creates an audit on docs/api — claude-code should see it.
+	// Gemini creates audit assigned to claude-code.
 	store.Add(ctx, AddOptions{
 		Target: "docs/api", Content: "Needs work.", Author: "gemini",
-		Status: "needs-work",
+		Assignee: "claude-code", Status: "needs-work",
 	})
 
-	// Claude-code creates an audit — gemini should see it, not claude-code.
+	// Claude-code creates audit assigned to gemini.
 	store.Add(ctx, AddOptions{
 		Target: "docs/auth", Content: "LGTM.", Author: "claude-code",
+		Assignee: "gemini", Status: "pending",
+	})
+
+	// Unassigned audit — should not appear in anyone's status.
+	store.Add(ctx, AddOptions{
+		Target: "docs/config", Content: "FYI.", Author: "gemini",
 		Status: "pending",
 	})
 
-	// Claude-code's inbox: should see gemini's audit (last entry by gemini).
+	// Claude-code's inbox: should see the audit assigned to them.
 	result, err := store.Status(ctx, "claude-code")
 	if err != nil {
 		t.Fatal(err)
@@ -341,12 +383,41 @@ func TestStatus(t *testing.T) {
 		t.Errorf("needs_work = %d, want 1", result.Summary.NeedsWork)
 	}
 
-	// Gemini's inbox: should see claude-code's audit.
+	// Gemini's inbox: should see the audit assigned to them.
 	result2, _ := store.Status(ctx, "gemini")
 	if result2.Summary.Total != 1 {
 		t.Errorf("total = %d, want 1", result2.Summary.Total)
 	}
 	if result2.Summary.Pending != 1 {
 		t.Errorf("pending = %d, want 1", result2.Summary.Pending)
+	}
+}
+
+func TestStatusReassign(t *testing.T) {
+	db := openTestDB(t)
+	store := New(db)
+	ctx := context.Background()
+
+	// Gemini creates audit assigned to claude-code.
+	aud, _ := store.Add(ctx, AddOptions{
+		Target: "docs/api", Content: "Review.", Author: "gemini",
+		Assignee: "claude-code",
+	})
+
+	// Claude-code replies, reassigning to gemini.
+	store.Reply(ctx, aud.ID, AddOptions{
+		Content: "Done, your turn.", Author: "claude-code", Assignee: "gemini",
+	})
+
+	// Claude-code's inbox: should be empty (reassigned away).
+	result, _ := store.Status(ctx, "claude-code")
+	if result.Summary.Total != 0 {
+		t.Errorf("claude-code total = %d, want 0", result.Summary.Total)
+	}
+
+	// Gemini's inbox: should see it now.
+	result2, _ := store.Status(ctx, "gemini")
+	if result2.Summary.Total != 1 {
+		t.Errorf("gemini total = %d, want 1", result2.Summary.Total)
 	}
 }

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS audits (
     target_type TEXT     NOT NULL,
     version     INTEGER,
     author      TEXT     NOT NULL,
+    assignee    TEXT     NOT NULL DEFAULT '',
     status      TEXT     NOT NULL DEFAULT 'pending',
     content     TEXT     NOT NULL DEFAULT '',
     parent_id   TEXT,
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS audits (
 CREATE INDEX IF NOT EXISTS idx_audits_target     ON audits(target);
 CREATE INDEX IF NOT EXISTS idx_audits_status     ON audits(status);
 CREATE INDEX IF NOT EXISTS idx_audits_author     ON audits(author);
+CREATE INDEX IF NOT EXISTS idx_audits_assignee   ON audits(assignee);
 CREATE INDEX IF NOT EXISTS idx_audits_parent     ON audits(parent_id);
 CREATE INDEX IF NOT EXISTS idx_audits_created_at ON audits(created_at);
 `

@@ -12,11 +12,12 @@ import (
 
 // AddOptions configures an audit add operation.
 type AddOptions struct {
-	Target  string
-	Content string
-	Author  string
-	Status  string
-	Version int
+	Target   string
+	Content  string
+	Author   string
+	Assignee string
+	Status   string
+	Version  int
 }
 
 // Add creates a top-level audit on a document or task. The target_type
@@ -49,9 +50,9 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 	}
 
 	_, err := a.db.ExecContext(ctx, `
-		INSERT INTO audits (id, target, target_type, version, author, status, content, parent_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)
-	`, id, opts.Target, targetType, version, opts.Author, status, opts.Content, now)
+		INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+	`, id, opts.Target, targetType, version, opts.Author, opts.Assignee, status, opts.Content, now)
 	if err != nil {
 		return nil, fmt.Errorf("inserting audit: %w", err)
 	}
@@ -62,6 +63,7 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 		TargetType: targetType,
 		Version:    opts.Version,
 		Author:     opts.Author,
+		Assignee:   opts.Assignee,
 		Status:     status,
 		Content:    opts.Content,
 		CreatedAt:  now,
