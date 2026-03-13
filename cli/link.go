@@ -59,7 +59,7 @@ func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Result{Text: strings.Join(lines, "\n"), Data: ll}, nil
 	}
 
-	// llmd link <from> <to> — create link (mutation, requires author)
+	// Checked here, not via NeedsAuthor — reads don't need an author.
 	if ctx.Author == "" {
 		return nil, fmt.Errorf("link: author required for mutations")
 	}

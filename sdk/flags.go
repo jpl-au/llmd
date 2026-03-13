@@ -109,6 +109,7 @@ func ParseArgs(flags []Flag, args []string) (FlagValues, []string, error) {
 					return fv, nil, fmt.Errorf("unknown flag: -%c", c)
 				}
 				if f.Type == "bool" {
+					fv.set[f.Name] = true
 					fv.bools[f.Name] = true
 					continue
 				}

@@ -76,7 +76,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	path, name := positional[0], positional[1]
 
-	// Mutations require an author.
+	// Checked here, not via NeedsAuthor — reads don't need an author.
 	if ctx.Author == "" {
 		return nil, fmt.Errorf("tag: author required for mutations")
 	}
