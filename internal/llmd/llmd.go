@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 
 	"github.com/jpl-au/llmd/internal/llmd/audit"
+	"github.com/jpl-au/llmd/internal/llmd/audits"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
@@ -52,6 +53,7 @@ type Store struct {
 	Links     *links.Links
 	Entities  *entities.Entities
 	Tasks     *tasks.Tasks
+	Audits    *audits.Audits
 	Audit     *audit.Log
 
 	db   *sql.DB
@@ -173,6 +175,7 @@ func (s *Store) wire() {
 	s.Entities = entities.New(s.db)
 	s.Audit = audit.New(s.db)
 	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit)
+	s.Audits = audits.New(s.db)
 }
 
 // Close closes the store. For on-disk stores, it first checkpoints the
