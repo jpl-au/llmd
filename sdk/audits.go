@@ -8,9 +8,8 @@ package sdk
 // entry — no record is ever updated. Replies, resolves, and status changes
 // are all new records.
 //
-// Each audit has an [Audit.ID] (aud_ prefix + 9-char base36 key), making
-// it addressable across the system and linkable via the standard link
-// interface.
+// Each audit has an [Audit.ID] (9-char base36 key), making it addressable
+// across the system and linkable via the standard link interface.
 type AuditStore interface {
 	// Add creates a top-level audit on a document or task.
 	Add(opts AuditOpts) (*Audit, error)
@@ -47,7 +46,7 @@ type AuditStore interface {
 // Audit represents a single audit entry — either a top-level review
 // or a reply within a thread. Records are immutable once created.
 type Audit struct {
-	// ID is the unique identifier (aud_ + 9-char base36).
+	// ID is the unique identifier (9-char base36).
 	ID string
 
 	// Target is the document path or task key being audited.

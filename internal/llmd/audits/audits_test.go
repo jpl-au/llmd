@@ -211,7 +211,7 @@ func TestReadNotFound(t *testing.T) {
 		Target: "docs/x", Content: "x", Author: "a",
 	})
 
-	_, err := store.Read(ctx, "aud_nonexistent")
+	_, err := store.Read(ctx, "nonexist0")
 	if err != ErrNotFound {
 		t.Errorf("err = %v, want ErrNotFound", err)
 	}

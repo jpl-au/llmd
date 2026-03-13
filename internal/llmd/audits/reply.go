@@ -43,7 +43,7 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 		assignee = parent.Assignee
 	}
 
-	id := "aud_" + key.Generate()
+	id := key.Generate()
 	now := time.Now().UnixMilli()
 
 	_, err = a.db.ExecContext(ctx, `

@@ -377,7 +377,7 @@ needs to act on it. These are separate fields — an agent creates an audit
 propagates through replies like status does; the effective assignee is from
 the most recent entry. `audit status` filters by effective assignee.
 
-**ID format:** `aud_` prefix + 9-char base36 key (same generator as tasks).
+**ID format:** 9-char base36 key (same generator as tasks and all other entities).
 
 **Target type inference:** The store determines `target_type` from the target
 value. If it matches a valid 9-char base36 key, it's a task; otherwise it's

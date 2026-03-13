@@ -41,7 +41,7 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 
 	targetType := inferTargetType(opts.Target)
 
-	id := "aud_" + key.Generate()
+	id := key.Generate()
 	now := time.Now().UnixMilli()
 
 	var version *int
