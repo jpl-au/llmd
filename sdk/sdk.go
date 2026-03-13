@@ -43,6 +43,7 @@ var (
 	Tasks      TaskStore
 	Links      LinkStore
 	Tags       TagStore
+	Audits     AuditStore
 	Activities ActivityStore
 	Mirror     MirrorStore
 	Git        GitStore
@@ -104,6 +105,7 @@ type Context struct {
 	Tasks      TaskStore
 	Links      LinkStore
 	Tags       TagStore
+	Audits     AuditStore
 	Activities ActivityStore
 	Mirror     MirrorStore
 	Git        GitStore
