@@ -143,10 +143,11 @@ func run(args []string) int {
 	}
 
 	// Resolve author. --author flag takes precedence over config.
-	// Non-interactive callers (LLMs, scripts) must always use --author
-	// so that mutations are correctly attributed.
+	// Config author is only used for interactive terminals — non-interactive
+	// callers (LLMs, scripts) must always use --author so mutations are
+	// correctly attributed.
 	author := authorFlag
-	if author == "" {
+	if author == "" && stdoutIsTTY() {
 		authorCfg, err := sdk.Config.Read()
 		if err != nil {
 			slog.Warn("reading config for author", "err", err)
@@ -154,13 +155,11 @@ func run(args []string) int {
 		author = authorCfg["author"]
 	}
 
-	if c.NeedsAuthor {
-		if author == "" {
+	if c.NeedsAuthor && author == "" {
+		if stdoutIsTTY() {
 			return errorf(jsonOut, "author not configured\n\nSet your author name:\n  llmd config author \"Your Name\"\n\nOr pass --author on the command line:\n  llmd --author \"Name\" %s ...", cmd)
 		}
-		if authorFlag == "" && !stdoutIsTTY() {
-			return errorf(jsonOut, "--author is required for non-interactive use\n\nLLMs and scripts must identify themselves:\n  llmd --author \"Claude\" %s ...\n\nThe config author (%q) is reserved for interactive terminal use.", cmd, author)
-		}
+		return errorf(jsonOut, "--author is required for non-interactive use\n\nLLMs and scripts must identify themselves:\n  llmd --author \"Claude\" %s ...", cmd)
 	}
 
 	stdin := readStdin()

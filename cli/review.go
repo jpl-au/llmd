@@ -5,7 +5,6 @@ package cli
 import (
 	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -45,28 +44,14 @@ var (
 // review shows pending tasks with inline spec previews and linked
 // documents, giving a quick picture of what needs attention.
 func review(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var column string
-	limit := 0
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--column":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("review: --column requires a value")
-			}
-			column = args[i]
-		case "-n":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("review: -n requires a value")
-			}
-			limit, _ = strconv.Atoi(args[i])
-		default:
-			if column == "" && !strings.HasPrefix(args[i], "-") {
-				column = args[i]
-			}
-		}
+	flags, positional, err := sdk.ParseArgs(reviewSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("review: %w", err)
+	}
+	column := flags.String("column")
+	limit := flags.Int("n")
+	if column == "" && len(positional) > 0 {
+		column = positional[0]
 	}
 
 	tasks, err := ctx.Tasks.List(sdk.TaskListOpts{Status: column})

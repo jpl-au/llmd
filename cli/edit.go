@@ -9,7 +9,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -25,21 +24,16 @@ substitution instead of literal strings.`, Usage: "edit <path> <old> <new>", MCP
 }
 
 func edit(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) < 3 {
+	flags, positional, err := sdk.ParseArgs(editSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("edit: %w", err)
+	}
+	if len(positional) < 3 {
 		return nil, fmt.Errorf("edit: %w", sdk.ErrMissingArg)
 	}
 
-	path, old, new := args[0], args[1], args[2]
-
-	var message string
-	for i := 3; i < len(args); i++ {
-		if args[i] == "--message" && i+1 < len(args) {
-			i++
-			message = args[i]
-		} else if after, ok := strings.CutPrefix(args[i], "--message="); ok {
-			message = after
-		}
-	}
+	path, old, new := positional[0], positional[1], positional[2]
+	message := flags.String("message")
 
 	if err := ctx.Documents.Edit(path, old, new, ctx.Author, message); err != nil {
 		return nil, fmt.Errorf("edit: %w", err)

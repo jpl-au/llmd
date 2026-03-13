@@ -41,12 +41,13 @@ var (
 // task board summary, and activity feed. Falls back to plain text when
 // output is not a terminal.
 func status(ctx sdk.Context, args []string) (sdk.Response, error) {
-	limit := 5
-	for i := 0; i < len(args); i++ {
-		if args[i] == "-n" && i+1 < len(args) {
-			i++
-			limit, _ = strconv.Atoi(args[i])
-		}
+	flags, _, err := sdk.ParseArgs(statusSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("status: %w", err)
+	}
+	limit := flags.Int("n")
+	if limit == 0 {
+		limit = 5
 	}
 
 	docs, err := ctx.Documents.List("", sdk.ListOpts{Sort: "time"})

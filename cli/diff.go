@@ -31,22 +31,12 @@ Output is coloured in a terminal.`, Usage: "diff <source> [target]", MCP: true, 
 
 // diffCmd compares document versions and displays a unified diff.
 func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var paths []string
-	var contextLines int
-	var statOnly bool
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch {
-		case arg == "-C" && i+1 < len(args):
-			i++
-			contextLines, _ = strconv.Atoi(args[i])
-		case arg == "--stat":
-			statOnly = true
-		case len(arg) > 0 && arg[0] != '-':
-			paths = append(paths, arg)
-		}
+	flags, paths, err := sdk.ParseArgs(diffSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("diff: %w", err)
 	}
+	contextLines := flags.Int("C")
+	statOnly := flags.Bool("stat")
 
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("diff: %w", sdk.ErrMissingArg)

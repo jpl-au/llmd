@@ -27,16 +27,9 @@ The target directory defaults to the current directory if omitted.`, Usage: "exp
 }
 
 func exportCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var opts sdk.ExportOpts
-	var positional []string
-
-	for _, arg := range args {
-		switch arg {
-		case "--overwrite":
-			opts.Overwrite = true
-		default:
-			positional = append(positional, arg)
-		}
+	flags, positional, err := sdk.ParseArgs(exportSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("export: %w", err)
 	}
 
 	if len(positional) < 1 {
@@ -48,6 +41,7 @@ func exportCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(positional) >= 2 {
 		dir = positional[1]
 	}
+	opts := sdk.ExportOpts{Overwrite: flags.Bool("overwrite")}
 	result, err := ctx.Documents.Export(path, dir, opts)
 	if err != nil {
 		return nil, fmt.Errorf("export: %w", err)

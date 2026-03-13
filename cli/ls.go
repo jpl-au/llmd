@@ -35,30 +35,19 @@ version, author, and date. Use --tree for a directory hierarchy.`, Usage: "ls [p
 }
 
 func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var long, all, reverse, sortByTime, asTree bool
-	var prefix string
+	flags, positional, err := sdk.ParseArgs(lsSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("ls: %w", err)
+	}
+	long := flags.Bool("l")
+	all := flags.Bool("a")
+	reverse := flags.Bool("r")
+	sortByTime := flags.Bool("t")
+	asTree := flags.Bool("tree")
 
-	for _, arg := range args {
-		if arg == "--tree" {
-			asTree = true
-			continue
-		}
-		if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
-			for _, c := range arg[1:] {
-				switch c {
-				case 'l':
-					long = true
-				case 'a':
-					all = true
-				case 'r':
-					reverse = true
-				case 't':
-					sortByTime = true
-				}
-			}
-		} else if !strings.HasPrefix(arg, "-") {
-			prefix = arg
-		}
+	var prefix string
+	if len(positional) > 0 {
+		prefix = positional[0]
 	}
 
 	s := "path"

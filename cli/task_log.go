@@ -4,8 +4,6 @@ package cli
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"charm.land/lipgloss/v2"
@@ -16,27 +14,19 @@ import (
 // taskLog displays the audit history for a task (or all tasks if no key
 // is given). Renders a table of events showing timestamp, actor, action,
 // and old/new values. Supports -n to limit the number of events.
-func taskLog(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var key string
-	limit := 0
+var taskLogFlags = []sdk.Flag{
+	{Name: "n", Type: "int"},
+}
 
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "-n":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task log: -n requires a value")
-			}
-			n, err := strconv.Atoi(args[i])
-			if err != nil {
-				return nil, fmt.Errorf("task log: invalid limit: %w", err)
-			}
-			limit = n
-		default:
-			if key == "" && !strings.HasPrefix(args[i], "-") {
-				key = args[i]
-			}
-		}
+func taskLog(ctx sdk.Context, args []string) (sdk.Response, error) {
+	flags, positional, err := sdk.ParseArgs(taskLogFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task log: %w", err)
+	}
+	limit := flags.Int("n")
+	var key string
+	if len(positional) > 0 {
+		key = positional[0]
 	}
 
 	events, err := ctx.Tasks.Log(key, limit)

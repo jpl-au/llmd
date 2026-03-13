@@ -5,59 +5,34 @@ package cli
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
 )
 
 // taskAdd creates a new task with an optional spec body from stdin or --file.
-func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var opts sdk.TaskAddOpts
-	opts.Author = ctx.Author
+var taskAddFlags = []sdk.Flag{
+	{Name: "column", Type: "string"},
+	{Name: "priority", Type: "int"},
+	{Name: "assign", Type: "string"},
+	{Name: "path", Type: "string"},
+	{Name: "file", Type: "string"},
+}
 
-	var positional []string
-	var file string
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--column":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task add: --column requires a value")
-			}
-			opts.Status = args[i]
-		case "--priority":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task add: --priority requires a value")
-			}
-			p, err := strconv.Atoi(args[i])
-			if err != nil {
-				return nil, fmt.Errorf("task add: invalid priority: %w", err)
-			}
-			opts.Priority = p
-		case "--assign":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task add: --assign requires a value")
-			}
-			opts.AssignedTo = args[i]
-		case "--path":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task add: --path requires a value")
-			}
-			opts.Path = args[i]
-		case "--file":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task add: --file requires a value")
-			}
-			file = args[i]
-		default:
-			positional = append(positional, args[i])
-		}
+func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
+	flags, positional, err := sdk.ParseArgs(taskAddFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task add: %w", err)
 	}
+
+	opts := sdk.TaskAddOpts{
+		Author:     ctx.Author,
+		Status:     flags.String("column"),
+		Priority:   flags.Int("priority"),
+		AssignedTo: flags.String("assign"),
+		Path:       flags.String("path"),
+	}
+	file := flags.String("file")
 
 	if len(positional) == 0 {
 		return nil, fmt.Errorf("task add: %w: title", sdk.ErrMissingArg)

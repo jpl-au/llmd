@@ -1,5 +1,10 @@
 # Architecture Reference
 
+## Running llmd
+
+If `llmd` is not on your PATH, use the binary built in the project root
+(`./llmd`). Try the PATH first; fall back to `./llmd` if not found.
+
 ## Core Principle
 
 **The SDK is the single API surface. Everything goes through it.** CLI,
@@ -26,7 +31,7 @@ it's in the wrong place.** Move it behind the SDK.
 ## Package Map
 
 ```
-sdk/                        API surface: interfaces, types, globals
+sdk/                        API surface: interfaces, types, flag parsing, globals
 app/                        Build-time metadata: version tag, commit, build time
 cli/                        Thin CLI dispatch: calls SDK, formats output
 extension/                  Caddy-style compile-time plugin registry
@@ -61,7 +66,7 @@ guide/                      User-facing command guides (markdown)
 
 ```
 main.go
-  ↓ parse global flags (--json, --help, --db, --verbose)
+  ↓ parse global flags (--json, --help, --db, --verbose, --author)
   ↓ config.Load() + initLog() — configure slog (level, format, stderr)
   ↓ check extension.Storeless — skip store for init, version, config
   ↓ host.Open(dbPath) or host.New() depending on needsStore
@@ -75,6 +80,53 @@ main.go
   ↓ plugin.Exec(sctx, cmd, args) → sdk.Response
   ↓ type-switch on Response: Text → print, Data → JSON, Result → text or JSON
 ```
+
+## Flag Parsing
+
+All CLI commands parse flags through `sdk.ParseArgs`, which is driven by the
+`sdk.Flag` metadata already defined on each `sdk.Command`. This gives a single
+source of truth for `--help` display, MCP tool schemas, and argument parsing.
+
+```go
+flags, positional, err := sdk.ParseArgs(cmdSpec.Flags, args)
+if err != nil {
+    return nil, fmt.Errorf("cmd: %w", err)
+}
+version := flags.Int("version")
+verbose := flags.Bool("n")
+```
+
+### Types (`sdk/flags.go`)
+
+- `Flag` — describes one flag: `Name`, `Short` (single-char alias), `Type`
+  (`"bool"`, `"string"`, `"int"`), `Desc`.
+- `FlagValues` — returned by `ParseArgs`. Accessors: `Bool(name)`, `String(name)`,
+  `Int(name)`, `Has(name)`. `Has` distinguishes "not provided" from "provided
+  with zero value" (e.g. `--priority 0` vs omitted).
+- `ParseArgs(flags []Flag, args []string) (FlagValues, []string, error)` — parses
+  POSIX-style flags. Returns flag values and remaining positional arguments.
+
+### Supported syntax
+
+- `--name` (bool), `--name value`, `--name=value` (string/int)
+- `-n` (short bool), `-lat` (combined short bools)
+- `-C3` (compact short int), `-C 3` (separate short int)
+- `-nC3` (combined: `n` is bool, `C` consumes `3`)
+- `--` terminates flag parsing; everything after is positional
+
+### Author enforcement on mixed commands
+
+Commands that are purely mutating (write, edit, rm, mv, restore, revert, sed,
+unlink, import) declare `NeedsAuthor: true` on the `sdk.Command`. The host
+rejects these before dispatch if no author is set.
+
+Mixed commands (tag, link, task) support both reads and writes. They do NOT
+set `NeedsAuthor` — instead, their handlers check `ctx.Author == ""` on
+mutation paths only. This allows read operations (e.g. `tag -f`, `link <path>`,
+`task list`) to work without an author.
+
+Config author resolution only applies to interactive terminals. Non-interactive
+callers (LLMs, scripts, MCP) must always provide `--author` explicitly.
 
 ## Domain Interfaces
 
@@ -163,8 +215,9 @@ the same permissions as the `llmd` process. Only run trusted plugins.
 
 ### Yaegi Symbol Table (`internal/plugin/symbols.go`)
 
-The symbol table exports SDK types, constants, errors, and domain stores so
-that interpreted plugin code can `import "github.com/jpl-au/llmd/sdk"`.
+The symbol table exports SDK types, constants, errors, domain stores, and
+flag parsing (`FlagValues`, `ParseArgs`) so that interpreted plugin code can
+`import "github.com/jpl-au/llmd/sdk"`.
 
 Domain stores (`sdk.Documents`, `sdk.Tasks`, etc.) in the symbol table point
 at per-adapter fields, not package-level globals. `load()` creates the adapter
@@ -336,9 +389,10 @@ All tools share a single `toolInput` schema with `args`, `content`, and `author`
 fields. The `author` field lets the LLM identify itself per-call — this is the
 primary author source in MCP mode, since there is no interactive user.
 
-If the LLM omits `author`, the server falls back to the configured CLI author.
-If neither is set and the command has `NeedsAuthor: true`, `host.Exec()` rejects
-the call with `sdk.ErrMissingArg`.
+If the LLM omits `author` and the command has `NeedsAuthor: true`, the server
+rejects the call immediately. Mixed commands (tag, link, task) do not set
+`NeedsAuthor` — their handlers check author on mutation paths only, so read
+operations succeed without an author.
 
 ## Gitignore Management
 

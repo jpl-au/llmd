@@ -6,7 +6,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -21,20 +20,16 @@ If the document does not exist, it is created at version 1.`, Usage: "write <pat
 }
 
 func write(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) == 0 {
+	flags, positional, err := sdk.ParseArgs(writeSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("write: %w", err)
+	}
+	if len(positional) == 0 {
 		return nil, fmt.Errorf("write: %w", sdk.ErrMissingArg)
 	}
 
-	path := args[0]
-	var message string
-	for i := 1; i < len(args); i++ {
-		if args[i] == "--message" && i+1 < len(args) {
-			i++
-			message = args[i]
-		} else if after, ok := strings.CutPrefix(args[i], "--message="); ok {
-			message = after
-		}
-	}
+	path := positional[0]
+	message := flags.String("message")
 
 	if err := ctx.Documents.Write(path, ctx.Stdin, ctx.Author, message); err != nil {
 		return nil, fmt.Errorf("write: %w", err)

@@ -29,27 +29,22 @@ files are skipped unless --force is used.`, Usage: "import [options] <dir>", Nee
 }
 
 func importCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var opts sdk.ImportOpts
-	var dir string
-
-	for i := 0; i < len(args); i++ {
-		switch {
-		case args[i] == "--prefix" && i+1 < len(args):
-			i++
-			opts.Prefix = args[i]
-		case strings.HasPrefix(args[i], "--prefix="):
-			opts.Prefix = strings.TrimPrefix(args[i], "--prefix=")
-		case args[i] == "--dry-run":
-			opts.DryRun = true
-		case args[i] == "--force":
-			opts.Force = true
-		default:
-			dir = args[i]
-		}
+	flags, positional, err := sdk.ParseArgs(importSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("import: %w", err)
 	}
 
+	var dir string
+	if len(positional) > 0 {
+		dir = positional[0]
+	}
 	if dir == "" {
 		return nil, fmt.Errorf("import: %w", sdk.ErrMissingArg)
+	}
+	opts := sdk.ImportOpts{
+		Prefix: flags.String("prefix"),
+		DryRun: flags.Bool("dry-run"),
+		Force:  flags.Bool("force"),
 	}
 
 	result, err := ctx.Documents.Import(dir, opts)

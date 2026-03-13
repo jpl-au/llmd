@@ -54,8 +54,9 @@ func (a *adapter) symbols() interp.Exports {
 			"ErrNoSpec":     reflect.ValueOf(&sdk.ErrNoSpec).Elem(),
 			"ErrExists":     reflect.ValueOf(&sdk.ErrExists).Elem(),
 
-			// Function globals
-			"Init": reflect.ValueOf(&sdk.Init).Elem(),
+			// Functions
+			"Init":      reflect.ValueOf(&sdk.Init).Elem(),
+			"ParseArgs": reflect.ValueOf(sdk.ParseArgs),
 
 			// Type definitions
 			"Activity":        reflect.ValueOf((*sdk.Activity)(nil)),
@@ -66,6 +67,7 @@ func (a *adapter) symbols() interp.Exports {
 			"ExportOpts":      reflect.ValueOf((*sdk.ExportOpts)(nil)),
 			"ExportResult":    reflect.ValueOf((*sdk.ExportResult)(nil)),
 			"Flag":            reflect.ValueOf((*sdk.Flag)(nil)),
+			"FlagValues":      reflect.ValueOf((*sdk.FlagValues)(nil)),
 			"GrepHit":         reflect.ValueOf((*sdk.GrepHit)(nil)),
 			"GrepMode":        reflect.ValueOf((*sdk.GrepMode)(nil)),
 			"GrepOpts":        reflect.ValueOf((*sdk.GrepOpts)(nil)),

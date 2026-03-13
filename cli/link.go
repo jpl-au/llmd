@@ -21,30 +21,21 @@ var linkSpec = sdk.Command{
 
 With two paths, creates a directional link from source to target.
 With one path, lists outgoing links from that document. Use --in
-to see incoming links instead.`, Usage: "link [options] <from> [to]", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+to see incoming links instead.`, Usage: "link [options] <from> [to]", MCP: true, Flags: []sdk.Flag{
 		{Name: "label", Type: "string", Desc: "Link label"},
 		{Name: "in", Type: "bool", Desc: "Show incoming links"},
 	},
 }
 
 func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var label, dir string
-	var positional []string
-
-	for i := 0; i < len(args); i++ {
-		switch {
-		case args[i] == "--label" && i+1 < len(args):
-			i++
-			label = args[i]
-		case strings.HasPrefix(args[i], "--label="):
-			label = strings.TrimPrefix(args[i], "--label=")
-		case args[i] == "--in":
-			dir = "in"
-		case args[i] == "--both":
-			dir = "both"
-		default:
-			positional = append(positional, args[i])
-		}
+	flags, positional, err := sdk.ParseArgs(linkSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("link: %w", err)
+	}
+	label := flags.String("label")
+	var dir string
+	if flags.Bool("in") {
+		dir = "in"
 	}
 
 	if len(positional) == 0 {
@@ -68,7 +59,10 @@ func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Result{Text: strings.Join(lines, "\n"), Data: ll}, nil
 	}
 
-	// llmd link <from> <to> — create link
+	// llmd link <from> <to> — create link (mutation, requires author)
+	if ctx.Author == "" {
+		return nil, fmt.Errorf("link: author required for mutations")
+	}
 	from, to := positional[0], positional[1]
 	if err := ctx.Links.Add(from, to, label, ctx.Author); err != nil {
 		return nil, fmt.Errorf("link: %w", err)

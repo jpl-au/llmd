@@ -26,27 +26,22 @@ Use history to see available version numbers.`, Usage: "revert <path> <version>"
 }
 
 func revert(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) < 2 {
+	flags, positional, err := sdk.ParseArgs(revertSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("revert: %w", err)
+	}
+	if len(positional) < 2 {
 		return nil, fmt.Errorf("revert: %w", sdk.ErrMissingArg)
 	}
 
-	path := args[0]
+	path := positional[0]
 	// Strip optional "v" prefix so both "v3" and "3" work.
-	versionStr := strings.TrimPrefix(args[1], "v")
+	versionStr := strings.TrimPrefix(positional[1], "v")
 	version, err := strconv.Atoi(versionStr)
 	if err != nil {
-		return nil, fmt.Errorf("revert: %w: %s", sdk.ErrInvalidArg, args[1])
+		return nil, fmt.Errorf("revert: %w: %s", sdk.ErrInvalidArg, positional[1])
 	}
-
-	var message string
-	for i := 2; i < len(args); i++ {
-		if args[i] == "--message" && i+1 < len(args) {
-			i++
-			message = args[i]
-		} else if after, ok := strings.CutPrefix(args[i], "--message="); ok {
-			message = after
-		}
-	}
+	message := flags.String("message")
 
 	if message == "" {
 		message = fmt.Sprintf("Reverted to version %d", version)

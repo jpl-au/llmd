@@ -48,14 +48,15 @@ by write and edit for document bodies).
 
 ## CLI fallback
 
-When MCP is not available, shell out to the llmd binary:
+When MCP is not available, shell out to the llmd binary. Read commands
+work without `--author`; write commands require it:
 
 ```
 llmd cat notes/readme
 llmd ls -l projects/
-echo "new content" | llmd write notes/readme
+echo "new content" | llmd --author "Claude" write notes/readme
 llmd grep "TODO" projects/
-llmd edit notes/readme "old text" "new text"
+llmd --author "Claude" edit notes/readme "old text" "new text"
 ```
 
 Use `--json` for structured output that is easier to parse:
@@ -66,16 +67,19 @@ llmd history --json docs/spec
 llmd grep --json "budget"
 ```
 
-## Configuration
+## Author attribution
 
-Author must be set before writing. Configure it once:
+LLMs and scripts must pass `--author` on every mutation command:
 
 ```
-llmd config author "Claude"
+llmd --author "Claude" write notes/readme
+echo "updated" | llmd --author "Claude" write notes/readme
+llmd --author "Claude" tag notes/readme important
 ```
 
-This writes to `.llmd/config`. The author name is recorded on every
-write, edit, tag, and link operation.
+The `--author` flag goes before the command name. Read-only commands
+(`cat`, `ls`, `grep`, `find`, `glob`, `history`, `diff`, `tag -f`,
+`link <path>`, `task list`) do not require an author.
 
 ## Common patterns
 
@@ -90,8 +94,8 @@ llmd cat -n notes/readme                # with line numbers
 ### Write or update
 
 ```
-echo "content here" | llmd write path/to/doc
-echo "updated" | llmd write path/to/doc --message "why it changed"
+echo "content here" | llmd --author "Claude" write path/to/doc
+echo "updated" | llmd --author "Claude" write path/to/doc --message "why it changed"
 ```
 
 ### Search
@@ -105,16 +109,16 @@ llmd glob "specs/*.md"                  # path pattern match
 ### Edit in place
 
 ```
-llmd edit notes/readme "old text" "new text"
-llmd sed 's/oldterm/newterm/' notes/readme
+llmd --author "Claude" edit notes/readme "old text" "new text"
+llmd --author "Claude" sed 's/oldterm/newterm/' notes/readme
 ```
 
 ### Organise with tags
 
 ```
-llmd tag notes/readme important
-llmd tag -f important                   # find tagged documents
-llmd tag -d notes/readme important      # remove tag
+llmd --author "Claude" tag notes/readme important    # add (mutation)
+llmd tag -f important                                # find (read-only)
+llmd --author "Claude" tag -d notes/readme important # remove (mutation)
 ```
 
 ### Review history

@@ -28,23 +28,12 @@ with newlines, like Unix cat.`, Usage: "cat [options] <path>...", MCP: true, Fla
 }
 
 func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var paths []string
-	var version int
-	var numberLines bool
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "-n" {
-			numberLines = true
-		} else if arg == "--version" && i+1 < len(args) {
-			i++
-			version, _ = strconv.Atoi(args[i])
-		} else if after, ok := strings.CutPrefix(arg, "--version="); ok {
-			version, _ = strconv.Atoi(after)
-		} else if !strings.HasPrefix(arg, "-") {
-			paths = append(paths, arg)
-		}
+	flags, paths, err := sdk.ParseArgs(catSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("cat: %w", err)
 	}
+	version := flags.Int("version")
+	numberLines := flags.Bool("n")
 
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("cat: %w", sdk.ErrMissingArg)

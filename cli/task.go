@@ -4,8 +4,6 @@ package cli
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -33,7 +31,7 @@ Subcommands (passed as first arg):
   branch <id>               create git branch from task, checkout, start
   diff [id]                 show git diff for task's branch
   files [id]                list files changed on task's branch
-  commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", NeedsAuthor: true, Flags: []sdk.Flag{
+  commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", Flags: []sdk.Flag{
 		{Name: "column", Type: "string", Desc: "Filter by column"},
 		{Name: "priority", Type: "int", Desc: "Filter or set priority"},
 		{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},
@@ -60,6 +58,23 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	sub := args[0]
 	args = args[1:]
+
+	// Mutation subcommands require an author.
+	switch sub {
+	case "add", "move", "set", "rm", "restore", "link", "start", "finish", "branch":
+		if ctx.Author == "" {
+			return nil, fmt.Errorf("task %s: author required for mutations", sub)
+		}
+	case "column":
+		if len(args) > 0 {
+			switch args[0] {
+			case "add", "rm", "mv", "move":
+				if ctx.Author == "" {
+					return nil, fmt.Errorf("task column %s: author required for mutations", args[0])
+				}
+			}
+		}
+	}
 
 	switch sub {
 	case "add":
@@ -120,39 +135,24 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 // taskList renders the task board. When filtered by column (--column or
 // positional arg), shows a flat table for that column. Otherwise renders
 // the full board view with all columns grouped under headings.
-func taskList(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var opts sdk.TaskListOpts
+var taskListFlags = []sdk.Flag{
+	{Name: "column", Type: "string"},
+	{Name: "assign", Type: "string"},
+	{Name: "priority", Type: "int"},
+}
 
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--column":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task list: --column requires a value")
-			}
-			opts.Status = args[i]
-		case "--assign":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task list: --assign requires a value")
-			}
-			opts.AssignedTo = args[i]
-		case "--priority":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task list: --priority requires a value")
-			}
-			p, err := strconv.Atoi(args[i])
-			if err != nil {
-				return nil, fmt.Errorf("task list: invalid priority: %w", err)
-			}
-			opts.Priority = p
-		default:
-			// Positional arg = column name
-			if opts.Status == "" && !strings.HasPrefix(args[i], "-") {
-				opts.Status = args[i]
-			}
-		}
+func taskList(ctx sdk.Context, args []string) (sdk.Response, error) {
+	flags, positional, err := sdk.ParseArgs(taskListFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task list: %w", err)
+	}
+	opts := sdk.TaskListOpts{
+		Status:     flags.String("column"),
+		AssignedTo: flags.String("assign"),
+		Priority:   flags.Int("priority"),
+	}
+	if opts.Status == "" && len(positional) > 0 {
+		opts.Status = positional[0]
 	}
 
 	tasks, err := ctx.Tasks.List(opts)

@@ -5,7 +5,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -36,69 +35,50 @@ func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 // --assign, --position, --flag, --unflag, and --branch from the
 // argument list and builds a TaskSetOpts with non-nil pointers only
 // for the fields that were explicitly provided.
+var taskSetFlags = []sdk.Flag{
+	{Name: "title", Type: "string"},
+	{Name: "priority", Type: "int"},
+	{Name: "assign", Type: "string"},
+	{Name: "position", Type: "int"},
+	{Name: "flag", Type: "string"},
+	{Name: "unflag", Type: "string"},
+	{Name: "branch", Type: "string"},
+}
+
 func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task set: %w: id", sdk.ErrMissingArg)
 	}
 
 	key := args[0]
-	args = args[1:]
+	flags, _, err := sdk.ParseArgs(taskSetFlags, args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("task set: %w", err)
+	}
 
 	var opts sdk.TaskSetOpts
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--title":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task set: --title requires a value")
-			}
-			opts.Title = &args[i]
-		case "--priority":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task set: --priority requires a value")
-			}
-			p, err := strconv.Atoi(args[i])
-			if err != nil {
-				return nil, fmt.Errorf("task set: invalid priority: %w", err)
-			}
-			opts.Priority = &p
-		case "--assign":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task set: --assign requires a value")
-			}
-			opts.AssignedTo = &args[i]
-		case "--position":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task set: --position requires a value")
-			}
-			p, err := strconv.Atoi(args[i])
-			if err != nil {
-				return nil, fmt.Errorf("task set: invalid position: %w", err)
-			}
-			opts.Position = &p
-		case "--flag":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task set: --flag requires a value")
-			}
-			opts.Flag = args[i]
-		case "--unflag":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task set: --unflag requires a value")
-			}
-			opts.Unflag = args[i]
-		case "--branch":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task set: --branch requires a value")
-			}
-			opts.Branch = &args[i]
-		}
+	if flags.Has("title") {
+		v := flags.String("title")
+		opts.Title = &v
 	}
+	if flags.Has("priority") {
+		v := flags.Int("priority")
+		opts.Priority = &v
+	}
+	if flags.Has("assign") {
+		v := flags.String("assign")
+		opts.AssignedTo = &v
+	}
+	if flags.Has("position") {
+		v := flags.Int("position")
+		opts.Position = &v
+	}
+	if flags.Has("branch") {
+		v := flags.String("branch")
+		opts.Branch = &v
+	}
+	opts.Flag = flags.String("flag")
+	opts.Unflag = flags.String("unflag")
 
 	if err := ctx.Tasks.Set(key, ctx.Author, opts); err != nil {
 		return nil, fmt.Errorf("task set: %w", err)

@@ -326,6 +326,117 @@ func TestBulkWorkflow(t *testing.T) {
 	}
 }
 
+func TestFlagParsing(t *testing.T) {
+	testHost(t)
+
+	// Write documents for grep/cat tests.
+	dispatch(t, "write", []string{"docs/api"}, "alice", []byte("REST API reference\nSecond line\nThird line"))
+	dispatch(t, "write", []string{"docs/guide"}, "alice", []byte("Getting started guide"))
+	dispatch(t, "write", []string{"notes/todo"}, "alice", []byte("Fix API bugs"))
+
+	// Combined short bool flags: grep -nl
+	r := dispatch(t, "grep", []string{"-nl", "API"}, "", nil)
+	out := text(r)
+	if !strings.Contains(out, "docs/api") {
+		t.Errorf("grep -nl: missing docs/api: %s", out)
+	}
+
+	// Compact int with bool: grep -nC1
+	r = dispatch(t, "grep", []string{"-nC1", "API"}, "", nil)
+	out = text(r)
+	if !strings.Contains(out, "docs/api") {
+		t.Errorf("grep -nC1: missing docs/api: %s", out)
+	}
+
+	// Separate -C 1 form.
+	r = dispatch(t, "grep", []string{"-n", "-C", "1", "API"}, "", nil)
+	out = text(r)
+	if !strings.Contains(out, "docs/api") {
+		t.Errorf("grep -n -C 1: missing docs/api: %s", out)
+	}
+
+	// --key=value form for cat --version=1.
+	dispatch(t, "write", []string{"docs/api"}, "alice", []byte("Updated API reference"))
+	r = dispatch(t, "cat", []string{"--version=1", "docs/api"}, "", nil)
+	if got := text(r); got != "REST API reference\nSecond line\nThird line" {
+		t.Errorf("cat --version=1 = %q, want original content", got)
+	}
+
+	// Long flag with space: --version 1.
+	r = dispatch(t, "cat", []string{"--version", "1", "docs/api"}, "", nil)
+	if got := text(r); got != "REST API reference\nSecond line\nThird line" {
+		t.Errorf("cat --version 1 = %q, want original content", got)
+	}
+
+	// -- terminator: everything after -- is positional.
+	r = dispatch(t, "cat", []string{"--", "docs/api"}, "", nil)
+	if got := text(r); got == "" {
+		t.Error("cat -- docs/api returned empty")
+	}
+}
+
+func TestMixedCommandAuthor(t *testing.T) {
+	testHost(t)
+
+	dispatch(t, "write", []string{"a"}, "alice", []byte("Doc A"))
+	dispatch(t, "write", []string{"b"}, "alice", []byte("Doc B"))
+
+	// Tag read operations work without author.
+	dispatch(t, "tag", []string{"a", "important"}, "alice", nil)
+	r := dispatch(t, "tag", []string{"a"}, "", nil)
+	out := text(r)
+	if !strings.Contains(out, "important") {
+		t.Errorf("tag list (no author): missing 'important': %s", out)
+	}
+
+	// tag -f works without author.
+	r = dispatch(t, "tag", []string{"-f", "important"}, "", nil)
+	out = text(r)
+	if !strings.Contains(out, "a") {
+		t.Errorf("tag -f (no author): missing 'a': %s", out)
+	}
+
+	// Tag mutation without author fails.
+	err := dispatchErr(t, "tag", []string{"a", "new-tag"}, "", nil)
+	if err == nil {
+		t.Error("tag mutation without author: expected error")
+	}
+
+	// Tag delete without author fails.
+	err = dispatchErr(t, "tag", []string{"-d", "a", "important"}, "", nil)
+	if err == nil {
+		t.Error("tag -d without author: expected error")
+	}
+
+	// Link read works without author.
+	dispatch(t, "link", []string{"a", "b"}, "alice", nil)
+	r = dispatch(t, "link", []string{"a"}, "", nil)
+	out = text(r)
+	if !strings.Contains(out, "b") {
+		t.Errorf("link list (no author): missing 'b': %s", out)
+	}
+
+	// Link creation without author fails.
+	err = dispatchErr(t, "link", []string{"b", "a"}, "", nil)
+	if err == nil {
+		t.Error("link creation without author: expected error")
+	}
+
+	// Task read operations work without author.
+	dispatch(t, "task", []string{"add", "Test task"}, "alice", []byte("# Spec\n\nDo it."))
+	r = dispatch(t, "task", []string{"list"}, "", nil)
+	out = text(r)
+	if !strings.Contains(out, "Test task") {
+		t.Errorf("task list (no author): missing task: %s", out)
+	}
+
+	// Task add without author fails.
+	err = dispatchErr(t, "task", []string{"add", "No author"}, "", []byte("body"))
+	if err == nil {
+		t.Error("task add without author: expected error")
+	}
+}
+
 func TestErrorPaths(t *testing.T) {
 	testHost(t)
 

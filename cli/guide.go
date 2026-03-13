@@ -30,15 +30,14 @@ other guides. Use --raw for unrendered markdown.`, Usage: "guide [--raw] [topic]
 }
 
 func guideCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
+	flags, positional, err := sdk.ParseArgs(guideSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("guide: %w", err)
+	}
+	raw := flags.Bool("raw")
 	var topic string
-	var raw bool
-
-	for _, arg := range args {
-		if arg == "--raw" {
-			raw = true
-		} else {
-			topic = arg
-		}
+	if len(positional) > 0 {
+		topic = positional[0]
 	}
 
 	content, err := guide.Get(topic)

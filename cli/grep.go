@@ -14,7 +14,6 @@ package cli
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -34,31 +33,21 @@ using SQLite FTS5 syntax: AND (implicit), OR, NOT, NEAR(), prefix
 }
 
 func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var pattern, pathPrefix string
-	var showLineNums, filesOnly, countOnly bool
-	var contextLines int
+	flags, positional, err := sdk.ParseArgs(grepSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("grep: %w", err)
+	}
+	showLineNums := flags.Bool("n")
+	filesOnly := flags.Bool("l")
+	countOnly := flags.Bool("c")
+	contextLines := flags.Int("C")
 
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch {
-		case arg == "-n":
-			showLineNums = true
-		case arg == "-l":
-			filesOnly = true
-		case arg == "-c":
-			countOnly = true
-		case arg == "-C" && i+1 < len(args):
-			i++
-			contextLines, _ = strconv.Atoi(args[i])
-		case strings.HasPrefix(arg, "-C"):
-			contextLines, _ = strconv.Atoi(arg[2:])
-		case !strings.HasPrefix(arg, "-"):
-			if pattern == "" {
-				pattern = arg
-			} else {
-				pathPrefix = arg
-			}
-		}
+	var pattern, pathPrefix string
+	if len(positional) > 0 {
+		pattern = positional[0]
+	}
+	if len(positional) > 1 {
+		pathPrefix = positional[1]
 	}
 
 	if pattern == "" {

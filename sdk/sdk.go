@@ -83,16 +83,6 @@ type Command struct {
 	NeedsAuthor bool
 }
 
-// Flag describes a command flag for help output. The host does not parse
-// flags — this metadata is only used for --help display and MCP tool
-// descriptions. Commands parse their own flags from the raw args slice.
-type Flag struct {
-	Name  string // Long flag name (e.g. "version" for --version)
-	Short string // Optional short form (e.g. "n" for -n)
-	Type  string // "bool", "string", or "int"
-	Desc  string
-}
-
 // Context carries per-invocation data to commands. It embeds
 // [context.Context] for cancellation and timeout propagation, and
 // holds request-scoped domain store instances so commands access the

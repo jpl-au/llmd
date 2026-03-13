@@ -15,27 +15,22 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+var taskStartFlags = []sdk.Flag{
+	{Name: "column", Type: "string"},
+}
+
 // taskStart moves a task to in-progress and records the current git
 // branch if available. Delegates to ctx.Tasks.Start.
 func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var opts sdk.StartOpts
-	var key string
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--column":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task start: --column requires a value")
-			}
-			opts.Column = args[i]
-		default:
-			if key == "" && !strings.HasPrefix(args[i], "-") {
-				key = args[i]
-			}
-		}
+	flags, positional, err := sdk.ParseArgs(taskStartFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task start: %w", err)
 	}
-
+	opts := sdk.StartOpts{Column: flags.String("column")}
+	var key string
+	if len(positional) > 0 {
+		key = positional[0]
+	}
 	if key == "" {
 		return nil, fmt.Errorf("task start: %w: id", sdk.ErrMissingArg)
 	}
@@ -51,27 +46,23 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Started %s", t.Key)), nil
 }
 
+var taskDiffFlags = []sdk.Flag{
+	{Name: "base", Type: "string"},
+	{Name: "stat", Type: "bool"},
+}
+
 // taskDiff shows the git diff for a task's branch against the default branch.
 // If no task ID is given, auto-detects from the current branch.
 func taskDiff(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var key, base string
-	stat := false
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--base":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task diff: --base requires a value")
-			}
-			base = args[i]
-		case "--stat":
-			stat = true
-		default:
-			if key == "" && !strings.HasPrefix(args[i], "-") {
-				key = args[i]
-			}
-		}
+	flags, positional, err := sdk.ParseArgs(taskDiffFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task diff: %w", err)
+	}
+	base := flags.String("base")
+	stat := flags.Bool("stat")
+	var key string
+	if len(positional) > 0 {
+		key = positional[0]
 	}
 
 	t, err := resolveTask(ctx, "task diff", key)
@@ -105,24 +96,21 @@ func taskDiff(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(output), nil
 }
 
+var taskFilesFlags = []sdk.Flag{
+	{Name: "base", Type: "string"},
+}
+
 // taskFiles lists files changed on a task's branch.
 // If no task ID is given, auto-detects from the current branch.
 func taskFiles(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var key, base string
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--base":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task files: --base requires a value")
-			}
-			base = args[i]
-		default:
-			if key == "" && !strings.HasPrefix(args[i], "-") {
-				key = args[i]
-			}
-		}
+	flags, positional, err := sdk.ParseArgs(taskFilesFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task files: %w", err)
+	}
+	base := flags.String("base")
+	var key string
+	if len(positional) > 0 {
+		key = positional[0]
 	}
 
 	t, err := resolveTask(ctx, "task files", key)
@@ -152,31 +140,25 @@ func taskFiles(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: strings.Join(files, "\n"), Data: files}, nil
 }
 
+var taskFinishFlags = []sdk.Flag{
+	{Name: "column", Type: "string"},
+	{Name: "base", Type: "string"},
+}
+
 // taskFinish moves a task to done and shows a summary. Delegates to
 // ctx.Tasks.Finish which handles git summary collection.
 func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var opts sdk.FinishOpts
+	flags, positional, err := sdk.ParseArgs(taskFinishFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task finish: %w", err)
+	}
+	opts := sdk.FinishOpts{
+		Column: flags.String("column"),
+		Base:   flags.String("base"),
+	}
 	var key string
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--column":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task finish: --column requires a value")
-			}
-			opts.Column = args[i]
-		case "--base":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task finish: --base requires a value")
-			}
-			opts.Base = args[i]
-		default:
-			if key == "" && !strings.HasPrefix(args[i], "-") {
-				key = args[i]
-			}
-		}
+	if len(positional) > 0 {
+		key = positional[0]
 	}
 
 	t, err := resolveTask(ctx, "task finish", key)
@@ -201,34 +183,27 @@ func taskFinish(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(b.String()), nil
 }
 
+var taskBranchFlags = []sdk.Flag{
+	{Name: "name", Type: "string"},
+	{Name: "column", Type: "string"},
+}
+
 // taskBranch creates a git branch from a task's title, checks it out,
 // records the branch on the task, and moves it to in-progress.
 // Delegates to ctx.Tasks.StartBranch.
 func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var opts sdk.StartBranchOpts
-	var key string
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--name":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task branch: --name requires a value")
-			}
-			opts.Name = args[i]
-		case "--column":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task branch: --column requires a value")
-			}
-			opts.Column = args[i]
-		default:
-			if key == "" && !strings.HasPrefix(args[i], "-") {
-				key = args[i]
-			}
-		}
+	flags, positional, err := sdk.ParseArgs(taskBranchFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task branch: %w", err)
 	}
-
+	opts := sdk.StartBranchOpts{
+		Name:   flags.String("name"),
+		Column: flags.String("column"),
+	}
+	var key string
+	if len(positional) > 0 {
+		key = positional[0]
+	}
 	if key == "" {
 		return nil, fmt.Errorf("task branch: %w: id", sdk.ErrMissingArg)
 	}
@@ -241,27 +216,24 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Created branch %s for %s \"%s\"", t.Branch, t.Key, t.Title)), nil
 }
 
+var taskCommitsFlags = []sdk.Flag{
+	{Name: "base", Type: "string"},
+}
+
 // taskCommits lists commits on a task's branch that aren't on the base branch.
 func taskCommits(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if err := ctx.Git.Available(); err != nil {
 		return nil, fmt.Errorf("task commits: %w", err)
 	}
 
-	var key, base string
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--base":
-			i++
-			if i >= len(args) {
-				return nil, fmt.Errorf("task commits: --base requires a value")
-			}
-			base = args[i]
-		default:
-			if key == "" && !strings.HasPrefix(args[i], "-") {
-				key = args[i]
-			}
-		}
+	flags, positional, err := sdk.ParseArgs(taskCommitsFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task commits: %w", err)
+	}
+	base := flags.String("base")
+	var key string
+	if len(positional) > 0 {
+		key = positional[0]
 	}
 
 	t, err := resolveTask(ctx, "task commits", key)

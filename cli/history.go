@@ -10,8 +10,6 @@ package cli
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -27,21 +25,16 @@ and commit message. Newest versions are shown first.`, Usage: "history [-n limit
 }
 
 func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var path string
-	var limit int
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "-n" && i+1 < len(args) {
-			i++
-			limit, _ = strconv.Atoi(args[i])
-		} else if strings.HasPrefix(arg, "-n") {
-			limit, _ = strconv.Atoi(arg[2:])
-		} else if !strings.HasPrefix(arg, "-") {
-			path = arg
-		}
+	flags, positional, err := sdk.ParseArgs(historySpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("history: %w", err)
 	}
+	limit := flags.Int("n")
 
+	var path string
+	if len(positional) > 0 {
+		path = positional[0]
+	}
 	if path == "" {
 		return nil, fmt.Errorf("history: %w", sdk.ErrMissingArg)
 	}

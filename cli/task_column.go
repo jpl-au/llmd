@@ -20,19 +20,21 @@ func taskColumns(ctx sdk.Context, _ []string) (sdk.Response, error) {
 
 // taskAddColumn adds a new column to the board. Takes a column name as
 // a positional argument and an optional --after flag to control placement.
+var taskColFlags = []sdk.Flag{
+	{Name: "after", Type: "string"},
+}
+
 func taskAddColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) == 0 {
+	flags, positional, err := sdk.ParseArgs(taskColFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task column add: %w", err)
+	}
+	if len(positional) == 0 {
 		return nil, fmt.Errorf("task column add: %w: name", sdk.ErrMissingArg)
 	}
 
-	name := args[0]
-	var after string
-	for i := 1; i < len(args); i++ {
-		if args[i] == "--after" && i+1 < len(args) {
-			i++
-			after = args[i]
-		}
-	}
+	name := positional[0]
+	after := flags.String("after")
 
 	if err := ctx.Tasks.AddColumn(name, after, ctx.Author); err != nil {
 		return nil, fmt.Errorf("task column add: %w", err)
@@ -58,19 +60,16 @@ func taskRmColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 // taskMvColumn reorders a column to appear after another. Requires both
 // a column name and --after flag specifying the target position.
 func taskMvColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) == 0 {
+	flags, positional, err := sdk.ParseArgs(taskColFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task column mv: %w", err)
+	}
+	if len(positional) == 0 {
 		return nil, fmt.Errorf("task column mv: %w: name", sdk.ErrMissingArg)
 	}
 
-	name := args[0]
-	var after string
-	for i := 1; i < len(args); i++ {
-		if args[i] == "--after" && i+1 < len(args) {
-			i++
-			after = args[i]
-		}
-	}
-
+	name := positional[0]
+	after := flags.String("after")
 	if after == "" {
 		return nil, fmt.Errorf("task column mv: --after is required")
 	}

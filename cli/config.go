@@ -23,7 +23,9 @@ var configSpec = sdk.Command{
 
 With no arguments, shows all settings. With a key, shows that value.
 With a key and value, sets it. Use --global to write to the global
-config (~/.llmd/config) instead of the local store config.`, Usage: "config [key] [value] | config ignore [add|rm|ls] [pattern]",
+config (~/.llmd/config) instead of the local store config.`, Usage: "config [key] [value] | config ignore [add|rm|ls] [pattern]", Flags: []sdk.Flag{
+		{Name: "global", Type: "bool", Desc: "Write to global config (~/.llmd/config)"},
+	},
 }
 
 var errConfigUsage = errors.New("config: usage: llmd config [--global] [key] [value]")
@@ -35,15 +37,11 @@ func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("config: reading: %w", err)
 	}
 
-	var global bool
-	var positional []string
-	for _, arg := range args {
-		if arg == "--global" {
-			global = true
-		} else {
-			positional = append(positional, arg)
-		}
+	flags, positional, err := sdk.ParseArgs(configSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("config: %w", err)
 	}
+	global := flags.Bool("global")
 
 	// Subcommand dispatch.
 	if len(positional) > 0 && positional[0] == "ignore" {

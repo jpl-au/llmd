@@ -22,26 +22,19 @@ var tagSpec = sdk.Command{
 
 With no arguments, lists all tags with counts. With just a path,
 lists tags on that document. With a path and a name, adds the tag.
-Use -d to remove a tag, or -f to find documents by tag.`, Usage: "tag [options] [path] [name]", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+Use -d to remove a tag, or -f to find documents by tag.`, Usage: "tag [options] [path] [name]", MCP: true, Flags: []sdk.Flag{
 		{Name: "delete", Short: "d", Type: "bool", Desc: "Remove a tag"},
 		{Name: "find", Short: "f", Type: "bool", Desc: "Find documents with tag"},
 	},
 }
 
 func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var remove, find bool
-
-	var positional []string
-	for i := range args {
-		switch args[i] {
-		case "-d":
-			remove = true
-		case "-f":
-			find = true
-		default:
-			positional = append(positional, args[i])
-		}
+	flags, positional, err := sdk.ParseArgs(tagSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("tag: %w", err)
 	}
+	remove := flags.Bool("delete")
+	find := flags.Bool("find")
 
 	// llmd tag -f <name> — find documents with tag
 	if find {
@@ -82,6 +75,11 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	path, name := positional[0], positional[1]
+
+	// Mutations require an author.
+	if ctx.Author == "" {
+		return nil, fmt.Errorf("tag: author required for mutations")
+	}
 
 	// llmd tag -d <path> <name> — remove
 	if remove {
