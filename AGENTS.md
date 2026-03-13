@@ -371,6 +371,12 @@ path or task key. Replies reference a `parent_id`. The store resolves replies
 to the top-level ancestor (no nested threads). `deleted_at` is the one
 pragmatic mutation — a visibility flag for soft-delete.
 
+**Author vs assignee:** `author` is who created the entry. `assignee` is who
+needs to act on it. These are separate fields — an agent creates an audit
+(`--author`) and directs it to another agent (`--assignee`). The assignee
+propagates through replies like status does; the effective assignee is from
+the most recent entry. `audit status` filters by effective assignee.
+
 **ID format:** `aud_` prefix + 9-char base36 key (same generator as tasks).
 
 **Target type inference:** The store determines `target_type` from the target
@@ -387,11 +393,11 @@ tiebreaker handles same-millisecond key generation).
 |---------|-------------|
 | `audit add <target> [content]` | Create a top-level audit |
 | `audit reply <id> [content]` | Reply to an existing thread |
-| `audit list [target]` | List audits (filterable by `--status`, `--author`, `--pending`) |
+| `audit list [target]` | List audits (filterable by `--assignee`, `--by-author`, `--status`, `--pending`) |
 | `audit show <id>` | Display full audit thread |
 | `audit resolve <id>` | Mark as approved (inserts "approved" entry) |
 | `audit rm <id>` | Soft-delete |
-| `audit status` | Inbox: pending threads requiring the author's response |
+| `audit status` | Inbox: pending threads assigned to the author |
 
 Content resolution order: positional args > `--file` > stdin.
 
