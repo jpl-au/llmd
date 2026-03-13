@@ -47,6 +47,7 @@ internal/llmd/links/        Directed relationships between documents
 internal/llmd/bulk/         Import from / export to filesystem (os.OpenRoot confined)
 internal/llmd/events/       Internal synchronous event bus
 internal/llmd/entities/     Named entity extraction
+internal/llmd/audits/       Agent-to-agent and human-to-agent review threads
 internal/llmd/audit/        Change log
 internal/llmd/key/          ID generation: 9-char base36 from ms timestamps
 internal/llmd/hash/         Content hashing (xxh3, blake2b)
@@ -70,7 +71,7 @@ main.go
   ↓ config.Load() + initLog() — configure slog (level, format, stderr)
   ↓ check extension.Storeless — skip store for init, version, config
   ↓ host.Open(dbPath) or host.New() depending on needsStore
-  │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags, sdk.Activities
+  │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags, sdk.Audits, sdk.Activities
   │   ├─ load compiled extensions via extension.All()
   │   ├─ wire extension EventHandlers to internal bus
   │   └─ load Yaegi plugins from .llmd/plugins/ and ~/.llmd/plugins/
@@ -138,6 +139,7 @@ Focused interfaces per domain, each following the SDK-first pattern:
 | `sdk.TaskStore` | `sdk/tasks.go` | `internal/host/api_tasks.go` (`taskAPI`) | `internal/host/host.go` |
 | `sdk.LinkStore` | `sdk/links.go` | `internal/host/api_links.go` (`linkAPI`) | `internal/host/host.go` |
 | `sdk.TagStore` | `sdk/tags.go` | `internal/host/api_tags.go` (`tagAPI`) | `internal/host/host.go` |
+| `sdk.AuditStore` | `sdk/audits.go` | `internal/host/api_audits.go` (`auditAPI`) | `internal/host/host.go` |
 | `sdk.ActivityStore` | `sdk/activity.go` | `internal/host/api_activity.go` (`activityAPI`) | `internal/host/host.go` |
 | `sdk.GitStore` | `sdk/git.go` | `internal/git/git.go` (`Git`) | `internal/host/host.go` |
 | `sdk.ConfigStore` | `sdk/config.go` | `internal/config/store.go` (`Store`) | `internal/host/host.go` |
@@ -152,7 +154,7 @@ command, each bound to the request's `context.Context`. This provides
 cancellation and timeout support without changing any SDK interface
 signatures. `sdk.Context` embeds `context.Context` and carries domain
 store fields (`Documents`, `Tasks`, `Links`, `Tags`, `Activities`,
-`Mirror`, `Git`, `Config`). CLI commands access stores via `ctx.Documents`
+`Audits`, `Mirror`, `Git`, `Config`). CLI commands access stores via `ctx.Documents`
 etc. rather than package globals.
 
 Package globals (`sdk.Documents`, `sdk.Tasks`, etc.) remain wired with
@@ -183,6 +185,9 @@ error types from leaking through the SDK boundary:
 | `tags.ErrNotFound` | `sdk.ErrNotFound` |
 | `tags.ErrInvalid` | `sdk.ErrInvalidArg` |
 | `tags.ErrExists` | `sdk.ErrExists` |
+| `audits.ErrNotFound` | `sdk.ErrNotFound` |
+| `audits.ErrMissingAuthor` | `sdk.ErrMissingArg` |
+| `audits.ErrMissingTarget` | `sdk.ErrMissingArg` |
 
 CLI commands use context-local stores:
 
@@ -219,7 +224,7 @@ The symbol table exports SDK types, constants, errors, domain stores, and
 flag parsing (`FlagValues`, `ParseArgs`) so that interpreted plugin code can
 `import "github.com/jpl-au/llmd/sdk"`.
 
-Domain stores (`sdk.Documents`, `sdk.Tasks`, etc.) in the symbol table point
+Domain stores (`sdk.Documents`, `sdk.Tasks`, `sdk.Audits`, etc.) in the symbol table point
 at per-adapter fields, not package-level globals. `load()` creates the adapter
 before registering the symbol table so the reflect values are bound to adapter
 fields from the start. `Exec` acquires the adapter mutex and populates those
@@ -227,7 +232,8 @@ fields from `ctx` before each call — giving each request its own request-scope
 stores. Plugin source is unchanged: `sdk.Documents.Read(...)` works
 transparently regardless of how the underlying store is wired.
 
-Interface wrappers (`_sdk_DocumentStore`, `_sdk_TaskStore`, etc.) exist because
+Interface wrappers (`_sdk_DocumentStore`, `_sdk_TaskStore`, `_sdk_AuditStore`,
+etc.) exist because
 Yaegi uses reflection to bridge interpreted types to Go interfaces. Each wrapper
 struct has a `WMethodName` function field for every interface method. When Yaegi
 needs to assign an interpreted struct to an interface variable, it populates
@@ -353,6 +359,45 @@ without git (skipping branch recording and git summary respectively);
 `StartBranch` requires git and returns a clear error if unavailable.
 Default branch detection tries `origin/HEAD` first, then `main`, then
 `master`; override with `--base`.
+
+## Audit Threads
+
+The audit domain (`sdk.AuditStore`) provides agent-to-agent and human-to-agent
+review threads. Audits are **insert-only** — no record is ever updated. Thread
+status is derived from the most recent entry.
+
+**Data model:** A single `audits` table. Top-level audits target a document
+path or task key. Replies reference a `parent_id`. The store resolves replies
+to the top-level ancestor (no nested threads). `deleted_at` is the one
+pragmatic mutation — a visibility flag for soft-delete.
+
+**ID format:** `aud_` prefix + 9-char base36 key (same generator as tasks).
+
+**Target type inference:** The store determines `target_type` from the target
+value. If it matches a valid 9-char base36 key, it's a task; otherwise it's
+a document.
+
+**Effective status:** Thread status = status of the most recent non-deleted
+entry. Queries use `ORDER BY created_at DESC, id DESC LIMIT 1` (the `id DESC`
+tiebreaker handles same-millisecond key generation).
+
+### CLI subcommands
+
+| Command | Description |
+|---------|-------------|
+| `audit add <target> [content]` | Create a top-level audit |
+| `audit reply <id> [content]` | Reply to an existing thread |
+| `audit list [target]` | List audits (filterable by `--status`, `--author`, `--pending`) |
+| `audit show <id>` | Display full audit thread |
+| `audit resolve <id>` | Mark as approved (inserts "approved" entry) |
+| `audit rm <id>` | Soft-delete |
+| `audit status` | Inbox: pending threads requiring the author's response |
+
+Content resolution order: positional args > `--file` > stdin.
+
+The `audit` command is a mixed command (like `task`): author is required for
+mutations (`add`, `reply`, `resolve`, `rm`, `status`) but not for reads
+(`list`, `show`).
 
 ## Transaction Patterns
 

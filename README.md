@@ -33,6 +33,7 @@ prefer it), the CLI mirrors standard Unix commands — `cat`, `ls`, `grep`,
 - **Full-text search** — Search with `llmd find` or `llmd grep`.
 - **Soft delete** — Nothing is ever lost. Restore with `llmd restore`.
 - **Task board** — Track work with columns, priorities, and git branch integration.
+- **Audit threads** — Agent-to-agent and human-to-agent review threads on documents and tasks.
 - **MCP server** — Native integration with Claude Code, Cursor, and other MCP clients.
 
 ### llmd teaches itself to your agents
@@ -76,6 +77,7 @@ Writing:    write, edit, sed, rm, mv, restore, revert
 History:    history, diff
 Tags:       tag, link, unlink
 Tasks:      task, status, review
+Audits:     audit (add, reply, list, show, resolve, rm, status)
 Bulk:       import, export, mirror
 Admin:      init, config, vacuum, version, mcp, serve, plugins
 Help:       guide, llm
