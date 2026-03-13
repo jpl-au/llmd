@@ -1,0 +1,75 @@
+// reply.go adds responses to existing audit threads.
+
+package audits
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+
+	"github.com/jpl-au/llmd/internal/llmd/key"
+)
+
+// Reply adds a response to an existing audit thread. If the parent is
+// itself a reply, the store resolves to the top-level ancestor so all
+// threads remain single-level.
+func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*Audit, error) {
+	if opts.Author == "" {
+		return nil, ErrMissingAuthor
+	}
+	if err := a.ensure(); err != nil {
+		return nil, err
+	}
+
+	// Resolve to top-level parent.
+	parent, err := a.read(ctx, parentID)
+	if err != nil {
+		return nil, fmt.Errorf("reading parent: %w", err)
+	}
+
+	threadID := parent.ID
+	if parent.ParentID != "" {
+		threadID = parent.ParentID
+	}
+
+	status := opts.Status
+	if status == "" {
+		status = parent.Status
+	}
+
+	id := "aud_" + key.Generate()
+	now := time.Now().UnixMilli()
+
+	_, err = a.db.ExecContext(ctx, `
+		INSERT INTO audits (id, target, target_type, version, author, status, content, parent_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, status, opts.Content, threadID, now)
+	if err != nil {
+		return nil, fmt.Errorf("inserting reply: %w", err)
+	}
+
+	return &Audit{
+		ID:         id,
+		Target:     parent.Target,
+		TargetType: parent.TargetType,
+		Version:    parent.Version,
+		Author:     opts.Author,
+		Status:     status,
+		Content:    opts.Content,
+		ParentID:   threadID,
+		CreatedAt:  now,
+	}, nil
+}
+
+// read fetches a single audit by ID, including soft-deleted.
+func (a *Audits) read(ctx context.Context, id string) (*Audit, error) {
+	row := a.db.QueryRowContext(ctx, `
+		SELECT `+columns+` FROM audits WHERE id = ?
+	`, id)
+	aud, err := scanAudit(row)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	return aud, err
+}
