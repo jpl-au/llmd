@@ -90,7 +90,6 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 	}
 
 	cmdName := cmd.Name
-	needsAuthor := cmd.NeedsAuthor
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        name,
@@ -101,17 +100,10 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 			stdin = []byte(input.Content)
 		}
 
-		// LLMs must supply author on mutation calls. No silent fallback
-		// to the configured author — the LLM must identify itself.
+		// Use the author from the tool call, or fall back to the
+		// server-level author (from --author on the mcp command).
+		// MCP callers are non-interactive — no config author fallback.
 		a := input.Author
-		if a == "" && needsAuthor {
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{&mcp.TextContent{
-					Text: fmt.Sprintf("%s requires an author. Include \"author\" in your tool call to identify yourself, e.g. {\"author\": \"Claude\", \"args\": [...]}", cmdName),
-				}},
-				IsError: true,
-			}, nil, nil
-		}
 		if a == "" {
 			a = author
 		}
