@@ -76,6 +76,8 @@ github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs
 github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
+github.com/jpl-au/chain v0.1.1 h1:uG9SnMswbiGb3WFVwrM2B6LNhIZvH2cmbWHGWg6qj0k=
+github.com/jpl-au/chain v0.1.1/go.mod h1:8QebLCICdoF101FfiobEIndqgh3Yrljqb4EEQLyG/Qc=
 github.com/jpl-au/qwr v0.2.2 h1:xpFBfl6VGUPYSwfjW9qemSsvQBFDuGQ+twKzWEQznIA=
 github.com/jpl-au/qwr v0.2.2/go.mod h1:slKnqkUkSRqC9LCjS7b8dAu9ig18Ff5xkOLwBx0vCUE=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=

@@ -37,6 +37,7 @@ require (
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/jpl-au/chain v0.1.1 // indirect
 	github.com/jpl-au/qwr v0.2.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect

@@ -56,6 +56,7 @@ internal/git/               Git CLI wrapper: sdk.GitStore implementation (build-
 internal/config/            Configuration files and .llmd/.gitignore management
 internal/line/              Platform-aware line ending conversion (build-tagged)
 internal/validate/          Input validation: null bytes, path length, content size
+internal/server/            HTTP API server: thin transport over sdk.Dispatch
 internal/sql/               Schema migrations, SQL helpers
 pkg/model/core/             Core model types (Origin, etc.)
 pkg/events/                 Shared event type definitions
@@ -407,16 +408,28 @@ mutations (`add`, `reply`, `resolve`, `rm`, `status`) but not for reads
 
 ## Transaction Patterns
 
-All multi-statement write operations wrap their queries in a single
-`sql.Tx` so a crash cannot leave data partially updated.
+All database access goes through `qwr.Manager`, which provides serialised
+writes with reader/writer connection separation. Multi-statement write
+operations use `qwr.TransactionFunc` — a callback-based pattern that
+handles `Begin`/`Commit`/`Rollback` automatically:
 
-**Documents:** `Write` delegates to `writeInTx` inside a `BeginTx`/`Commit`
-pair. The event bus fires *after* commit so subscribers see committed data.
+```go
+result, err := db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+    // all writes here are atomic
+    return value, nil
+}).WithContext(ctx).Write()
+```
+
+The callback receives a raw `*sql.Tx`. The return value is accessible via
+`result.Value` with a type assertion.
+
+**Documents:** `Write` delegates to `writeInTx` inside a `TransactionFunc`.
+The event bus fires *after* commit so subscribers see committed data.
 `writeInTx` and `readInTx` exist for callers that need document operations
 within a larger transaction.
 
-**Tasks:** `Add`, `Move`, `Set`, `Delete`, and `Restore` each open a
-transaction, perform their UPDATE/INSERT, write the audit record via
+**Tasks:** `Add`, `Move`, `Set`, `Delete`, and `Restore` each use
+`TransactionFunc`, perform their UPDATE/INSERT, write the audit record via
 `recordTx`, and commit. `recordTx` (in `helpers.go`) mirrors `audit.Log.Record`
 but writes on the provided `*sql.Tx`. `repositionTx` (in `move.go`) renumbers
 column positions within a transaction.
@@ -425,8 +438,17 @@ column positions within a transaction.
 exists before any `recordTx` call. `audit.Log.Ensure` is exported and
 idempotent (guarded by `sync.Once`).
 
-**Links:** `Remove` wraps its soft-delete loop in a transaction so multiple
-link deletions are atomic.
+**Links:** `Remove` wraps its soft-delete loop in a `TransactionFunc` so
+multiple link deletions are atomic.
+
+**History revert:** `Revert` reads the source version content outside the
+transaction, then uses `TransactionFunc` for the atomic
+check-latest-hash → increment-version → insert sequence. This prevents
+concurrent reverts from producing duplicate version numbers.
+
+**FTS handler:** `onWrite` and `onMove` use `TransactionFunc` so the
+FTS delete-then-insert is atomic. A crash cannot leave the index missing
+a document.
 
 **When to use `recordTx` vs `audit.Record`:** Use `recordTx` inside a
 transaction to make audit records atomic with the surrounding operation.
@@ -444,6 +466,45 @@ If the LLM omits `author` and the command has `NeedsAuthor: true`, the server
 rejects the call immediately. Mixed commands (tag, link, task) do not set
 `NeedsAuthor` — their handlers check author on mutation paths only, so read
 operations succeed without an author.
+
+## HTTP Server
+
+The HTTP server (`internal/server/`) exposes llmd commands as HTTP endpoints.
+It follows the same pattern as the MCP server — a thin transport layer over
+`sdk.Dispatch`. Commands are registered automatically by walking
+`sdk.AllCommands()`, so plugins get HTTP routes for free.
+
+**Route structure:** URL paths mirror CLI commands. `/cat/docs/api` dispatches
+to the `cat` command with path `docs/api`. `/grep?q=hello` dispatches to
+`grep` with the search query as a positional argument.
+
+**Method mapping:** Read commands (`NeedsAuthor == false`) are GET, mutation
+commands are POST. The same `NeedsAuthor` field drives both MCP tool
+classification and HTTP method selection.
+
+**Headers carry metadata:** `Author` (fallback identity), `Message` (commit
+message), `Source` (origin tracking), `Output` (`json` to request structured
+data). No `X-` prefix — RFC 6648 deprecated it.
+
+**Request body is content:** POST bodies carry raw document content (markdown),
+not JSON envelopes. This matches the CLI where stdin is the document body.
+
+**Response format:** `sdk.Text` returns `text/plain`. `sdk.Data` returns JSON.
+`sdk.Result` returns text by default, or JSON when the `Output: json` header
+is set or when no text representation exists.
+
+**Error mapping:** SDK sentinel errors map to HTTP status codes —
+`ErrNotFound` → 404, `ErrMissingArg`/`ErrInvalidArg` → 400, `ErrExists` → 409,
+`ErrNoSpec` → 422. All errors return JSON `{"error": "..."}`.
+
+**Configuration:** Listen address is read from `serve_addr` config key,
+defaulting to `localhost:8080`. No flags or environment variables.
+
+**Skipped commands:** `mcp`, `serve`, `init`, `config`, `version`, `plugins`,
+`guide`, `llm` are not exposed over HTTP — they are admin or local-only.
+
+The server uses `github.com/jpl-au/chain` as the HTTP mux, which wraps
+Go 1.22's enhanced `net/http` routing with middleware support.
 
 ## Gitignore Management
 

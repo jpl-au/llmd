@@ -116,6 +116,41 @@ Use `--db` to connect to a specific database:
 
 You can run multiple llmd servers for different databases simultaneously.
 
+## HTTP Server
+
+Start the HTTP API server for programmatic access:
+
+```bash
+llmd serve
+```
+
+The server listens on `localhost:8080` by default. Override with:
+
+```bash
+llmd config serve_addr "localhost:3000"
+```
+
+URL paths mirror CLI commands — `/cat/docs/api`, `/write/docs/api`,
+`/grep?q=hello`. Headers carry metadata (`Author`, `Message`, `Source`).
+POST bodies carry raw document content.
+
+```bash
+# Read a document
+curl http://localhost:8080/cat/docs/api
+
+# Write a document
+curl -X POST http://localhost:8080/write/docs/api \
+  -H "Author: alice" \
+  -H "Message: initial draft" \
+  -d "# API Documentation"
+
+# Search
+curl http://localhost:8080/grep?q=hello
+
+# Request JSON output
+curl -H "Output: json" http://localhost:8080/ls
+```
+
 ## Storage
 
 All data lives in a `.llmd/` directory. By default, llmd searches upward from
