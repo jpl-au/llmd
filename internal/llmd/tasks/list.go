@@ -46,7 +46,7 @@ func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error
 
 	query.WriteString(" ORDER BY position ASC, created_at ASC")
 
-	rows, err := t.db.QueryContext(ctx, query.String(), args...)
+	rows, err := t.db.Query(query.String(), args...).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("listing tasks: %w", err)
 	}

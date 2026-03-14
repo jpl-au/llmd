@@ -10,11 +10,12 @@
 package sql
 
 import (
-	"database/sql"
 	"embed"
 	"fmt"
 	"io/fs"
 	"sort"
+
+	"github.com/jpl-au/qwr"
 )
 
 //go:embed *.sql
@@ -30,7 +31,7 @@ var help string
 // that LLMs or humans exploring the SQLite file directly (e.g. via
 // sqlite3 CLI) can discover what the schema represents and how to
 // query it, without needing access to the llmd binary or source.
-func Exec(db *sql.DB) error {
+func Exec(db *qwr.Manager) error {
 	entries, err := fs.ReadDir(schemas, ".")
 	if err != nil {
 		return fmt.Errorf("read schema directory: %w", err)
@@ -48,12 +49,12 @@ func Exec(db *sql.DB) error {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", entry.Name(), err)
 		}
-		if _, err := db.Exec(string(data)); err != nil {
+		if _, err := db.Query(string(data)).Write(); err != nil {
 			return fmt.Errorf("exec %s: %w", entry.Name(), err)
 		}
 	}
 
 	// Embed help documentation inside the database for discoverability.
-	_, err = db.Exec("INSERT OR IGNORE INTO help (content) VALUES (?)", help)
+	_, err = db.Query("INSERT OR IGNORE INTO help (content) VALUES (?)", help).Write()
 	return err
 }

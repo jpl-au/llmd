@@ -2,6 +2,7 @@ package links
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 )
 
@@ -25,8 +26,9 @@ func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (b
 	}
 
 	var exists bool
+	var row *sql.Row
 	if opt.Label != "" {
-		err = l.db.QueryRowContext(ctx, `
+		row, err = l.db.Query(`
 			SELECT EXISTS(
 				SELECT 1 FROM entities
 				WHERE namespace = ? AND relation = ?
@@ -34,19 +36,21 @@ func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (b
 				  AND json_extract(value, '$.label') = ?
 				  AND deleted_at IS NULL
 			)
-		`, namespace, fromDoc.Path, toDoc.Path, opt.Label).Scan(&exists)
+		`, namespace, fromDoc.Path, toDoc.Path, opt.Label).WithContext(ctx).ReadRow()
 	} else {
-		err = l.db.QueryRowContext(ctx, `
+		row, err = l.db.Query(`
 			SELECT EXISTS(
 				SELECT 1 FROM entities
 				WHERE namespace = ? AND relation = ?
 				  AND json_extract(value, '$.to') = ?
 				  AND deleted_at IS NULL
 			)
-		`, namespace, fromDoc.Path, toDoc.Path).Scan(&exists)
+		`, namespace, fromDoc.Path, toDoc.Path).WithContext(ctx).ReadRow()
 	}
-
 	if err != nil {
+		return false, err
+	}
+	if err := row.Scan(&exists); err != nil {
 		return false, err
 	}
 

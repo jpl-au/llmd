@@ -2,15 +2,19 @@ package audits
 
 import (
 	"context"
-	"database/sql"
 	"testing"
+
+	"github.com/jpl-au/qwr"
+	"github.com/jpl-au/qwr/profile"
 
 	_ "modernc.org/sqlite"
 )
 
-func openTestDB(t *testing.T) *sql.DB {
+func openTestDB(t *testing.T) *qwr.Manager {
 	t.Helper()
-	db, err := sql.Open("sqlite", "file::memory:?cache=shared&_pragma=foreign_keys(1)")
+	rp := profile.ReadBalanced().WithForeignKeys(true)
+	wp := profile.WriteBalanced().WithForeignKeys(true)
+	db, err := qwr.New("file::memory:?cache=shared").Reader(rp).Writer(wp).Open()
 	if err != nil {
 		t.Fatal(err)
 	}

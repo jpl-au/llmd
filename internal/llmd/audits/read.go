@@ -13,10 +13,13 @@ func (a *Audits) Read(ctx context.Context, id string) (*Audit, error) {
 	if err := a.ensure(); err != nil {
 		return nil, err
 	}
-	row := a.db.QueryRowContext(ctx, `
+	row, err := a.db.Query(`
 		SELECT `+columns+` FROM audits
 		WHERE id = ? AND deleted_at IS NULL
-	`, id)
+	`, id).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, err
+	}
 	aud, err := scanAudit(row)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
@@ -42,11 +45,11 @@ func (a *Audits) Thread(ctx context.Context, id string) ([]Audit, error) {
 		threadID = aud.ParentID
 	}
 
-	rows, err := a.db.QueryContext(ctx, `
+	rows, err := a.db.Query(`
 		SELECT `+columns+` FROM audits
 		WHERE (id = ? OR parent_id = ?) AND deleted_at IS NULL
 		ORDER BY created_at ASC
-	`, threadID, threadID)
+	`, threadID, threadID).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying thread: %w", err)
 	}

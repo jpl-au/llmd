@@ -18,8 +18,9 @@
 package search
 
 import (
-	"database/sql"
 	"errors"
+
+	"github.com/jpl-au/qwr"
 )
 
 var (
@@ -36,11 +37,11 @@ var (
 // It operates on the FTS5 index which contains the latest non-deleted version
 // of each document.
 type Search struct {
-	db *sql.DB
+	db *qwr.Manager
 }
 
 // New creates a Search instance using the given database connection.
 // The database must have the content_fts table initialised.
-func New(db *sql.DB) *Search {
+func New(db *qwr.Manager) *Search {
 	return &Search{db: db}
 }

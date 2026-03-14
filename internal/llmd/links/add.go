@@ -54,10 +54,10 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 	now := time.Now().UnixMilli()
 	k := key.Generate()
 
-	_, err = l.db.ExecContext(ctx, `
+	_, err = l.db.Query(`
 		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, string(data), opts.Author, opts.Source, now)
+	`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("inserting link: %w", err)
 	}
@@ -76,11 +76,11 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 
 // find checks if a link already exists.
 func (l *Links) find(ctx context.Context, relation, to, label string) (*link.Link, error) {
-	rows, err := l.db.QueryContext(ctx, `
+	rows, err := l.db.Query(`
 		SELECT key, relation, value, author, source, created_at
 		FROM entities
 		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
-	`, namespace, relation)
+	`, namespace, relation).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying links: %w", err)
 	}

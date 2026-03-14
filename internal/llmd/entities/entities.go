@@ -6,8 +6,9 @@
 package entities
 
 import (
-	"database/sql"
 	"errors"
+
+	"github.com/jpl-au/qwr"
 )
 
 // Errors returned by entity operations.
@@ -17,10 +18,10 @@ var (
 
 // Entities provides entity operations.
 type Entities struct {
-	db *sql.DB
+	db *qwr.Manager
 }
 
 // New creates a new Entities instance.
-func New(db *sql.DB) *Entities {
+func New(db *qwr.Manager) *Entities {
 	return &Entities{db: db}
 }

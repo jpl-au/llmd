@@ -38,7 +38,7 @@ func (h *History) List(ctx context.Context, path string, opts ...ListOptions) ([
 		args = append(args, opt.Limit)
 	}
 
-	rows, err := h.db.QueryContext(ctx, query.String(), args...)
+	rows, err := h.db.Query(query.String(), args...).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying versions: %w", err)
 	}

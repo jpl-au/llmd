@@ -18,12 +18,12 @@ func (t *Tags) List(ctx context.Context, value string, opts ...Options) ([]tag.T
 	}
 	relation := doc.Path
 
-	rows, err := t.db.QueryContext(ctx, `
+	rows, err := t.db.Query(`
 		SELECT key, relation, value, author, source, created_at
 		FROM entities
 		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
 		ORDER BY created_at DESC
-	`, namespace, relation)
+	`, namespace, relation).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying tags: %w", err)
 	}
@@ -34,13 +34,13 @@ func (t *Tags) List(ctx context.Context, value string, opts ...Options) ([]tag.T
 
 // ListAll returns all unique tags across the store with document counts.
 func (t *Tags) ListAll(ctx context.Context) ([]tag.Info, error) {
-	rows, err := t.db.QueryContext(ctx, `
+	rows, err := t.db.Query(`
 		SELECT json_extract(value, '$.tag') as name, COUNT(DISTINCT relation) as count
 		FROM entities
 		WHERE namespace = ? AND deleted_at IS NULL
 		GROUP BY name
 		ORDER BY name
-	`, namespace)
+	`, namespace).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying all tags: %w", err)
 	}

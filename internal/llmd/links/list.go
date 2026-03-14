@@ -55,12 +55,12 @@ func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link
 
 // outgoing returns links where this document is the source.
 func (l *Links) outgoing(ctx context.Context, relation string) ([]link.Link, error) {
-	rows, err := l.db.QueryContext(ctx, `
+	rows, err := l.db.Query(`
 		SELECT key, relation, value, author, source, created_at
 		FROM entities
 		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
 		ORDER BY created_at DESC
-	`, namespace, relation)
+	`, namespace, relation).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying outgoing links: %w", err)
 	}
@@ -71,13 +71,13 @@ func (l *Links) outgoing(ctx context.Context, relation string) ([]link.Link, err
 
 // incoming returns links where this document is the target.
 func (l *Links) incoming(ctx context.Context, toPath string) ([]link.Link, error) {
-	rows, err := l.db.QueryContext(ctx, `
+	rows, err := l.db.Query(`
 		SELECT key, relation, value, author, source, created_at
 		FROM entities
 		WHERE namespace = ? AND deleted_at IS NULL
 		  AND json_extract(value, '$.to') = ?
 		ORDER BY created_at DESC
-	`, namespace, toPath)
+	`, namespace, toPath).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying incoming links: %w", err)
 	}

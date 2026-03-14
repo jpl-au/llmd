@@ -48,10 +48,10 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 		return nil, fmt.Errorf("marshaling tag: %w", err)
 	}
 
-	_, err = t.db.ExecContext(ctx, `
+	_, err = t.db.Query(`
 		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, string(data), opts.Author, opts.Source, now)
+	`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Execute()
 
 	if err != nil {
 		return nil, fmt.Errorf("inserting tag: %w", err)
@@ -75,15 +75,17 @@ func (t *Tags) find(ctx context.Context, relation, name string) (*tag.Tag, error
 	var valueStr string
 	var deletedAt sql.NullInt64
 
-	err := t.db.QueryRowContext(ctx, `
+	row, err := t.db.Query(`
 		SELECT key, relation, value, author, source, created_at, deleted_at
 		FROM entities
 		WHERE namespace = ? AND relation = ? AND json_extract(value, '$.tag') = ?
 		AND deleted_at IS NULL
 		ORDER BY created_at DESC LIMIT 1
-	`, namespace, relation, name).Scan(&tg.Key, &tg.Relation, &valueStr, &tg.Author, &tg.Source, &tg.CreatedAt, &deletedAt)
-
+	`, namespace, relation, name).WithContext(ctx).ReadRow()
 	if err != nil {
+		return nil, err
+	}
+	if err := row.Scan(&tg.Key, &tg.Relation, &valueStr, &tg.Author, &tg.Source, &tg.CreatedAt, &deletedAt); err != nil {
 		return nil, err
 	}
 

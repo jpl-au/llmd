@@ -29,7 +29,7 @@ func (e *Entities) List(ctx context.Context, namespace string, opts ListOptions)
 		args = append(args, opts.Limit)
 	}
 
-	rows, err := e.db.QueryContext(ctx, query, args...)
+	rows, err := e.db.Query(query, args...).WithContext(ctx).Read()
 	if err != nil {
 		return nil, err
 	}

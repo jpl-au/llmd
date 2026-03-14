@@ -8,13 +8,13 @@ import (
 // Purge permanently deletes all soft-deleted documents.
 // Returns the number of rows deleted.
 func (d *Documents) Purge(ctx context.Context) (int64, error) {
-	result, err := d.db.ExecContext(ctx, `
+	qr, err := d.db.Query(`
 		DELETE FROM content
 		WHERE namespace = ? AND deleted_at IS NOT NULL
-	`, namespace)
+	`, namespace).WithContext(ctx).Execute()
 	if err != nil {
 		return 0, fmt.Errorf("purging documents: %w", err)
 	}
 
-	return result.RowsAffected()
+	return qr.SQLResult.RowsAffected()
 }

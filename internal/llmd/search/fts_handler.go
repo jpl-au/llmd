@@ -6,16 +6,17 @@ import (
 	"fmt"
 
 	"github.com/jpl-au/llmd/pkg/events"
+	"github.com/jpl-au/qwr"
 )
 
 // FTSHandler maintains the FTS5 index in response to document events.
 // The latest non-deleted version of each document is indexed.
 type FTSHandler struct {
-	db *sql.DB
+	db *qwr.Manager
 }
 
 // NewFTSHandler creates a new FTS event handler.
-func NewFTSHandler(db *sql.DB) *FTSHandler {
+func NewFTSHandler(db *qwr.Manager) *FTSHandler {
 	return &FTSHandler{db: db}
 }
 
@@ -40,11 +41,14 @@ func (h *FTSHandler) onWrite(ctx context.Context, event events.Event) error {
 	// Get the row ID for the new version
 	var rowID int64
 	var key, path, content string
-	err := h.db.QueryRowContext(ctx, `
+	row, err := h.db.Query(`
 		SELECT id, key, path, content FROM content
 		WHERE namespace = 'core:document' AND path = ? AND version = ?
-	`, event.Path, event.Version).Scan(&rowID, &key, &path, &content)
+	`, event.Path, event.Version).WithContext(ctx).ReadRow()
 	if err != nil {
+		return fmt.Errorf("getting document for FTS: %w", err)
+	}
+	if err := row.Scan(&rowID, &key, &path, &content); err != nil {
 		return fmt.Errorf("getting document for FTS: %w", err)
 	}
 
@@ -52,16 +56,20 @@ func (h *FTSHandler) onWrite(ctx context.Context, event events.Event) error {
 	if event.Version > 1 {
 		var prevRowID int64
 		var prevKey, prevPath, prevContent string
-		err := h.db.QueryRowContext(ctx, `
+		prevRow, err := h.db.Query(`
 			SELECT id, key, path, content FROM content
 			WHERE namespace = 'core:document' AND path = ? AND version = ?
-		`, event.Path, event.Version-1).Scan(&prevRowID, &prevKey, &prevPath, &prevContent)
+		`, event.Path, event.Version-1).WithContext(ctx).ReadRow()
+		if err != nil {
+			return fmt.Errorf("getting previous version for FTS: %w", err)
+		}
+		err = prevRow.Scan(&prevRowID, &prevKey, &prevPath, &prevContent)
 		if err == nil {
 			// Delete previous version from FTS
-			_, err = h.db.ExecContext(ctx, `
+			_, err = h.db.Query(`
 				INSERT INTO content_fts(content_fts, rowid, key, path, content)
 				VALUES ('delete', ?, ?, ?, ?)
-			`, prevRowID, prevKey, prevPath, prevContent)
+			`, prevRowID, prevKey, prevPath, prevContent).WithContext(ctx).Execute()
 			if err != nil {
 				return fmt.Errorf("removing previous version from FTS: %w", err)
 			}
@@ -69,10 +77,10 @@ func (h *FTSHandler) onWrite(ctx context.Context, event events.Event) error {
 	}
 
 	// Add new version to FTS
-	_, err = h.db.ExecContext(ctx, `
+	_, err = h.db.Query(`
 		INSERT INTO content_fts(rowid, key, path, content)
 		VALUES (?, ?, ?, ?)
-	`, rowID, key, path, content)
+	`, rowID, key, path, content).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("adding to FTS: %w", err)
 	}
@@ -85,12 +93,15 @@ func (h *FTSHandler) onDelete(ctx context.Context, event events.Event) error {
 	// Get the latest version that was just deleted
 	var rowID int64
 	var key, path, content string
-	err := h.db.QueryRowContext(ctx, `
+	row, err := h.db.Query(`
 		SELECT id, key, path, content FROM content
 		WHERE namespace = 'core:document' AND path = ? AND deleted_at IS NOT NULL
 		ORDER BY version DESC LIMIT 1
-	`, event.Path).Scan(&rowID, &key, &path, &content)
+	`, event.Path).WithContext(ctx).ReadRow()
 	if err != nil {
+		return fmt.Errorf("getting deleted document for FTS: %w", err)
+	}
+	if err := row.Scan(&rowID, &key, &path, &content); err != nil {
 		if err == sql.ErrNoRows {
 			return nil // Already gone
 		}
@@ -98,10 +109,10 @@ func (h *FTSHandler) onDelete(ctx context.Context, event events.Event) error {
 	}
 
 	// Remove from FTS
-	_, err = h.db.ExecContext(ctx, `
+	_, err = h.db.Query(`
 		INSERT INTO content_fts(content_fts, rowid, key, path, content)
 		VALUES ('delete', ?, ?, ?, ?)
-	`, rowID, key, path, content)
+	`, rowID, key, path, content).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("removing from FTS: %w", err)
 	}
@@ -114,20 +125,23 @@ func (h *FTSHandler) onRestore(ctx context.Context, event events.Event) error {
 	// Get the latest version
 	var rowID int64
 	var key, path, content string
-	err := h.db.QueryRowContext(ctx, `
+	row, err := h.db.Query(`
 		SELECT id, key, path, content FROM content
 		WHERE namespace = 'core:document' AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, event.Path).Scan(&rowID, &key, &path, &content)
+	`, event.Path).WithContext(ctx).ReadRow()
 	if err != nil {
+		return fmt.Errorf("getting restored document for FTS: %w", err)
+	}
+	if err := row.Scan(&rowID, &key, &path, &content); err != nil {
 		return fmt.Errorf("getting restored document for FTS: %w", err)
 	}
 
 	// Add to FTS
-	_, err = h.db.ExecContext(ctx, `
+	_, err = h.db.Query(`
 		INSERT INTO content_fts(rowid, key, path, content)
 		VALUES (?, ?, ?, ?)
-	`, rowID, key, path, content)
+	`, rowID, key, path, content).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("adding restored document to FTS: %w", err)
 	}
@@ -145,29 +159,32 @@ func (h *FTSHandler) onMove(ctx context.Context, event events.Event) error {
 	// Get the latest version at the new path
 	var rowID int64
 	var key, content string
-	err := h.db.QueryRowContext(ctx, `
+	row, err := h.db.Query(`
 		SELECT id, key, content FROM content
 		WHERE namespace = 'core:document' AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, event.Path).Scan(&rowID, &key, &content)
+	`, event.Path).WithContext(ctx).ReadRow()
 	if err != nil {
+		return fmt.Errorf("getting moved document for FTS: %w", err)
+	}
+	if err := row.Scan(&rowID, &key, &content); err != nil {
 		return fmt.Errorf("getting moved document for FTS: %w", err)
 	}
 
 	// Delete old entry (with old path) from FTS
-	_, err = h.db.ExecContext(ctx, `
+	_, err = h.db.Query(`
 		INSERT INTO content_fts(content_fts, rowid, key, path, content)
 		VALUES ('delete', ?, ?, ?, ?)
-	`, rowID, key, oldPath, content)
+	`, rowID, key, oldPath, content).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("removing old path from FTS: %w", err)
 	}
 
 	// Add new entry (with new path) to FTS
-	_, err = h.db.ExecContext(ctx, `
+	_, err = h.db.Query(`
 		INSERT INTO content_fts(rowid, key, path, content)
 		VALUES (?, ?, ?, ?)
-	`, rowID, key, event.Path, content)
+	`, rowID, key, event.Path, content).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("adding new path to FTS: %w", err)
 	}

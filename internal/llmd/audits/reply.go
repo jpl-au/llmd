@@ -46,10 +46,10 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 	id := key.Generate()
 	now := time.Now().UnixMilli()
 
-	_, err = a.db.ExecContext(ctx, `
+	_, err = a.db.Query(`
 		INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, assignee, status, opts.Content, threadID, now)
+	`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, assignee, status, opts.Content, threadID, now).WithContext(ctx).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("inserting reply: %w", err)
 	}
@@ -70,9 +70,12 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 
 // read fetches a single audit by ID, including soft-deleted.
 func (a *Audits) read(ctx context.Context, id string) (*Audit, error) {
-	row := a.db.QueryRowContext(ctx, `
+	row, err := a.db.Query(`
 		SELECT `+columns+` FROM audits WHERE id = ?
-	`, id)
+	`, id).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, err
+	}
 	aud, err := scanAudit(row)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound

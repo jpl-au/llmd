@@ -25,17 +25,17 @@ func (t *Tags) Remove(ctx context.Context, value, name string, opts Options) err
 
 	now := time.Now().UnixMilli()
 
-	result, err := t.db.ExecContext(ctx, `
+	qr, err := t.db.Query(`
 		UPDATE entities SET deleted_at = ?
 		WHERE namespace = ? AND relation = ? AND json_extract(value, '$.tag') = ?
 		  AND deleted_at IS NULL
-	`, now, namespace, relation, name)
+	`, now, namespace, relation, name).WithContext(ctx).Execute()
 
 	if err != nil {
 		return fmt.Errorf("removing tag: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
+	rows, err := qr.SQLResult.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("checking rows affected: %w", err)
 	}

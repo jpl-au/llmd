@@ -21,11 +21,10 @@ func (e *Entities) Write(ctx context.Context, namespace, value string, opts Writ
 		relation = sql.NullString{String: opts.Relation, Valid: true}
 	}
 
-	_, err := e.db.ExecContext(ctx, `
+	_, err := e.db.Query(`
 		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, value, opts.Author, opts.Source, now)
-
+	`, k, namespace, relation, value, opts.Author, opts.Source, now).WithContext(ctx).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("inserting entity: %w", err)
 	}

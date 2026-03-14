@@ -6,10 +6,10 @@
 package tags
 
 import (
-	"database/sql"
 	"errors"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/qwr"
 )
 
 const namespace = "core:tag"
@@ -22,11 +22,11 @@ var (
 
 // Tags provides tag operations.
 type Tags struct {
-	db   *sql.DB
+	db   *qwr.Manager
 	docs *documents.Documents
 }
 
 // New creates a new Tags instance.
-func New(db *sql.DB, docs *documents.Documents) *Tags {
+func New(db *qwr.Manager, docs *documents.Documents) *Tags {
 	return &Tags{db: db, docs: docs}
 }

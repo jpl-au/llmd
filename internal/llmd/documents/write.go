@@ -21,20 +21,14 @@ const mime = "text/markdown"
 // check, version increment, and insert run in a single transaction
 // so concurrent writes cannot produce duplicate version numbers.
 func (d *Documents) Write(ctx context.Context, path, content string, opts WriteOptions) (*document.Document, error) {
-	tx, err := d.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("beginning transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	doc, err := d.writeInTx(ctx, tx, path, content, opts)
+	result, err := d.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		return d.writeInTx(ctx, tx, path, content, opts)
+	}).WithContext(ctx).Write()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("committing transaction: %w", err)
-	}
+	doc := result.Value.(*document.Document)
 
 	// Emit event after commit so subscribers see committed data.
 	if d.bus != nil {

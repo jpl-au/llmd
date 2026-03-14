@@ -44,7 +44,7 @@ func (t *Tags) Find(ctx context.Context, name string, opts ...FindOptions) ([]st
 		args = []any{namespace, name}
 	}
 
-	rows, err := t.db.QueryContext(ctx, query, args...)
+	rows, err := t.db.Query(query, args...).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("finding documents by tag: %w", err)
 	}

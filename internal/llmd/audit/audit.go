@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/jpl-au/qwr"
 )
 
 const schema = `
@@ -34,13 +36,13 @@ CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
 
 // Log provides audit logging operations.
 type Log struct {
-	db   *sql.DB
+	db   *qwr.Manager
 	once sync.Once
 	err  error
 }
 
 // New creates a new Log instance.
-func New(db *sql.DB) *Log {
+func New(db *qwr.Manager) *Log {
 	return &Log{db: db}
 }
 
@@ -48,7 +50,7 @@ func New(db *sql.DB) *Log {
 // idempotent and safe to call from multiple goroutines.
 func (l *Log) Ensure() error {
 	l.once.Do(func() {
-		_, l.err = l.db.Exec(schema)
+		_, l.err = l.db.Query(schema).Write()
 	})
 	return l.err
 }
@@ -86,7 +88,7 @@ func (l *Log) Query(ctx context.Context, subject string, limit int) ([]Event, er
 		args = append(args, limit)
 	}
 
-	rows, err := l.db.QueryContext(ctx, query, args...)
+	rows, err := l.db.Query(query, args...).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("audit: querying: %w", err)
 	}
@@ -126,11 +128,10 @@ func (l *Log) Record(ctx context.Context, actor, action, subject, oldValue, newV
 		newV = sql.NullString{String: newValue, Valid: true}
 	}
 
-	_, err := l.db.ExecContext(ctx, `
+	_, err := l.db.Query(`
 		INSERT INTO history (timestamp, actor, action, subject, old_value, new_value)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, now, actor, action, subject, oldV, newV)
-
+	`, now, actor, action, subject, oldV, newV).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("audit: recording event: %w", err)
 	}

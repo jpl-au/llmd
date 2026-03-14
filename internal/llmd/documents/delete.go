@@ -17,15 +17,15 @@ func (d *Documents) Delete(ctx context.Context, path string, opts DeleteOptions)
 
 	now := time.Now().UnixMilli()
 
-	result, err := d.db.ExecContext(ctx, `
+	qr, err := d.db.Query(`
 		UPDATE content SET deleted_at = ?
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
-	`, now, namespace, path)
+	`, now, namespace, path).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("deleting document: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
+	rows, err := qr.SQLResult.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("checking rows affected: %w", err)
 	}

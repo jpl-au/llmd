@@ -33,9 +33,9 @@ func (a *Audits) Delete(ctx context.Context, id, author string) error {
 	}
 
 	now := time.Now().UnixMilli()
-	_, err = a.db.ExecContext(ctx, `
+	_, err = a.db.Query(`
 		UPDATE audits SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL
-	`, now, id)
+	`, now, id).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("deleting audit: %w", err)
 	}

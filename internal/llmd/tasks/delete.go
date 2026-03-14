@@ -4,6 +4,7 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -22,22 +23,19 @@ func (t *Tasks) Delete(ctx context.Context, key, author string) (*task.Task, err
 		return nil, err
 	}
 
-	tx, err := t.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("beginning transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
 	now := time.Now().UnixMilli()
-	_, err = tx.ExecContext(ctx, `
-		UPDATE tasks SET deleted_at = ? WHERE key = ? AND deleted_at IS NULL
-	`, now, key)
-	if err != nil {
-		return nil, fmt.Errorf("deleting task: %w", err)
-	}
+	_, err = t.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		_, err := tx.ExecContext(ctx, `
+			UPDATE tasks SET deleted_at = ? WHERE key = ? AND deleted_at IS NULL
+		`, now, key)
+		if err != nil {
+			return nil, fmt.Errorf("deleting task: %w", err)
+		}
+		recordTx(ctx, tx, author, "deleted", key, tsk.Status, "")
+		return nil, nil
+	}).WithContext(ctx).Write()
 
-	recordTx(ctx, tx, author, "deleted", key, tsk.Status, "")
-	return tsk, tx.Commit()
+	return tsk, err
 }
 
 // Restore undeletes a soft-deleted task. The update and audit record
@@ -53,19 +51,16 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 		return nil, err
 	}
 
-	tx, err := t.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("beginning transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
+	_, err = t.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		_, err := tx.ExecContext(ctx, `
+			UPDATE tasks SET deleted_at = NULL WHERE key = ? AND deleted_at IS NOT NULL
+		`, key)
+		if err != nil {
+			return nil, fmt.Errorf("restoring task: %w", err)
+		}
+		recordTx(ctx, tx, author, "restored", key, "", tsk.Status)
+		return nil, nil
+	}).WithContext(ctx).Write()
 
-	_, err = tx.ExecContext(ctx, `
-		UPDATE tasks SET deleted_at = NULL WHERE key = ? AND deleted_at IS NOT NULL
-	`, key)
-	if err != nil {
-		return nil, fmt.Errorf("restoring task: %w", err)
-	}
-
-	recordTx(ctx, tx, author, "restored", key, "", tsk.Status)
-	return tsk, tx.Commit()
+	return tsk, err
 }

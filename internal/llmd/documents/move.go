@@ -25,24 +25,27 @@ func (d *Documents) Move(ctx context.Context, src, dst string, opts MoveOptions)
 	// Get the latest version info before moving (for the event)
 	var key string
 	var version int
-	err := d.db.QueryRowContext(ctx, `
+	row, err := d.db.Query(`
 		SELECT key, version FROM content
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, namespace, src).Scan(&key, &version)
+	`, namespace, src).WithContext(ctx).ReadRow()
 	if err != nil {
 		return ErrNotFound
 	}
+	if err := row.Scan(&key, &version); err != nil {
+		return ErrNotFound
+	}
 
-	result, err := d.db.ExecContext(ctx, `
+	qr, err := d.db.Query(`
 		UPDATE content SET path = ?
 		WHERE namespace = ? AND path = ?
-	`, dst, namespace, src)
+	`, dst, namespace, src).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("moving document: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
+	rows, err := qr.SQLResult.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("checking rows affected: %w", err)
 	}

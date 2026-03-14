@@ -30,7 +30,7 @@ func (s *Search) Glob(ctx context.Context, pattern string, opts ...Options) ([]s
 		ORDER BY path
 	`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.db.Query(query).WithContext(ctx).Read()
 	if err != nil {
 		return nil, err
 	}

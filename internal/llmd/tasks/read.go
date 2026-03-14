@@ -20,22 +20,30 @@ func (t *Tasks) Read(ctx context.Context, key string) (*task.Task, error) {
 	if err := t.ensure(); err != nil {
 		return nil, err
 	}
-	return t.scan(t.db.QueryRowContext(ctx, `
+	row, err := t.db.Query(`
 		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
 		FROM tasks
 		WHERE key = ? AND deleted_at IS NULL
-	`, key))
+	`, key).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, err
+	}
+	return t.scan(row)
 }
 
 // scanDeleted reads a task including soft-deleted ones.
 func (t *Tasks) scanDeleted(ctx context.Context, key string) (*task.Task, error) {
-	return t.scan(t.db.QueryRowContext(ctx, `
+	row, err := t.db.Query(`
 		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
 		FROM tasks
 		WHERE key = ?
 		ORDER BY deleted_at DESC
 		LIMIT 1
-	`, key))
+	`, key).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, err
+	}
+	return t.scan(row)
 }
 
 // scan reads a single task from a *sql.Row. Returns ErrNotFound when

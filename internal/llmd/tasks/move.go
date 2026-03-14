@@ -45,31 +45,29 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 
 	oldStatus := tsk.Status
 
-	tx, err := t.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("beginning transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
+	_, err = t.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		// Next position in target column
+		var maxPos int
+		err := tx.QueryRowContext(ctx, `
+			SELECT COALESCE(MAX(position), -1) FROM tasks
+			WHERE status = ? AND deleted_at IS NULL
+		`, status).Scan(&maxPos)
+		if err != nil {
+			return nil, fmt.Errorf("getting position: %w", err)
+		}
 
-	// Next position in target column
-	var maxPos int
-	err = tx.QueryRowContext(ctx, `
-		SELECT COALESCE(MAX(position), -1) FROM tasks
-		WHERE status = ? AND deleted_at IS NULL
-	`, status).Scan(&maxPos)
-	if err != nil {
-		return fmt.Errorf("getting position: %w", err)
-	}
+		_, err = tx.ExecContext(ctx, `
+			UPDATE tasks SET status = ?, position = ? WHERE key = ? AND deleted_at IS NULL
+		`, status, maxPos+1, key)
+		if err != nil {
+			return nil, fmt.Errorf("moving task: %w", err)
+		}
 
-	_, err = tx.ExecContext(ctx, `
-		UPDATE tasks SET status = ?, position = ? WHERE key = ? AND deleted_at IS NULL
-	`, status, maxPos+1, key)
-	if err != nil {
-		return fmt.Errorf("moving task: %w", err)
-	}
+		recordTx(ctx, tx, author, "moved", key, oldStatus, status)
+		return nil, nil
+	}).WithContext(ctx).Write()
 
-	recordTx(ctx, tx, author, "moved", key, oldStatus, status)
-	return tx.Commit()
+	return err
 }
 
 // repositionTx moves a task to a specific position within its column,

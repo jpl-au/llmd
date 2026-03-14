@@ -10,37 +10,49 @@ import (
 // Exists checks if an entity exists by key.
 func (e *Entities) Exists(ctx context.Context, key string) (bool, error) {
 	var exists bool
-	err := e.db.QueryRowContext(ctx, `
+	row, err := e.db.Query(`
 		SELECT EXISTS(
 			SELECT 1 FROM entities WHERE key = ? AND deleted_at IS NULL
 		)
-	`, key).Scan(&exists)
-
-	return exists, err
+	`, key).WithContext(ctx).ReadRow()
+	if err != nil {
+		return false, err
+	}
+	if err := row.Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 // ExistsInNamespace checks if an entity exists with the given namespace and relation.
 func (e *Entities) ExistsInNamespace(ctx context.Context, namespace, relation string) (bool, error) {
 	var exists bool
+	var row *sql.Row
 	var err error
 
 	if relation == "" {
-		err = e.db.QueryRowContext(ctx, `
+		row, err = e.db.Query(`
 			SELECT EXISTS(
 				SELECT 1 FROM entities
 				WHERE namespace = ? AND relation IS NULL AND deleted_at IS NULL
 			)
-		`, namespace).Scan(&exists)
+		`, namespace).WithContext(ctx).ReadRow()
 	} else {
-		err = e.db.QueryRowContext(ctx, `
+		row, err = e.db.Query(`
 			SELECT EXISTS(
 				SELECT 1 FROM entities
 				WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
 			)
-		`, namespace, relation).Scan(&exists)
+		`, namespace, relation).WithContext(ctx).ReadRow()
+	}
+	if err != nil {
+		return false, err
+	}
+	if err := row.Scan(&exists); err != nil {
+		return false, err
 	}
 
-	return exists, err
+	return exists, nil
 }
 
 // FindByValue finds an entity by namespace, relation, and a JSON value match.
@@ -69,13 +81,16 @@ func (e *Entities) FindByValue(ctx context.Context, namespace, relation, jsonPat
 		args = []any{namespace, relation, jsonPath, jsonValue}
 	}
 
-	row := e.db.QueryRowContext(ctx, query, args...)
+	row, err := e.db.Query(query, args...).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, err
+	}
 
 	var ent entity.Entity
 	var rel sql.NullString
 	var deletedAt sql.NullInt64
 
-	err := row.Scan(
+	err = row.Scan(
 		&ent.ID,
 		&ent.Key,
 		&ent.Namespace,

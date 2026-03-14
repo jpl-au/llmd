@@ -1,8 +1,11 @@
 package sql
 
 import (
-	stdsql "database/sql"
+	"context"
 	"testing"
+
+	"github.com/jpl-au/qwr"
+	"github.com/jpl-au/qwr/profile"
 
 	_ "modernc.org/sqlite"
 )
@@ -19,16 +22,23 @@ func TestExec(t *testing.T) {
 	}
 
 	// Verify tables exist
+	ctx := context.Background()
 	tables := []string{"content", "entities", "content_fts"}
 	for _, table := range tables {
 		var name string
-		err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&name)
+		row, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name=?", table).WithContext(ctx).ReadRow()
 		if err != nil {
+			t.Errorf("table %s query failed: %v", table, err)
+			continue
+		}
+		if err := row.Scan(&name); err != nil {
 			t.Errorf("table %s not found: %v", table, err)
 		}
 	}
 }
 
-func openTestDB() (*stdsql.DB, error) {
-	return stdsql.Open("sqlite", ":memory:")
+func openTestDB() (*qwr.Manager, error) {
+	rp := profile.ReadBalanced().WithForeignKeys(true)
+	wp := profile.WriteBalanced().WithForeignKeys(true)
+	return qwr.New("file::memory:?cache=shared").Reader(rp).Writer(wp).Open()
 }

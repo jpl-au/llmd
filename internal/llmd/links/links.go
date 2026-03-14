@@ -6,10 +6,10 @@
 package links
 
 import (
-	"database/sql"
 	"errors"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/qwr"
 )
 
 const namespace = "core:link"
@@ -22,11 +22,11 @@ var (
 
 // Links provides link operations.
 type Links struct {
-	db   *sql.DB
+	db   *qwr.Manager
 	docs *documents.Documents
 }
 
 // New creates a new Links instance.
-func New(db *sql.DB, docs *documents.Documents) *Links {
+func New(db *qwr.Manager, docs *documents.Documents) *Links {
 	return &Links{db: db, docs: docs}
 }

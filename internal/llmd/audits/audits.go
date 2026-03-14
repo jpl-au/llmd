@@ -7,9 +7,10 @@
 package audits
 
 import (
-	"database/sql"
 	"errors"
 	"sync"
+
+	"github.com/jpl-au/qwr"
 )
 
 const schema = `
@@ -45,20 +46,20 @@ var (
 // Audits provides audit CRUD and thread status queries. The audits
 // table is created lazily on first use via sync.Once.
 type Audits struct {
-	db   *sql.DB
+	db   *qwr.Manager
 	once sync.Once
 	err  error
 }
 
 // New creates an Audits instance.
-func New(db *sql.DB) *Audits {
+func New(db *qwr.Manager) *Audits {
 	return &Audits{db: db}
 }
 
 // ensure creates the audits table if it does not exist.
 func (a *Audits) ensure() error {
 	a.once.Do(func() {
-		_, a.err = a.db.Exec(schema)
+		_, a.err = a.db.Query(schema).Write()
 	})
 	return a.err
 }

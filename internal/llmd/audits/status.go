@@ -36,7 +36,7 @@ func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, erro
 	// Find top-level audits where:
 	// 1. The thread's effective status is pending or needs-work
 	// 2. The effective assignee (latest entry) matches the author
-	rows, err := a.db.QueryContext(ctx, `
+	rows, err := a.db.Query(`
 		SELECT `+columns+` FROM audits AS top
 		WHERE top.deleted_at IS NULL
 		  AND top.parent_id IS NULL
@@ -55,7 +55,7 @@ func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, erro
 			LIMIT 1
 		  ) = ?
 		ORDER BY top.created_at DESC
-	`, author)
+	`, author).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying audit status: %w", err)
 	}
@@ -89,14 +89,17 @@ func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, erro
 // thread. Falls back to "pending" on error.
 func (a *Audits) effectiveStatus(ctx context.Context, threadID string) string {
 	var status string
-	err := a.db.QueryRowContext(ctx, `
+	row, err := a.db.Query(`
 		SELECT status FROM audits
 		WHERE (id = ? OR parent_id = ?)
 		  AND deleted_at IS NULL
 		ORDER BY created_at DESC, id DESC
 		LIMIT 1
-	`, threadID, threadID).Scan(&status)
+	`, threadID, threadID).WithContext(ctx).ReadRow()
 	if err != nil {
+		return "pending"
+	}
+	if err := row.Scan(&status); err != nil {
 		return "pending"
 	}
 	return status

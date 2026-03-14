@@ -57,13 +57,13 @@ func (s *Store) RecentActivity(ctx context.Context, limit int) ([]ActivityEvent,
 
 // docActivity fetches recent document writes and deletes from the content table.
 func (s *Store) docActivity(ctx context.Context, limit int) []ActivityEvent {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.Query(`
 		SELECT path, author, COALESCE(message, ''), created_at, deleted_at
 		FROM content
 		WHERE namespace = 'core:document'
 		ORDER BY created_at DESC
 		LIMIT ?
-	`, limit)
+	`, limit).WithContext(ctx).Read()
 	if err != nil {
 		return nil
 	}
@@ -97,13 +97,13 @@ func (s *Store) docActivity(ctx context.Context, limit int) []ActivityEvent {
 
 // entityActivity fetches recent tag and link changes from the entities table.
 func (s *Store) entityActivity(ctx context.Context, limit int) []ActivityEvent {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.Query(`
 		SELECT namespace, relation, value, author, created_at, deleted_at
 		FROM entities
 		WHERE namespace IN ('core:tag', 'core:link')
 		ORDER BY created_at DESC
 		LIMIT ?
-	`, limit)
+	`, limit).WithContext(ctx).Read()
 	if err != nil {
 		return nil
 	}

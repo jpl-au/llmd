@@ -18,15 +18,17 @@ func (t *Tags) Exists(ctx context.Context, value, name string) (bool, error) {
 	}
 
 	var exists bool
-	err = t.db.QueryRowContext(ctx, `
+	row, err := t.db.Query(`
 		SELECT EXISTS(
 			SELECT 1 FROM entities
 			WHERE namespace = ? AND relation = ? AND json_extract(value, '$.tag') = ?
 			  AND deleted_at IS NULL
 		)
-	`, namespace, doc.Path, name).Scan(&exists)
-
+	`, namespace, doc.Path, name).WithContext(ctx).ReadRow()
 	if err != nil {
+		return false, err
+	}
+	if err := row.Scan(&exists); err != nil {
 		return false, err
 	}
 

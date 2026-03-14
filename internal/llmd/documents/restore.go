@@ -18,24 +18,27 @@ func (d *Documents) Restore(ctx context.Context, path string, opts RestoreOption
 	// Get the latest version info before restoring (for the event)
 	var key string
 	var version int
-	err := d.db.QueryRowContext(ctx, `
+	row, err := d.db.Query(`
 		SELECT key, version FROM content
 		WHERE namespace = ? AND path = ? AND deleted_at IS NOT NULL
 		ORDER BY version DESC LIMIT 1
-	`, namespace, path).Scan(&key, &version)
+	`, namespace, path).WithContext(ctx).ReadRow()
 	if err != nil {
 		return ErrNotFound
 	}
+	if err := row.Scan(&key, &version); err != nil {
+		return ErrNotFound
+	}
 
-	result, err := d.db.ExecContext(ctx, `
+	qr, err := d.db.Query(`
 		UPDATE content SET deleted_at = NULL
 		WHERE namespace = ? AND path = ? AND deleted_at IS NOT NULL
-	`, namespace, path)
+	`, namespace, path).WithContext(ctx).Execute()
 	if err != nil {
 		return fmt.Errorf("restoring document: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
+	rows, err := qr.SQLResult.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("checking rows affected: %w", err)
 	}

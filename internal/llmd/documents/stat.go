@@ -81,21 +81,25 @@ func (d *Documents) statByKey(ctx context.Context, key string) (*Stat, error) {
 	var mime sql.NullString
 	var deletedAt sql.NullInt64
 
-	err := d.db.QueryRowContext(ctx, `
+	row, err := d.db.Query(`
 		SELECT id, key, path, version, hash, author, message, source, mime, meta, created_at, deleted_at
 		FROM content
 		WHERE namespace = ? AND key = ?
-	`, namespace, key).Scan(
+	`, namespace, key).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, fmt.Errorf("querying stat by key: %w", err)
+	}
+
+	err = row.Scan(
 		&stat.ID, &stat.Key, &stat.Path, &stat.Version, &stat.Hash,
 		&stat.Author, &message, &stat.Source, &mime, &meta,
 		&stat.CreatedAt, &deletedAt,
 	)
-
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("querying stat by key: %w", err)
+		return nil, fmt.Errorf("scanning stat by key: %w", err)
 	}
 
 	stat.Resolved = document.ResolvedKey
@@ -111,22 +115,26 @@ func (d *Documents) statByPath(ctx context.Context, path string) (*Stat, error) 
 	var mime sql.NullString
 	var deletedAt sql.NullInt64
 
-	err := d.db.QueryRowContext(ctx, `
+	row, err := d.db.Query(`
 		SELECT id, key, path, version, hash, author, message, source, mime, meta, created_at, deleted_at
 		FROM content
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, namespace, path).Scan(
+	`, namespace, path).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, fmt.Errorf("querying stat by path: %w", err)
+	}
+
+	err = row.Scan(
 		&stat.ID, &stat.Key, &stat.Path, &stat.Version, &stat.Hash,
 		&stat.Author, &message, &stat.Source, &mime, &meta,
 		&stat.CreatedAt, &deletedAt,
 	)
-
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("querying stat by path: %w", err)
+		return nil, fmt.Errorf("scanning stat by path: %w", err)
 	}
 
 	stat.Resolved = document.ResolvedPath

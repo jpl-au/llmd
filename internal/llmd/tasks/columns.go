@@ -58,10 +58,13 @@ func (t *Tasks) RemoveColumn(ctx context.Context, name, author string) error {
 
 	// Check for tasks in this column
 	var count int
-	err = t.db.QueryRowContext(ctx, `
+	row, err := t.db.Query(`
 		SELECT COUNT(*) FROM tasks WHERE status = ? AND deleted_at IS NULL
-	`, name).Scan(&count)
+	`, name).WithContext(ctx).ReadRow()
 	if err != nil {
+		return fmt.Errorf("checking column: %w", err)
+	}
+	if err := row.Scan(&count); err != nil {
 		return fmt.Errorf("checking column: %w", err)
 	}
 	if count > 0 {

@@ -42,7 +42,11 @@ func (d *Documents) Read(ctx context.Context, path string, opts ...ReadOptions) 
 		args = []any{namespace, path}
 	}
 
-	doc, err := d.scan(d.db.QueryRowContext(ctx, query, args...))
+	row, err := d.db.Query(query, args...).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, fmt.Errorf("querying document: %w", err)
+	}
+	doc, err := d.scan(row)
 	if doc != nil {
 		doc.Resolved = document.ResolvedPath
 	}
@@ -57,7 +61,11 @@ func (d *Documents) ReadByKey(ctx context.Context, key string) (*document.Docume
 		FROM content
 		WHERE key = ?
 	`
-	doc, err := d.scan(d.db.QueryRowContext(ctx, query, key))
+	row, err := d.db.Query(query, key).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, fmt.Errorf("querying document: %w", err)
+	}
+	doc, err := d.scan(row)
 	if doc != nil {
 		doc.Resolved = document.ResolvedKey
 	}

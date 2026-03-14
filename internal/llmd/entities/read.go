@@ -9,11 +9,14 @@ import (
 
 // Read gets an entity by key.
 func (e *Entities) Read(ctx context.Context, key string) (*entity.Entity, error) {
-	row := e.db.QueryRowContext(ctx, `
+	row, err := e.db.Query(`
 		SELECT id, key, namespace, relation, value, author, source, created_at, deleted_at
 		FROM entities
 		WHERE key = ? AND deleted_at IS NULL
-	`, key)
+	`, key).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, err
+	}
 
 	return e.scan(row)
 }

@@ -12,9 +12,8 @@
 package extension
 
 import (
-	"database/sql"
-
 	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/qwr"
 )
 
 // Context provides extensions controlled access to llmd internals.
@@ -25,7 +24,7 @@ type Context interface {
 
 	// DB exposes the database for extensions needing custom tables.
 	// Extensions should create their own tables, not modify core tables.
-	DB() *sql.DB
+	DB() *qwr.Manager
 
 	// Config returns user configuration for respecting user preferences.
 	Config() map[string]string
@@ -37,14 +36,14 @@ type Context interface {
 // The struct is unexported to enforce construction via NewContext.
 type extContext struct {
 	store *llmd.Store
-	db    *sql.DB
+	db    *qwr.Manager
 	cfg   map[string]string
 }
 
 // NewContext creates a new extension context with the given store,
 // database connection, and user configuration. Called during host
 // initialisation to build the context passed to [Initializable.Init].
-func NewContext(store *llmd.Store, db *sql.DB, cfg map[string]string) Context {
+func NewContext(store *llmd.Store, db *qwr.Manager, cfg map[string]string) Context {
 	return &extContext{
 		store: store,
 		db:    db,
@@ -58,7 +57,7 @@ func (c *extContext) Store() *llmd.Store {
 }
 
 // DB returns the raw database connection for extensions needing custom tables.
-func (c *extContext) DB() *sql.DB {
+func (c *extContext) DB() *qwr.Manager {
 	return c.db
 }
 

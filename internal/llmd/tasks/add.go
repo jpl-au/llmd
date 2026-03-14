@@ -81,22 +81,6 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		}
 	}
 
-	tx, err := t.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("beginning transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Next position in the target column
-	var maxPos int
-	err = tx.QueryRowContext(ctx, `
-		SELECT COALESCE(MAX(position), -1) FROM tasks
-		WHERE status = ? AND deleted_at IS NULL
-	`, status).Scan(&maxPos)
-	if err != nil {
-		return nil, fmt.Errorf("getting position: %w", err)
-	}
-
 	now := time.Now().UnixMilli()
 	k := key.Generate()
 
@@ -109,26 +93,40 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		branch = sql.NullString{String: opts.Branch, Valid: true}
 	}
 
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO tasks (key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
-	`, k, title, status, opts.Priority, maxPos+1, assignedTo, branch, path, opts.Author, opts.Source, now)
+	result, err := t.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		// Next position in the target column
+		var maxPos int
+		err := tx.QueryRowContext(ctx, `
+			SELECT COALESCE(MAX(position), -1) FROM tasks
+			WHERE status = ? AND deleted_at IS NULL
+		`, status).Scan(&maxPos)
+		if err != nil {
+			return nil, fmt.Errorf("getting position: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO tasks (key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
+		`, k, title, status, opts.Priority, maxPos+1, assignedTo, branch, path, opts.Author, opts.Source, now)
+		if err != nil {
+			return nil, fmt.Errorf("inserting task: %w", err)
+		}
+
+		recordTx(ctx, tx, opts.Author, "created", k, "", title)
+		return maxPos + 1, nil
+	}).WithContext(ctx).Write()
 	if err != nil {
-		return nil, fmt.Errorf("inserting task: %w", err)
+		return nil, err
 	}
 
-	recordTx(ctx, tx, opts.Author, "created", k, "", title)
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("committing transaction: %w", err)
-	}
+	pos := result.Value.(int)
 
 	return &task.Task{
 		Key:        k,
 		Title:      title,
 		Status:     status,
 		Priority:   opts.Priority,
-		Position:   maxPos + 1,
+		Position:   pos,
 		AssignedTo: opts.AssignedTo,
 		Branch:     opts.Branch,
 		Path:       path,

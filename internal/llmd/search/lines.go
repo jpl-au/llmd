@@ -33,7 +33,7 @@ func (s *Search) lines(ctx context.Context, query string, opt Options) ([]Result
 		args = append(args, opt.Limit)
 	}
 
-	rows, err := s.db.QueryContext(ctx, b.String(), args...)
+	rows, err := s.db.Query(b.String(), args...).WithContext(ctx).Read()
 	if err != nil {
 		if strings.Contains(err.Error(), "fts5") {
 			return nil, ErrInvalidQuery

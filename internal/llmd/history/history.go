@@ -9,10 +9,10 @@
 package history
 
 import (
-	"database/sql"
 	"errors"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/qwr"
 )
 
 const namespace = "core:document"
@@ -29,13 +29,13 @@ var (
 // and reverts to previous versions (Revert). All operations are read-only
 // except Revert, which creates a new version via the Documents package.
 type History struct {
-	db   *sql.DB
+	db   *qwr.Manager
 	docs *documents.Documents
 }
 
 // New creates a History instance backed by the given database connection
 // and Documents handle. The Documents handle is used by Revert to create
 // new versions.
-func New(db *sql.DB, docs *documents.Documents) *History {
+func New(db *qwr.Manager, docs *documents.Documents) *History {
 	return &History{db: db, docs: docs}
 }

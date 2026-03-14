@@ -8,13 +8,13 @@ import (
 // Purge permanently deletes all soft-deleted tags.
 // Returns the number of rows deleted.
 func (t *Tags) Purge(ctx context.Context) (int64, error) {
-	result, err := t.db.ExecContext(ctx, `
+	qr, err := t.db.Query(`
 		DELETE FROM entities
 		WHERE namespace = ? AND deleted_at IS NOT NULL
-	`, namespace)
+	`, namespace).WithContext(ctx).Execute()
 	if err != nil {
 		return 0, fmt.Errorf("purging tags: %w", err)
 	}
 
-	return result.RowsAffected()
+	return qr.SQLResult.RowsAffected()
 }

@@ -28,22 +28,29 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 
 	// Get current max version
 	var max int
-	err = h.db.QueryRowContext(ctx, `
+	maxRow, err := h.db.Query(`
 		SELECT COALESCE(MAX(version), 0) FROM content
 		WHERE namespace = ? AND path = ?
-	`, namespace, path).Scan(&max)
-	if err != nil && err != sql.ErrNoRows {
+	`, namespace, path).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, fmt.Errorf("getting max version: %w", err)
+	}
+	if err := maxRow.Scan(&max); err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("getting max version: %w", err)
 	}
 	next := max + 1
 
 	// Check if content is same as current latest (no-op)
 	var latest string
-	err = h.db.QueryRowContext(ctx, `
+	hashRow, err := h.db.Query(`
 		SELECT hash FROM content
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, namespace, path).Scan(&latest)
+	`, namespace, path).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, fmt.Errorf("getting latest hash: %w", err)
+	}
+	err = hashRow.Scan(&latest)
 
 	s := hash.XXH3(content)
 	if err == nil && latest == s {
@@ -68,14 +75,13 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 	now := time.Now().UnixMilli()
 	k := key.Generate()
 
-	_, err = h.db.ExecContext(ctx, `
+	_, err = h.db.Query(`
 		INSERT INTO content (
 			key, namespace, path, content, version, hash,
 			author, message, source, mime, meta, created_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, k, namespace, path, content, next, s,
-		opts.Author, message, opts.Source, mime, string(meta), now)
-
+		opts.Author, message, opts.Source, mime, string(meta), now).WithContext(ctx).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("inserting reverted version: %w", err)
 	}
@@ -99,15 +105,17 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 // content retrieves the content of a specific version.
 func (h *History) content(ctx context.Context, path string, version int) (string, error) {
 	var content string
-	err := h.db.QueryRowContext(ctx, `
+	row, err := h.db.Query(`
 		SELECT content FROM content
 		WHERE namespace = ? AND path = ? AND version = ?
-	`, namespace, path, version).Scan(&content)
-
-	if err == sql.ErrNoRows {
-		return "", ErrVersionInvalid
-	}
+	`, namespace, path, version).WithContext(ctx).ReadRow()
 	if err != nil {
+		return "", err
+	}
+	if err := row.Scan(&content); err != nil {
+		if err == sql.ErrNoRows {
+			return "", ErrVersionInvalid
+		}
 		return "", err
 	}
 	return content, nil
@@ -119,18 +127,22 @@ func (h *History) latest(ctx context.Context, path string) (*document.Document, 
 	var meta, message, mime sql.NullString
 	var deletedAt sql.NullInt64
 
-	err := h.db.QueryRowContext(ctx, `
+	row, err := h.db.Query(`
 		SELECT id, key, namespace, path, content, version, hash,
 		       author, message, source, mime, meta, created_at, deleted_at
 		FROM content
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, namespace, path).Scan(
+	`, namespace, path).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, err
+	}
+
+	err = row.Scan(
 		&doc.ID, &doc.Key, &doc.Namespace, &doc.Path, &doc.Content,
 		&doc.Version, &doc.Hash, &doc.Author, &message, &doc.Source,
 		&mime, &meta, &doc.CreatedAt, &deletedAt,
 	)
-
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}

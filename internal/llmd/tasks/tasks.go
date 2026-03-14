@@ -10,7 +10,6 @@ package tasks
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"sync"
@@ -19,6 +18,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
 	"github.com/jpl-au/llmd/pkg/model/core"
+	"github.com/jpl-au/qwr"
 )
 
 const schema = `
@@ -65,7 +65,7 @@ var (
 // The tasks table and board entity are created lazily on first use via
 // sync.Once, so stores that never use tasks pay no schema cost.
 type Tasks struct {
-	db       *sql.DB
+	db       *qwr.Manager
 	docs     *documents.Documents
 	entities *entities.Entities
 	audit    *audit.Log
@@ -76,14 +76,14 @@ type Tasks struct {
 // New creates a Tasks instance with its dependencies. The tasks table
 // is not created until the first operation that requires it (Add, Read,
 // List, etc.), triggered by the ensure() call in each method.
-func New(db *sql.DB, docs *documents.Documents, ents *entities.Entities, audit *audit.Log) *Tasks {
+func New(db *qwr.Manager, docs *documents.Documents, ents *entities.Entities, audit *audit.Log) *Tasks {
 	return &Tasks{db: db, docs: docs, entities: ents, audit: audit}
 }
 
 // ensure creates the tasks table if it does not exist.
 func (t *Tasks) ensure() error {
 	t.once.Do(func() {
-		_, t.err = t.db.Exec(schema)
+		_, t.err = t.db.Query(schema).Write()
 		if t.err != nil {
 			return
 		}

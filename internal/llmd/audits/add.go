@@ -49,10 +49,10 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 		version = &opts.Version
 	}
 
-	_, err := a.db.ExecContext(ctx, `
+	_, err := a.db.Query(`
 		INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
-	`, id, opts.Target, targetType, version, opts.Author, opts.Assignee, status, opts.Content, now)
+	`, id, opts.Target, targetType, version, opts.Author, opts.Assignee, status, opts.Content, now).WithContext(ctx).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("inserting audit: %w", err)
 	}

@@ -2,6 +2,7 @@ package links
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -27,11 +28,11 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 	toPath := toDoc.Path
 
 	// Find matching links
-	rows, err := l.db.QueryContext(ctx, `
+	rows, err := l.db.Query(`
 		SELECT key, value
 		FROM entities
 		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
-	`, namespace, relation)
+	`, namespace, relation).WithContext(ctx).Read()
 	if err != nil {
 		return fmt.Errorf("querying links: %w", err)
 	}
@@ -65,21 +66,18 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 	}
 
 	// Soft delete the matching links in a single transaction.
-	tx, err := l.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("beginning transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
 	now := time.Now().UnixMilli()
-	for _, k := range keysToDelete {
-		_, err := tx.ExecContext(ctx, `
-			UPDATE entities SET deleted_at = ? WHERE key = ?
-		`, now, k)
-		if err != nil {
-			return fmt.Errorf("deleting link: %w", err)
+	_, err = l.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		for _, k := range keysToDelete {
+			_, err := tx.ExecContext(ctx, `
+				UPDATE entities SET deleted_at = ? WHERE key = ?
+			`, now, k)
+			if err != nil {
+				return nil, fmt.Errorf("deleting link: %w", err)
+			}
 		}
-	}
+		return nil, nil
+	}).WithContext(ctx).Write()
 
-	return tx.Commit()
+	return err
 }

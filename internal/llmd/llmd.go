@@ -20,9 +20,7 @@
 package llmd
 
 import (
-	"database/sql"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -38,7 +36,9 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/tags"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	docpath "github.com/jpl-au/llmd/internal/path"
-	_ "modernc.org/sqlite"
+	"github.com/jpl-au/qwr"
+	"github.com/jpl-au/qwr/checkpoint"
+	"github.com/jpl-au/qwr/profile"
 )
 
 // Store is the top-level handle for all document operations. Public
@@ -56,7 +56,7 @@ type Store struct {
 	Audits    *audits.Audits
 	Audit     *audit.Log
 
-	db   *sql.DB
+	db   *qwr.Manager
 	bus  *events.Bus
 	path string
 }
@@ -104,23 +104,22 @@ func Open(path string) (*Store, error) {
 	return open(path)
 }
 
-// open is the shared implementation for Init and Open. It configures
-// SQLite pragmas, runs schema migration, wires up the event bus, and
-// initialises all sub-package managers.
-//
-// Pragmas:
-//   - journal_mode(WAL): allows concurrent readers during writes
-//   - busy_timeout(5000): waits up to 5s instead of failing on lock contention
-//   - foreign_keys(1): enforces referential integrity
+// open is the shared implementation for Init and Open. qwr manages
+// SQLite pragmas via profiles (WAL, busy_timeout, foreign_keys, etc.),
+// separate reader/writer connection pools, and serialised writes.
 func open(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
+	// Foreign keys are not part of qwr's default profiles, so we
+	// clone the balanced profiles and enable them explicitly.
+	rp := profile.ReadBalanced().WithForeignKeys(true)
+	wp := profile.WriteBalanced().WithForeignKeys(true)
+
+	db, err := qwr.New(path).
+		Reader(rp).
+		Writer(wp).
+		Checkpoint(checkpoint.Truncate).
+		Open()
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
-	}
-
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("connecting to database: %w", err)
 	}
 
 	s := &Store{
@@ -139,7 +138,13 @@ func open(path string) (*Store, error) {
 
 // OpenMemory opens an in-memory store for testing.
 func OpenMemory() (*Store, error) {
-	db, err := sql.Open("sqlite", "file::memory:?cache=shared&_pragma=foreign_keys(1)")
+	rp := profile.ReadBalanced().WithForeignKeys(true)
+	wp := profile.WriteBalanced().WithForeignKeys(true)
+
+	db, err := qwr.New("file::memory:?cache=shared").
+		Reader(rp).
+		Writer(wp).
+		Open()
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -178,17 +183,9 @@ func (s *Store) wire() {
 	s.Audits = audits.New(s.db)
 }
 
-// Close closes the store. For on-disk stores, it first checkpoints the
-// WAL to flush pending writes to the main database file, ensuring data
-// durability if the process crashes after Close. The checkpoint is
-// best-effort — a failure still proceeds with closing to avoid leaking
-// the database connection.
+// Close closes the store. qwr handles WAL checkpoint on close when
+// configured with Checkpoint(checkpoint.Truncate) in open().
 func (s *Store) Close() error {
-	if s.path != ":memory:" {
-		if err := s.Checkpoint(); err != nil {
-			slog.Warn("WAL checkpoint on close", "path", s.path, "error", err)
-		}
-	}
 	return s.db.Close()
 }
 
@@ -197,8 +194,7 @@ func (s *Store) Close() error {
 // git commits (the gitignored -wal and -shm files become empty/absent).
 // The database stays in WAL mode for the next session.
 func (s *Store) Checkpoint() error {
-	_, err := s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
-	return err
+	return s.db.RunCheckpoint(checkpoint.Truncate)
 }
 
 // Path returns the path to the store database.
@@ -206,10 +202,10 @@ func (s *Store) Path() string {
 	return s.path
 }
 
-// DB returns the underlying database connection. Used by the host to
-// create extension contexts for event handlers and initialisable
-// extensions that need custom tables.
-func (s *Store) DB() *sql.DB {
+// DB returns the qwr manager. Used by the host to create extension
+// contexts for event handlers and initialisable extensions that need
+// custom tables.
+func (s *Store) DB() *qwr.Manager {
 	return s.db
 }
 

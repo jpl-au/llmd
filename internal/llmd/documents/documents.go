@@ -13,10 +13,10 @@
 package documents
 
 import (
-	"database/sql"
 	"errors"
 
 	"github.com/jpl-au/llmd/internal/llmd/events"
+	"github.com/jpl-au/qwr"
 )
 
 // Errors returned by document operations. ErrDeleted is returned
@@ -32,12 +32,12 @@ var (
 // All methods take a context for cancellation and require a database
 // connection and event bus, both provided at construction via [New].
 type Documents struct {
-	db  *sql.DB
+	db  *qwr.Manager
 	bus *events.Bus
 }
 
 // New creates a Documents instance backed by the given database and
 // event bus. The bus receives events after successful mutations.
-func New(db *sql.DB, bus *events.Bus) *Documents {
+func New(db *qwr.Manager, bus *events.Bus) *Documents {
 	return &Documents{db: db, bus: bus}
 }

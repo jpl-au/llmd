@@ -11,13 +11,16 @@ func (d *Documents) Exists(ctx context.Context, value string) (bool, error) {
 	// Try by key first (9-char identifier)
 	if len(value) == 9 {
 		var exists bool
-		err := d.db.QueryRowContext(ctx, `
+		row, err := d.db.Query(`
 			SELECT EXISTS(
 				SELECT 1 FROM content
 				WHERE namespace = ? AND key = ? AND deleted_at IS NULL
 			)
-		`, namespace, value).Scan(&exists)
+		`, namespace, value).WithContext(ctx).ReadRow()
 		if err != nil {
+			return false, err
+		}
+		if err := row.Scan(&exists); err != nil {
 			return false, err
 		}
 		if exists {
@@ -27,13 +30,16 @@ func (d *Documents) Exists(ctx context.Context, value string) (bool, error) {
 
 	// Try by path
 	var exists bool
-	err := d.db.QueryRowContext(ctx, `
+	row, err := d.db.Query(`
 		SELECT EXISTS(
 			SELECT 1 FROM content
 			WHERE namespace = ? AND path = ? AND deleted_at IS NULL
 		)
-	`, namespace, value).Scan(&exists)
-	if err != nil && err != sql.ErrNoRows {
+	`, namespace, value).WithContext(ctx).ReadRow()
+	if err != nil {
+		return false, err
+	}
+	if err := row.Scan(&exists); err != nil && err != sql.ErrNoRows {
 		return false, err
 	}
 

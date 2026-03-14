@@ -55,7 +55,7 @@ func (d *Documents) List(ctx context.Context, opts ...ListOptions) ([]document.I
 		args = append(args, opt.Limit)
 	}
 
-	rows, err := d.db.QueryContext(ctx, query.String(), args...)
+	rows, err := d.db.Query(query.String(), args...).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying documents: %w", err)
 	}
