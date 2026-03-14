@@ -35,8 +35,9 @@ func (h *FTSHandler) HandleEvent(ctx context.Context, event events.Event) error 
 	return nil
 }
 
-// onWrite adds/updates a document in the FTS index.
-// Removes previous version if exists, then adds new version.
+// onWrite adds/updates a document in the FTS index. The delete and
+// insert run in a single transaction so a crash cannot leave the
+// index missing the document.
 func (h *FTSHandler) onWrite(ctx context.Context, event events.Event) error {
 	// Get the row ID for the new version
 	var rowID int64
@@ -52,10 +53,11 @@ func (h *FTSHandler) onWrite(ctx context.Context, event events.Event) error {
 		return fmt.Errorf("getting document for FTS: %w", err)
 	}
 
-	// If this is an update (version > 1), remove the previous version from FTS
+	// For updates, gather the previous version data for the FTS delete
+	var prevRowID int64
+	var prevKey, prevPath, prevContent string
+	var hasPrev bool
 	if event.Version > 1 {
-		var prevRowID int64
-		var prevKey, prevPath, prevContent string
 		prevRow, err := h.db.Query(`
 			SELECT id, key, path, content FROM content
 			WHERE namespace = 'core:document' AND path = ? AND version = ?
@@ -63,29 +65,34 @@ func (h *FTSHandler) onWrite(ctx context.Context, event events.Event) error {
 		if err != nil {
 			return fmt.Errorf("getting previous version for FTS: %w", err)
 		}
-		err = prevRow.Scan(&prevRowID, &prevKey, &prevPath, &prevContent)
-		if err == nil {
-			// Delete previous version from FTS
-			_, err = h.db.Query(`
-				INSERT INTO content_fts(content_fts, rowid, key, path, content)
-				VALUES ('delete', ?, ?, ?, ?)
-			`, prevRowID, prevKey, prevPath, prevContent).WithContext(ctx).Execute()
-			if err != nil {
-				return fmt.Errorf("removing previous version from FTS: %w", err)
-			}
+		if err := prevRow.Scan(&prevRowID, &prevKey, &prevPath, &prevContent); err == nil {
+			hasPrev = true
 		}
 	}
 
-	// Add new version to FTS
-	_, err = h.db.Query(`
-		INSERT INTO content_fts(rowid, key, path, content)
-		VALUES (?, ?, ?, ?)
-	`, rowID, key, path, content).WithContext(ctx).Execute()
-	if err != nil {
-		return fmt.Errorf("adding to FTS: %w", err)
-	}
+	_, err = h.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		if hasPrev {
+			_, err := tx.ExecContext(ctx, `
+				INSERT INTO content_fts(content_fts, rowid, key, path, content)
+				VALUES ('delete', ?, ?, ?, ?)
+			`, prevRowID, prevKey, prevPath, prevContent)
+			if err != nil {
+				return nil, fmt.Errorf("removing previous version from FTS: %w", err)
+			}
+		}
 
-	return nil
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO content_fts(rowid, key, path, content)
+			VALUES (?, ?, ?, ?)
+		`, rowID, key, path, content)
+		if err != nil {
+			return nil, fmt.Errorf("adding to FTS: %w", err)
+		}
+
+		return nil, nil
+	}).WithContext(ctx).Write()
+
+	return err
 }
 
 // onDelete removes a document from the FTS index.
@@ -149,7 +156,9 @@ func (h *FTSHandler) onRestore(ctx context.Context, event events.Event) error {
 	return nil
 }
 
-// onMove updates the path in the FTS index.
+// onMove updates the path in the FTS index. The delete and insert
+// run in a single transaction so a crash cannot leave the index
+// missing the document.
 func (h *FTSHandler) onMove(ctx context.Context, event events.Event) error {
 	oldPath, ok := event.Metadata["old_path"].(string)
 	if !ok {
@@ -171,23 +180,25 @@ func (h *FTSHandler) onMove(ctx context.Context, event events.Event) error {
 		return fmt.Errorf("getting moved document for FTS: %w", err)
 	}
 
-	// Delete old entry (with old path) from FTS
-	_, err = h.db.Query(`
-		INSERT INTO content_fts(content_fts, rowid, key, path, content)
-		VALUES ('delete', ?, ?, ?, ?)
-	`, rowID, key, oldPath, content).WithContext(ctx).Execute()
-	if err != nil {
-		return fmt.Errorf("removing old path from FTS: %w", err)
-	}
+	_, err = h.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO content_fts(content_fts, rowid, key, path, content)
+			VALUES ('delete', ?, ?, ?, ?)
+		`, rowID, key, oldPath, content)
+		if err != nil {
+			return nil, fmt.Errorf("removing old path from FTS: %w", err)
+		}
 
-	// Add new entry (with new path) to FTS
-	_, err = h.db.Query(`
-		INSERT INTO content_fts(rowid, key, path, content)
-		VALUES (?, ?, ?, ?)
-	`, rowID, key, event.Path, content).WithContext(ctx).Execute()
-	if err != nil {
-		return fmt.Errorf("adding new path to FTS: %w", err)
-	}
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO content_fts(rowid, key, path, content)
+			VALUES (?, ?, ?, ?)
+		`, rowID, key, event.Path, content)
+		if err != nil {
+			return nil, fmt.Errorf("adding new path to FTS: %w", err)
+		}
 
-	return nil
+		return nil, nil
+	}).WithContext(ctx).Write()
+
+	return err
 }
