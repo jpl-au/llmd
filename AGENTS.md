@@ -57,6 +57,7 @@ internal/config/            Configuration files and .llmd/.gitignore management
 internal/line/              Platform-aware line ending conversion (build-tagged)
 internal/validate/          Input validation: null bytes, path length, content size
 internal/server/            HTTP API server: thin transport over sdk.Dispatch
+internal/term/              Terminal detection and stdin reading utilities
 internal/sql/               Schema migrations, SQL helpers
 pkg/model/core/             Core model types (Origin, etc.)
 pkg/events/                 Shared event type definitions
@@ -66,21 +67,33 @@ guide/                      User-facing command guides (markdown)
 
 ## Command Flow
 
+The CLI entry point is split across focused files in the `main` package:
+
+- `main.go` — orchestration only (~114 lines)
+- `flags.go` — `parseGlobal()` extracts global flags from args
+- `output.go` — `display()` renders sdk.Response, `errorf()` formats errors
+- `log.go` — `initLog()` configures slog
+- `help.go` — `printHelp()`, `printCmdHelp()`
+
+Terminal detection and stdin reading live in `internal/term/`.
+
 ```
-main.go
-  ↓ parse global flags (--json, --help, --db, --verbose, --author)
-  ↓ config.Load() + initLog() — configure slog (level, format, stderr)
+main.go → run()
+  ↓ parseGlobal(args) — flags.go
+  ↓ config.Load() + initLog() — log.go
+  ↓ signal.NotifyContext — Ctrl+C cancellation
   ↓ check extension.Storeless — skip store for init, version, config
   ↓ host.Open(dbPath) or host.New() depending on needsStore
   │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags, sdk.Audits, sdk.Activities
   │   ├─ load compiled extensions via extension.All()
   │   ├─ wire extension EventHandlers to internal bus
   │   └─ load Yaegi plugins from .llmd/plugins/ and ~/.llmd/plugins/
-  ↓ signal.NotifyContext — Ctrl+C cancellation
+  ↓ resolve author (flag → config → term.Interactive() fallback)
+  ↓ term.ReadStdin() — internal/term/
   ↓ host.Exec(ctx, cmd, args, author, stdin, dbPath)
   │   └─ creates per-request bridge instances bound to ctx
   ↓ plugin.Exec(sctx, cmd, args) → sdk.Response
-  ↓ type-switch on Response: Text → print, Data → JSON, Result → text or JSON
+  ↓ display(result, jsonOut) — output.go
 ```
 
 ## Flag Parsing
