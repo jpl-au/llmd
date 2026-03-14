@@ -13,8 +13,9 @@ import (
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
-// Revert restores a previous version as a new version.
-// The old version's content becomes the new latest version.
+// Revert restores a previous version as a new version. The hash
+// check, version increment, and insert run in a single transaction
+// so concurrent reverts cannot produce duplicate version numbers.
 func (h *History) Revert(ctx context.Context, path string, version int, opts RevertOptions) (*document.Document, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -26,37 +27,42 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 		return nil, fmt.Errorf("getting version %d: %w", version, err)
 	}
 
-	// Get current max version
-	var max int
-	maxRow, err := h.db.Query(`
-		SELECT COALESCE(MAX(version), 0) FROM content
-		WHERE namespace = ? AND path = ?
-	`, namespace, path).WithContext(ctx).ReadRow()
+	result, err := h.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		return h.revertInTx(ctx, tx, path, content, version, opts)
+	}).WithContext(ctx).Write()
 	if err != nil {
-		return nil, fmt.Errorf("getting max version: %w", err)
+		return nil, err
 	}
-	if err := maxRow.Scan(&max); err != nil && err != sql.ErrNoRows {
-		return nil, fmt.Errorf("getting max version: %w", err)
-	}
-	next := max + 1
 
+	return result.Value.(*document.Document), nil
+}
+
+// revertInTx inserts the reverted content as a new version within
+// an existing transaction.
+func (h *History) revertInTx(ctx context.Context, tx *sql.Tx, path, content string, version int, opts RevertOptions) (*document.Document, error) {
 	// Check if content is same as current latest (no-op)
 	var latest string
-	hashRow, err := h.db.Query(`
+	err := tx.QueryRowContext(ctx, `
 		SELECT hash FROM content
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, namespace, path).WithContext(ctx).ReadRow()
-	if err != nil {
-		return nil, fmt.Errorf("getting latest hash: %w", err)
-	}
-	err = hashRow.Scan(&latest)
+	`, namespace, path).Scan(&latest)
 
 	s := hash.XXH3(content)
 	if err == nil && latest == s {
-		// Content unchanged, return existing
-		return h.latest(ctx, path)
+		return h.latestInTx(ctx, tx, path)
 	}
+
+	// Get next version number
+	var max int
+	err = tx.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(version), 0) FROM content
+		WHERE namespace = ? AND path = ?
+	`, namespace, path).Scan(&max)
+	if err != nil {
+		return nil, fmt.Errorf("getting max version: %w", err)
+	}
+	next := max + 1
 
 	// Compute metadata
 	m := meta.Compute(content)
@@ -71,17 +77,16 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 		message = fmt.Sprintf("Reverted to version %d", version)
 	}
 
-	// Generate key and insert new version
 	now := time.Now().UnixMilli()
 	k := key.Generate()
 
-	_, err = h.db.Query(`
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO content (
 			key, namespace, path, content, version, hash,
 			author, message, source, mime, meta, created_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, k, namespace, path, content, next, s,
-		opts.Author, message, opts.Source, mime, string(meta), now).WithContext(ctx).Execute()
+		opts.Author, message, opts.Source, mime, string(meta), now)
 	if err != nil {
 		return nil, fmt.Errorf("inserting reverted version: %w", err)
 	}
@@ -121,24 +126,19 @@ func (h *History) content(ctx context.Context, path string, version int) (string
 	return content, nil
 }
 
-// latest reads the latest version of a document.
-func (h *History) latest(ctx context.Context, path string) (*document.Document, error) {
+// latestInTx reads the latest version of a document within a transaction.
+func (h *History) latestInTx(ctx context.Context, tx *sql.Tx, path string) (*document.Document, error) {
 	var doc document.Document
 	var meta, message, mime sql.NullString
 	var deletedAt sql.NullInt64
 
-	row, err := h.db.Query(`
+	err := tx.QueryRowContext(ctx, `
 		SELECT id, key, namespace, path, content, version, hash,
 		       author, message, source, mime, meta, created_at, deleted_at
 		FROM content
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, namespace, path).WithContext(ctx).ReadRow()
-	if err != nil {
-		return nil, err
-	}
-
-	err = row.Scan(
+	`, namespace, path).Scan(
 		&doc.ID, &doc.Key, &doc.Namespace, &doc.Path, &doc.Content,
 		&doc.Version, &doc.Hash, &doc.Author, &message, &doc.Source,
 		&mime, &meta, &doc.CreatedAt, &deletedAt,
