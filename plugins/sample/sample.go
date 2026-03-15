@@ -124,14 +124,14 @@ func (s *Sample) recent(args []string) (sdk.Response, error) {
 			i++
 			n, err := strconv.Atoi(args[i])
 			if err != nil {
-				return nil, fmt.Errorf("recent: invalid -n value %q: %w", args[i], err)
+				return nil, fmt.Errorf("%w: invalid -n value %q: %w", sdk.ErrInvalidArg, args[i], err)
 			}
 			limit = n
 		} else if strings.HasPrefix(args[i], "-n") {
 			raw := args[i][2:]
 			n, err := strconv.Atoi(raw)
 			if err != nil {
-				return nil, fmt.Errorf("recent: invalid -n value %q: %w", raw, err)
+				return nil, fmt.Errorf("%w: invalid -n value %q: %w", sdk.ErrInvalidArg, raw, err)
 			}
 			limit = n
 		}
