@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"slices"
 
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/config"
 	igit "github.com/jpl-au/llmd/internal/git"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/plugin"
+	"github.com/jpl-au/llmd/internal/term"
 	"github.com/jpl-au/llmd/internal/validate"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -65,6 +67,89 @@ func (h *Host) Close() error {
 		return h.store.Close()
 	}
 	return nil
+}
+
+// RunOpts carries the parameters for a single command invocation.
+type RunOpts struct {
+	Cmd    string
+	Args   []string
+	Author string // from --author flag; resolved from config if empty
+	Stdin  []byte
+	DB     string
+}
+
+// Run looks up the command, opens a store if needed, resolves the
+// author, executes, and cleans up. It is the main entry point for
+// CLI invocations — callers provide parsed flags and get back a
+// response.
+func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
+	c := h.commands[opts.Cmd]
+	if c == nil {
+		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, opts.Cmd)
+	}
+
+	// Open a store if the command requires one.
+	if h.store == nil && !h.storeless(opts.Cmd) {
+		store, err := llmd.Open(opts.DB)
+		if err != nil {
+			return nil, err
+		}
+		defer store.Close()
+
+		// Re-setup with the store so SDK globals and bridges
+		// are wired before dispatch.
+		*h = *setup(store)
+	}
+
+	author, err := h.resolveAuthor(opts.Author, c.cmd.NeedsAuthor)
+	if err != nil {
+		return nil, err
+	}
+
+	return h.Exec(ctx, opts.Cmd, opts.Args, author, opts.Stdin, opts.DB)
+}
+
+// storeless reports whether the command can run without a store.
+func (h *Host) storeless(cmd string) bool {
+	for _, ext := range extension.All() {
+		if sl, ok := ext.(extension.Storeless); ok {
+			if slices.Contains(sl.NoStoreCommands(), cmd) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// resolveAuthor determines the author identity for a command. The
+// --author flag takes precedence. For interactive terminals, the
+// configured author is used as fallback. Non-interactive callers
+// must always provide --author explicitly.
+func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
+	if flag != "" {
+		return flag, nil
+	}
+
+	// Fall back to config author for interactive terminals.
+	if term.Interactive() {
+		cfg, err := sdk.Config.Read()
+		if err != nil {
+			slog.Warn("reading config for author", "err", err)
+		}
+		if author := cfg["author"]; author != "" {
+			return author, nil
+		}
+	}
+
+	if !required {
+		return "", nil
+	}
+
+	// Author is required but missing — return a helpful error.
+	if term.Interactive() {
+		return "", fmt.Errorf("%w: author not configured — run 'llmd config author \"Your Name\"' or pass --author", sdk.ErrMissingArg)
+	}
+	return "", fmt.Errorf("%w: --author is required for non-interactive use", sdk.ErrMissingArg)
 }
 
 // setup wires up the SDK globals, loads plugins, and configures the
