@@ -54,8 +54,8 @@ func auditToSDK(a *audits.Audit) sdk.Audit {
 	}
 }
 
-func (api *auditAPI) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
-	a, err := api.store.Audits.Add(api.ctx, audits.AddOptions{
+func (a *auditAPI) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
+	aud, err := a.store.Audits.Add(a.ctx, audits.AddOptions{
 		Target:   opts.Target,
 		Content:  opts.Content,
 		Author:   opts.Author,
@@ -66,12 +66,12 @@ func (api *auditAPI) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
 	if err != nil {
 		return nil, auditErr(err)
 	}
-	out := auditToSDK(a)
+	out := auditToSDK(aud)
 	return &out, nil
 }
 
-func (api *auditAPI) Reply(id string, opts sdk.AuditOpts) (*sdk.Audit, error) {
-	a, err := api.store.Audits.Reply(api.ctx, id, audits.AddOptions{
+func (a *auditAPI) Reply(id string, opts sdk.AuditOpts) (*sdk.Audit, error) {
+	aud, err := a.store.Audits.Reply(a.ctx, id, audits.AddOptions{
 		Content:  opts.Content,
 		Author:   opts.Author,
 		Assignee: opts.Assignee,
@@ -80,21 +80,21 @@ func (api *auditAPI) Reply(id string, opts sdk.AuditOpts) (*sdk.Audit, error) {
 	if err != nil {
 		return nil, auditErr(err)
 	}
-	out := auditToSDK(a)
+	out := auditToSDK(aud)
 	return &out, nil
 }
 
-func (api *auditAPI) Read(id string) (*sdk.Audit, error) {
-	a, err := api.store.Audits.Read(api.ctx, id)
+func (a *auditAPI) Read(id string) (*sdk.Audit, error) {
+	aud, err := a.store.Audits.Read(a.ctx, id)
 	if err != nil {
 		return nil, auditErr(err)
 	}
-	out := auditToSDK(a)
+	out := auditToSDK(aud)
 	return &out, nil
 }
 
-func (api *auditAPI) List(opts sdk.AuditListOpts) ([]sdk.Audit, error) {
-	aa, err := api.store.Audits.List(api.ctx, audits.ListOptions{
+func (a *auditAPI) List(opts sdk.AuditListOpts) ([]sdk.Audit, error) {
+	aa, err := a.store.Audits.List(a.ctx, audits.ListOptions{
 		Target:   opts.Target,
 		ByAuthor: opts.ByAuthor,
 		Assignee: opts.Assignee,
@@ -105,45 +105,45 @@ func (api *auditAPI) List(opts sdk.AuditListOpts) ([]sdk.Audit, error) {
 		return nil, auditErr(err)
 	}
 	out := make([]sdk.Audit, len(aa))
-	for i, a := range aa {
-		out[i] = auditToSDK(&a)
+	for i, v := range aa {
+		out[i] = auditToSDK(&v)
 	}
 	return out, nil
 }
 
-func (api *auditAPI) Thread(id string) ([]sdk.Audit, error) {
-	aa, err := api.store.Audits.Thread(api.ctx, id)
+func (a *auditAPI) Thread(id string) ([]sdk.Audit, error) {
+	aa, err := a.store.Audits.Thread(a.ctx, id)
 	if err != nil {
 		return nil, auditErr(err)
 	}
 	out := make([]sdk.Audit, len(aa))
-	for i, a := range aa {
-		out[i] = auditToSDK(&a)
+	for i, v := range aa {
+		out[i] = auditToSDK(&v)
 	}
 	return out, nil
 }
 
-func (api *auditAPI) Resolve(id, author string) (*sdk.Audit, error) {
-	a, err := api.store.Audits.Resolve(api.ctx, id, author)
+func (a *auditAPI) Resolve(id, author string) (*sdk.Audit, error) {
+	aud, err := a.store.Audits.Resolve(a.ctx, id, author)
 	if err != nil {
 		return nil, auditErr(err)
 	}
-	out := auditToSDK(a)
+	out := auditToSDK(aud)
 	return &out, nil
 }
 
-func (api *auditAPI) Delete(id, author string) error {
-	return auditErr(api.store.Audits.Delete(api.ctx, id, author))
+func (a *auditAPI) Delete(id, author string) error {
+	return auditErr(a.store.Audits.Delete(a.ctx, id, author))
 }
 
-func (api *auditAPI) Status(author string) (*sdk.AuditStatus, error) {
-	result, err := api.store.Audits.Status(api.ctx, author)
+func (a *auditAPI) Status(author string) (*sdk.AuditStatus, error) {
+	result, err := a.store.Audits.Status(a.ctx, author)
 	if err != nil {
 		return nil, auditErr(err)
 	}
 	pending := make([]sdk.Audit, len(result.Pending))
-	for i, a := range result.Pending {
-		pending[i] = auditToSDK(&a)
+	for i, v := range result.Pending {
+		pending[i] = auditToSDK(&v)
 	}
 	return &sdk.AuditStatus{
 		Author:  result.Author,
