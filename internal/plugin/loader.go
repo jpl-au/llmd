@@ -303,7 +303,11 @@ func load(dir string) (sdk.Plugin, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Commands(): %w", err)
 	}
-	a.cmds, _ = v.Interface().([]sdk.Command)
+	cmds, ok := v.Interface().([]sdk.Command)
+	if !ok {
+		return nil, fmt.Errorf("Commands(): %w", ErrNotPlugin)
+	}
+	a.cmds = cmds
 
 	return a, nil
 }
