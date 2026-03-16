@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/link"
 )
 
@@ -79,5 +80,21 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 		return nil, nil
 	}).WithContext(ctx).Write()
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	if l.bus != nil {
+		if err := l.bus.Emit(ctx, events.Event{
+			Type:      events.LinkRemoved,
+			Path:      relation,
+			Author:    opts.Author,
+			Timestamp: now,
+			Metadata:  map[string]any{"to": toPath, "label": opts.Label},
+		}); err != nil {
+			return fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return nil
 }

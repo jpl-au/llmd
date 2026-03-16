@@ -83,6 +83,23 @@ func toExtEvent(e pkgevents.Event) extension.Event {
 			Tag:   tag,
 			Added: e.Type == pkgevents.TagAdded,
 		}
+	case pkgevents.LinkCreated, pkgevents.LinkRemoved:
+		var to, label string
+		if m := e.Metadata; m != nil {
+			if v, ok := m["to"].(string); ok {
+				to = v
+			}
+			if v, ok := m["label"].(string); ok {
+				label = v
+			}
+		}
+		return extension.LinkEvent{
+			ID:       e.Key,
+			FromPath: e.Path,
+			ToPath:   to,
+			Tag:      label,
+			Created:  e.Type == pkgevents.LinkCreated,
+		}
 	default:
 		return nil
 	}

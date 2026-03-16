@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
+	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/pkg/model/link"
 )
@@ -62,7 +63,7 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 		return nil, fmt.Errorf("inserting link: %w", err)
 	}
 
-	return &link.Link{
+	result := &link.Link{
 		Key:      k,
 		Relation: relation,
 		Value:    linkValue,
@@ -71,7 +72,22 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 			Source: opts.Source,
 		},
 		CreatedAt: now,
-	}, nil
+	}
+
+	if l.bus != nil {
+		if err := l.bus.Emit(ctx, events.Event{
+			Type:      events.LinkCreated,
+			Path:      relation,
+			Key:       k,
+			Author:    opts.Author,
+			Timestamp: now,
+			Metadata:  map[string]any{"to": toPath, "label": opts.Label},
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return result, nil
 }
 
 // find checks if a link already exists.

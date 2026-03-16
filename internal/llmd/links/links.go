@@ -3,12 +3,16 @@
 // Links are stored in the entities table with namespace "core:link".
 // The Relation field holds the source document path (FROM).
 // The Value field holds JSON with the target path and optional label.
+//
+// The package emits events via the event bus after mutations so
+// cross-cutting concerns can react without coupling.
 package links
 
 import (
 	"errors"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/qwr"
 )
 
@@ -24,9 +28,10 @@ var (
 type Links struct {
 	db   *qwr.Manager
 	docs *documents.Documents
+	bus  *events.Bus
 }
 
 // New creates a new Links instance.
-func New(db *qwr.Manager, docs *documents.Documents) *Links {
-	return &Links{db: db, docs: docs}
+func New(db *qwr.Manager, docs *documents.Documents, bus *events.Bus) *Links {
+	return &Links{db: db, docs: docs, bus: bus}
 }
