@@ -47,6 +47,8 @@ Commands that don't make sense over HTTP are excluded: `mcp`, `serve`,
 | `GET /review`               | Pending tasks with context          |
 | `GET /task/list`            | List tasks                          |
 | `GET /audit/list`           | List audits                         |
+| `GET /audit/show/<id>`     | Display full audit thread           |
+| `GET /audit/status`        | Pending audits inbox                |
 
 ### Mutation commands (POST)
 
@@ -65,6 +67,10 @@ Commands that don't make sense over HTTP are excluded: `mcp`, `serve`,
 | `POST /tag/<path>`          | Add a tag                           |
 | `POST /task/add`            | Create a task                       |
 | `POST /audit/add`           | Create an audit                     |
+| `POST /audit/reply/<id>`   | Reply to an audit thread            |
+| `POST /audit/resolve/<id>` | Mark audit as approved              |
+| `POST /audit/rm/<id>`      | Soft-delete an audit                |
+| `POST /audit/restore/<id>` | Recover a deleted audit             |
 
 ## Headers
 

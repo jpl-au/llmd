@@ -33,7 +33,7 @@ All tools accept a JSON input with the following fields:
 | `author` | **Required for mutations.** Identifies the LLM or agent making the change. |
 
 Read-only tools (cat, ls, grep, etc.) do not require `author`. All mutation
-tools (write, edit, rm, mv, tag, link, task, etc.) will reject calls that
+tools (write, edit, rm, mv, tag, link, task, audit, etc.) will reject calls that
 do not include `author`.
 
 ```json

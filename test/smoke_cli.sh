@@ -123,6 +123,31 @@ _smoke_cli() {
         log_fail "task add + list: got '$out'"
     fi
 
+    # --- audits: add + rm + restore ---
+    out=$($llmd --author "smoke" audit add docs/greeting "Needs review." 2>&1)
+    audit_id=$(echo "$out" | sed -n 's/Created audit \([a-z0-9]*\).*/\1/p')
+    if [ -n "$audit_id" ]; then
+        log_pass "audit add"
+    else
+        log_fail "audit add: got '$out'"
+    fi
+
+    $llmd --author "smoke" audit rm "$audit_id" >/dev/null 2>&1
+    out=$($llmd audit show "$audit_id" 2>&1) && rc=0 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+        log_pass "audit rm hides audit"
+    else
+        log_fail "audit rm hides audit: still readable"
+    fi
+
+    $llmd --author "smoke" audit restore "$audit_id" >/dev/null 2>&1
+    out=$($llmd audit show "$audit_id" 2>&1)
+    if echo "$out" | grep -q "Needs review"; then
+        log_pass "audit restore recovers audit"
+    else
+        log_fail "audit restore recovers audit: got '$out'"
+    fi
+
     # --- error on missing author ---
     echo "no author" | $llmd write docs/fail >/dev/null 2>&1 && rc=0 || rc=$?
     if [ "$rc" -ne 0 ]; then

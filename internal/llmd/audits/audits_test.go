@@ -352,6 +352,58 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestRestore(t *testing.T) {
+	db := openTestDB(t)
+	store := New(db)
+	ctx := context.Background()
+
+	aud, _ := store.Add(ctx, AddOptions{
+		Target: "docs/api", Content: "Review.", Author: "gemini",
+	})
+
+	// Delete then restore.
+	if err := store.Delete(ctx, aud.ID, "gemini"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := store.Read(ctx, aud.ID)
+	if err != ErrNotFound {
+		t.Fatalf("after delete: err = %v, want ErrNotFound", err)
+	}
+
+	restored, err := store.Restore(ctx, aud.ID, "gemini")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.ID != aud.ID {
+		t.Errorf("ID = %q, want %q", restored.ID, aud.ID)
+	}
+
+	// Should be readable again.
+	read, err := store.Read(ctx, aud.ID)
+	if err != nil {
+		t.Fatalf("after restore: %v", err)
+	}
+	if read.Content != "Review." {
+		t.Errorf("content = %q, want %q", read.Content, "Review.")
+	}
+}
+
+func TestRestoreMissingAuthor(t *testing.T) {
+	db := openTestDB(t)
+	store := New(db)
+	ctx := context.Background()
+
+	aud, _ := store.Add(ctx, AddOptions{
+		Target: "docs/api", Content: "Review.", Author: "gemini",
+	})
+	store.Delete(ctx, aud.ID, "gemini")
+
+	_, err := store.Restore(ctx, aud.ID, "")
+	if err != ErrMissingAuthor {
+		t.Errorf("err = %v, want ErrMissingAuthor", err)
+	}
+}
+
 func TestStatus(t *testing.T) {
 	db := openTestDB(t)
 	store := New(db)

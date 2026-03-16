@@ -33,14 +33,15 @@ to avoid collisions with common tool names:
 
   grep → llmd_grep    find → llmd_find    glob → llmd_glob
 
-All other tool names match their command name (cat, write, edit, ls, etc.).
+All other tool names match their command name (cat, write, edit, ls, rm,
+mv, tag, link, history, diff, restore, revert, sed, unlink, audit, task).
 
 All tools accept: {"args": [...], "content": "...", "author": "..."}
 Use content for document bodies (write, edit). Use args for everything else.
 
 IMPORTANT: You MUST include "author" in every mutation tool call (write,
-edit, rm, mv, tag, link, task, etc.) to identify yourself. Calls without
-author will be rejected.
+edit, sed, rm, mv, restore, revert, tag, unlink, link, task, audit) to
+identify yourself. Calls without author will be rejected.
 
 ## Commands
 
@@ -74,13 +75,23 @@ TASKS    task list                   board view (all columns)
          task show <id>              metadata + spec body
          task add <title>            create task (body via content/stdin)
          task move <id> <column>     move to column
-         task set <id> --flag hold   set flag, priority, assign, etc.
+         task set <id> --flag hold   set flag, priority, assign, column
          task rm <id>                soft-delete task (doc untouched)
+
+AUDITS   audit add <target> [text]   create review on doc or task
+         audit reply <id> [text]     reply to a thread
+         audit resolve <id>          mark as approved
+         audit list [target]         list audits (filterable)
+         audit show <id>             full thread
+         audit status                inbox: what needs my response
+         audit rm <id>               soft-delete
+         audit restore <id>          recover deleted audit
 
 ## Author attribution
 
-You MUST identify yourself on every mutation (write, edit, rm, mv, tag,
-link, task, etc.). This is how llmd tracks who made each change.
+You MUST identify yourself on every mutation (write, edit, sed, rm, mv,
+restore, revert, tag, unlink, link, task, audit). This is how llmd tracks
+who made each change.
 
 Via MCP tools — include "author" in every tool call:
   {"author": "Claude", "args": ["notes/summary"], "content": "..."}

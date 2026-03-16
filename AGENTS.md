@@ -59,7 +59,7 @@ internal/validate/          Input validation: null bytes, path length, content s
 internal/server/            HTTP API server: thin transport over sdk.Dispatch
 internal/term/              Terminal detection and stdin reading utilities
 internal/sql/               Schema migrations, SQL helpers
-pkg/model/core/             Core model types (Origin, etc.)
+pkg/model/core/             Core model types (Origin)
 pkg/events/                 Shared event type definitions
 plugins/sample/             Example Yaegi plugin (stat, recent, wc)
 guide/                      User-facing command guides (markdown)
@@ -168,10 +168,10 @@ command, each bound to the request's `context.Context`. This provides
 cancellation and timeout support without changing any SDK interface
 signatures. `sdk.Context` embeds `context.Context` and carries domain
 store fields (`Documents`, `Tasks`, `Links`, `Tags`, `Activities`,
-`Audits`, `Mirror`, `Git`, `Config`). CLI commands access stores via `ctx.Documents`
-etc. rather than package globals.
+`Audits`, `Mirror`, `Git`, `Config`). CLI commands access stores via
+`ctx.Documents`, `ctx.Tasks`, `ctx.Audits` rather than package globals.
 
-Package globals (`sdk.Documents`, `sdk.Tasks`, etc.) remain wired with
+Package globals (`sdk.Documents`, `sdk.Tasks`, `sdk.Audits`) remain wired with
 `context.Background()` in `setup()`. They are still used by `sdk.Git` and
 `sdk.Config` which have no per-request instances.
 
@@ -212,7 +212,7 @@ ctx.Tags.Add("path", "name", ctx.Author)
 ctx.Links.Add("a", "b", "label", ctx.Author)
 ```
 
-Yaegi plugins also use `sdk.Documents`, `sdk.Tasks`, etc. — but these
+Yaegi plugins also use `sdk.Documents`, `sdk.Tasks`, `sdk.Audits` — but these
 resolve through the Yaegi symbol table to per-adapter store fields, not
 package globals. See the Plugin System section below.
 
@@ -238,7 +238,7 @@ The symbol table exports SDK types, constants, errors, domain stores, and
 flag parsing (`FlagValues`, `ParseArgs`) so that interpreted plugin code can
 `import "github.com/jpl-au/llmd/sdk"`.
 
-Domain stores (`sdk.Documents`, `sdk.Tasks`, `sdk.Audits`, etc.) in the symbol table point
+Domain stores (`sdk.Documents`, `sdk.Tasks`, `sdk.Audits`) in the symbol table point
 at per-adapter fields, not package-level globals. `load()` creates the adapter
 before registering the symbol table so the reflect values are bound to adapter
 fields from the start. `Exec` acquires the adapter mutex and populates those
@@ -246,8 +246,8 @@ fields from `ctx` before each call — giving each request its own request-scope
 stores. Plugin source is unchanged: `sdk.Documents.Read(...)` works
 transparently regardless of how the underlying store is wired.
 
-Interface wrappers (`_sdk_DocumentStore`, `_sdk_TaskStore`, `_sdk_AuditStore`,
-etc.) exist because
+Interface wrappers (`_sdk_DocumentStore`, `_sdk_TaskStore`, `_sdk_AuditStore`)
+exist because
 Yaegi uses reflection to bridge interpreted types to Go interfaces. Each wrapper
 struct has a `WMethodName` function field for every interface method. When Yaegi
 needs to assign an interpreted struct to an interface variable, it populates
@@ -277,8 +277,9 @@ Three separate event mechanisms serve different layers:
 
 `internal/llmd/key/` generates 9-character base36 identifiers from millisecond
 timestamps plus an atomic counter. These are NOT nanoid. Format: lowercase
-alphanumeric, lexicographically sortable by creation time. Used for document
-keys, task keys, and other entities.
+alphanumeric, lexicographically sortable by creation time. Used for all entity
+IDs (documents, tasks, audits). **IDs are bare keys with no prefix** —
+never add `aud_`, `task_`, `doc_`, or any other prefix.
 
 The counter is seeded with a random offset in [0, 1000) at init to prevent
 collisions between concurrent processes starting in the same millisecond.
@@ -302,7 +303,7 @@ cannot import host (import cycle) — they use stubs instead (see below).
 **Plugin tests** (`internal/plugin/loader_test.go`) — use stub implementations
 of all SDK store interfaces to avoid import cycles (`internal/host` imports
 `internal/plugin`, so plugin tests cannot import host). Stubs are passed
-directly via `sdk.Context` fields (`ctx.Documents`, `ctx.Tasks`, etc.) —
+directly via `sdk.Context` fields (`ctx.Documents`, `ctx.Tasks`, `ctx.Audits`) —
 the same way the real host wires stores. Yaegi integration tests load real
 `.go` source through the interpreter and verify that interpreted plugin code
 can call methods on the domain stores.
@@ -391,7 +392,8 @@ needs to act on it. These are separate fields — an agent creates an audit
 propagates through replies like status does; the effective assignee is from
 the most recent entry. `audit status` filters by effective assignee.
 
-**ID format:** 9-char base36 key (same generator as tasks and all other entities).
+**ID format:** Bare 9-char base36 key with no prefix (same generator as tasks
+and all other entities). IDs are never prefixed — no `aud_`, `task_`, `doc_`.
 
 **Target type inference:** The store determines `target_type` from the target
 value. If it matches a valid 9-char base36 key, it's a task; otherwise it's
@@ -411,6 +413,7 @@ tiebreaker handles same-millisecond key generation).
 | `audit show <id>` | Display full audit thread |
 | `audit resolve <id>` | Mark as approved (inserts "approved" entry) |
 | `audit rm <id>` | Soft-delete |
+| `audit restore <id>` | Recover a soft-deleted audit |
 | `audit status` | Inbox: pending threads assigned to the author |
 
 Content resolution order: positional args > `--file` > stdin.
@@ -564,8 +567,8 @@ quiet unless something needs attention.
 machine-readable. `--verbose` overrides any configured level.
 
 All packages use the process-wide `slog` default — call `slog.Debug`,
-`slog.Warn`, etc. directly. No logger is passed through context or
-structs.
+`slog.Info`, `slog.Warn`, `slog.Error` directly. No logger is passed
+through context or structs.
 
 ## Common Pitfalls
 
@@ -591,7 +594,7 @@ structs.
 
 - **Task path deduplication** — When `task add` creates a spec document
   automatically (no `--path`), it generates `tasks/<slug>`. If that path
-  already exists, it appends `-2`, `-3`, etc. to avoid silently versioning
+  already exists, it appends `-2`, `-3`, `-4` (incrementing) to avoid silently versioning
   an unrelated document. Explicit `--path` skips deduplication.
 
 - **--db name resolution** — The `--db` flag accepts a bare name (e.g. `docs`)

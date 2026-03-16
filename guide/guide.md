@@ -69,6 +69,15 @@ llmd grep hello                              # full-text search
 Subcommands: add, list, show, move, set, rm, restore, start, diff,
 files, column, link, links, log. See `llmd guide task`.
 
+### Audits
+
+| Command | Description                            | Usage                             |
+|---------|----------------------------------------|-----------------------------------|
+| `audit` | Agent-to-agent review threads          | `audit <subcommand> [options]`    |
+
+Subcommands: add, reply, list, show, resolve, rm, restore, status.
+See `llmd guide audit`.
+
 ### Bulk operations
 
 | Command  | Description                        | Usage                        |

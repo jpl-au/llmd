@@ -13,12 +13,6 @@ Start the server:
 llmd mcp
 ```
 
-Or equivalently:
-
-```
-llmd serve
-```
-
 This exposes tools over stdio using the Model Context Protocol. Tool
 names match CLI commands, except where they would collide with common
 tool names:
@@ -42,6 +36,8 @@ tool names:
 | `mv`        | `mv`          |
 | `sed`       | `sed`         |
 | `unlink`    | `unlink`      |
+| `audit`     | `audit`       |
+| `task`      | `task`        |
 
 Each tool accepts `args` (array of strings) and `content` (string, used
 by write and edit for document bodies).
@@ -165,6 +161,17 @@ llmd --author "Claude" tag -d notes/readme important # remove (mutation)
 llmd history notes/readme
 llmd diff notes/readme                  # what changed last
 llmd diff notes/readme:1 notes/readme:3 # compare versions
+```
+
+### Audits
+
+```
+llmd --author "Claude" audit add docs/spec "Needs error handling."
+llmd --author "Claude" audit reply 0mmsfn7h1 "Fixed."
+llmd --author "Claude" audit resolve 0mmsfn7h1
+llmd audit list docs/spec
+llmd audit show 0mmsfn7h1
+llmd --author "Claude" audit status
 ```
 
 ## More help
