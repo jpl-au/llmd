@@ -85,7 +85,7 @@ files, column, link, links, log. See `llmd guide task`.
 | `config`  | Read or write configuration     | `config [key] [val]`|
 | `vacuum`  | Permanently purge deleted docs  | `vacuum`            |
 | `mcp`     | Start MCP server (stdio)        | `mcp`               |
-| `serve`   | Alias for mcp                   | `serve`             |
+| `serve`   | Start HTTP API server           | `serve`             |
 | `version` | Show version information        | `version`           |
 | `plugins` | List loaded plugins             | `plugins`           |
 | `guide`   | Built-in documentation          | `guide [topic]`     |

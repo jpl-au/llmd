@@ -6,7 +6,6 @@ Start an MCP (Model Context Protocol) server over stdio.
 
 ```
 llmd mcp
-llmd serve
 ```
 
 ## Examples
@@ -14,9 +13,6 @@ llmd serve
 ```bash
 # Start the MCP server
 llmd mcp
-
-# Equivalent alias
-llmd serve
 ```
 
 ## Notes

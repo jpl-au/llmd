@@ -46,6 +46,44 @@ tool names:
 Each tool accepts `args` (array of strings) and `content` (string, used
 by write and edit for document bodies).
 
+## HTTP API
+
+When the agent can make HTTP requests (e.g. via a tool or fetch), the
+HTTP server provides a REST interface to all commands.
+
+Start the server:
+
+```
+llmd serve
+```
+
+Routes follow a simple pattern: read commands are `GET /<command>/<path>`,
+mutation commands are `POST /<command>/<path>`. Headers carry metadata.
+
+| Action                | Request                                               |
+|-----------------------|-------------------------------------------------------|
+| Read a document       | `GET /cat/docs/readme`                                |
+| Read a version        | `GET /cat/docs/readme?version=2`                      |
+| List documents        | `GET /ls`                                             |
+| Search                | `GET /grep?q=authentication`                          |
+| Write a document      | `POST /write/docs/readme` with body and `Author` header |
+| Delete a document     | `POST /rm/docs/readme` with `Author` header           |
+| Version history       | `GET /history/docs/readme`                            |
+
+Headers:
+
+| Header   | Purpose                                        |
+|----------|------------------------------------------------|
+| `Author` | Required for mutations. Identifies the agent   |
+| `Message`| Version message for writes                     |
+| `Output` | Set to `json` to force JSON responses          |
+
+Query parameters map to command flags: `?version=3` becomes `--version 3`,
+`?n=5` becomes `-n 5`. The `q` parameter is special — it becomes the
+search pattern for grep and find.
+
+See `llmd guide serve` for the full route reference.
+
 ## CLI fallback
 
 When MCP is not available, shell out to the llmd binary. Read commands
