@@ -37,6 +37,9 @@ type AuditStore interface {
 	// Delete soft-deletes an audit (sets deleted_at).
 	Delete(id, author string) error
 
+	// Restore undeletes a soft-deleted audit (clears deleted_at).
+	Restore(id, author string) (*Audit, error)
+
 	// Status returns pending audits requiring the given author's
 	// attention — threads where the effective status is pending or
 	// needs-work and the last entry is not from the author.

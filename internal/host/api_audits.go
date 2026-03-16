@@ -136,6 +136,15 @@ func (a *auditAPI) Delete(id, author string) error {
 	return auditErr(a.store.Audits.Delete(a.ctx, id, author))
 }
 
+func (a *auditAPI) Restore(id, author string) (*sdk.Audit, error) {
+	aud, err := a.store.Audits.Restore(a.ctx, id, author)
+	if err != nil {
+		return nil, auditErr(err)
+	}
+	out := auditToSDK(aud)
+	return &out, nil
+}
+
 func (a *auditAPI) Status(author string) (*sdk.AuditStatus, error) {
 	result, err := a.store.Audits.Status(a.ctx, author)
 	if err != nil {

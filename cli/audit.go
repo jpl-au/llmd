@@ -21,6 +21,7 @@ Subcommands (passed as first arg):
   show <id>                  full audit with thread
   resolve <id>               mark as approved (no body needed)
   rm <id>                    soft-delete
+  restore <id>               recover a deleted audit
   status                     inbox: what needs my response`, Usage: "audit <subcommand> [options]", MCP: true, MCPName: "audit", Flags: []sdk.Flag{
 		{Name: "status", Short: "s", Type: "string", Desc: "Set or filter by status"},
 		{Name: "assignee", Type: "string", Desc: "Assign to or filter by assignee"},
@@ -42,7 +43,7 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// Author required for all mutations.
 	switch sub {
-	case "add", "reply", "resolve", "rm":
+	case "add", "reply", "resolve", "rm", "restore":
 		if ctx.Author == "" {
 			return nil, fmt.Errorf("audit %s: author required for mutations", sub)
 		}
@@ -65,6 +66,8 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return auditResolve(ctx, args)
 	case "rm":
 		return auditRm(ctx, args)
+	case "restore":
+		return auditRestore(ctx, args)
 	case "status":
 		return auditStatus(ctx, args)
 	default:
@@ -272,6 +275,20 @@ func auditRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	return sdk.Text(fmt.Sprintf("Deleted audit %s", args[0])), nil
+}
+
+// auditRestore recovers a soft-deleted audit.
+func auditRestore(ctx sdk.Context, args []string) (sdk.Response, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("audit restore: %w: audit ID", sdk.ErrMissingArg)
+	}
+
+	aud, err := ctx.Audits.Restore(args[0], ctx.Author)
+	if err != nil {
+		return nil, fmt.Errorf("audit restore: %w", err)
+	}
+
+	return sdk.Text(fmt.Sprintf("Restored audit %s", aud.ID)), nil
 }
 
 // auditStatus shows the agent's inbox.
