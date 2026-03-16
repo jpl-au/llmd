@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
+	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/pkg/model/tag"
 )
@@ -57,7 +58,7 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 		return nil, fmt.Errorf("inserting tag: %w", err)
 	}
 
-	return &tag.Tag{
+	result := &tag.Tag{
 		Key:      k,
 		Relation: relation,
 		Value:    tagValue,
@@ -66,7 +67,22 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 			Source: opts.Source,
 		},
 		CreatedAt: now,
-	}, nil
+	}
+
+	if t.bus != nil {
+		if err := t.bus.Emit(ctx, events.Event{
+			Type:      events.TagAdded,
+			Path:      relation,
+			Key:       k,
+			Author:    opts.Author,
+			Timestamp: now,
+			Metadata:  map[string]any{"tag": name},
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return result, nil
 }
 
 // find retrieves a specific tag if it exists and is not deleted.

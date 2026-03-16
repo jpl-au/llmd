@@ -1,13 +1,11 @@
 // events.go bridges the internal event bus to extension EventHandlers.
 //
 // The internal bus (internal/llmd/events) fires pkg/events.Event structs
-// for document mutations. Extensions use a different event hierarchy
-// (extension.Event interface with concrete types). This bridge subscribes
-// to the internal bus and converts events into the extension format,
-// dispatching to all extensions that implement extension.EventHandler.
-//
-// Only document events are bridged for now — tag and link events are not
-// yet emitted by the internal bus.
+// for mutations across all domains. Extensions use a different event
+// hierarchy (extension.Event interface with concrete types). This bridge
+// subscribes to the internal bus and converts events into the extension
+// format, dispatching to all extensions that implement
+// extension.EventHandler.
 
 package host
 
@@ -72,6 +70,18 @@ func toExtEvent(e pkgevents.Event) extension.Event {
 			Path:    e.Path,
 			OldPath: oldPath,
 			Version: e.Version,
+		}
+	case pkgevents.TagAdded, pkgevents.TagRemoved:
+		var tag string
+		if m := e.Metadata; m != nil {
+			if v, ok := m["tag"].(string); ok {
+				tag = v
+			}
+		}
+		return extension.TagEvent{
+			Path:  e.Path,
+			Tag:   tag,
+			Added: e.Type == pkgevents.TagAdded,
 		}
 	default:
 		return nil

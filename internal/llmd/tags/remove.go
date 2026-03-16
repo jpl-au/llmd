@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Remove removes a tag from a document (soft-delete).
@@ -41,6 +43,18 @@ func (t *Tags) Remove(ctx context.Context, value, name string, opts Options) err
 	}
 	if rows == 0 {
 		return ErrNotFound
+	}
+
+	if t.bus != nil {
+		if err := t.bus.Emit(ctx, events.Event{
+			Type:      events.TagRemoved,
+			Path:      relation,
+			Author:    opts.Author,
+			Timestamp: now,
+			Metadata:  map[string]any{"tag": name},
+		}); err != nil {
+			return fmt.Errorf("emitting event: %w", err)
+		}
 	}
 
 	return nil

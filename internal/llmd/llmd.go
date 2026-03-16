@@ -175,7 +175,7 @@ func (s *Store) wire() {
 	s.History = history.New(s.db, s.Documents)
 	s.Search = search.New(s.db)
 	s.Bulk = bulk.New(s.Documents)
-	s.Tags = tags.New(s.db, s.Documents)
+	s.Tags = tags.New(s.db, s.Documents, s.bus)
 	s.Links = links.New(s.db, s.Documents)
 	s.Entities = entities.New(s.db)
 	s.Audit = audit.New(s.db)
