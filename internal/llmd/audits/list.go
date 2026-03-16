@@ -14,7 +14,8 @@ type ListOptions struct {
 	ByAuthor string // filter by who created the audit
 	Assignee string // filter by who the audit is assigned to
 	Status   string
-	Pending  bool // shorthand: status in (pending, needs-work)
+	Pending  bool  // shorthand: status in (pending, needs-work)
+	SinceMS  int64 // Unix millis; 0 = no filter
 }
 
 // List returns non-deleted audits matching the filter criteria. When
@@ -50,6 +51,10 @@ func (a *Audits) List(ctx context.Context, opts ListOptions) ([]Audit, error) {
 	if opts.Assignee != "" {
 		query.WriteString(" AND assignee = ?")
 		args = append(args, opts.Assignee)
+	}
+	if opts.SinceMS > 0 {
+		query.WriteString(" AND created_at > ?")
+		args = append(args, opts.SinceMS)
 	}
 
 	query.WriteString(" ORDER BY created_at DESC")
@@ -88,6 +93,10 @@ func (a *Audits) listByEffectiveStatus(ctx context.Context, opts ListOptions) ([
 	if opts.Assignee != "" {
 		query.WriteString(" AND top.assignee = ?")
 		args = append(args, opts.Assignee)
+	}
+	if opts.SinceMS > 0 {
+		query.WriteString(" AND top.created_at > ?")
+		args = append(args, opts.SinceMS)
 	}
 
 	// Effective status subquery: latest entry in each thread.

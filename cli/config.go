@@ -23,7 +23,10 @@ var configSpec = sdk.Command{
 
 With no arguments, shows all settings. With a key, shows that value.
 With a key and value, sets it. Use --global to write to the global
-config (~/.llmd/config) instead of the local store config.`, Usage: "config [key] [value] | config git [allow|deny|ls] [pattern]", Flags: []sdk.Flag{
+config (~/.llmd/config) instead of the local store config.
+
+The "config author" setting is for the human user only — LLMs and
+scripts must use --author on each command instead.`, Usage: "config [key] [value] | config git [allow|deny|ls] [pattern]", Flags: []sdk.Flag{
 		{Name: "global", Type: "bool", Desc: "Write to global config (~/.llmd/config)"},
 	},
 }

@@ -3,6 +3,7 @@ package audits
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/jpl-au/qwr"
 	"github.com/jpl-au/qwr/profile"
@@ -428,7 +429,7 @@ func TestStatus(t *testing.T) {
 	})
 
 	// Claude-code's inbox: should see the audit assigned to them.
-	result, err := store.Status(ctx, "claude-code")
+	result, err := store.Status(ctx, "claude-code", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -440,7 +441,7 @@ func TestStatus(t *testing.T) {
 	}
 
 	// Gemini's inbox: should see the audit assigned to them.
-	result2, _ := store.Status(ctx, "gemini")
+	result2, _ := store.Status(ctx, "gemini", 0)
 	if result2.Summary.Total != 1 {
 		t.Errorf("total = %d, want 1", result2.Summary.Total)
 	}
@@ -466,14 +467,45 @@ func TestStatusReassign(t *testing.T) {
 	})
 
 	// Claude-code's inbox: should be empty (reassigned away).
-	result, _ := store.Status(ctx, "claude-code")
+	result, _ := store.Status(ctx, "claude-code", 0)
 	if result.Summary.Total != 0 {
 		t.Errorf("claude-code total = %d, want 0", result.Summary.Total)
 	}
 
 	// Gemini's inbox: should see it now.
-	result2, _ := store.Status(ctx, "gemini")
+	result2, _ := store.Status(ctx, "gemini", 0)
 	if result2.Summary.Total != 1 {
 		t.Errorf("gemini total = %d, want 1", result2.Summary.Total)
+	}
+}
+
+func TestListSince(t *testing.T) {
+	db := openTestDB(t)
+	store := New(db)
+	ctx := context.Background()
+
+	old, _ := store.Add(ctx, AddOptions{
+		Target: "docs/old", Content: "Old.", Author: "alice",
+	})
+
+	cutoff := old.CreatedAt
+
+	// Ensure the next audit gets a different millisecond timestamp.
+	time.Sleep(2 * time.Millisecond)
+
+	store.Add(ctx, AddOptions{
+		Target: "docs/new", Content: "New.", Author: "alice",
+	})
+
+	// Since = cutoff should return only the newer audit.
+	recent, err := store.List(ctx, ListOptions{SinceMS: cutoff})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recent) != 1 {
+		t.Fatalf("expected 1 recent audit, got %d", len(recent))
+	}
+	if recent[0].Target != "docs/new" {
+		t.Errorf("target = %q, want %q", recent[0].Target, "docs/new")
 	}
 }

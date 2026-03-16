@@ -161,10 +161,15 @@ func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) 
 	if strings.Contains(prefix, "..") {
 		return nil, docpath.ErrInvalid
 	}
+	var sinceMS int64
+	if !opts.Since.IsZero() {
+		sinceMS = opts.Since.UnixMilli()
+	}
 	infos, err := a.store.Documents.List(a.ctx, documents.ListOptions{
 		Prefix:         prefix,
 		IncludeDeleted: opts.Deleted,
 		Sort:           opts.Sort,
+		SinceMS:        sinceMS,
 	})
 	if err != nil {
 		return nil, err

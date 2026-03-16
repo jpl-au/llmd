@@ -17,6 +17,7 @@ llmd ls [flags] [<path>]
 | `-t` | Sort by time, newest first |
 | `-r` | Reverse sort order |
 | `--tree` | Render paths as a directory hierarchy |
+| `--since` | Only show documents updated after a time (e.g. `5m`, `1h`, RFC 3339) |
 
 Short flags can be combined: `-lat` is equivalent to `-l -a -t`.
 
@@ -48,6 +49,14 @@ llmd ls --tree
 
 # Tree with deleted documents
 llmd ls --tree -a
+```
+
+```bash
+# Documents updated in the last 10 minutes
+llmd ls --since 10m
+
+# Documents updated since a specific time
+llmd ls --since "2026-03-16T04:00:00Z"
 ```
 
 ## Notes

@@ -13,7 +13,7 @@ var taskSpec = sdk.Command{
 
 Subcommands (passed as first arg):
   add <title>               create task (body via content/stdin)
-  list                      board view (all columns)
+  list [--since 5m]          board view (all columns)
   show <id>                 task metadata + spec body
   move <id> <column>        move task to column (needs spec to leave backlog)
   set <id> [flags]          update metadata
@@ -79,7 +79,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	switch sub {
 	case "add":
 		return taskAdd(ctx, args)
-	case "list":
+	case "list", "ls":
 		return taskList(ctx, args)
 	case "show":
 		return taskShow(ctx, args)
@@ -98,7 +98,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		colSub := args[0]
 		args = args[1:]
 		switch colSub {
-		case "list":
+		case "list", "ls":
 			return taskColumns(ctx, args)
 		case "add":
 			return taskAddColumn(ctx, args)
@@ -139,6 +139,7 @@ var taskListFlags = []sdk.Flag{
 	{Name: "column", Type: "string"},
 	{Name: "assign", Type: "string"},
 	{Name: "priority", Type: "int"},
+	{Name: "since", Type: "string", Desc: "Show tasks created after (e.g. 5m, 1h, RFC 3339)"},
 }
 
 func taskList(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -146,10 +147,15 @@ func taskList(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("task list: %w", err)
 	}
+	since, err := sdk.ParseSince(flags.String("since"))
+	if err != nil {
+		return nil, fmt.Errorf("task list: %w", err)
+	}
 	opts := sdk.TaskListOpts{
 		Status:     flags.String("column"),
 		AssignedTo: flags.String("assign"),
 		Priority:   flags.Int("priority"),
+		Since:      since,
 	}
 	if opts.Status == "" && len(positional) > 0 {
 		opts.Status = positional[0]

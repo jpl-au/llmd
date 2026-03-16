@@ -36,6 +36,11 @@ func (d *Documents) List(ctx context.Context, opts ...ListOptions) ([]document.I
 		query.WriteString(" AND deleted_at IS NULL")
 	}
 
+	if opt.SinceMS > 0 {
+		query.WriteString(" AND created_at > ?")
+		args = append(args, opt.SinceMS)
+	}
+
 	// Only get latest version of each path
 	query.WriteString(`
 		AND version = (

@@ -5,6 +5,7 @@ package audits
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // StatusResult is the agent's inbox.
@@ -25,7 +26,7 @@ type Summary struct {
 // A thread is pending when its effective status (latest entry) is
 // "pending" or "needs-work" and the effective assignee matches the
 // queried author.
-func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, error) {
+func (a *Audits) Status(ctx context.Context, author string, sinceMS int64) (*StatusResult, error) {
 	if author == "" {
 		return nil, ErrMissingAuthor
 	}
@@ -36,8 +37,11 @@ func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, erro
 	// Find top-level audits where:
 	// 1. The thread's effective status is pending or needs-work
 	// 2. The effective assignee (latest entry) matches the author
-	rows, err := a.db.Query(`
-		SELECT `+columns+` FROM audits AS top
+	var query strings.Builder
+	var args []any
+
+	query.WriteString(`
+		SELECT ` + columns + ` FROM audits AS top
 		WHERE top.deleted_at IS NULL
 		  AND top.parent_id IS NULL
 		  AND (
@@ -54,8 +58,17 @@ func (a *Audits) Status(ctx context.Context, author string) (*StatusResult, erro
 			ORDER BY created_at DESC, id DESC
 			LIMIT 1
 		  ) = ?
-		ORDER BY top.created_at DESC
-	`, author).WithContext(ctx).Read()
+	`)
+	args = append(args, author)
+
+	if sinceMS > 0 {
+		query.WriteString(" AND top.created_at > ?")
+		args = append(args, sinceMS)
+	}
+
+	query.WriteString(" ORDER BY top.created_at DESC")
+
+	rows, err := a.db.Query(query.String(), args...).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying audit status: %w", err)
 	}

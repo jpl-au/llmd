@@ -106,11 +106,16 @@ func (a *taskAPI) Read(key string) (*sdk.Task, error) {
 // List returns all non-deleted tasks matching the filter criteria.
 // Results are ordered by position then creation time within each column.
 func (a *taskAPI) List(opts sdk.TaskListOpts) ([]*sdk.Task, error) {
+	var sinceMS int64
+	if !opts.Since.IsZero() {
+		sinceMS = opts.Since.UnixMilli()
+	}
 	tt, err := a.store.Tasks.List(a.ctx, tasks.ListOptions{
 		Status:     opts.Status,
 		AssignedTo: opts.AssignedTo,
 		Priority:   opts.Priority,
 		Branch:     opts.Branch,
+		SinceMS:    sinceMS,
 	})
 	if err != nil {
 		return nil, err

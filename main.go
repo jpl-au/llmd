@@ -9,6 +9,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"log/slog"
 
@@ -33,6 +34,13 @@ func run(args []string) int {
 	}
 
 	cfg, cfgErr := config.Load()
+
+	// A long-running server should default to Info-level logging so
+	// startup and request events are visible.
+	if g.Cmd == "serve" && cfg["log_level"] == "" && !g.Verbose {
+		cfg["log_level"] = "info"
+	}
+
 	initLog(cfg, g.JSON, g.Verbose)
 	if cfgErr != nil {
 		slog.Warn("reading config", "err", cfgErr)
@@ -42,7 +50,7 @@ func run(args []string) int {
 	telemetry.Init()
 	defer telemetry.Close()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	h := host.New()

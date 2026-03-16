@@ -373,7 +373,7 @@ type _sdk_AuditStore struct {
 	WThread  func(id string) ([]sdk.Audit, error)
 	WResolve func(id, author string) (*sdk.Audit, error)
 	WDelete  func(id, author string) error
-	WStatus  func(author string) (*sdk.AuditStatus, error)
+	WStatus  func(author string, opts sdk.AuditStatusOpts) (*sdk.AuditStatus, error)
 }
 
 func (W _sdk_AuditStore) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
@@ -397,8 +397,8 @@ func (W _sdk_AuditStore) Resolve(id, author string) (*sdk.Audit, error) {
 func (W _sdk_AuditStore) Delete(id, author string) error {
 	return W.WDelete(id, author)
 }
-func (W _sdk_AuditStore) Status(author string) (*sdk.AuditStatus, error) {
-	return W.WStatus(author)
+func (W _sdk_AuditStore) Status(author string, opts sdk.AuditStatusOpts) (*sdk.AuditStatus, error) {
+	return W.WStatus(author, opts)
 }
 
 // _sdk_MirrorStore is an interface wrapper for MirrorStore type

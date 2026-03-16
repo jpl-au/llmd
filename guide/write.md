@@ -37,4 +37,5 @@ echo "v2 draft" | llmd write docs/proposal --message "Revised introduction"
 
 - If the document already exists, a new version is created.
 - If the document does not exist, it is created at version 1.
-- Author is set via `llmd config author "name"`, not as a flag.
+- Author is set via `llmd config author "name"` for interactive use,
+  or `--author` for LLMs and scripts.

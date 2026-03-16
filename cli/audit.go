@@ -17,12 +17,12 @@ var auditSpec = sdk.Command{
 Subcommands (passed as first arg):
   add <target> [content]     create top-level audit
   reply <id> [content]       reply to an existing thread
-  list [target]              list audits (optionally filtered)
+  list [target] [--since 5m] list audits (optionally filtered)
   show <id>                  full audit with thread
   resolve <id>               mark as approved (no body needed)
   rm <id>                    soft-delete
   restore <id>               recover a deleted audit
-  status                     inbox: what needs my response`, Usage: "audit <subcommand> [options]", MCP: true, MCPName: "audit", Flags: []sdk.Flag{
+  status [--since 5m]        inbox: what needs my response`, Usage: "audit <subcommand> [options]", MCP: true, MCPName: "audit", Flags: []sdk.Flag{
 		{Name: "status", Short: "s", Type: "string", Desc: "Set or filter by status"},
 		{Name: "assignee", Type: "string", Desc: "Assign to or filter by assignee"},
 		{Name: "file", Type: "string", Desc: "Read content from filesystem path"},
@@ -58,7 +58,7 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return auditAdd(ctx, args)
 	case "reply":
 		return auditReply(ctx, args)
-	case "list":
+	case "list", "ls":
 		return auditList(ctx, args)
 	case "show":
 		return auditShow(ctx, args)
@@ -175,6 +175,7 @@ var auditListFlags = []sdk.Flag{
 	{Name: "assignee", Type: "string", Desc: "Filter by assignee"},
 	{Name: "by-author", Type: "string", Desc: "Filter by creator"},
 	{Name: "pending", Type: "bool"},
+	{Name: "since", Type: "string", Desc: "Show audits created after (e.g. 5m, 1h, RFC 3339)"},
 }
 
 func auditList(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -183,11 +184,16 @@ func auditList(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("audit list: %w", err)
 	}
 
+	since, err := sdk.ParseSince(flags.String("since"))
+	if err != nil {
+		return nil, fmt.Errorf("audit list: %w", err)
+	}
 	opts := sdk.AuditListOpts{
 		ByAuthor: flags.String("by-author"),
 		Assignee: flags.String("assignee"),
 		Status:   flags.String("status"),
 		Pending:  flags.Bool("pending"),
+		Since:    since,
 	}
 	if len(positional) > 0 {
 		opts.Target = positional[0]
@@ -291,9 +297,21 @@ func auditRestore(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Restored audit %s", aud.ID)), nil
 }
 
+var auditStatusFlags = []sdk.Flag{
+	{Name: "since", Type: "string", Desc: "Show audits created after (e.g. 5m, 1h, RFC 3339)"},
+}
+
 // auditStatus shows the agent's inbox.
-func auditStatus(ctx sdk.Context, _ []string) (sdk.Response, error) {
-	result, err := ctx.Audits.Status(ctx.Author)
+func auditStatus(ctx sdk.Context, args []string) (sdk.Response, error) {
+	flags, _, err := sdk.ParseArgs(auditStatusFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("audit status: %w", err)
+	}
+	since, err := sdk.ParseSince(flags.String("since"))
+	if err != nil {
+		return nil, fmt.Errorf("audit status: %w", err)
+	}
+	result, err := ctx.Audits.Status(ctx.Author, sdk.AuditStatusOpts{Since: since})
 	if err != nil {
 		return nil, fmt.Errorf("audit status: %w", err)
 	}

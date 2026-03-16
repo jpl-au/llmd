@@ -12,9 +12,11 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/jpl-au/chain"
 	"github.com/jpl-au/llmd/sdk"
@@ -37,15 +39,51 @@ func New(addr, author string) *Server {
 		addr:   addr,
 		author: author,
 	}
+	s.mux.Use(s.log)
 	s.register()
 	return s
 }
 
-// ListenAndServe starts the HTTP server. It blocks until the server
-// is shut down or returns an error.
-func (s *Server) ListenAndServe() error {
-	slog.Info("starting HTTP server", "addr", s.addr)
-	return http.ListenAndServe(s.addr, s.mux)
+// ListenAndServe starts the HTTP server. It blocks until the context
+// is cancelled, then shuts down gracefully.
+func (s *Server) ListenAndServe(ctx context.Context) error {
+	srv := &http.Server{
+		Addr:    s.addr,
+		Handler: s.mux,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+
+	slog.Info("serving", "addr", s.addr)
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		slog.Info("shutting down")
+		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return srv.Shutdown(shutCtx)
+	}
+}
+
+// log is a middleware that records each request with slog.
+func (s *Server) log(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		rw := w.(chain.ResponseWriter)
+		slog.Info("request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rw.Status(),
+			"size", rw.Size(),
+			"duration", time.Since(start),
+		)
+	})
 }
 
 // register walks all registered commands and creates an HTTP route

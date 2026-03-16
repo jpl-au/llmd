@@ -94,12 +94,17 @@ func (a *auditAPI) Read(id string) (*sdk.Audit, error) {
 }
 
 func (a *auditAPI) List(opts sdk.AuditListOpts) ([]sdk.Audit, error) {
+	var sinceMS int64
+	if !opts.Since.IsZero() {
+		sinceMS = opts.Since.UnixMilli()
+	}
 	aa, err := a.store.Audits.List(a.ctx, audits.ListOptions{
 		Target:   opts.Target,
 		ByAuthor: opts.ByAuthor,
 		Assignee: opts.Assignee,
 		Status:   opts.Status,
 		Pending:  opts.Pending,
+		SinceMS:  sinceMS,
 	})
 	if err != nil {
 		return nil, auditErr(err)
@@ -145,8 +150,12 @@ func (a *auditAPI) Restore(id, author string) (*sdk.Audit, error) {
 	return &out, nil
 }
 
-func (a *auditAPI) Status(author string) (*sdk.AuditStatus, error) {
-	result, err := a.store.Audits.Status(a.ctx, author)
+func (a *auditAPI) Status(author string, opts sdk.AuditStatusOpts) (*sdk.AuditStatus, error) {
+	var sinceMS int64
+	if !opts.Since.IsZero() {
+		sinceMS = opts.Since.UnixMilli()
+	}
+	result, err := a.store.Audits.Status(a.ctx, author, sinceMS)
 	if err != nil {
 		return nil, auditErr(err)
 	}

@@ -43,6 +43,10 @@ func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error
 		query.WriteString(" AND branch = ?")
 		args = append(args, opts.Branch)
 	}
+	if opts.SinceMS > 0 {
+		query.WriteString(" AND created_at > ?")
+		args = append(args, opts.SinceMS)
+	}
 
 	query.WriteString(" ORDER BY position ASC, created_at ASC")
 

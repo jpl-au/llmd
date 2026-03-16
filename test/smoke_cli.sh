@@ -185,6 +185,32 @@ _smoke_cli() {
         log_pass "config git deny removes whitelist entry"
     fi
 
+    # --- --since filtering ---
+    # ls --since should return only recent documents.
+    sleep 1
+    echo "# Recent" | $llmd --author "smoke" write docs/recent >/dev/null 2>&1
+    out=$($llmd ls --since 500ms 2>&1)
+    if echo "$out" | grep -q "docs/recent"; then
+        log_pass "ls --since returns recent documents"
+    else
+        log_fail "ls --since returns recent documents: got '$out'"
+    fi
+    if echo "$out" | grep -q "docs/greeting"; then
+        log_fail "ls --since excludes old documents: greeting still present"
+    else
+        log_pass "ls --since excludes old documents"
+    fi
+
+    # task list --since should return only recent tasks.
+    echo -e "# New task\n\nSpec." | \
+        $llmd --author "smoke" task add "New task" >/dev/null 2>&1
+    out=$($llmd task list --since 500ms 2>&1)
+    if echo "$out" | grep -q "New task"; then
+        log_pass "task list --since returns recent tasks"
+    else
+        log_fail "task list --since returns recent tasks: got '$out'"
+    fi
+
     # --- error on missing author ---
     echo "no author" | $llmd write docs/fail >/dev/null 2>&1 && rc=0 || rc=$?
     if [ "$rc" -ne 0 ]; then

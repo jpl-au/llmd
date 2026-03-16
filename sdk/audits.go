@@ -1,5 +1,7 @@
 package sdk
 
+import "time"
+
 // AuditStore is the audit management interface for agent-to-agent and
 // human-to-agent review threads.
 //
@@ -43,7 +45,7 @@ type AuditStore interface {
 	// Status returns pending audits requiring the given author's
 	// attention — threads where the effective status is pending or
 	// needs-work and the last entry is not from the author.
-	Status(author string) (*AuditStatus, error)
+	Status(author string, opts AuditStatusOpts) (*AuditStatus, error)
 }
 
 // Audit represents a single audit entry — either a top-level review
@@ -131,6 +133,17 @@ type AuditListOpts struct {
 
 	// Pending is a shorthand: effective status in (pending, needs-work).
 	Pending bool
+
+	// Since filters to audits created after this time. Zero means
+	// no filter.
+	Since time.Time
+}
+
+// AuditStatusOpts configures the status inbox query.
+type AuditStatusOpts struct {
+	// Since filters to threads with activity after this time.
+	// Zero means no filter.
+	Since time.Time
 }
 
 // AuditStatus is the agent's inbox — pending audit threads requiring

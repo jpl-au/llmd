@@ -1,5 +1,7 @@
 package sdk
 
+import "time"
+
 // TaskStore is the task management interface for the board.
 //
 // Tasks live in columns (like a kanban board). Each task has a title,
@@ -180,6 +182,10 @@ type TaskListOpts struct {
 
 	// Branch filters to tasks linked to this git branch.
 	Branch string
+
+	// Since filters to tasks created after this time. Zero means
+	// no filter.
+	Since time.Time
 }
 
 // TaskSetOpts configures which task fields to update. Pointer fields

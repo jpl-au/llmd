@@ -18,7 +18,8 @@ are removed from the mirror directory.
 
 **push** — Import filesystem changes back into the store. New and modified
 `.md` files are written as new document versions. Unchanged files are skipped.
-Requires an author (`llmd config author`).
+Requires an author (`llmd config author` for interactive use,
+or `--author` for LLMs and scripts).
 
 ## Examples
 

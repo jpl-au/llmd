@@ -31,6 +31,7 @@ version, author, and date. Use --tree for a directory hierarchy.`, Usage: "ls [p
 		{Name: "r", Type: "bool", Desc: "Reverse sort order"},
 		{Name: "t", Type: "bool", Desc: "Sort by time (newest first)"},
 		{Name: "tree", Type: "bool", Desc: "Render as directory tree"},
+		{Name: "since", Type: "string", Desc: "Show documents updated after (e.g. 5m, 1h, RFC 3339)"},
 	},
 }
 
@@ -55,10 +56,15 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 		s = "time"
 	}
 
+	since, err := sdk.ParseSince(flags.String("since"))
+	if err != nil {
+		return nil, fmt.Errorf("ls: %w", err)
+	}
 	docs, err := ctx.Documents.List(prefix, sdk.ListOpts{
 		Deleted: all,
 		Sort:    s,
 		Reverse: reverse,
+		Since:   since,
 	})
 	if err != nil {
 		return nil, err

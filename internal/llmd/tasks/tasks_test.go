@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
@@ -541,5 +542,40 @@ func TestClearBranch(t *testing.T) {
 	got, _ := ts.Read(ctx, tsk.Key)
 	if got.Branch != "" {
 		t.Errorf("branch = %q, want empty", got.Branch)
+	}
+}
+
+func TestListSince(t *testing.T) {
+	ts := setup(t)
+	ctx := context.Background()
+
+	ts.Add(ctx, "Old task", nil, AddOptions{
+		Origin: core.Origin{Author: "alice", Source: "test"},
+	})
+
+	// Record a timestamp after the first task.
+	all, _ := ts.List(ctx, ListOptions{})
+	if len(all) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(all))
+	}
+	cutoff := all[0].CreatedAt
+
+	// Ensure the next task gets a different millisecond timestamp.
+	time.Sleep(2 * time.Millisecond)
+
+	ts.Add(ctx, "New task", nil, AddOptions{
+		Origin: core.Origin{Author: "alice", Source: "test"},
+	})
+
+	// Since = cutoff should return only the second task.
+	recent, err := ts.List(ctx, ListOptions{SinceMS: cutoff})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recent) != 1 {
+		t.Fatalf("expected 1 recent task, got %d", len(recent))
+	}
+	if recent[0].Title != "New task" {
+		t.Errorf("title = %q, want %q", recent[0].Title, "New task")
 	}
 }

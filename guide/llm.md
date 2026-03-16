@@ -103,17 +103,65 @@ llmd grep --json "budget"
 
 ## Author attribution
 
-LLMs and scripts must pass `--author` on every mutation command:
+LLMs and scripts must pass `--author` on mutation commands. Do not
+pass `--author` on read commands — it is not needed.
+
+**Do not use `llmd config author` to set yourself as the author.** The
+config author is reserved for the human user. LLMs must always pass
+`--author` per command so that mutations are attributed correctly and
+the human's identity is not overwritten.
+
+The `--author` flag goes before the command name:
 
 ```
 llmd --author "Claude" write notes/readme
-echo "updated" | llmd --author "Claude" write notes/readme
-llmd --author "Claude" tag notes/readme important
 ```
 
-The `--author` flag goes before the command name. Read-only commands
-(`cat`, `ls`, `grep`, `find`, `glob`, `history`, `diff`, `tag -f`,
-`link <path>`, `task list`) do not require an author.
+### Command reference: author requirements
+
+| Command              | Needs `--author` | Notes                          |
+|----------------------|-------------------|--------------------------------|
+| `cat`                | No                | Read document                  |
+| `ls`                 | No                | List documents                 |
+| `grep`               | No                | Full-text search               |
+| `find`               | No                | Search, paths only             |
+| `glob`               | No                | Path pattern match             |
+| `history`            | No                | Version history                |
+| `diff`               | No                | Compare versions               |
+| `status`             | No                | Dashboard overview             |
+| `review`             | No                | Pending tasks                  |
+| `task list`          | No                | List tasks                     |
+| `task show`          | No                | Show a task                    |
+| `task column list`   | No                | List columns                   |
+| `audit list`         | No                | List audits                    |
+| `audit show`         | No                | Show audit thread              |
+| `tag -f <name>`      | No                | Find documents by tag          |
+| `tag <path>`         | No                | List tags on a document        |
+| `link <path>`        | No                | List links on a document       |
+| `write`              | Yes           | Create or update a document    |
+| `edit`               | Yes           | Search and replace             |
+| `sed`                | Yes           | Sed-style substitution         |
+| `rm`                 | Yes           | Soft-delete a document         |
+| `mv`                 | Yes           | Move or rename                 |
+| `restore`            | Yes           | Recover a deleted document     |
+| `revert`             | Yes           | Roll back to a previous version|
+| `import`             | Yes           | Import .md files               |
+| `tag <path> <name>`  | Yes           | Add a tag                      |
+| `tag -d <path>`      | Yes           | Remove a tag                   |
+| `link <from> <to>`   | Yes           | Create a link                  |
+| `unlink`             | Yes           | Remove a link                  |
+| `task add`           | Yes           | Create a task                  |
+| `task move`          | Yes           | Move a task between columns    |
+| `task set`           | Yes           | Update task fields             |
+| `task rm`            | Yes           | Delete a task                  |
+| `task start`         | Yes           | Start work on a task           |
+| `task finish`        | Yes           | Complete a task                |
+| `task branch`        | Yes           | Create a branch for a task     |
+| `audit add`          | Yes           | Create an audit                |
+| `audit reply`        | Yes           | Reply to an audit thread       |
+| `audit resolve`      | Yes           | Mark audit as approved         |
+| `audit rm`           | Yes           | Soft-delete an audit           |
+| `audit status`       | Yes           | Inbox (filtered by author)     |
 
 ## Common patterns
 
@@ -172,6 +220,18 @@ llmd --author "Claude" audit resolve 0mmsfn7h1
 llmd audit list docs/spec
 llmd audit show 0mmsfn7h1
 llmd --author "Claude" audit status
+```
+
+### Polling for changes
+
+Use `--since` to cheaply check for new activity without fetching
+everything. Accepts a duration (`5m`, `1h`) or RFC 3339 timestamp:
+
+```
+llmd ls --since 5m                     # new/updated documents
+llmd task list --since 5m              # recently created tasks
+llmd audit list --since 5m             # recent audits
+llmd --author "Claude" audit status --since 5m  # recent inbox items
 ```
 
 ## More help

@@ -8,8 +8,19 @@ import (
 )
 
 var serveSpec = sdk.Command{
-	Name:  "serve",
-	Desc:  "Start HTTP API server",
+	Name: "serve",
+	Desc: `Start HTTP API server
+
+Listens on localhost:5563 by default. To change the address, set
+serve_addr in your config:
+
+  llmd config serve_addr "localhost:9090"
+
+Every registered command becomes an HTTP route — reads are GET,
+mutations are POST. Logs all requests to stderr. Shuts down
+gracefully on SIGINT or SIGTERM.
+
+See 'llmd guide serve' for the full route reference.`,
 	Usage: "serve",
 }
 
@@ -25,5 +36,5 @@ func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	s := server.New(addr, ctx.Author)
-	return nil, s.ListenAndServe()
+	return nil, s.ListenAndServe(ctx)
 }

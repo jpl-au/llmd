@@ -33,6 +33,7 @@ llmd audit <subcommand> [options]
 | `--version` | Pin to a specific document version |
 | `--pending` | Filter to pending/needs-work |
 | `--by-author` | Filter by who created the audit |
+| `--since` | Only show audits created after a time (e.g. `5m`, `1h`, RFC 3339) |
 
 ## Examples
 
@@ -94,6 +95,9 @@ llmd audit list --assignee claude-code
 
 # By exact status
 llmd audit list --status needs-work
+
+# Only audits from the last hour
+llmd audit list --since 1h
 ```
 
 ### Show a full thread

@@ -97,6 +97,7 @@ If a task has no document at all, write one with
 | `--column <col>` | Filter by column |
 | `--assign <name>` | Filter by assigned to |
 | `--priority <n>` | Filter by priority |
+| `--since <time>` | Only tasks created after (e.g. `5m`, `1h`, RFC 3339) |
 
 ## Examples
 

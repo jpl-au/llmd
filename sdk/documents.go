@@ -1,5 +1,7 @@
 package sdk
 
+import "time"
+
 // DocumentStore is the document storage interface. It covers reading,
 // writing, searching, history, and bulk operations on documents.
 type DocumentStore interface {
@@ -84,9 +86,10 @@ type Doc struct {
 
 // ListOpts configures List behaviour.
 type ListOpts struct {
-	Deleted bool   // Include soft-deleted documents
-	Sort    string // Sort field (default: path alphabetical)
-	Reverse bool   // Reverse the sort order
+	Deleted bool      // Include soft-deleted documents
+	Sort    string    // Sort field (default: path alphabetical)
+	Reverse bool      // Reverse the sort order
+	Since   time.Time // Only documents updated after this time
 }
 
 // GrepMode controls the granularity of grep results.
