@@ -41,4 +41,9 @@ llmd tag -f important
 ## Notes
 
 - Tags are simple strings with no hierarchy.
-- `llmd vacuum` removes orphaned tags that are no longer attached to any document.
+- Tags work on any document, including task spec documents. Use them
+  to track state beyond the board column (e.g. `needs-design`,
+  `has-migration`).
+- Use `tag -f` to find documents by tag across the store.
+- `llmd vacuum` removes orphaned tags that are no longer attached to
+  any document.

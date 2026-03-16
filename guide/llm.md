@@ -1,241 +1,216 @@
 # LLM integration guide
 
-How to use llmd from an AI agent.
+How to use llmd from an AI agent. llmd is a versioned document store —
+documents have paths, full version history, tags, and links. All content
+is plain text.
 
-## MCP server (recommended)
+## Self-help
 
-The fastest way to integrate is via MCP. Add llmd as an MCP server and
-the agent gets direct access to document tools.
+Call the "guide" tool for detailed help on any topic:
 
-Start the server:
+  guide                        overview and all commands
+  guide <topic>                detailed help (cat, grep, edit, tag, link,
+                               workflow, import, export, config, mcp, ...)
 
-```
-llmd mcp
-```
+## Connecting
 
-This exposes tools over stdio using the Model Context Protocol. Tool
-names match CLI commands, except where they would collide with common
-tool names:
+### MCP server (recommended)
 
-| CLI command | MCP tool name |
-|-------------|---------------|
-| `cat`       | `cat`         |
-| `write`     | `write`       |
-| `edit`      | `edit`        |
-| `ls`        | `ls`          |
-| `grep`      | `llmd_grep`   |
-| `find`      | `llmd_find`   |
-| `glob`      | `llmd_glob`   |
-| `tag`       | `tag`         |
-| `link`      | `link`        |
-| `history`   | `history`     |
-| `diff`      | `diff`        |
-| `rm`        | `rm`          |
-| `restore`   | `restore`     |
-| `revert`    | `revert`      |
-| `mv`        | `mv`          |
-| `sed`       | `sed`         |
-| `unlink`    | `unlink`      |
-| `audit`     | `audit`       |
-| `task`      | `task`        |
+Start with `llmd mcp`. Tools are exposed over stdio using the Model
+Context Protocol. Three tool names are renamed to avoid collisions:
 
-Each tool accepts `args` (array of strings) and `content` (string, used
-by write and edit for document bodies).
+  grep → llmd_grep    find → llmd_find    glob → llmd_glob
 
-## HTTP API
+All other tool names match their CLI command name (cat, write, edit, ls,
+rm, mv, tag, link, history, diff, restore, revert, sed, unlink, audit,
+task).
 
-When the agent can make HTTP requests (e.g. via a tool or fetch), the
-HTTP server provides a REST interface to all commands.
+All tools accept: `{"args": [...], "content": "...", "author": "..."}`
+Use `content` for document bodies (write, edit). Use `args` for
+everything else.
 
-Start the server:
+### HTTP API
 
-```
-llmd serve
-```
+Start with `llmd serve`. Read commands are `GET /<command>/<path>`,
+mutation commands are `POST /<command>/<path>`. Use the `Author` header
+for mutations, `Output: json` for structured responses. Query parameters
+map to flags (`?version=3`, `?n=5`). See `guide serve` for the full
+route reference.
 
-Routes follow a simple pattern: read commands are `GET /<command>/<path>`,
-mutation commands are `POST /<command>/<path>`. Headers carry metadata.
+### CLI
 
-| Action                | Request                                               |
-|-----------------------|-------------------------------------------------------|
-| Read a document       | `GET /cat/docs/readme`                                |
-| Read a version        | `GET /cat/docs/readme?version=2`                      |
-| List documents        | `GET /ls`                                             |
-| Search                | `GET /grep?q=authentication`                          |
-| Write a document      | `POST /write/docs/readme` with body and `Author` header |
-| Delete a document     | `POST /rm/docs/readme` with `Author` header           |
-| Version history       | `GET /history/docs/readme`                            |
-
-Headers:
-
-| Header   | Purpose                                        |
-|----------|------------------------------------------------|
-| `Author` | Required for mutations. Identifies the agent   |
-| `Message`| Version message for writes                     |
-| `Output` | Set to `json` to force JSON responses          |
-
-Query parameters map to command flags: `?version=3` becomes `--version 3`,
-`?n=5` becomes `-n 5`. The `q` parameter is special — it becomes the
-search pattern for grep and find.
-
-See `llmd guide serve` for the full route reference.
-
-## CLI fallback
-
-When MCP is not available, shell out to the llmd binary. Read commands
-work without `--author`; write commands require it:
+Shell out to the llmd binary. Read commands work without `--author`;
+mutation commands require it:
 
 ```
 llmd cat notes/readme
-llmd ls -l projects/
-echo "new content" | llmd --author "Claude" write notes/readme
-llmd grep "TODO" projects/
+llmd --author "Claude" write notes/readme
 llmd --author "Claude" edit notes/readme "old text" "new text"
 ```
 
-Use `--json` for structured output that is easier to parse:
-
-```
-llmd ls --json
-llmd history --json docs/spec
-llmd grep --json "budget"
-```
+Use `--json` for structured output that is easier to parse.
 
 ## Author attribution
 
-LLMs and scripts must pass `--author` on mutation commands. Do not
-pass `--author` on read commands — it is not needed.
+IMPORTANT: You MUST identify yourself on every mutation (write, edit,
+sed, rm, mv, restore, revert, tag, unlink, link, task, audit). This is
+how llmd tracks who made each change. Calls without author will be
+rejected.
 
-**Do not use `llmd config author` to set yourself as the author.** The
-config author is reserved for the human user. LLMs must always pass
-`--author` per command so that mutations are attributed correctly and
-the human's identity is not overwritten.
+Via MCP tools — include "author" in every tool call:
+  `{"author": "Claude", "args": ["notes/summary"], "content": "..."}`
 
-The `--author` flag goes before the command name:
+Via CLI — pass --author on the command line:
+  `llmd --author "Claude" write notes/summary`
 
-```
-llmd --author "Claude" write notes/readme
-```
+Via HTTP — send the `Author` header on POST requests.
 
-### Command reference: author requirements
+The "config author" setting is for the human user only — do not rely
+on it.
 
-| Command              | Needs `--author` | Notes                          |
-|----------------------|-------------------|--------------------------------|
-| `cat`                | No                | Read document                  |
-| `ls`                 | No                | List documents                 |
-| `grep`               | No                | Full-text search               |
-| `find`               | No                | Search, paths only             |
-| `glob`               | No                | Path pattern match             |
-| `history`            | No                | Version history                |
-| `diff`               | No                | Compare versions               |
-| `status`             | No                | Dashboard overview             |
-| `review`             | No                | Pending tasks                  |
-| `task list`          | No                | List tasks                     |
-| `task show`          | No                | Show a task                    |
-| `task column list`   | No                | List columns                   |
-| `audit list`         | No                | List audits                    |
-| `audit show`         | No                | Show audit thread              |
-| `tag -f <name>`      | No                | Find documents by tag          |
-| `tag <path>`         | No                | List tags on a document        |
-| `link <path>`        | No                | List links on a document       |
-| `write`              | Yes           | Create or update a document    |
-| `edit`               | Yes           | Search and replace             |
-| `sed`                | Yes           | Sed-style substitution         |
-| `rm`                 | Yes           | Soft-delete a document         |
-| `mv`                 | Yes           | Move or rename                 |
-| `restore`            | Yes           | Recover a deleted document     |
-| `revert`             | Yes           | Roll back to a previous version|
-| `import`             | Yes           | Import .md files               |
-| `tag <path> <name>`  | Yes           | Add a tag                      |
-| `tag -d <path>`      | Yes           | Remove a tag                   |
-| `link <from> <to>`   | Yes           | Create a link                  |
-| `unlink`             | Yes           | Remove a link                  |
-| `task add`           | Yes           | Create a task                  |
-| `task move`          | Yes           | Move a task between columns    |
-| `task set`           | Yes           | Update task fields             |
-| `task rm`            | Yes           | Delete a task                  |
-| `task start`         | Yes           | Start work on a task           |
-| `task finish`        | Yes           | Complete a task                |
-| `task branch`        | Yes           | Create a branch for a task     |
-| `audit add`          | Yes           | Create an audit                |
-| `audit reply`        | Yes           | Reply to an audit thread       |
-| `audit resolve`      | Yes           | Mark audit as approved         |
-| `audit rm`           | Yes           | Soft-delete an audit           |
-| `audit status`       | Yes           | Inbox (filtered by author)     |
+## Commands
 
-## Common patterns
+READ     cat <path>                  read document
+         cat -n <path>               with line numbers
+         cat --version N <path>      specific version
+         ls [path]                   list documents
 
-### Read a document
+WRITE    write <path>                create/update (body via content/stdin)
+         edit <path> <old> <new>     search and replace
+         sed 's/old/new/' <path>     sed-style substitution
 
-```
-llmd cat notes/readme
-llmd cat --version 2 notes/readme       # specific version
-llmd cat -n notes/readme                # with line numbers
-```
+SEARCH   grep <pattern> [path]       full-text search
+         find <query> [path]         search (paths only)
+         glob "docs/*.md"            path pattern match
 
-### Write or update
+ORGANISE tag <path> <name>           add tag
+         tag -f <name>               find docs by tag
+         link <from> <to>            link documents
+         link <path>                 list links
 
-```
-echo "content here" | llmd --author "Claude" write path/to/doc
-echo "updated" | llmd --author "Claude" write path/to/doc --message "why it changed"
-```
+HISTORY  history <path>              version log
+         diff <path>                 diff against previous
+         diff <path>:1 <path>:2      compare two versions
+         revert <path> <version>     restore old version
 
-### Search
+DELETE   rm <path>                   soft-delete
+         restore <path>              recover deleted
 
-```
-llmd grep "error handling"              # full-text search
-llmd find "authentication" projects/    # paths only
-llmd glob "specs/*.md"                  # path pattern match
-```
+TASKS    task list                   board view (all columns)
+         task show <id>              metadata + spec body
+         task add <title>            create task (body via content/stdin)
+         task move <id> <column>     move to column
+         task set <id> --flag hold   set flag, priority, assign, column
+         task finish <id>            approve and mark done
+         task rm <id>                soft-delete task (doc untouched)
 
-### Edit in place
+AUDITS   audit add <target> [text]   create review on doc or task
+         audit reply <id> [text]     reply to a thread
+         audit resolve <id>          mark as approved
+         audit list [target]         list audits (filterable)
+         audit show <id>             full thread
+         audit status                inbox: what needs my response
+         audit rm <id>               soft-delete
+         audit restore <id>          recover deleted audit
+
+VIEWS    status                      dashboard: recent docs, board, activity
+         review                      pending tasks with spec previews
+         review --column <name>      filter to a specific column
+
+## Task workflow
+
+Tasks flow through columns on a board:
+
+  backlog → up-next → in-progress → review → done
+
+Each task has a backing spec document that describes the work. Tasks
+cannot leave the backlog until the spec has content beyond the title
+(spec gating).
+
+### Orientation
+
+Start here to understand what needs doing:
 
 ```
-llmd --author "Claude" edit notes/readme "old text" "new text"
-llmd --author "Claude" sed 's/oldterm/newterm/' notes/readme
+status                          overview of board and recent activity
+review                          all tasks with spec previews
+review --column up-next         what's ready to start
+review --column review          what's waiting for review
+task show <id>                  full spec and metadata for one task
 ```
 
-### Organise with tags
+### Coder workflow
+
+Pick up work, do it, submit for review:
 
 ```
-llmd --author "Claude" tag notes/readme important    # add (mutation)
-llmd tag -f important                                # find (read-only)
-llmd --author "Claude" tag -d notes/readme important # remove (mutation)
+review --column up-next         see what's ready
+task show <id>                  read the spec
+task move <id> in-progress      claim the work
+(do the work)
+task move <id> review           submit for review
 ```
 
-### Review history
+Check your audit inbox regularly — reviewers leave feedback there:
 
 ```
-llmd history notes/readme
-llmd diff notes/readme                  # what changed last
-llmd diff notes/readme:1 notes/readme:3 # compare versions
+audit status                    threads assigned to you
+audit show <id>                 read full thread
+audit reply <id> "Fixed."       respond to feedback
 ```
 
-### Audits
+### Reviewer workflow
+
+Review submitted work, give feedback or approve:
 
 ```
-llmd --author "Claude" audit add docs/spec "Needs error handling."
-llmd --author "Claude" audit reply 0mmsfn7h1 "Fixed."
-llmd --author "Claude" audit resolve 0mmsfn7h1
-llmd audit list docs/spec
-llmd audit show 0mmsfn7h1
-llmd --author "Claude" audit status
+review --column review          see what's waiting
+task show <id>                  read the spec
+(inspect the work against the spec)
 ```
 
-### Polling for changes
-
-Use `--since` to cheaply check for new activity without fetching
-everything. Accepts a duration (`5m`, `1h`) or RFC 3339 timestamp:
+If the work needs changes, create an audit thread:
 
 ```
-llmd ls --since 5m                     # new/updated documents
-llmd task list --since 5m              # recently created tasks
-llmd audit list --since 5m             # recent audits
-llmd --author "Claude" audit status --since 5m  # recent inbox items
+audit add <id> "Issue description" --assignee <coder>
+```
+
+If the work is good, finish the task:
+
+```
+task finish <id>
+```
+
+### Audit threads
+
+Audits are the feedback mechanism between agents. They are immutable,
+insert-only review threads attached to a document or task.
+
+- `audit add <target> "comment"` — open a thread
+- `audit reply <id> "response"` — respond
+- `audit resolve <id>` — mark as approved
+- `audit status` — your inbox (threads assigned to you, awaiting response)
+
+Use `--assignee` to direct feedback to a specific agent. Use `--status`
+to set thread status (pending, needs-work, approved, rejected, info).
+
+See `guide audit` for full details.
+
+## Polling for changes
+
+Use `--since` to cheaply check for new activity:
+
+```
+ls --since 5m                     new/updated documents
+task list --since 5m              recently created tasks
+audit list --since 5m             recent audits
+audit status --since 5m           recent inbox items
 ```
 
 ## More help
 
-- `llmd guide` — full command reference
-- `llmd guide workflow` — best practices
-- `llmd <command> --help` — usage for a specific command
+- `guide` — full command reference
+- `guide workflow` — best practices and task lifecycle
+- `guide task` — task board details
+- `guide audit` — audit thread details
+- `<command> --help` — usage for a specific command

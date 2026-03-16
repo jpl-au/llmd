@@ -43,6 +43,19 @@ For each task, the review shows:
 - **Spec preview** — first few lines of the task's spec document
 - **Links** — documents linked to the task
 
+## Next steps
+
+After reviewing a task:
+
+- **Read the full spec** — `llmd task show <id>` for complete details.
+- **Flag an issue** — `llmd audit add <id> "description"` to open a
+  review thread. Use `--assignee` to direct it to the coder.
+- **Approve the work** — `llmd task finish <id>` to move it to done.
+- **Check for existing feedback** — `llmd audit list <id>` to see
+  whether there are already open threads on this task.
+
+See `guide workflow` for the full task lifecycle and review process.
+
 ## Notes
 
 - Output is styled when run in a terminal. Piped output is plain

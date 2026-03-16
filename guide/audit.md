@@ -152,6 +152,22 @@ The store determines whether the target is a document or task
 automatically. Valid 9-character base36 keys are treated as task IDs;
 everything else is a document path.
 
+## Task review workflow
+
+Audits are the primary feedback mechanism for task review. When a task
+lands in the review column:
+
+1. Reviewer reads the spec: `task show <id>`
+2. Reviewer inspects the work against the spec.
+3. If changes are needed: `audit add <id> "description" --assignee <coder>`
+4. Coder checks inbox: `audit status`
+5. Coder fixes and responds: `audit reply <audit-id> "Fixed."`
+6. Reviewer resolves the thread: `audit resolve <audit-id>`
+7. Once all threads are clear: `task finish <id>`
+
+See `guide workflow` for the full task lifecycle and `guide task` for
+task board details.
+
 ## Notes
 
 - Author is required for mutations (`add`, `reply`, `resolve`, `rm`,

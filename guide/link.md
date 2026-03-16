@@ -40,4 +40,6 @@ llmd link --both notes/meeting
 
 - Links are directional: from source to target.
 - Use `llmd unlink` to remove a link.
+- Tasks can also be linked to documents with `llmd task link <id> <path>`.
+  Linked documents appear in `review` output, giving reviewers context.
 - `llmd vacuum` removes orphaned links pointing to deleted documents.

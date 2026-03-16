@@ -188,6 +188,33 @@ Set or change the branch without moving the task:
 llmd task set a1b2c3d4e --branch feature-auth
 ```
 
+## Review and feedback
+
+When a task reaches the review column, reviewers use audit threads to
+give feedback:
+
+```bash
+# Review what's waiting
+llmd review --column review
+
+# Read the full spec
+llmd task show a1b2c3d4e
+
+# Flag an issue (assigns to the coder)
+llmd --author "reviewer" audit add a1b2c3d4e "Error handling missing" \
+  --assignee coder
+
+# Approve and mark done
+llmd --author "reviewer" task finish a1b2c3d4e
+```
+
+Coders check their audit inbox with `llmd audit status` to see
+feedback that needs a response. See `guide audit` for full details
+on threads and status values.
+
+See `guide workflow` for the complete task lifecycle and multi-agent
+collaboration patterns.
+
 ## Notes
 
 - Task IDs are 9-character keys (e.g. `a1b2c3d4e`).
