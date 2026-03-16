@@ -9,6 +9,10 @@
 //
 // Commands are registered automatically by walking [sdk.AllCommands],
 // so plugins that register commands get HTTP routes for free.
+//
+// The /events endpoint streams real-time store events via SSE. Agents
+// and external systems can subscribe to receive notifications when
+// documents, audits, tasks, tags, or links change.
 package server
 
 import (
@@ -19,28 +23,39 @@ import (
 	"time"
 
 	"github.com/jpl-au/chain"
+	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/sdk"
 )
 
 // Server is an HTTP API server for llmd. It dispatches incoming
 // requests to sdk commands, using the same dispatch mechanism as
-// the MCP server.
+// the MCP server. The SSE hub streams events to connected clients.
 type Server struct {
 	mux    *chain.Mux
 	addr   string
 	author string
+	sse    *sseHub
 }
 
 // New creates a server listening on addr. The author is the fallback
-// identity used when requests omit the Author header.
-func New(addr, author string) *Server {
+// identity used when requests omit the Author header. If subscribe
+// is non-nil, the server registers an SSE hub that streams store
+// events to connected clients via GET /events.
+func New(addr, author string, subscribe func(func(events.Event))) *Server {
 	s := &Server{
 		mux:    chain.New(),
 		addr:   addr,
 		author: author,
+		sse:    newSSEHub(),
 	}
 	s.mux.Use(s.log)
 	s.register()
+
+	if subscribe != nil {
+		subscribe(s.sse.Broadcast)
+		s.mux.Handle("GET /events", s.sse)
+	}
+
 	return s
 }
 

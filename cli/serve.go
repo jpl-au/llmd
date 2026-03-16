@@ -18,8 +18,11 @@ server.addr in your config:
   llmd config server.addr "localhost:9090"
 
 Every registered command becomes an HTTP route — reads are GET,
-mutations are POST. Logs all requests to stderr. Shuts down
-gracefully on SIGINT or SIGTERM.
+mutations are POST. The /events endpoint streams real-time store
+events via Server-Sent Events (SSE).
+
+Logs all requests to stderr. Shuts down gracefully on SIGINT or
+SIGTERM.
 
 See 'llmd guide serve' for the full route reference.`,
 	Usage: "serve",
@@ -31,6 +34,6 @@ func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 
-	s := server.New(cfg.Server.Addr, ctx.Author)
+	s := server.New(cfg.Server.Addr, ctx.Author, sdk.SubscribeEvents)
 	return nil, s.ListenAndServe(ctx)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/internal/term"
 	"github.com/jpl-au/llmd/internal/validate"
+	pkgevents "github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -201,6 +202,14 @@ func setup(store *llmd.Store) *Host {
 	// Store-independent globals — always available.
 	sdk.Git = igit.New()
 
+	// Event subscription — allows consumers (e.g. HTTP server) to
+	// receive store events without importing internal packages.
+	if store != nil {
+		sdk.SubscribeEvents = func(fn func(pkgevents.Event)) {
+			store.Bus().Subscribe(&callbackHandler{fn: fn})
+		}
+	}
+
 	// Set domain globals with a background context. These are used
 	// by tests and Yaegi plugins. CLI commands use per-request
 	// bridges from sdk.Context instead.
@@ -368,4 +377,16 @@ func (h *Host) PluginCommands() map[string]*sdk.Command {
 // (compiled extensions first, then Yaegi plugins).
 func (h *Host) Plugins() []sdk.Plugin {
 	return h.plugins
+}
+
+// callbackHandler adapts a plain function to the internal bus Handler
+// interface. Used by sdk.SubscribeEvents so consumers can subscribe
+// without importing internal packages.
+type callbackHandler struct {
+	fn func(pkgevents.Event)
+}
+
+func (h *callbackHandler) HandleEvent(_ context.Context, e pkgevents.Event) error {
+	h.fn(e)
+	return nil
 }

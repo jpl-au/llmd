@@ -4,6 +4,8 @@ package sdk
 import (
 	"context"
 	"errors"
+
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Common errors returned by commands. These allow callers to
@@ -161,3 +163,8 @@ var AllCommands func() map[string]*Command
 
 // PluginNames returns the names of loaded yaegi plugins. Set by the host.
 var PluginNames func() []string
+
+// SubscribeEvents registers a callback that receives all store events.
+// The callback is called synchronously on the emitting goroutine and
+// must not block. Set by the host at startup. Nil when no store is open.
+var SubscribeEvents func(func(events.Event))

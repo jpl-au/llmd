@@ -19,25 +19,25 @@ package events
 // entity key (document key, audit ID, task key, etc.).
 type Event struct {
 	// Type identifies the event (e.g., "document.written").
-	Type string
+	Type string `json:"type"`
 
 	// Path is the document or target path related to the event.
-	Path string
+	Path string `json:"path,omitempty"`
 
 	// Key is the entity key (document key, audit ID, task key, etc.).
-	Key string
+	Key string `json:"key,omitempty"`
 
 	// Version is the document version after the event (documents only).
-	Version int
+	Version int `json:"version,omitempty"`
 
 	// Author is the user or service that caused the event.
-	Author string
+	Author string `json:"author,omitempty"`
 
 	// Timestamp is the Unix timestamp (milliseconds) when the event occurred.
-	Timestamp int64
+	Timestamp int64 `json:"timestamp"`
 
 	// Metadata contains additional event-specific information.
-	Metadata map[string]any
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 // Event type constants follow "domain.action" naming.

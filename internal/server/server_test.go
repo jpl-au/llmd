@@ -36,7 +36,7 @@ func stubSDK(t *testing.T) {
 func TestListenAndServeShutdown(t *testing.T) {
 	stubSDK(t)
 
-	s := New("localhost:0", "test")
+	s := New("localhost:0", "test", nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -68,7 +68,7 @@ func TestLogMiddleware(t *testing.T) {
 	slog.SetDefault(slog.New(handler))
 	t.Cleanup(func() { slog.SetDefault(orig) })
 
-	s := New("localhost:0", "test")
+	s := New("localhost:0", "test", nil)
 	ts := httptest.NewServer(s.mux)
 	defer ts.Close()
 
@@ -103,7 +103,7 @@ func TestLogMiddlewareRecordsStatus(t *testing.T) {
 	slog.SetDefault(slog.New(handler))
 	t.Cleanup(func() { slog.SetDefault(orig) })
 
-	s := New("localhost:0", "test")
+	s := New("localhost:0", "test", nil)
 	ts := httptest.NewServer(s.mux)
 	defer ts.Close()
 
