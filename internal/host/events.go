@@ -110,6 +110,16 @@ func toExtEvent(e pkgevents.Event) extension.Event {
 		return auditExtEvent(extension.EventAuditDelete, e)
 	case pkgevents.AuditRestored:
 		return auditExtEvent(extension.EventAuditRestore, e)
+	case pkgevents.TaskCreated:
+		return taskExtEvent(extension.EventTaskCreate, e)
+	case pkgevents.TaskMoved:
+		return taskExtEvent(extension.EventTaskMove, e)
+	case pkgevents.TaskUpdated:
+		return taskExtEvent(extension.EventTaskUpdate, e)
+	case pkgevents.TaskDeleted:
+		return taskExtEvent(extension.EventTaskDelete, e)
+	case pkgevents.TaskRestored:
+		return taskExtEvent(extension.EventTaskRestore, e)
 	default:
 		return nil
 	}
@@ -128,6 +138,27 @@ func auditExtEvent(t extension.EventType, e pkgevents.Event) extension.AuditEven
 		}
 		if v, ok := m["parent_id"].(string); ok {
 			ev.ParentID = v
+		}
+	}
+	return ev
+}
+
+func taskExtEvent(t extension.EventType, e pkgevents.Event) extension.TaskEvent {
+	ev := extension.TaskEvent{
+		Type:   t,
+		Key:    e.Key,
+		Path:   e.Path,
+		Author: e.Author,
+	}
+	if m := e.Metadata; m != nil {
+		if v, ok := m["title"].(string); ok {
+			ev.Title = v
+		}
+		if v, ok := m["status"].(string); ok {
+			ev.Status = v
+		}
+		if v, ok := m["to"].(string); ok {
+			ev.Status = v
 		}
 	}
 	return ev

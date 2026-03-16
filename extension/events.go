@@ -27,6 +27,11 @@ const (
 	EventAuditResolve    EventType = "audit:resolve"
 	EventAuditDelete     EventType = "audit:delete"
 	EventAuditRestore    EventType = "audit:restore"
+	EventTaskCreate      EventType = "task:create"
+	EventTaskMove        EventType = "task:move"
+	EventTaskUpdate      EventType = "task:update"
+	EventTaskDelete      EventType = "task:delete"
+	EventTaskRestore     EventType = "task:restore"
 )
 
 // Event is the base interface for all events.
@@ -123,6 +128,20 @@ type AuditEvent struct {
 
 func (e AuditEvent) EventType() EventType { return e.Type }
 func (e AuditEvent) EventPath() string    { return e.Target }
+
+// TaskEvent is fired after a task mutation (create, move, update,
+// delete, restore).
+type TaskEvent struct {
+	Type   EventType
+	Key    string
+	Path   string
+	Author string
+	Title  string
+	Status string
+}
+
+func (e TaskEvent) EventType() EventType { return e.Type }
+func (e TaskEvent) EventPath() string    { return e.Path }
 
 // EventHandler is implemented by extensions that want to receive events.
 type EventHandler interface {

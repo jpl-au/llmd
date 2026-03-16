@@ -6,6 +6,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
+
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Set updates task metadata. All changes are applied in a single
@@ -95,6 +98,21 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 
 		return nil, nil
 	}).WithContext(ctx).Write()
+	if err != nil {
+		return err
+	}
 
-	return err
+	if t.bus != nil {
+		if err := t.bus.Emit(ctx, events.Event{
+			Type:      events.TaskUpdated,
+			Path:      tsk.Path,
+			Key:       key,
+			Author:    author,
+			Timestamp: time.Now().UnixMilli(),
+		}); err != nil {
+			return fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return nil
 }

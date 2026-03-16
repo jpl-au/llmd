@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
+
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Move changes a task's status (column).
@@ -66,8 +69,24 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 		recordTx(ctx, tx, author, "moved", key, oldStatus, status)
 		return nil, nil
 	}).WithContext(ctx).Write()
+	if err != nil {
+		return err
+	}
 
-	return err
+	if t.bus != nil {
+		if err := t.bus.Emit(ctx, events.Event{
+			Type:      events.TaskMoved,
+			Path:      tsk.Path,
+			Key:       key,
+			Author:    author,
+			Timestamp: time.Now().UnixMilli(),
+			Metadata:  map[string]any{"from": oldStatus, "to": status},
+		}); err != nil {
+			return fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // repositionTx moves a task to a specific position within its column,

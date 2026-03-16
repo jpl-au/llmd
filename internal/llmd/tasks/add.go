@@ -13,6 +13,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/key"
+	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/task"
 )
 
@@ -121,7 +122,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 
 	pos := result.Value.(int)
 
-	return &task.Task{
+	tsk := &task.Task{
 		Key:        k,
 		Title:      title,
 		Status:     status,
@@ -132,7 +133,22 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		Path:       path,
 		Origin:     opts.Origin,
 		CreatedAt:  now,
-	}, nil
+	}
+
+	if t.bus != nil {
+		if err := t.bus.Emit(ctx, events.Event{
+			Type:      events.TaskCreated,
+			Path:      path,
+			Key:       k,
+			Author:    opts.Author,
+			Timestamp: now,
+			Metadata:  map[string]any{"title": title, "status": status},
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return tsk, nil
 }
 
 // slug converts a title to a URL-friendly path component.

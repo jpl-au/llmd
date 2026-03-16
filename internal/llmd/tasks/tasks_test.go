@@ -36,7 +36,7 @@ func setup(t *testing.T) *Tasks {
 	ents := entities.New(db)
 	aud := audit.New(db)
 
-	return New(db, docs, ents, aud)
+	return New(db, docs, ents, aud, bus)
 }
 
 func TestAdd(t *testing.T) {

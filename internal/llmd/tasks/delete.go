@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/task"
 )
 
@@ -34,8 +35,23 @@ func (t *Tasks) Delete(ctx context.Context, key, author string) (*task.Task, err
 		recordTx(ctx, tx, author, "deleted", key, tsk.Status, "")
 		return nil, nil
 	}).WithContext(ctx).Write()
+	if err != nil {
+		return nil, err
+	}
 
-	return tsk, err
+	if t.bus != nil {
+		if err := t.bus.Emit(ctx, events.Event{
+			Type:      events.TaskDeleted,
+			Path:      tsk.Path,
+			Key:       key,
+			Author:    author,
+			Timestamp: now,
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return tsk, nil
 }
 
 // Restore undeletes a soft-deleted task. The update and audit record
@@ -61,6 +77,21 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 		recordTx(ctx, tx, author, "restored", key, "", tsk.Status)
 		return nil, nil
 	}).WithContext(ctx).Write()
+	if err != nil {
+		return nil, err
+	}
 
-	return tsk, err
+	if t.bus != nil {
+		if err := t.bus.Emit(ctx, events.Event{
+			Type:      events.TaskRestored,
+			Path:      tsk.Path,
+			Key:       key,
+			Author:    author,
+			Timestamp: time.Now().UnixMilli(),
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return tsk, nil
 }

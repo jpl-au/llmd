@@ -17,6 +17,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
+	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/qwr"
 )
@@ -69,6 +70,7 @@ type Tasks struct {
 	docs     *documents.Documents
 	entities *entities.Entities
 	audit    *audit.Log
+	bus      *events.Bus
 	once     sync.Once
 	err      error
 }
@@ -76,8 +78,8 @@ type Tasks struct {
 // New creates a Tasks instance with its dependencies. The tasks table
 // is not created until the first operation that requires it (Add, Read,
 // List, etc.), triggered by the ensure() call in each method.
-func New(db *qwr.Manager, docs *documents.Documents, ents *entities.Entities, audit *audit.Log) *Tasks {
-	return &Tasks{db: db, docs: docs, entities: ents, audit: audit}
+func New(db *qwr.Manager, docs *documents.Documents, ents *entities.Entities, audit *audit.Log, bus *events.Bus) *Tasks {
+	return &Tasks{db: db, docs: docs, entities: ents, audit: audit, bus: bus}
 }
 
 // ensure creates the tasks table if it does not exist.

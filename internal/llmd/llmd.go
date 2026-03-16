@@ -179,7 +179,7 @@ func (s *Store) wire() {
 	s.Links = links.New(s.db, s.Documents, s.bus)
 	s.Entities = entities.New(s.db)
 	s.Audit = audit.New(s.db)
-	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit)
+	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit, s.bus)
 	s.Audits = audits.New(s.db, s.bus)
 }
 
