@@ -14,7 +14,7 @@ llmd config <key> <value>
 
 | Flag | Description |
 |------|-------------|
-| `--global` | Write to `~/.llmd/config` instead of `.llmd/config` |
+| `--global` | Write to `~/.llmd/config.yaml` instead of `.llmd/config.yaml` |
 
 ## Examples
 
@@ -30,17 +30,49 @@ llmd config author "Alice"
 
 # Set the author globally
 llmd config --global author "Alice"
+
+# Set the server listen address
+llmd config server.addr "localhost:9090"
+
+# Set log level
+llmd config log.level debug
 ```
 
 ## Configuration keys
 
+Keys use dot notation for nested values. The config file is YAML.
+
 | Key | Description |
 |-----|-------------|
 | `author` | Default author for interactive terminal use |
-| `serve_addr` | HTTP server listen address (default `localhost:5563`) |
+| `server.addr` | HTTP server listen address (default `localhost:5563`) |
+| `log.level` | Log level: `debug`, `info`, `warn`, `error` |
+| `log.format` | Log format: `text`, `json` |
+| `limits.path_length` | Maximum document path length in bytes (default `1024`) |
+| `limits.content_size` | Maximum document content size in bytes (default `10485760`) |
 
-Two configuration files are consulted: global (`~/.llmd/config`) and
-local (`.llmd/config`). Local values override global values.
+## Config file
+
+Configuration is stored as YAML in `.llmd/config.yaml` (local) or
+`~/.llmd/config.yaml` (global). If a local file exists, it is used
+entirely — there is no merge with the global file.
+
+Example config.yaml:
+
+```yaml
+author: Alice
+
+server:
+  addr: localhost:9090
+
+log:
+  level: info
+  format: text
+
+limits:
+  path_length: 2048
+  content_size: 20971520
+```
 
 ## Git integration
 

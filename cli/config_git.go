@@ -13,28 +13,29 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func configGit(ctx sdk.Context, args []string) (sdk.Response, error) {
+func configGit(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return configGitList(ctx)
+		return configGitList()
 	}
 
 	switch args[0] {
 	case "ls", "list":
-		return configGitList(ctx)
+		return configGitList()
 	case "allow":
-		return configGitAllow(ctx, args[1:])
+		return configGitAllow(args[1:])
 	case "deny":
-		return configGitDeny(ctx, args[1:])
+		return configGitDeny(args[1:])
 	default:
 		return nil, fmt.Errorf("config git: unknown subcommand %q", args[0])
 	}
 }
 
-func configGitList(ctx sdk.Context) (sdk.Response, error) {
-	rules, err := ctx.Config.GitRules()
+func configGitList() (sdk.Response, error) {
+	rules, err := config.GitRules()
 	if err != nil {
 		return nil, err
 	}
@@ -47,21 +48,21 @@ func configGitList(ctx sdk.Context) (sdk.Response, error) {
 	}, nil
 }
 
-func configGitAllow(ctx sdk.Context, args []string) (sdk.Response, error) {
+func configGitAllow(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("config git allow: %w: pattern required", sdk.ErrMissingArg)
 	}
-	if err := ctx.Config.GitAllow(args[0]); err != nil {
+	if err := config.GitAllow(args[0]); err != nil {
 		return nil, fmt.Errorf("config git allow: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Allowed %s in .llmd/.gitignore", args[0])), nil
 }
 
-func configGitDeny(ctx sdk.Context, args []string) (sdk.Response, error) {
+func configGitDeny(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("config git deny: %w: pattern required", sdk.ErrMissingArg)
 	}
-	if err := ctx.Config.GitDeny(args[0]); err != nil {
+	if err := config.GitDeny(args[0]); err != nil {
 		return nil, fmt.Errorf("config git deny: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Denied %s in .llmd/.gitignore", args[0])), nil

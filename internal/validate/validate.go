@@ -18,23 +18,17 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-const (
-	defaultMaxPathLen    = 1024
-	defaultMaxContentLen = 10 * 1024 * 1024 // 10MB
-)
-
 // Limits holds configurable validation thresholds loaded from config.
 type Limits struct {
 	MaxPathLen    int
 	MaxContentLen int
 }
 
-// LoadLimits reads validation limits from config, falling back to
-// defaults for missing or unparseable values.
-func LoadLimits(cfg map[string]string) Limits {
+// LoadLimits converts config limit values into validation thresholds.
+func LoadLimits(lim config.LimitConfig) Limits {
 	return Limits{
-		MaxPathLen:    config.Int(cfg, "max-path-length", defaultMaxPathLen),
-		MaxContentLen: config.Int(cfg, "max-content-size", defaultMaxContentLen),
+		MaxPathLen:    lim.PathLength,
+		MaxContentLen: lim.ContentSize,
 	}
 }
 

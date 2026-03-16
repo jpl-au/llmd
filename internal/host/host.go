@@ -153,12 +153,12 @@ func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
 
 	// Fall back to config author for interactive terminals.
 	if term.Interactive() {
-		cfg, err := sdk.Config.Read()
+		cfg, err := config.Load()
 		if err != nil {
 			slog.Warn("reading config for author", "err", err)
 		}
-		if author := cfg["author"]; author != "" {
-			return author, nil
+		if cfg.Author != "" {
+			return cfg.Author, nil
 		}
 	}
 
@@ -190,7 +190,7 @@ func setup(store *llmd.Store) *Host {
 	if err != nil {
 		slog.Warn("loading config for validation limits", "err", err)
 	}
-	lim := validate.LoadLimits(cfg)
+	lim := validate.LoadLimits(cfg.Limits)
 
 	h := &Host{
 		store:    store,
@@ -200,7 +200,6 @@ func setup(store *llmd.Store) *Host {
 
 	// Store-independent globals — always available.
 	sdk.Git = igit.New()
-	sdk.Config = config.Store{}
 
 	// Set domain globals with a background context. These are used
 	// by tests and Yaegi plugins. CLI commands use per-request
@@ -314,7 +313,6 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		Stdin:   stdin,
 		DBPath:  dbPath,
 		Git:     sdk.Git,
-		Config:  sdk.Config,
 	}
 
 	// Create per-request bridges bound to the caller's context so

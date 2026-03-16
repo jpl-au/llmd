@@ -10,7 +10,7 @@ Every write records who made the change. Set your author name once:
 llmd config author "Alice"
 ```
 
-This writes to the local config at `.llmd/config`. To set it globally
+This writes to the local config at `.llmd/config.yaml`. To set it globally
 (across all stores), use `--global`:
 
 ```

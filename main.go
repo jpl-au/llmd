@@ -37,8 +37,8 @@ func run(args []string) int {
 
 	// A long-running server should default to Info-level logging so
 	// startup and request events are visible.
-	if g.Cmd == "serve" && cfg["log_level"] == "" && !g.Verbose {
-		cfg["log_level"] = "info"
+	if g.Cmd == "serve" && cfg.Log.Level == "" && !g.Verbose {
+		cfg.Log.Level = "info"
 	}
 
 	initLog(cfg, g.JSON, g.Verbose)

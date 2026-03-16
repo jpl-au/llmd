@@ -3,19 +3,21 @@ package main
 import (
 	"log/slog"
 	"os"
+
+	"github.com/jpl-au/llmd/internal/config"
 )
 
 // initLog configures the process-wide slog logger. By default the
 // level is Warn (quiet CLI). --verbose overrides to Debug. Config
-// keys log_level and log_format provide persistent control. --json
+// keys log.level and log.format provide persistent control. --json
 // implies JSON-formatted logs so structured output stays
 // machine-readable.
-func initLog(cfg map[string]string, jsonOut, verbose bool) {
+func initLog(cfg config.Config, jsonOut, verbose bool) {
 	level := slog.LevelWarn
 	if verbose {
 		level = slog.LevelDebug
-	} else if v, ok := cfg["log_level"]; ok {
-		switch v {
+	} else {
+		switch cfg.Log.Level {
 		case "debug":
 			level = slog.LevelDebug
 		case "info":
@@ -27,7 +29,7 @@ func initLog(cfg map[string]string, jsonOut, verbose bool) {
 		}
 	}
 
-	format := cfg["log_format"]
+	format := cfg.Log.Format
 	if jsonOut {
 		format = "json"
 	}

@@ -9,10 +9,10 @@ llmd serve
 ```
 
 The server listens on `localhost:5563` by default. To change the address,
-set `serve_addr` in your store config:
+set `server.addr` in your config:
 
 ```
-llmd config serve_addr "localhost:9090"
+llmd config server.addr "localhost:9090"
 ```
 
 ## How routes work

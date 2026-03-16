@@ -1,129 +1,223 @@
 // Package config reads and writes llmd configuration files.
 //
-// Config uses a simple "key=value" format. Two files are merged:
-// global (~/.llmd/config) and local (.llmd/config), with local
-// values taking precedence.
+// Config uses nested YAML. Two file locations are checked: local
+// (.llmd/config.yaml) and global (~/.llmd/config.yaml). If a local
+// file exists it is used; otherwise the global file is used. There
+// is no merge — one file wins entirely.
 package config
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
-// Load merges global and local configuration. Local values override
-// global ones, so a project can set its own author without affecting
-// other stores. Returns partial config alongside any errors so callers
-// can fall back to defaults when a file is unreadable.
-func Load() (map[string]string, error) {
-	cfg := make(map[string]string)
-	var errs []error
+// Config holds all configuration values. Fields map directly to
+// the nested YAML structure in config.yaml.
+type Config struct {
+	Author string       `yaml:"author,omitempty"`
+	Server ServerConfig `yaml:"server,omitempty"`
+	Log    LogConfig    `yaml:"log,omitempty"`
+	Limits LimitConfig  `yaml:"limits,omitempty"`
+}
+
+// ServerConfig holds HTTP server settings.
+type ServerConfig struct {
+	Addr string `yaml:"addr,omitempty"`
+}
+
+// LogConfig holds logging settings.
+type LogConfig struct {
+	Level  string `yaml:"level,omitempty"`
+	Format string `yaml:"format,omitempty"`
+}
+
+// LimitConfig holds validation thresholds.
+type LimitConfig struct {
+	PathLength  int `yaml:"path_length,omitempty"`
+	ContentSize int `yaml:"content_size,omitempty"`
+}
+
+// Defaults returns a Config with sensible default values. Fields
+// that have no universal default (author, log level/format) are
+// left as zero values — consumers apply contextual defaults.
+func Defaults() Config {
+	return Config{
+		Server: ServerConfig{
+			Addr: "localhost:5563",
+		},
+		Limits: LimitConfig{
+			PathLength:  1024,
+			ContentSize: 10 * 1024 * 1024, // 10 MB
+		},
+	}
+}
+
+// Load reads configuration from disk. It checks local
+// (.llmd/config.yaml) first; if that exists, it is used. Otherwise
+// the global file (~/.llmd/config.yaml) is used. Defaults are
+// applied for any values not present in the file.
+func Load() (Config, error) {
+	cfg := Defaults()
+
+	local := filepath.Join(".llmd", "config.yaml")
+	if data, err := os.ReadFile(local); err == nil {
+		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			return cfg, fmt.Errorf("local config: %w", err)
+		}
+		return cfg, nil
+	} else if !os.IsNotExist(err) {
+		return cfg, fmt.Errorf("local config: %w", err)
+	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		errs = append(errs, fmt.Errorf("global config: %w", err))
-	} else {
-		if err := loadFile(filepath.Join(home, ".llmd", "config"), cfg); err != nil {
-			errs = append(errs, fmt.Errorf("global config: %w", err))
+		return cfg, nil
+	}
+	global := filepath.Join(home, ".llmd", "config.yaml")
+	data, err := os.ReadFile(global)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return cfg, nil
 		}
+		return cfg, fmt.Errorf("global config: %w", err)
 	}
-
-	// Local overrides global.
-	if err := loadFile(filepath.Join(".llmd", "config"), cfg); err != nil {
-		errs = append(errs, fmt.Errorf("local config: %w", err))
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return cfg, fmt.Errorf("global config: %w", err)
 	}
-
-	return cfg, errors.Join(errs...)
+	return cfg, nil
 }
 
-// Save writes a key=value to a config file, preserving any existing
-// values. When global is true it writes to ~/.llmd/config;
-// otherwise it writes to the local .llmd/config.
+// Save writes a single config value by dot-notation key. When
+// global is true it writes to ~/.llmd/config.yaml; otherwise it
+// writes to the local .llmd/config.yaml. Only the target file is
+// read and rewritten — the other file is not touched.
 func Save(key, value string, global bool) error {
-	path := filepath.Join(".llmd", "config")
+	path := filepath.Join(".llmd", "config.yaml")
 	if global {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return err
 		}
-		path = filepath.Join(home, ".llmd", "config")
+		path = filepath.Join(home, ".llmd", "config.yaml")
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 
-	cfg := make(map[string]string)
-	if err := loadFile(path, cfg); err != nil {
+	// Load existing values from this specific file (no defaults
+	// applied — we only persist what the user has set).
+	var cfg Config
+	if data, err := os.ReadFile(path); err == nil {
+		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			return fmt.Errorf("reading existing config: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("reading existing config: %w", err)
 	}
-	cfg[key] = value
 
-	f, err := os.Create(path)
-	if err != nil {
+	if err := cfg.Set(key, value); err != nil {
 		return err
 	}
-	defer f.Close()
 
-	for k, v := range cfg {
-		fmt.Fprintf(f, "%s=%s\n", k, v)
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshalling config: %w", err)
 	}
-	return nil
+	return os.WriteFile(path, data, 0o644)
 }
 
-// Path returns the config file path that would be used for writes.
-// Local .llmd/config takes precedence over global config.
+// Path returns the config file path that would be used for reads.
+// Local .llmd/config.yaml takes precedence over global.
 func Path() string {
-	local := filepath.Join(".llmd", "config")
+	local := filepath.Join(".llmd", "config.yaml")
 	if _, err := os.Stat(local); err == nil {
 		return local
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".llmd", "config")
+	return filepath.Join(home, ".llmd", "config.yaml")
 }
 
-// Int returns the integer value for key, or fallback if the key is
-// missing or not a valid integer.
-func Int(cfg map[string]string, key string, fallback int) int {
-	s, ok := cfg[key]
-	if !ok {
-		return fallback
+// Keys returns all valid dot-notation config keys.
+func Keys() []string {
+	return []string{
+		"author",
+		"server.addr",
+		"log.level",
+		"log.format",
+		"limits.path_length",
+		"limits.content_size",
 	}
-	v, err := strconv.Atoi(s)
-	if err != nil {
-		return fallback
-	}
-	return v
 }
 
-// loadFile reads a "key=value" config file into cfg. Returns nil if
-// the file does not exist (config is optional). Returns an error for
-// permission failures or other I/O problems.
-func loadFile(path string, cfg map[string]string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
+// Field returns the string representation of a config value by
+// dot-notation key. The second return indicates whether the field
+// has a non-zero value.
+func (c Config) Field(key string) (string, bool) {
+	switch key {
+	case "author":
+		return c.Author, c.Author != ""
+	case "server.addr":
+		return c.Server.Addr, c.Server.Addr != ""
+	case "log.level":
+		return c.Log.Level, c.Log.Level != ""
+	case "log.format":
+		return c.Log.Format, c.Log.Format != ""
+	case "limits.path_length":
+		if c.Limits.PathLength == 0 {
+			return "", false
 		}
-		return err
+		return strconv.Itoa(c.Limits.PathLength), true
+	case "limits.content_size":
+		if c.Limits.ContentSize == 0 {
+			return "", false
+		}
+		return strconv.Itoa(c.Limits.ContentSize), true
+	default:
+		return "", false
 	}
-	defer f.Close()
+}
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
+// Set assigns a value to a config field by dot-notation key.
+// Returns an error for unknown keys or invalid values.
+func (c *Config) Set(key, value string) error {
+	switch key {
+	case "author":
+		c.Author = value
+	case "server.addr":
+		c.Server.Addr = value
+	case "log.level":
+		switch value {
+		case "debug", "info", "warn", "error":
+		default:
+			return fmt.Errorf("log.level must be one of: debug, info, warn, error")
 		}
-		if idx := strings.Index(line, "="); idx > 0 {
-			key := strings.TrimSpace(line[:idx])
-			value := strings.TrimSpace(line[idx+1:])
-			cfg[key] = value
+		c.Log.Level = value
+	case "log.format":
+		switch value {
+		case "text", "json":
+		default:
+			return fmt.Errorf("log.format must be one of: text, json")
 		}
+		c.Log.Format = value
+	case "limits.path_length":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("limits.path_length must be an integer")
+		}
+		c.Limits.PathLength = n
+	case "limits.content_size":
+		n, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("limits.content_size must be an integer")
+		}
+		c.Limits.ContentSize = n
+	default:
+		return fmt.Errorf("unknown config key: %s", key)
 	}
-	return scanner.Err()
+	return nil
 }

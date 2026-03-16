@@ -47,7 +47,6 @@ var (
 	Activities ActivityStore
 	Mirror     MirrorStore
 	Git        GitStore
-	Config     ConfigStore
 )
 
 // Plugin is the interface that command providers implement. The host
@@ -109,7 +108,6 @@ type Context struct {
 	Activities ActivityStore
 	Mirror     MirrorStore
 	Git        GitStore
-	Config     ConfigStore
 }
 
 // Response is the marker interface for command return values. It uses
