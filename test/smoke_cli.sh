@@ -148,6 +148,43 @@ _smoke_cli() {
         log_fail "audit restore recovers audit: got '$out'"
     fi
 
+    # --- gitignore whitelist ---
+    out=$(cat .llmd/.gitignore 2>&1)
+    if echo "$out" | grep -q '^\*$'; then
+        log_pass "init creates whitelist gitignore"
+    else
+        log_fail "init creates whitelist gitignore: got '$out'"
+    fi
+
+    if echo "$out" | grep -q '!\.gitignore'; then
+        log_pass "gitignore allows .gitignore through"
+    else
+        log_fail "gitignore allows .gitignore through: got '$out'"
+    fi
+
+    if echo "$out" | grep -q '!\*\.db'; then
+        log_pass "gitignore allows *.db through"
+    else
+        log_fail "gitignore allows *.db through: got '$out'"
+    fi
+
+    # --- config git allow/deny/ls ---
+    $llmd config git allow "reports/" >/dev/null 2>&1
+    out=$($llmd config git ls 2>&1)
+    if echo "$out" | grep -q '!reports/'; then
+        log_pass "config git allow adds whitelist entry"
+    else
+        log_fail "config git allow adds whitelist entry: got '$out'"
+    fi
+
+    $llmd config git deny "reports/" >/dev/null 2>&1
+    out=$($llmd config git ls 2>&1)
+    if echo "$out" | grep -q '!reports/'; then
+        log_fail "config git deny removes whitelist entry: still present"
+    else
+        log_pass "config git deny removes whitelist entry"
+    fi
+
     # --- error on missing author ---
     echo "no author" | $llmd write docs/fail >/dev/null 2>&1 && rc=0 || rc=$?
     if [ "$rc" -ne 0 ]; then
