@@ -16,16 +16,6 @@ It works well as a way to easily provide customised documentation for LLMs
 for any project. And because it's using SQLite3, your docs are easily
 accessible even without llmd: just use SQLite3's command line interface.
 
-## How it helps
-
-**llmd** is a SQLite-backed document store where both you and your AI agents
-write context. Everything is versioned automatically, searchable, and
-organised in a single database file. Commit it to git and share context
-across sessions. Agents interact via the **MCP server** — native integration with
-Claude Code, Cursor, and other MCP clients. For humans (and agents that
-prefer it), the CLI mirrors standard Unix commands — `cat`, `ls`, `grep`,
-`sed`.
-
 ## Key Features
 
 - **Auto-versioning** — Every write creates a new version. Diff and revert anytime.
@@ -35,6 +25,7 @@ prefer it), the CLI mirrors standard Unix commands — `cat`, `ls`, `grep`,
 - **Task board** — Track work with columns, priorities, and git branch integration.
 - **Audit threads** — Agent-to-agent and human-to-agent review threads on documents and tasks.
 - **MCP server** — Native integration with Claude Code, Cursor, and other MCP clients.
+- **HTTP API** — REST interface for programmatic access.
 
 ### llmd teaches itself to your agents
 
@@ -66,7 +57,6 @@ llmd cat docs/api                            # read it back
 llmd sed -i 's/API/REST API/' docs/api       # edit with sed
 llmd grep "API" docs/                        # search
 llmd history docs/api                        # see version history
-llmd llm                                     # quick command reference
 ```
 
 ## Commands
@@ -77,18 +67,20 @@ Writing:    write, edit, sed, rm, mv, restore, revert
 History:    history, diff
 Tags:       tag, link, unlink
 Tasks:      task, status, review
-Audits:     audit (add, reply, list, show, resolve, rm, status)
+Audits:     audit (add, reply, list, show, resolve, rm, restore, status)
 Bulk:       import, export, mirror
 Admin:      init, config, vacuum, version, mcp, serve, plugins
 Help:       guide, llm
 ```
 
 Run `llmd <command> --help` for usage, or `llmd guide <topic>` for
-detailed documentation. Agents can run `llmd llm` for a quick reference.
+detailed documentation on any command. See `llmd guide mcp` for MCP
+integration, `llmd guide serve` for the HTTP API, and `llmd guide llm`
+for AI agent integration patterns.
 
 ## MCP Server
 
-For Claude Code, Cursor, or other MCP clients:
+Add llmd as an MCP server in your editor config:
 
 ```json
 {
@@ -101,77 +93,8 @@ For Claude Code, Cursor, or other MCP clients:
 }
 ```
 
-Use `--db` to connect to a specific database:
-
-```json
-{
-  "mcpServers": {
-    "llmd-docs": {
-      "command": "llmd",
-      "args": ["--db", "docs", "mcp"]
-    }
-  }
-}
-```
-
-You can run multiple llmd servers for different databases simultaneously.
-
-## HTTP Server
-
-Start the HTTP API server for programmatic access:
-
-```bash
-llmd serve
-```
-
-The server listens on `localhost:8080` by default. Override with:
-
-```bash
-llmd config serve_addr "localhost:3000"
-```
-
-URL paths mirror CLI commands — `/cat/docs/api`, `/write/docs/api`,
-`/grep?q=hello`. Headers carry metadata (`Author`, `Message`, `Source`).
-POST bodies carry raw document content.
-
-```bash
-# Read a document
-curl http://localhost:8080/cat/docs/api
-
-# Write a document
-curl -X POST http://localhost:8080/write/docs/api \
-  -H "Author: alice" \
-  -H "Message: initial draft" \
-  -d "# API Documentation"
-
-# Search
-curl http://localhost:8080/grep?q=hello
-
-# Request JSON output
-curl -H "Output: json" http://localhost:8080/ls
-```
-
-## Storage
-
-All data lives in a `.llmd/` directory. By default, llmd searches upward from
-the current directory to find it (like git finds `.git/`).
-
-Documents are stored in `.llmd/llmd.db`. You can have multiple databases
-(e.g., `llmd-docs.db`, `llmd-notes.db`) and switch between them with `--db`:
-
-```bash
-llmd init --db docs       # create llmd-docs.db
-llmd ls --db docs         # use it
-```
-
-`llmd init` creates a `.llmd/.gitignore` that excludes SQLite temp files and
-mirrored output. The database itself is committed by default (shared context).
-Manage ignore patterns with `llmd config ignore add/rm/ls`.
-
-## Documentation
-
-Full documentation is available via `llmd guide` or browse the
-[guide/](guide/) directory.
+See `llmd guide mcp` for details on tool naming, input schema, and
+author attribution.
 
 ## Acknowledgements
 
