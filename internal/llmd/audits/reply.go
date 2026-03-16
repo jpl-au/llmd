@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Reply adds a response to an existing audit thread. If the parent is
@@ -54,7 +55,7 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 		return nil, fmt.Errorf("inserting reply: %w", err)
 	}
 
-	return &Audit{
+	result := &Audit{
 		ID:         id,
 		Target:     parent.Target,
 		TargetType: parent.TargetType,
@@ -65,7 +66,26 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 		Content:    opts.Content,
 		ParentID:   threadID,
 		CreatedAt:  now,
-	}, nil
+	}
+
+	if a.bus != nil {
+		eventType := events.AuditReplied
+		if status == "approved" {
+			eventType = events.AuditResolved
+		}
+		if err := a.bus.Emit(ctx, events.Event{
+			Type:      eventType,
+			Path:      parent.Target,
+			Key:       id,
+			Author:    opts.Author,
+			Timestamp: now,
+			Metadata:  map[string]any{"parent_id": threadID, "status": status},
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return result, nil
 }
 
 // read fetches a single audit by ID, including soft-deleted.

@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Resolve inserts a new entry with status "approved" and empty content.
@@ -44,6 +46,19 @@ func (a *Audits) Restore(ctx context.Context, id, author string) (*Audit, error)
 	if err != nil {
 		return nil, fmt.Errorf("restoring audit: %w", err)
 	}
+
+	if a.bus != nil {
+		if err := a.bus.Emit(ctx, events.Event{
+			Type:      events.AuditRestored,
+			Path:      aud.Target,
+			Key:       id,
+			Author:    author,
+			Timestamp: time.Now().UnixMilli(),
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
 	return aud, nil
 }
 
@@ -69,5 +84,17 @@ func (a *Audits) Delete(ctx context.Context, id, author string) error {
 	if err != nil {
 		return fmt.Errorf("deleting audit: %w", err)
 	}
+
+	if a.bus != nil {
+		if err := a.bus.Emit(ctx, events.Event{
+			Type:      events.AuditDeleted,
+			Key:       id,
+			Author:    author,
+			Timestamp: now,
+		}); err != nil {
+			return fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
 	return nil
 }

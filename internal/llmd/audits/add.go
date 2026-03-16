@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // AddOptions configures an audit add operation.
@@ -57,7 +58,7 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 		return nil, fmt.Errorf("inserting audit: %w", err)
 	}
 
-	return &Audit{
+	result := &Audit{
 		ID:         id,
 		Target:     opts.Target,
 		TargetType: targetType,
@@ -67,7 +68,22 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 		Status:     status,
 		Content:    opts.Content,
 		CreatedAt:  now,
-	}, nil
+	}
+
+	if a.bus != nil {
+		if err := a.bus.Emit(ctx, events.Event{
+			Type:      events.AuditCreated,
+			Path:      opts.Target,
+			Key:       id,
+			Author:    opts.Author,
+			Timestamp: now,
+			Metadata:  map[string]any{"assignee": opts.Assignee, "status": status},
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
+	}
+
+	return result, nil
 }
 
 // inferTargetType returns "task" if the target looks like a valid task

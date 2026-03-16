@@ -4,12 +4,16 @@
 // (except for soft-delete via deleted_at). Thread status is derived from
 // the most recent entry. The table is created lazily on first use, so
 // stores that never use audits pay no schema cost.
+//
+// The package emits events via the event bus after mutations so
+// cross-cutting concerns can react without coupling.
 package audits
 
 import (
 	"errors"
 	"sync"
 
+	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/qwr"
 )
 
@@ -47,13 +51,14 @@ var (
 // table is created lazily on first use via sync.Once.
 type Audits struct {
 	db   *qwr.Manager
+	bus  *events.Bus
 	once sync.Once
 	err  error
 }
 
 // New creates an Audits instance.
-func New(db *qwr.Manager) *Audits {
-	return &Audits{db: db}
+func New(db *qwr.Manager, bus *events.Bus) *Audits {
+	return &Audits{db: db, bus: bus}
 }
 
 // ensure creates the audits table if it does not exist.

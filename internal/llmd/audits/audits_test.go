@@ -25,7 +25,7 @@ func openTestDB(t *testing.T) *qwr.Manager {
 
 func TestAdd(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	aud, err := store.Add(ctx, AddOptions{
@@ -57,7 +57,7 @@ func TestAdd(t *testing.T) {
 
 func TestAddMissingAuthor(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	_, err := store.Add(ctx, AddOptions{Target: "docs/api", Content: "test"})
@@ -68,7 +68,7 @@ func TestAddMissingAuthor(t *testing.T) {
 
 func TestAddMissingTarget(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	_, err := store.Add(ctx, AddOptions{Author: "gemini", Content: "test"})
@@ -103,7 +103,7 @@ func TestInferTargetType(t *testing.T) {
 
 func TestReply(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	parent, err := store.Add(ctx, AddOptions{
@@ -142,7 +142,7 @@ func TestReply(t *testing.T) {
 
 func TestReplyReassign(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	parent, _ := store.Add(ctx, AddOptions{
@@ -163,7 +163,7 @@ func TestReplyReassign(t *testing.T) {
 
 func TestReplyFlattensToTopLevel(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	top, _ := store.Add(ctx, AddOptions{
@@ -187,7 +187,7 @@ func TestReplyFlattensToTopLevel(t *testing.T) {
 
 func TestRead(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	created, _ := store.Add(ctx, AddOptions{
@@ -208,7 +208,7 @@ func TestRead(t *testing.T) {
 
 func TestReadNotFound(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	// Ensure table exists.
@@ -224,7 +224,7 @@ func TestReadNotFound(t *testing.T) {
 
 func TestThread(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	top, _ := store.Add(ctx, AddOptions{
@@ -251,7 +251,7 @@ func TestThread(t *testing.T) {
 
 func TestList(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	store.Add(ctx, AddOptions{Target: "docs/api", Content: "A.", Author: "gemini", Assignee: "claude-code"})
@@ -288,7 +288,7 @@ func TestList(t *testing.T) {
 
 func TestListPending(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	aud1, _ := store.Add(ctx, AddOptions{Target: "docs/api", Content: "A.", Author: "gemini"})
@@ -310,7 +310,7 @@ func TestListPending(t *testing.T) {
 
 func TestResolve(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	top, _ := store.Add(ctx, AddOptions{
@@ -334,7 +334,7 @@ func TestResolve(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	aud, _ := store.Add(ctx, AddOptions{
@@ -355,7 +355,7 @@ func TestDelete(t *testing.T) {
 
 func TestRestore(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	aud, _ := store.Add(ctx, AddOptions{
@@ -391,7 +391,7 @@ func TestRestore(t *testing.T) {
 
 func TestRestoreMissingAuthor(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	aud, _ := store.Add(ctx, AddOptions{
@@ -407,7 +407,7 @@ func TestRestoreMissingAuthor(t *testing.T) {
 
 func TestStatus(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	// Gemini creates audit assigned to claude-code.
@@ -452,7 +452,7 @@ func TestStatus(t *testing.T) {
 
 func TestStatusReassign(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	// Gemini creates audit assigned to claude-code.
@@ -481,7 +481,7 @@ func TestStatusReassign(t *testing.T) {
 
 func TestListSince(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db)
+	store := New(db, nil)
 	ctx := context.Background()
 
 	old, _ := store.Add(ctx, AddOptions{

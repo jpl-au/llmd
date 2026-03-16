@@ -17,11 +17,16 @@ const (
 	EventDocumentWrite   EventType = "document:write"
 	EventDocumentDelete  EventType = "document:delete"
 	EventDocumentRestore EventType = "document:restore"
+	EventDocumentMove    EventType = "document:move"
 	EventTagAdd          EventType = "tag:add"
 	EventTagRemove       EventType = "tag:remove"
-	EventDocumentMove    EventType = "document:move"
 	EventLinkCreate      EventType = "link:create"
 	EventLinkRemove      EventType = "link:remove"
+	EventAuditCreate     EventType = "audit:create"
+	EventAuditReply      EventType = "audit:reply"
+	EventAuditResolve    EventType = "audit:resolve"
+	EventAuditDelete     EventType = "audit:delete"
+	EventAuditRestore    EventType = "audit:restore"
 )
 
 // Event is the base interface for all events.
@@ -104,6 +109,20 @@ func (e LinkEvent) EventType() EventType {
 	return EventLinkRemove
 }
 func (e LinkEvent) EventPath() string { return e.FromPath }
+
+// AuditEvent is fired after an audit mutation (create, reply, resolve,
+// delete, restore).
+type AuditEvent struct {
+	Type     EventType
+	ID       string
+	Target   string
+	Author   string
+	Status   string
+	ParentID string
+}
+
+func (e AuditEvent) EventType() EventType { return e.Type }
+func (e AuditEvent) EventPath() string    { return e.Target }
 
 // EventHandler is implemented by extensions that want to receive events.
 type EventHandler interface {

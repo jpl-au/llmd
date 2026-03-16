@@ -100,7 +100,35 @@ func toExtEvent(e pkgevents.Event) extension.Event {
 			Tag:      label,
 			Created:  e.Type == pkgevents.LinkCreated,
 		}
+	case pkgevents.AuditCreated:
+		return auditExtEvent(extension.EventAuditCreate, e)
+	case pkgevents.AuditReplied:
+		return auditExtEvent(extension.EventAuditReply, e)
+	case pkgevents.AuditResolved:
+		return auditExtEvent(extension.EventAuditResolve, e)
+	case pkgevents.AuditDeleted:
+		return auditExtEvent(extension.EventAuditDelete, e)
+	case pkgevents.AuditRestored:
+		return auditExtEvent(extension.EventAuditRestore, e)
 	default:
 		return nil
 	}
+}
+
+func auditExtEvent(t extension.EventType, e pkgevents.Event) extension.AuditEvent {
+	ev := extension.AuditEvent{
+		Type:   t,
+		ID:     e.Key,
+		Target: e.Path,
+		Author: e.Author,
+	}
+	if m := e.Metadata; m != nil {
+		if v, ok := m["status"].(string); ok {
+			ev.Status = v
+		}
+		if v, ok := m["parent_id"].(string); ok {
+			ev.ParentID = v
+		}
+	}
+	return ev
 }
