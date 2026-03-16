@@ -2,6 +2,9 @@
 
 package telemetry
 
+// Enabled reports whether telemetry is compiled into this build.
+const Enabled = false
+
 // Init is a no-op when telemetry is not compiled in.
 func Init() {}
 

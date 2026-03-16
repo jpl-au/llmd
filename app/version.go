@@ -23,6 +23,7 @@ var (
 	Built       = ""      // RFC3339 build timestamp
 	Edition     = ""      // Build edition, empty for standard
 	BaseVersion = ""      // Base module version when edition is set
+	Diagnostics = false   // Set by main when telemetry build tag is active
 )
 
 // Info holds structured build information assembled from the injected
@@ -35,6 +36,7 @@ type Info struct {
 	GitCommit   string `json:"git_commit"`
 	GoVersion   string `json:"go_version"`
 	Platform    string `json:"platform"`
+	Diagnostics bool   `json:"diagnostics"`
 }
 
 // Version returns the current build information. Runtime values
@@ -49,6 +51,7 @@ func Version() Info {
 		GitCommit:   Commit,
 		GoVersion:   runtime.Version(),
 		Platform:    fmt.Sprintf("%s %s", runtime.GOOS, runtime.GOARCH),
+		Diagnostics: Diagnostics,
 	}
 }
 
@@ -66,5 +69,8 @@ func (i Info) String() string {
 	fmt.Fprintf(&b, "Go Version:   %s\n", i.GoVersion)
 	fmt.Fprintf(&b, "Platform:     %s\n", i.Platform)
 	fmt.Fprintf(&b, "Git Commit:   %s\n", i.GitCommit)
+	if i.Diagnostics {
+		fmt.Fprintf(&b, "Diagnostics:  enabled\n")
+	}
 	return b.String()
 }

@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// Enabled reports whether telemetry is compiled into this build.
+const Enabled = true
+
 var (
 	mu   sync.Mutex
 	file *os.File

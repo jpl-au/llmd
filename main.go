@@ -12,6 +12,7 @@ import (
 
 	"log/slog"
 
+	"github.com/jpl-au/llmd/app"
 	_ "github.com/jpl-au/llmd/cli"
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/host"
@@ -37,6 +38,7 @@ func run(args []string) int {
 		slog.Warn("reading config", "err", cfgErr)
 	}
 
+	app.Diagnostics = telemetry.Enabled
 	telemetry.Init()
 	defer telemetry.Close()
 
