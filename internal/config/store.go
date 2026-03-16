@@ -8,6 +8,6 @@ type Store struct{}
 
 func (Store) Read() (map[string]string, error)                  { return Load() }
 func (Store) Write(key, value string, opts sdk.WriteOpts) error { return Save(key, value, opts.Global) }
-func (Store) IgnorePatterns() ([]string, error)                 { return IgnorePatterns() }
-func (Store) AddIgnore(pattern string) error                    { return AddIgnore(pattern) }
-func (Store) RemoveIgnore(pattern string) error                 { return RemoveIgnore(pattern) }
+func (Store) GitRules() ([]string, error)                       { return GitRules() }
+func (Store) GitAllow(pattern string) error                     { return GitAllow(pattern) }
+func (Store) GitDeny(pattern string) error                      { return GitDeny(pattern) }

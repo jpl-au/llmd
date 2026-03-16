@@ -1,12 +1,12 @@
 // gitignore.go manages the .llmd/.gitignore file.
 //
-// The gitignore file controls which files inside .llmd/ are excluded
-// from version control. It uses standard gitignore format: one pattern
-// per line, # comments, blank lines for readability.
+// The gitignore uses a whitelist approach: everything is ignored by
+// default, and specific files are allowed through with ! patterns.
+// This means new files (telemetry logs, temp files, plugins) are
+// automatically excluded without maintaining a growing blocklist.
 //
 // llmd only manages .llmd/.gitignore — it never touches the project's
-// root .gitignore. The default file ignores SQLite temp files and the
-// mirror output directory for the default database.
+// root .gitignore.
 package config
 
 import (
@@ -19,12 +19,14 @@ import (
 )
 
 // defaultGitignore is written by InitGitignore for new stores.
-const defaultGitignore = `# SQLite temp files (always ignore)
-*.db-wal
-*.db-shm
+// Whitelist approach: ignore everything, then allow only the files
+// that should be committed (the database and this gitignore).
+const defaultGitignore = `# Ignore everything by default
+*
 
-# Mirrored files (generated from store)
-llmd/
+# Allow the database and this file
+!*.db
+!.gitignore
 `
 
 // gitignorePath returns the path to the local .llmd/.gitignore.
@@ -43,9 +45,9 @@ func InitGitignore() error {
 	return os.WriteFile(path, []byte(defaultGitignore), 0644)
 }
 
-// IgnorePatterns returns all non-comment, non-blank lines from
+// GitRules returns all non-comment, non-blank lines from
 // .llmd/.gitignore. Returns nil (not error) if the file does not exist.
-func IgnorePatterns() ([]string, error) {
+func GitRules() ([]string, error) {
 	f, err := os.Open(gitignorePath())
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -67,22 +69,38 @@ func IgnorePatterns() ([]string, error) {
 	return patterns, sc.Err()
 }
 
-// AddIgnore appends a pattern to .llmd/.gitignore if not already
-// present. Creates the file if it does not exist.
-func AddIgnore(pattern string) error {
+// GitAllow adds a whitelist entry to .llmd/.gitignore so the pattern
+// is committed. The ! prefix is added automatically — callers pass
+// the bare pattern (e.g. "reports/" not "!reports/").
+func GitAllow(pattern string) error {
 	pattern = strings.TrimSpace(pattern)
 	if pattern == "" {
 		return fmt.Errorf("empty pattern")
 	}
 
-	patterns, err := IgnorePatterns()
+	entry := "!" + pattern
+
+	rules, err := GitRules()
 	if err != nil {
 		return err
 	}
-	if slices.Contains(patterns, pattern) {
+	if slices.Contains(rules, entry) {
 		return nil
 	}
 
+	return appendLine(entry)
+}
+
+// GitDeny removes a whitelist entry from .llmd/.gitignore so the
+// pattern is no longer committed. The ! prefix is added automatically.
+func GitDeny(pattern string) error {
+	pattern = strings.TrimSpace(pattern)
+	entry := "!" + pattern
+	return removeLine(entry)
+}
+
+// appendLine adds a line to the gitignore file.
+func appendLine(line string) error {
 	path := gitignorePath()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -94,19 +112,17 @@ func AddIgnore(pattern string) error {
 	}
 	defer f.Close()
 
-	_, err = fmt.Fprintln(f, pattern)
+	_, err = fmt.Fprintln(f, line)
 	return err
 }
 
-// RemoveIgnore removes a pattern from .llmd/.gitignore. Returns an
-// error if the pattern is not found or the file does not exist.
-func RemoveIgnore(pattern string) error {
-	pattern = strings.TrimSpace(pattern)
+// removeLine removes a line from the gitignore file.
+func removeLine(line string) error {
 	path := gitignorePath()
 
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("pattern not found: %s", pattern)
+		return fmt.Errorf("pattern not found: %s", line)
 	}
 	if err != nil {
 		return err
@@ -115,21 +131,22 @@ func RemoveIgnore(pattern string) error {
 	lines := strings.Split(string(data), "\n")
 	found := false
 	var out []string
-	for _, line := range lines {
-		if strings.TrimSpace(line) == pattern {
+	for _, l := range lines {
+		if strings.TrimSpace(l) == line {
 			found = true
 			continue
 		}
-		out = append(out, line)
+		out = append(out, l)
 	}
 	if !found {
-		return fmt.Errorf("pattern not found: %s", pattern)
+		return fmt.Errorf("pattern not found: %s", line)
 	}
 
 	return os.WriteFile(path, []byte(strings.Join(out, "\n")), 0644)
 }
 
-// EnsureIgnored adds a pattern if not already present.
-func EnsureIgnored(pattern string) error {
-	return AddIgnore(pattern)
+// EnsureAllowed adds a whitelist entry if not already present.
+// Used by mirror to ensure its output directory is committed.
+func EnsureAllowed(pattern string) error {
+	return GitAllow(pattern)
 }

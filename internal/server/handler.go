@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -55,6 +56,14 @@ func (s *Server) handle(cmd string) http.HandlerFunc {
 		}
 
 		result, err := sdk.Dispatch(r.Context(), cmd, args, author, stdin, "")
+		telemetry.Emit(telemetry.Entry{
+			Source:  "http",
+			Command: cmd,
+			Args:    args,
+			Author:  author,
+			Success: err == nil,
+			Error:   telemetry.ErrStr(err),
+		})
 		if err != nil {
 			writeDispatchError(w, err)
 			return

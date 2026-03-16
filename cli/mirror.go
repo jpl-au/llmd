@@ -14,7 +14,6 @@ package cli
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -52,11 +51,6 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 	r, err := ctx.Mirror.Pull(prefix, dir)
 	if err != nil {
 		return nil, fmt.Errorf("mirror pull: %w", err)
-	}
-
-	// Ensure the mirror directory is in .llmd/.gitignore.
-	if err := ctx.Config.AddIgnore(filepath.Base(dir) + "/"); err != nil {
-		return nil, fmt.Errorf("updating gitignore: %w", err)
 	}
 
 	var parts []string

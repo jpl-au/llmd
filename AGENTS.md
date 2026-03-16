@@ -514,7 +514,7 @@ is set or when no text representation exists.
 `ErrNoSpec` → 422. All errors return JSON `{"error": "..."}`.
 
 **Configuration:** Listen address is read from `serve_addr` config key,
-defaulting to `localhost:8080`. No flags or environment variables.
+defaulting to `localhost:5563`. No flags or environment variables.
 
 **Skipped commands:** `mcp`, `serve`, `init`, `config`, `version`, `plugins`,
 `guide`, `llm` are not exposed over HTTP — they are admin or local-only.
@@ -524,29 +524,28 @@ Go 1.22's enhanced `net/http` routing with middleware support.
 
 ## Gitignore Management
 
-llmd manages `.llmd/.gitignore` to exclude ephemeral files from version
-control. It never touches the project's root `.gitignore`.
+llmd manages `.llmd/.gitignore` using a whitelist approach: everything
+is ignored by default, and specific files are allowed through with `!`
+patterns. This means new files (telemetry logs, temp files, mirror
+output) are automatically excluded without maintaining a growing
+blocklist. llmd never touches the project's root `.gitignore`.
 
 **Default `.llmd/.gitignore` (created by `llmd init`):**
 ```
-*.db-wal
-*.db-shm
-llmd/
+*
+!*.db
+!.gitignore
 ```
 
-SQLite temp files and the default mirror directory are always ignored.
+Everything is ignored except database files and the gitignore itself.
 The database (`llmd.db`) is committed by default — shared context is
-the intended use case. Users who want local-only stores can add the
-database to the ignore list.
-
-**Mirror auto-registration:** `llmd mirror` adds its output directory
-(e.g. `llmd/`, `llmd-docs/`) to the gitignore if not already present.
+the intended use case.
 
 **CLI management:**
 ```bash
-llmd config ignore ls              # list patterns
-llmd config ignore add "*.db"      # ignore all databases
-llmd config ignore rm "*.db"       # remove pattern
+llmd config git ls                 # list current rules
+llmd config git allow "reports/"   # allow reports/ to be committed
+llmd config git deny "reports/"    # stop allowing reports/
 ```
 
 ## Logging

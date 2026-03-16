@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/jpl-au/llmd/app"
+	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/sdk"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -109,6 +110,14 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 		}
 
 		result, err := sdk.Dispatch(ctx, cmdName, input.Args, a, stdin, "")
+		telemetry.Emit(telemetry.Entry{
+			Source:  "mcp",
+			Command: cmdName,
+			Args:    input.Args,
+			Author:  a,
+			Success: err == nil,
+			Error:   telemetry.ErrStr(err),
+		})
 		if err != nil {
 			return &mcp.CallToolResult{
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},

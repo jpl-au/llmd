@@ -4,7 +4,7 @@
 
 _smoke_http() {
     local work_dir llmd out code server_pid ready
-    local base="http://localhost:8080"
+    local base="http://localhost:5563"
     work_dir=$(mktemp -d)
     llmd="$LLMD_BIN"
 
@@ -14,7 +14,7 @@ _smoke_http() {
     $llmd init >/dev/null 2>&1
     echo "# Smoke Doc" | $llmd --author "smoke" write docs/smoke >/dev/null 2>&1
 
-    # Start the server (uses default localhost:8080).
+    # Start the server (uses default localhost:5563).
     $llmd --author "http-smoke" serve >/dev/null 2>&1 &
     server_pid=$!
 

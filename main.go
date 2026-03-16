@@ -15,6 +15,7 @@ import (
 	_ "github.com/jpl-au/llmd/cli"
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/host"
+	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/internal/term"
 )
 
@@ -35,6 +36,9 @@ func run(args []string) int {
 	if cfgErr != nil {
 		slog.Warn("reading config", "err", cfgErr)
 	}
+
+	telemetry.Init()
+	defer telemetry.Close()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()

@@ -8,7 +8,7 @@ Start an HTTP API server exposing llmd commands as REST endpoints.
 llmd serve
 ```
 
-The server listens on `localhost:8080` by default. To change the address,
+The server listens on `localhost:5563` by default. To change the address,
 set `serve_addr` in your store config:
 
 ```
@@ -102,7 +102,7 @@ The request body is passed as stdin to the command. This is how document
 content is sent for `write`, `edit`, and similar commands:
 
 ```bash
-curl -X POST http://localhost:8080/write/docs/readme \
+curl -X POST http://localhost:5563/write/docs/readme \
   -H "Author: Claude" \
   -H "Message: initial draft" \
   -d "# Project README
@@ -139,19 +139,19 @@ Errors return JSON with an `error` field:
 ### Read a document
 
 ```bash
-curl http://localhost:8080/cat/docs/readme
+curl http://localhost:5563/cat/docs/readme
 ```
 
 ### Read a specific version
 
 ```bash
-curl "http://localhost:8080/cat/docs/readme?version=2"
+curl "http://localhost:5563/cat/docs/readme?version=2"
 ```
 
 ### Write a document
 
 ```bash
-curl -X POST http://localhost:8080/write/docs/readme \
+curl -X POST http://localhost:5563/write/docs/readme \
   -H "Author: Claude" \
   -d "# Updated content"
 ```
@@ -159,45 +159,45 @@ curl -X POST http://localhost:8080/write/docs/readme \
 ### Search
 
 ```bash
-curl "http://localhost:8080/grep?q=authentication"
+curl "http://localhost:5563/grep?q=authentication"
 ```
 
 ### List documents as JSON
 
 ```bash
-curl -H "Output: json" http://localhost:8080/ls
+curl -H "Output: json" http://localhost:5563/ls
 ```
 
 ### List documents under a prefix
 
 ```bash
-curl http://localhost:8080/ls/projects/
+curl http://localhost:5563/ls/projects/
 ```
 
 ### Version history
 
 ```bash
-curl http://localhost:8080/history/docs/readme
+curl http://localhost:5563/history/docs/readme
 ```
 
 ### Delete a document
 
 ```bash
-curl -X POST http://localhost:8080/rm/docs/old-draft \
+curl -X POST http://localhost:5563/rm/docs/old-draft \
   -H "Author: Claude"
 ```
 
 ### Add a tag
 
 ```bash
-curl -X POST "http://localhost:8080/tag/docs/readme?q=important" \
+curl -X POST "http://localhost:5563/tag/docs/readme?q=important" \
   -H "Author: Claude"
 ```
 
 ### Create an audit
 
 ```bash
-curl -X POST http://localhost:8080/audit/add/docs/spec \
+curl -X POST http://localhost:5563/audit/add/docs/spec \
   -H "Author: Gemini" \
   -d "Error handling in section 3 is incomplete."
 ```

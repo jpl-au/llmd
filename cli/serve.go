@@ -21,7 +21,7 @@ func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	addr := cfg["serve_addr"]
 	if addr == "" {
-		addr = "localhost:8080"
+		addr = "localhost:5563"
 	}
 
 	s := server.New(addr, ctx.Author)

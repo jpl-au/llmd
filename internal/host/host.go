@@ -15,6 +15,7 @@ import (
 	igit "github.com/jpl-au/llmd/internal/git"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/plugin"
+	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/internal/term"
 	"github.com/jpl-au/llmd/internal/validate"
 	"github.com/jpl-au/llmd/sdk"
@@ -83,15 +84,32 @@ type RunOpts struct {
 // CLI invocations — callers provide parsed flags and get back a
 // response.
 func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
+	emit := func(err error) {
+		e := telemetry.Entry{
+			Source:  "cli",
+			Command: opts.Cmd,
+			Args:    opts.Args,
+			Author:  opts.Author,
+			Success: err == nil,
+		}
+		if err != nil {
+			e.Error = err.Error()
+		}
+		telemetry.Emit(e)
+	}
+
 	c := h.commands[opts.Cmd]
 	if c == nil {
-		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, opts.Cmd)
+		err := fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, opts.Cmd)
+		emit(err)
+		return nil, err
 	}
 
 	// Open a store if the command requires one.
 	if h.store == nil && !h.storeless(opts.Cmd) {
 		store, err := llmd.Open(opts.DB)
 		if err != nil {
+			emit(err)
 			return nil, err
 		}
 		defer store.Close()
@@ -103,10 +121,13 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 
 	author, err := h.resolveAuthor(opts.Author, c.cmd.NeedsAuthor)
 	if err != nil {
+		emit(err)
 		return nil, err
 	}
 
-	return h.Exec(ctx, opts.Cmd, opts.Args, author, opts.Stdin, opts.DB)
+	resp, err := h.Exec(ctx, opts.Cmd, opts.Args, author, opts.Stdin, opts.DB)
+	emit(err)
+	return resp, err
 }
 
 // storeless reports whether the command can run without a store.
