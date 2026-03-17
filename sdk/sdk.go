@@ -75,6 +75,10 @@ type Plugin interface {
 // NeedsAuthor marks commands that create versions (write, edit, rm, mv,
 // restore, revert). The host checks this before dispatch and requires
 // an author to be configured.
+//
+// Streams marks commands that take over the raw I/O streams (stdin/stdout)
+// for their own protocol. The host must not pre-read stdin for these
+// commands. Examples: mcp (JSON-RPC over stdio), serve (HTTP).
 type Command struct {
 	Name        string
 	Desc        string
@@ -83,6 +87,7 @@ type Command struct {
 	MCP         bool
 	MCPName     string
 	NeedsAuthor bool
+	Streams     bool
 }
 
 // Context carries per-invocation data to commands. It embeds

@@ -25,7 +25,8 @@ Logs all requests to stderr. Shuts down gracefully on SIGINT or
 SIGTERM.
 
 See 'llmd guide serve' for the full route reference.`,
-	Usage: "serve",
+	Usage:   "serve",
+	Streams: true,
 }
 
 func serve(ctx sdk.Context, args []string) (sdk.Response, error) {

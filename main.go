@@ -69,11 +69,20 @@ func run(args []string) int {
 		return errorf(g.JSON, "unknown command: %s", g.Cmd)
 	}
 
+	// Commands that take over the raw I/O streams (mcp, serve) manage
+	// stdin themselves. The host only pre-reads stdin for one-shot
+	// commands that accept piped input (write, edit).
+	var stdin []byte
+	cmds := h.Commands()
+	if c := cmds[g.Cmd]; c == nil || !c.Streams {
+		stdin = term.ReadStdin()
+	}
+
 	result, err := h.Run(ctx, host.RunOpts{
 		Cmd:    g.Cmd,
 		Args:   g.Args,
 		Author: g.Author,
-		Stdin:  term.ReadStdin(),
+		Stdin:  stdin,
 		DB:     g.DB,
 	})
 	if err != nil {
