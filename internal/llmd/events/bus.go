@@ -1,11 +1,10 @@
-// Package events provides the internal event bus for document operations.
+// Package events provides the internal event bus for store mutations.
 //
-// The bus connects packages that need to react to document changes without
-// direct dependencies. Handlers subscribe to events and are called
-// synchronously in subscription order when an event is emitted. Currently
-// the only subscriber is the FTS search index handler, which keeps the
-// full-text index in sync with document writes, deletes, restores, and
-// moves.
+// The bus connects packages that need to react to changes without direct
+// dependencies. Handlers subscribe to events and are called synchronously
+// in subscription order when an event is emitted. Subscribers include the
+// FTS search index, the extension event bridge, the SSE hub, and the
+// webhook dispatcher.
 //
 // Events are fire-and-forget: handlers observe after the fact and cannot
 // block or veto the originating operation. If a handler returns an error,

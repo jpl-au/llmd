@@ -17,6 +17,10 @@ type auditAPI struct {
 	store *llmd.Store
 }
 
+// newAuditAPI creates the SDK-to-internal bridge for audit operations.
+// The context is captured once and reused for all calls because the
+// host creates one API instance per session — each session has a
+// single cancellation scope.
 func newAuditAPI(store *llmd.Store, ctx context.Context) *auditAPI {
 	return &auditAPI{ctx: ctx, store: store}
 }
@@ -54,6 +58,7 @@ func auditToSDK(a *audits.Audit) sdk.Audit {
 	}
 }
 
+// Add implements [sdk.AuditStore].
 func (a *auditAPI) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
 	aud, err := a.store.Audits.Add(a.ctx, audits.AddOptions{
 		Target:   opts.Target,
@@ -70,6 +75,7 @@ func (a *auditAPI) Add(opts sdk.AuditOpts) (*sdk.Audit, error) {
 	return &out, nil
 }
 
+// Reply implements [sdk.AuditStore].
 func (a *auditAPI) Reply(id string, opts sdk.AuditOpts) (*sdk.Audit, error) {
 	aud, err := a.store.Audits.Reply(a.ctx, id, audits.AddOptions{
 		Content:  opts.Content,
@@ -84,6 +90,7 @@ func (a *auditAPI) Reply(id string, opts sdk.AuditOpts) (*sdk.Audit, error) {
 	return &out, nil
 }
 
+// Read implements [sdk.AuditStore].
 func (a *auditAPI) Read(id string) (*sdk.Audit, error) {
 	aud, err := a.store.Audits.Read(a.ctx, id)
 	if err != nil {
@@ -93,6 +100,7 @@ func (a *auditAPI) Read(id string) (*sdk.Audit, error) {
 	return &out, nil
 }
 
+// List implements [sdk.AuditStore].
 func (a *auditAPI) List(opts sdk.AuditListOpts) ([]sdk.Audit, error) {
 	var sinceMS int64
 	if !opts.Since.IsZero() {
@@ -116,6 +124,7 @@ func (a *auditAPI) List(opts sdk.AuditListOpts) ([]sdk.Audit, error) {
 	return out, nil
 }
 
+// Thread implements [sdk.AuditStore].
 func (a *auditAPI) Thread(id string) ([]sdk.Audit, error) {
 	aa, err := a.store.Audits.Thread(a.ctx, id)
 	if err != nil {
@@ -128,6 +137,7 @@ func (a *auditAPI) Thread(id string) ([]sdk.Audit, error) {
 	return out, nil
 }
 
+// Resolve implements [sdk.AuditStore].
 func (a *auditAPI) Resolve(id, author string) (*sdk.Audit, error) {
 	aud, err := a.store.Audits.Resolve(a.ctx, id, author)
 	if err != nil {
@@ -137,10 +147,12 @@ func (a *auditAPI) Resolve(id, author string) (*sdk.Audit, error) {
 	return &out, nil
 }
 
+// Delete implements [sdk.AuditStore].
 func (a *auditAPI) Delete(id, author string) error {
 	return auditErr(a.store.Audits.Delete(a.ctx, id, author))
 }
 
+// Restore implements [sdk.AuditStore].
 func (a *auditAPI) Restore(id, author string) (*sdk.Audit, error) {
 	aud, err := a.store.Audits.Restore(a.ctx, id, author)
 	if err != nil {
@@ -150,6 +162,7 @@ func (a *auditAPI) Restore(id, author string) (*sdk.Audit, error) {
 	return &out, nil
 }
 
+// Status implements [sdk.AuditStore].
 func (a *auditAPI) Status(author string, opts sdk.AuditStatusOpts) (*sdk.AuditStatus, error) {
 	var sinceMS int64
 	if !opts.Since.IsZero() {

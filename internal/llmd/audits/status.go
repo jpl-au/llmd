@@ -5,6 +5,7 @@ package audits
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
@@ -99,7 +100,8 @@ func (a *Audits) Status(ctx context.Context, author string, sinceMS int64) (*Sta
 }
 
 // effectiveStatus returns the status of the most recent entry in a
-// thread. Falls back to "pending" on error.
+// thread. Falls back to "pending" if the query fails, logging the
+// error so it is not silently lost.
 func (a *Audits) effectiveStatus(ctx context.Context, threadID string) string {
 	var status string
 	row, err := a.db.Query(`
@@ -110,9 +112,11 @@ func (a *Audits) effectiveStatus(ctx context.Context, threadID string) string {
 		LIMIT 1
 	`, threadID, threadID).WithContext(ctx).ReadRow()
 	if err != nil {
+		slog.Debug("effectiveStatus: query failed", "thread", threadID, "err", err)
 		return "pending"
 	}
 	if err := row.Scan(&status); err != nil {
+		slog.Debug("effectiveStatus: scan failed", "thread", threadID, "err", err)
 		return "pending"
 	}
 	return status

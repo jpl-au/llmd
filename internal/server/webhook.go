@@ -28,13 +28,13 @@ type webhookEndpoint struct {
 
 // newWebhookHub creates a hub from the webhook configuration map.
 // Returns nil if no webhook endpoints are configured.
-func newWebhookHub(webhooks map[string]config.WebhookConfig) *webhookHub {
-	if len(webhooks) == 0 {
+func newWebhookHub(webhook map[string]config.WebhookConfig) *webhookHub {
+	if len(webhook) == 0 {
 		return nil
 	}
 
 	h := &webhookHub{}
-	for name, wh := range webhooks {
+	for name, wh := range webhook {
 		opt := options.New().
 			AddHeader("Content-Type", "application/json")
 		if wh.Key != "" {
