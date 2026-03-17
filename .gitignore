@@ -35,6 +35,8 @@ pre-bench.txt
 # Test output
 coverage.out
 coverage.html
+test/listener/listener
+test/llmd
 
 # Build artifacts
 dist/

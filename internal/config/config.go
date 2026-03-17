@@ -18,10 +18,17 @@ import (
 // Config holds all configuration values. Fields map directly to
 // the nested YAML structure in config.yaml.
 type Config struct {
-	Author string       `yaml:"author,omitempty"`
-	Server ServerConfig `yaml:"server,omitempty"`
-	Log    LogConfig    `yaml:"log,omitempty"`
-	Limits LimitConfig  `yaml:"limits,omitempty"`
+	Author  string                   `yaml:"author,omitempty"`
+	Server  ServerConfig             `yaml:"server,omitempty"`
+	Log     LogConfig                `yaml:"log,omitempty"`
+	Limits  LimitConfig              `yaml:"limits,omitempty"`
+	Webhook map[string]WebhookConfig `yaml:"webhook,omitempty"`
+}
+
+// WebhookConfig holds settings for a single webhook endpoint.
+type WebhookConfig struct {
+	URL string `yaml:"url"`
+	Key string `yaml:"key,omitempty"`
 }
 
 // ServerConfig holds HTTP server settings.

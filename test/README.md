@@ -19,6 +19,14 @@ and cleans up after itself.
 |------|-------------|
 | `smoke_cli.sh` | Core CLI commands: init, write, cat, ls, grep, sed, tag, mv, rm, restore, revert, diff, task, version |
 | `smoke_http.sh` | HTTP API: GET/POST routes, content round-trips, JSON output, error codes |
+| `smoke_telemetry.sh` | Telemetry and observability |
+| `smoke_webhooks.sh` | Webhook delivery: event broadcast, auth headers, payload verification |
+
+## Supporting tools
+
+| Directory | Description |
+|-----------|-------------|
+| `listener/` | Minimal HTTP server for webhook smoke tests. Logs POST bodies to stdout, shuts down on `DELETE /shutdown`. |
 
 ## Adding a new suite
 

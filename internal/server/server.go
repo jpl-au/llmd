@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/jpl-au/chain"
+	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -37,15 +38,15 @@ type Server struct {
 	sse    *sseHub
 }
 
-// New creates a server listening on addr. The author is the fallback
-// identity used when requests omit the Author header. If subscribe
-// is non-nil, the server registers an SSE hub that streams store
-// events to connected clients via GET /events.
-func New(addr, author string, subscribe func(func(events.Event))) *Server {
+// New creates a server from the given config. If subscribe is
+// non-nil, the server registers an SSE hub that streams store
+// events to connected clients via GET /events, and a webhook hub
+// that POSTs events to configured endpoints.
+func New(cfg config.Config, subscribe func(func(events.Event))) *Server {
 	s := &Server{
 		mux:    chain.New(),
-		addr:   addr,
-		author: author,
+		addr:   cfg.Server.Addr,
+		author: cfg.Author,
 		sse:    newSSEHub(),
 	}
 	s.mux.Use(s.log)
@@ -54,6 +55,11 @@ func New(addr, author string, subscribe func(func(events.Event))) *Server {
 	if subscribe != nil {
 		subscribe(s.sse.Broadcast)
 		s.mux.Handle("GET /events", s.sse)
+
+		if wh := newWebhookHub(cfg.Webhook); wh != nil {
+			subscribe(wh.Broadcast)
+			slog.Info("webhook enabled", "endpoints", len(wh.endpoints))
+		}
 	}
 
 	return s

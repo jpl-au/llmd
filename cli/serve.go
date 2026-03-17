@@ -34,6 +34,6 @@ func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 
-	s := server.New(cfg.Server.Addr, ctx.Author, sdk.SubscribeEvents)
+	s := server.New(cfg, sdk.SubscribeEvents)
 	return nil, s.ListenAndServe(ctx)
 }
