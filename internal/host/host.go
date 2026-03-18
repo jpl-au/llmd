@@ -220,6 +220,7 @@ func setup(store *llmd.Store) *Host {
 		sdk.Links = newLinkAPI(store, lim, bg)
 		sdk.Tags = newTagAPI(store, lim, bg)
 		sdk.Audits = newAuditAPI(store, bg)
+		sdk.Queue = newQueueAPI(store, bg)
 		sdk.Activities = newActivityAPI(store, bg)
 		sdk.Mirror = newMirrorAPI(store, bg)
 	}
@@ -332,6 +333,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		sctx.Links = newLinkAPI(h.store, h.lim, ctx)
 		sctx.Tags = newTagAPI(h.store, h.lim, ctx)
 		sctx.Audits = newAuditAPI(h.store, ctx)
+		sctx.Queue = newQueueAPI(h.store, ctx)
 		sctx.Activities = newActivityAPI(h.store, ctx)
 		sctx.Mirror = newMirrorAPI(h.store, ctx)
 	}

@@ -32,6 +32,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/llmd/internal/llmd/history"
 	"github.com/jpl-au/llmd/internal/llmd/links"
+	"github.com/jpl-au/llmd/internal/llmd/messages"
 	"github.com/jpl-au/llmd/internal/llmd/search"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
@@ -54,6 +55,7 @@ type Store struct {
 	Entities  *entities.Entities
 	Tasks     *tasks.Tasks
 	Audits    *audits.Audits
+	Messages  *messages.Messages
 	Audit     *audit.Log
 
 	db   *qwr.Manager
@@ -181,6 +183,7 @@ func (s *Store) wire() {
 	s.Audit = audit.New(s.db)
 	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit, s.bus)
 	s.Audits = audits.New(s.db, s.bus)
+	s.Messages = messages.New(s.db, s.bus)
 }
 
 // Close closes the store. qwr handles WAL checkpoint on close when
