@@ -49,7 +49,7 @@ After reviewing a task:
 
 - **Read the full spec** — `llmd task show <id>` for complete details.
 - **Flag an issue** — `llmd audit add <id> "description"` to open a
-  review thread. Use `--assignee` to direct it to the coder.
+  review thread. Use `--assign` to direct it to the coder.
 - **Approve the work** — `llmd task finish <id>` to move it to done.
 - **Check for existing feedback** — `llmd audit list <id>` to see
   whether there are already open threads on this task.

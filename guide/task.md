@@ -202,7 +202,7 @@ llmd task show a1b2c3d4e
 
 # Flag an issue (assigns to the coder)
 llmd --author "reviewer" audit add a1b2c3d4e "Error handling missing" \
-  --assignee coder
+  --assign coder
 
 # Approve and mark done
 llmd --author "reviewer" task finish a1b2c3d4e

@@ -388,7 +388,7 @@ pragmatic mutation — a visibility flag for soft-delete.
 
 **Author vs assignee:** `author` is who created the entry. `assignee` is who
 needs to act on it. These are separate fields — an agent creates an audit
-(`--author`) and directs it to another agent (`--assignee`). The assignee
+(`--author`) and directs it to another agent (`--assign`). The assignee
 propagates through replies like status does; the effective assignee is from
 the most recent entry. `audit status` filters by effective assignee.
 
@@ -409,7 +409,7 @@ tiebreaker handles same-millisecond key generation).
 |---------|-------------|
 | `audit add <target> [content]` | Create a top-level audit |
 | `audit reply <id> [content]` | Reply to an existing thread |
-| `audit list [target]` | List audits (filterable by `--assignee`, `--by-author`, `--status`, `--pending`) |
+| `audit list [target]` | List audits (filterable by `--assign`, `--by-author`, `--status`, `--pending`) |
 | `audit show <id>` | Display full audit thread |
 | `audit resolve <id>` | Mark as approved (inserts "approved" entry) |
 | `audit rm <id>` | Soft-delete |

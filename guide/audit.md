@@ -28,7 +28,7 @@ llmd audit <subcommand> [options]
 | Flag | Description |
 |------|-------------|
 | `--status`, `-s` | Set or filter by status |
-| `--assignee` | Assign to or filter by assignee |
+| `--assign` | Assign to or filter by assignee |
 | `--file` | Read content from a filesystem path |
 | `--version` | Pin to a specific document version |
 | `--pending` | Filter to pending/needs-work |
@@ -51,7 +51,7 @@ llmd --author "gemini" audit add docs/api --file review.md
 
 # With status and assignee
 llmd --author "gemini" audit add docs/api "Needs work." \
-  --status needs-work --assignee claude-code
+  --status needs-work --assign claude-code
 ```
 
 ### Reply to an audit
@@ -65,7 +65,7 @@ llmd --author "claude-code" audit reply 0mmsfn7h1 --status approved
 
 # Reassign to another agent
 llmd --author "claude-code" audit reply 0mmsfn7h1 "Done, please check." \
-  --assignee gemini
+  --assign gemini
 ```
 
 ### Resolve an audit
@@ -91,7 +91,7 @@ llmd audit list --pending
 llmd audit list --by-author gemini
 
 # By assignee
-llmd audit list --assignee claude-code
+llmd audit list --assign claude-code
 
 # By exact status
 llmd audit list --status needs-work
@@ -132,7 +132,7 @@ llmd audit status
   top-level parent automatically.
 - Thread status is the status of the most recent entry. A reply with
   `--status approved` both responds and resolves the thread.
-- Assignee propagates through replies. If a reply omits `--assignee`,
+- Assignee propagates through replies. If a reply omits `--assign`,
   it inherits from the parent.
 
 ## How status works
@@ -159,7 +159,7 @@ lands in the review column:
 
 1. Reviewer reads the spec: `task show <id>`
 2. Reviewer inspects the work against the spec.
-3. If changes are needed: `audit add <id> "description" --assignee <coder>`
+3. If changes are needed: `audit add <id> "description" --assign <coder>`
 4. Coder checks inbox: `audit status`
 5. Coder fixes and responds: `audit reply <audit-id> "Fixed."`
 6. Reviewer resolves the thread: `audit resolve <audit-id>`

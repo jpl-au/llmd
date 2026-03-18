@@ -227,7 +227,7 @@ When a task is in the review column, the reviewer should:
    - If changes are needed: `audit add <id> "description of issue"`
    - If the work is good: `task finish <id>`
 
-Use `--assignee` on audit entries to direct feedback to the person
+Use `--assign` on audit entries to direct feedback to the person
 who did the work. They can check their inbox with `audit status`.
 
 ### Audit threads for review feedback
@@ -238,7 +238,7 @@ They are immutable, insert-only threads attached to a task or document.
 ```
 # Reviewer flags an issue
 llmd --author "alice" audit add a1b2c3d4e "Error handling missing" \
-  --assignee bob
+  --assign bob
 
 # Coder checks their inbox and responds
 llmd --author "bob" audit status

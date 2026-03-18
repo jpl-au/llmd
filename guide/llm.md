@@ -172,7 +172,7 @@ task show <id>                  read the spec
 If the work needs changes, create an audit thread:
 
 ```
-audit add <id> "Issue description" --assignee <coder>
+audit add <id> "Issue description" --assign <coder>
 ```
 
 If the work is good, finish the task:
@@ -191,7 +191,7 @@ insert-only review threads attached to a document or task.
 - `audit resolve <id>` — mark as approved
 - `audit status` — your inbox (threads assigned to you, awaiting response)
 
-Use `--assignee` to direct feedback to a specific agent. Use `--status`
+Use `--assign` to direct feedback to a specific agent. Use `--status`
 to set thread status (pending, needs-work, approved, rejected, info).
 
 See `guide audit` for full details.
