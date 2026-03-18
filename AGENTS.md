@@ -422,6 +422,42 @@ The `audit` command is a mixed command (like `task`): author is required for
 mutations (`add`, `reply`, `resolve`, `rm`, `status`) but not for reads
 (`list`, `show`).
 
+## Message Queue
+
+The message queue (`llmd queue`) is a persistent, ordered notification layer.
+Domain events and direct messages land in the same queue. Consumers poll,
+process front to back, and acknowledge each message.
+
+**Storage:** Two insert-only tables (`messages`, `message_acks`), created
+lazily on first use. Messages carry a `source_key` for cross-process
+deduplication and an `assigned_to` for directed messages.
+
+**SDK interface:** `QueueStore` in `sdk/queue.go` with `Send`, `Pending`,
+`Peek`, `Ack`, `History`. Implementation in `internal/llmd/messages/`.
+Host bridge in `internal/host/api_queue.go`.
+
+**Event bus wiring:** `messages.QueueHandler` subscribes to the internal
+bus and publishes domain events as queue messages. Skips `message.*` events
+to avoid feedback loops. Wired in `Store.wire()`.
+
+**Strict ordering:** `Ack` rejects if the key does not match the consumer's
+oldest pending message (`ErrOrderViolation`).
+
+**Directed vs broadcast:** Messages with `assigned_to` set are only visible
+to that consumer. NULL means broadcast — all consumers see it.
+
+### CLI subcommands
+
+| Command | Description |
+|---------|-------------|
+| `queue send <content> [--assign X]` | Send a message |
+| `queue ls [--limit N]` | Pending messages for current author |
+| `queue peek` | Next unacknowledged message |
+| `queue ack <key>` | Acknowledge oldest pending |
+| `queue history [--since]` | All messages including acknowledged |
+
+All subcommands require `--author`.
+
 ## Transaction Patterns
 
 All database access goes through `qwr.Manager`, which provides serialised

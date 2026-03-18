@@ -23,7 +23,7 @@ Context Protocol. Three tool names are renamed to avoid collisions:
 
 All other tool names match their CLI command name (cat, write, edit, ls,
 rm, mv, tag, link, history, diff, restore, revert, sed, unlink, audit,
-task).
+task, queue).
 
 All tools accept: `{"args": [...], "content": "...", "author": "..."}`
 Use `content` for document bodies (write, edit). Use `args` for
@@ -113,6 +113,12 @@ AUDITS   audit add <target> [text]   create review on doc or task
          audit rm <id>               soft-delete
          audit restore <id>          recover deleted audit
 
+QUEUE    queue ls                    pending messages, oldest first
+         queue peek                  next unacknowledged message
+         queue ack <key>             acknowledge oldest pending
+         queue send <text>           send a message (--assign for directed)
+         queue history               all messages including acknowledged
+
 VIEWS    status                      dashboard: recent docs, board, activity
          review                      pending tasks with spec previews
          review --column <name>      filter to a specific column
@@ -198,7 +204,20 @@ See `guide audit` for full details.
 
 ## Polling for changes
 
-Use `--since` to cheaply check for new activity:
+Check the message queue for pending events and direct messages:
+
+```
+queue ls                          all pending messages, oldest first
+queue peek                        next message to process
+queue ack <key>                   acknowledge after processing
+```
+
+The queue collects all domain events (document writes, task moves, audit
+creation) and direct messages from humans or agents. Poll it to discover
+what happened since your last check. Process messages in order, ack each
+one. See `guide queue` for details.
+
+For finer-grained polling, use `--since` on domain commands:
 
 ```
 ls --since 5m                     new/updated documents
@@ -213,4 +232,5 @@ audit status --since 5m           recent inbox items
 - `guide workflow` — best practices and task lifecycle
 - `guide task` — task board details
 - `guide audit` — audit thread details
+- `guide queue` — message queue for coordination
 - `<command> --help` — usage for a specific command

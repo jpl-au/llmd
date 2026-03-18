@@ -78,6 +78,14 @@ files, column, link, links, log. See `llmd guide task`.
 Subcommands: add, reply, list, show, resolve, rm, restore, status.
 See `llmd guide audit`.
 
+### Queue
+
+| Command | Description                            | Usage                             |
+|---------|----------------------------------------|-----------------------------------|
+| `queue` | Message queue for coordination         | `queue <subcommand> [options]`    |
+
+Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
+
 ### Bulk operations
 
 | Command  | Description                        | Usage                        |
