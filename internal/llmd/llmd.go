@@ -184,6 +184,10 @@ func (s *Store) wire() {
 	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit, s.bus)
 	s.Audits = audits.New(s.db, s.bus)
 	s.Messages = messages.New(s.db, s.bus)
+
+	// Bridge domain events into the message queue so consumers
+	// can poll for changes across all domains.
+	s.bus.Subscribe(messages.NewHandler(s.Messages))
 }
 
 // Close closes the store. qwr handles WAL checkpoint on close when
