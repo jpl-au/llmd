@@ -33,6 +33,10 @@ type Event struct {
 	// Author is the user or service that caused the event.
 	Author string `json:"author,omitempty"`
 
+	// AssignedTo is the intended recipient for directed events.
+	// Empty means the event is broadcast to all consumers.
+	AssignedTo string `json:"assigned_to,omitempty"`
+
 	// Timestamp is the Unix timestamp (milliseconds) when the event occurred.
 	Timestamp int64 `json:"timestamp"`
 
@@ -95,4 +99,10 @@ const (
 
 	// TaskRestored fires when a soft-deleted task is restored.
 	TaskRestored = "task.restored"
+
+	// MessageSent fires when a message is added to the queue.
+	MessageSent = "message.sent"
+
+	// MessageAcknowledged fires when a consumer acknowledges a message.
+	MessageAcknowledged = "message.acknowledged"
 )
