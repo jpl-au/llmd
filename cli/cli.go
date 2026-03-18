@@ -47,7 +47,7 @@ func (c *CLI) Commands() []sdk.Command {
 		grepSpec, findSpec, globSpec, historySpec, diffSpec, restoreSpec, revertSpec,
 		tagSpec, linkSpec, unlinkSpec,
 		importSpec, exportSpec,
-		taskSpec, auditSpec,
+		taskSpec, auditSpec, queueSpec,
 		statusSpec, reviewSpec,
 		versionSpec, configSpec, initSpec, vacuumSpec,
 		mcpSpec, serveSpec, mirrorSpec, pluginsSpec, guideSpec, llmSpec,
@@ -123,6 +123,8 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return guideCmd(ctx, args)
 	case "llm":
 		return llm(ctx, args)
+	case "queue":
+		return queueCmd(ctx, args)
 	default:
 		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 	}
