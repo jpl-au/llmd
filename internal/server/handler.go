@@ -154,6 +154,8 @@ func writeDispatchError(w http.ResponseWriter, err error) {
 		code = http.StatusConflict
 	case errors.Is(err, sdk.ErrNoSpec):
 		code = http.StatusUnprocessableEntity
+	case errors.Is(err, sdk.ErrOrderViolation):
+		code = http.StatusConflict
 	}
 	writeError(w, code, err)
 }
