@@ -8,6 +8,9 @@ go.work.sum
 # Claude Code instructions (local)
 CLAUDE.md
 
+# MCP config (local)
+.mcp.json
+
 # Built binaries
 /llmd
 /llmd.exe
