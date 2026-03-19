@@ -134,7 +134,7 @@ func (s *Server) register() {
 // skip returns true for commands that should not be exposed over HTTP.
 func skip(name string) bool {
 	switch name {
-	case "mcp", "serve", "init", "config", "version", "plugins", "guide", "llm":
+	case "mcp", "serve", "init", "config", "version", "plugins":
 		return true
 	}
 	return false

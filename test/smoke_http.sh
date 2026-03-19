@@ -96,6 +96,38 @@ _smoke_http() {
         log_fail "GET /cat missing doc returns 404: got $code"
     fi
 
+    # --- GET /guide ---
+    out=$(curl -sf "$base/guide" 2>&1)
+    if echo "$out" | grep -q "llmd"; then
+        log_pass "GET /guide returns overview"
+    else
+        log_fail "GET /guide returns overview: got '$out'"
+    fi
+
+    # --- GET /guide/topic ---
+    out=$(curl -sf "$base/guide/cat" 2>&1)
+    if echo "$out" | grep -q "cat"; then
+        log_pass "GET /guide/cat returns topic"
+    else
+        log_fail "GET /guide/cat returns topic: got '$out'"
+    fi
+
+    # --- GET /guide/unknown returns 404 ---
+    code=$(curl -s -o /dev/null -w "%{http_code}" "$base/guide/nonexistent-topic" 2>&1)
+    if [ "$code" = "404" ]; then
+        log_pass "GET /guide unknown topic returns 404"
+    else
+        log_fail "GET /guide unknown topic returns 404: got $code"
+    fi
+
+    # --- GET /llm ---
+    out=$(curl -sf "$base/llm" 2>&1)
+    if echo "$out" | grep -q "llmd"; then
+        log_pass "GET /llm returns agent reference"
+    else
+        log_fail "GET /llm returns agent reference: got '$out'"
+    fi
+
     # --- POST /rm ---
     out=$(curl -sf -X POST "$base/rm/docs/http-test" \
         -H "Author: http-smoke" 2>&1)
