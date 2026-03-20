@@ -162,7 +162,7 @@ func TestTaskFinish(t *testing.T) {
 }
 
 func TestTaskFinishWithoutGit(t *testing.T) {
-	// No git repo — should still move the task to done.
+	// No git repo - should still move the task to done.
 	host.TestSetup(t, host.TestDisk)
 
 	task, _ := sdk.Tasks.Add("No git", []byte("# Spec\n\nPlain task."), sdk.TaskAddOpts{Author: "alice"})
@@ -258,7 +258,7 @@ func TestTaskStartWithGit(t *testing.T) {
 }
 
 func TestTaskStartWithoutGit(t *testing.T) {
-	// No git repo — should still move the task to in-progress.
+	// No git repo - should still move the task to in-progress.
 	host.TestSetup(t, host.TestDisk)
 
 	task, _ := sdk.Tasks.Add("No git start", []byte("# Spec\n\nPlain."), sdk.TaskAddOpts{Author: "alice"})

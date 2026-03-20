@@ -25,13 +25,13 @@ import (
 
 // symbols returns Yaegi exports for the sdk package, wired to the
 // adapter's own store fields rather than package-level globals. This
-// means each adapter has isolated, request-scoped store access —
+// means each adapter has isolated, request-scoped store access  - 
 // Exec populates the fields before each plugin call so Yaegi reads
 // the correct bridges for that request.
 func (a *adapter) symbols() interp.Exports {
 	return interp.Exports{
 		"github.com/jpl-au/llmd/sdk/sdk": {
-			// Domain stores — point at adapter fields, not package globals.
+			// Domain stores - point at adapter fields, not package globals.
 			"Documents":  reflect.ValueOf(&a.documents).Elem(),
 			"Tasks":      reflect.ValueOf(&a.tasks).Elem(),
 			"Links":      reflect.ValueOf(&a.links).Elem(),

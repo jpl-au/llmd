@@ -58,7 +58,7 @@ func TestReadSourceNoGoFiles(t *testing.T) {
 
 func TestLoadNotPlugin(t *testing.T) {
 	dir := t.TempDir()
-	// New() returns int — calling Name() on it will fail
+	// New() returns int - calling Name() on it will fail
 	if err := os.WriteFile(filepath.Join(dir, "bad.go"), []byte(`package bad
 func New() int { return 42 }
 `), 0644); err != nil {
@@ -119,12 +119,12 @@ func TestLocalDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// No .llmd/plugins/ — should return empty.
+	// No .llmd/plugins/ - should return empty.
 	if got := localDir(); got != "" {
 		t.Errorf("localDir() = %q, want empty", got)
 	}
 
-	// Create the directory — should return it.
+	// Create the directory - should return it.
 	pluginsDir := filepath.Join(dir, ".llmd", "plugins")
 	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
 		t.Fatal(err)
@@ -158,12 +158,12 @@ func TestGlobalDir(t *testing.T) {
 		t.Cleanup(func() { os.RemoveAll(globalPlugins) })
 	}
 
-	// Directory doesn't exist — should return empty.
+	// Directory doesn't exist - should return empty.
 	if got := globalDir(); got != "" {
 		t.Errorf("globalDir() without dir = %q, want empty", got)
 	}
 
-	// Create it — should return the path.
+	// Create it - should return the path.
 	if err := os.MkdirAll(globalPlugins, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +374,7 @@ func TestSamplePluginExec(t *testing.T) {
 
 	ctx := sdk.Context{Author: "alice", Documents: d}
 
-	// Test "stat" — calls sdk.Documents.Exists and sdk.Documents.History
+	// Test "stat" - calls sdk.Documents.Exists and sdk.Documents.History
 	resp, err := p.Exec(ctx, "stat", []string{"notes/hello"})
 	if err != nil {
 		t.Fatalf("stat: %v", err)
@@ -390,7 +390,7 @@ func TestSamplePluginExec(t *testing.T) {
 		t.Errorf("stat text = %q, want contains 'exists: true'", result.Text)
 	}
 
-	// Test "wc" — calls sdk.Documents.Read
+	// Test "wc" - calls sdk.Documents.Read
 	resp, err = p.Exec(ctx, "wc", []string{"notes/hello"})
 	if err != nil {
 		t.Fatalf("wc: %v", err)
@@ -403,7 +403,7 @@ func TestSamplePluginExec(t *testing.T) {
 		t.Errorf("wc text = %q, want contains '2 lines'", result.Text)
 	}
 
-	// Test "recent" — calls sdk.Documents.List
+	// Test "recent" - calls sdk.Documents.List
 	resp, err = p.Exec(ctx, "recent", nil)
 	if err != nil {
 		t.Fatalf("recent: %v", err)
@@ -562,7 +562,7 @@ func (p *P) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, erro
 func TestLoadContinuesOnError(t *testing.T) {
 	root := t.TempDir()
 
-	// Broken plugin — New() returns wrong type
+	// Broken plugin - New() returns wrong type
 	broken := filepath.Join(root, "broken")
 	if err := os.Mkdir(broken, 0755); err != nil {
 		t.Fatal(err)

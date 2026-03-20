@@ -12,11 +12,11 @@ llmd mirror [pull|push] [<path>]
 
 ## Subcommands
 
-**pull** (default) — Write store documents to the filesystem as `.md` files.
+**pull** (default) - Write store documents to the filesystem as `.md` files.
 Unchanged files are skipped. Stale files (documents since deleted or renamed)
 are removed from the mirror directory.
 
-**push** — Import filesystem changes back into the store. New and modified
+**push** - Import filesystem changes back into the store. New and modified
 `.md` files are written as new document versions. Unchanged files are skipped.
 Requires an author (`llmd config author` for interactive use,
 or `--author` for LLMs and scripts).

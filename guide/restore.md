@@ -14,7 +14,7 @@ llmd restore <path>
 # Delete a document
 llmd rm notes/ideas
 
-# Changed your mind — bring it back
+# Changed your mind - bring it back
 llmd restore notes/ideas
 ```
 

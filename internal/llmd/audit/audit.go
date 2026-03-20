@@ -1,11 +1,11 @@
 // Package audit provides a general-purpose audit log.
 //
-// The history table is created lazily on first use — stores that never
+// The history table is created lazily on first use - stores that never
 // need auditing (document-only repos) never have this table.
 //
 // Every task state change writes a row here: who changed what, when,
 // and what the old and new values were. The table is not coupled to
-// tasks — future features can log events here too.
+// tasks - future features can log events here too.
 package audit
 
 import (

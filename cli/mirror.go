@@ -37,7 +37,7 @@ func mirror(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	// No subcommand — pull is the default.
+	// No subcommand - pull is the default.
 	return mirrorPull(ctx, args)
 }
 

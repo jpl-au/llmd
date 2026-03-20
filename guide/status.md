@@ -17,12 +17,12 @@ llmd status [-n limit]
 
 ## Sections
 
-**Recent documents** — the most recently modified documents, showing
+**Recent documents** - the most recently modified documents, showing
 path, version, author, and date.
 
-**Task board** — task counts per column at a glance.
+**Task board** - task counts per column at a glance.
 
-**Recent activity** — the latest task events from the audit log, showing
+**Recent activity** - the latest task events from the audit log, showing
 what changed and when.
 
 ## Examples
@@ -43,6 +43,6 @@ llmd status --json
 - Output is styled with tables and colour when run in a terminal.
 - Piped output is plain text, suitable for scripts and LLMs.
 - Combine with `llmd review` for deeper task context.
-- Use `llmd audit status` to check your audit inbox — threads assigned
+- Use `llmd audit status` to check your audit inbox - threads assigned
   to you that need a response.
 - See `guide workflow` for the full task lifecycle.

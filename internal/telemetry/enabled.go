@@ -23,7 +23,7 @@ var (
 // Init opens the telemetry log file. The file is created under the
 // nearest .llmd directory, following the same discovery convention as
 // the store. If the file cannot be opened, telemetry is silently
-// disabled — diagnostic logging must never break normal operation.
+// disabled - diagnostic logging must never break normal operation.
 func Init() {
 	path := filepath.Join(".llmd", "telemetry.jsonl")
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)

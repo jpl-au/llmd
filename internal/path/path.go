@@ -42,7 +42,7 @@ var ErrInvalidDB = errors.New("invalid database name")
 // An empty string returns the default path (.llmd/llmd.db). A bare
 // name like "docs" becomes .llmd/llmd-docs.db. Absolute paths,
 // Windows volume names (e.g. C:), and .db suffixes are returned
-// unchanged — no sanitisation is applied since the user is providing
+// unchanged - no sanitisation is applied since the user is providing
 // a real path.
 //
 // Shorthand names are sanitised: spaces become dashes, consecutive
@@ -59,7 +59,7 @@ func ResolveDB(name string) (string, error) {
 		return name, nil
 	}
 
-	// Shorthand name — sanitise.
+	// Shorthand name - sanitise.
 	sanitised, err := sanitiseDBName(name)
 	if err != nil {
 		return "", err
@@ -138,7 +138,7 @@ func Normalise(p string) (string, error) {
 
 	p = slashpath.Clean(p)
 
-	// Reject absolute paths — document paths must always be relative.
+	// Reject absolute paths - document paths must always be relative.
 	if slashpath.IsAbs(p) {
 		return "", ErrInvalid
 	}

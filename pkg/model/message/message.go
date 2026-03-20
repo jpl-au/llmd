@@ -9,7 +9,7 @@ package message
 import "github.com/jpl-au/llmd/pkg/model/core"
 
 // Message represents a queue entry. Messages are immutable once inserted.
-// The queue is strictly ordered by CreatedAt — consumers must process
+// The queue is strictly ordered by CreatedAt - consumers must process
 // messages front to back.
 type Message struct {
 	// ID is the auto-increment database row ID.

@@ -153,7 +153,7 @@ func (t *Tasks) repositionTx(ctx context.Context, tx *sql.Tx, key, status string
 
 // hasSpec checks whether a task's document has real content beyond
 // the title heading. A document that is missing, empty, or contains
-// only a single "# Title" line does not count — the spec must
+// only a single "# Title" line does not count - the spec must
 // describe the work (context, acceptance criteria, etc.) before the
 // task can leave the backlog.
 func (t *Tasks) hasSpec(ctx context.Context, path string) (bool, error) {

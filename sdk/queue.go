@@ -4,7 +4,7 @@ import "errors"
 
 // ErrOrderViolation means the consumer tried to acknowledge a message
 // that is not their oldest pending message. The queue is strictly
-// ordered — consumers must process front to back.
+// ordered - consumers must process front to back.
 var ErrOrderViolation = errors.New("must acknowledge oldest message first")
 
 // QueueStore is the message queue interface.

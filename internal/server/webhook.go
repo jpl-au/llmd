@@ -51,7 +51,7 @@ func newWebhookHub(webhook map[string]config.WebhookConfig) *webhookHub {
 }
 
 // Broadcast sends an event to all configured webhook endpoints.
-// Called synchronously from the event bus — dispatches are
+// Called synchronously from the event bus - dispatches are
 // non-blocking via goroutines.
 func (h *webhookHub) Broadcast(e events.Event) {
 	data, err := json.Marshal(e)

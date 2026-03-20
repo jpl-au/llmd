@@ -20,7 +20,7 @@ import (
 )
 
 // Errors returned by document operations. ErrDeleted is returned
-// alongside the document data — callers can inspect the returned
+// alongside the document data - callers can inspect the returned
 // document even when the error is ErrDeleted, which is useful for
 // displaying metadata about soft-deleted items.
 var (

@@ -134,7 +134,7 @@ func (a *taskAPI) Move(key, column, author string) error {
 }
 
 // Set updates task metadata. Maps SDK pointer fields directly to
-// internal SetOptions — the nil-means-no-change convention is shared.
+// internal SetOptions - the nil-means-no-change convention is shared.
 func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
 	return taskErr(a.store.Tasks.Set(a.ctx, key, author, tasks.SetOptions{
 		Title:      opts.Title,
@@ -182,7 +182,7 @@ func (a *taskAPI) AddColumn(name, after, author string) error {
 }
 
 // RemoveColumn removes a column from the board. Fails if the column
-// still contains tasks — they must be moved or deleted first.
+// still contains tasks - they must be moved or deleted first.
 func (a *taskAPI) RemoveColumn(name, author string) error {
 	return a.store.Tasks.RemoveColumn(a.ctx, name, author)
 }
@@ -193,7 +193,7 @@ func (a *taskAPI) MoveColumn(name, after, author string) error {
 }
 
 // Start moves a task to a column and records the current git branch
-// when available. Git is optional — the task starts regardless.
+// when available. Git is optional - the task starts regardless.
 func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, error) {
 	col := opts.Column
 	if col == "" {
@@ -265,7 +265,7 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 }
 
 // Finish moves a task to done and returns a summary with optional git
-// statistics. Git is optional — the task moves regardless.
+// statistics. Git is optional - the task moves regardless.
 func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishResult, error) {
 	t, err := a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
@@ -287,7 +287,7 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 
 	result := &sdk.FinishResult{Task: taskToSDK(t)}
 
-	// Git summary — best effort, skip if unavailable.
+	// Git summary - best effort, skip if unavailable.
 	if t.Branch != "" && sdk.Git.Available() == nil {
 		base := opts.Base
 		if base == "" {

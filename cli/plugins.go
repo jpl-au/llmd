@@ -13,7 +13,7 @@ var pluginsSpec = sdk.Command{
 }
 
 // pluginsCmd lists all loaded plugins: compiled extensions first,
-// then yaegi dynamic plugins. This is a storeless command — it runs
+// then yaegi dynamic plugins. This is a storeless command - it runs
 // without an open store since it only queries the registry.
 func pluginsCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var lines []string

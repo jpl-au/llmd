@@ -55,7 +55,7 @@ Keys use dot notation for nested values. The config file is YAML.
 
 Configuration is stored as YAML in `.llmd/config.yaml` (local) or
 `~/.llmd/config.yaml` (global). If a local file exists, it is used
-entirely — there is no merge with the global file.
+entirely - there is no merge with the global file.
 
 Example config.yaml:
 
@@ -105,7 +105,7 @@ llmd config git allow "reports/"
 llmd config git deny "reports/"
 ```
 
-The `allow` command adds a `!` prefix automatically — you pass the bare
+The `allow` command adds a `!` prefix automatically - you pass the bare
 pattern. `deny` removes the corresponding `!pattern` entry.
 
 ### Examples
@@ -131,10 +131,10 @@ LLMs and scripts must **not** rely on `config author`. They must pass
 correctly attributed:
 
 ```bash
-# Human at a terminal — config author is used automatically
+# Human at a terminal - config author is used automatically
 llmd write notes/meeting
 
-# LLM or script — must use --author
+# LLM or script - must use --author
 llmd --author "Claude" write notes/summary
 ```
 

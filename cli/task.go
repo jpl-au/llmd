@@ -59,7 +59,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	sub := args[0]
 	args = args[1:]
 
-	// Checked here, not via NeedsAuthor — reads don't need an author.
+	// Checked here, not via NeedsAuthor - reads don't need an author.
 	switch sub {
 	case "add", "move", "set", "rm", "restore", "link", "start", "finish", "branch":
 		if ctx.Author == "" {

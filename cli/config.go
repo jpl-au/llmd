@@ -35,7 +35,7 @@ Keys use dot notation for nested values:
   limits.path_length   Maximum document path length in bytes
   limits.content_size  Maximum document content size in bytes
 
-The "config author" setting is for the human user only — LLMs and
+The "config author" setting is for the human user only - LLMs and
 scripts must use --author on each command instead.`, Usage: "config [key] [value] | config git [allow|deny|ls] [pattern]", Flags: []sdk.Flag{
 		{Name: "global", Type: "bool", Desc: "Write to global config (~/.llmd/config.yaml)"},
 	},

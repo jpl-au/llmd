@@ -92,7 +92,7 @@ GET /grep?q=budget&n=true        -> grep -n budget
 GET /history/docs/spec?n=5       -> history -n 5 docs/spec
 ```
 
-The `q` parameter is special — it becomes a positional argument (the
+The `q` parameter is special - it becomes a positional argument (the
 search pattern) rather than a flag. All other parameters become `--key
 value` flags.
 

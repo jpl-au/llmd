@@ -1,11 +1,11 @@
 # Agent hooks
 
 How to wire AI agents to react to llmd events. Each agent platform has
-its own hook system — this guide shows how to connect them to llmd.
+its own hook system - this guide shows how to connect them to llmd.
 
 ## Claude Code
 
-### Session start — check inbox
+### Session start - check inbox
 
 Add a hook in `.claude/settings.json` that runs at session start to
 show the agent what needs its attention:
@@ -25,7 +25,7 @@ The output is injected into the agent's context as the session begins.
 The agent sees any pending audits assigned to it and can act on them
 immediately.
 
-### Post-tool — check after MCP calls
+### Post-tool - check after MCP calls
 
 Use a `PostToolUse` hook to check for updates after the agent calls
 llmd tools:
@@ -47,7 +47,7 @@ not after every tool use.
 
 ## Gemini CLI
 
-### Session start — check inbox
+### Session start - check inbox
 
 Add a hook in your Gemini CLI hooks configuration:
 
@@ -108,12 +108,12 @@ The payload is the event JSON. Filter by `type` field in your handler.
 For agents without persistent connections (most CLI-based agents), the
 recommended pattern is:
 
-1. **Session start** — `llmd --author <identity> audit status` to
+1. **Session start** - `llmd --author <identity> audit status` to
    discover pending work
-2. **Work through items** — address each pending audit or task
-3. **Signal completion** — reply with `--status approved` or update
+2. **Work through items** - address each pending audit or task
+3. **Signal completion** - reply with `--status approved` or update
    the task status
-4. **Session ends** — next session repeats from step 1
+4. **Session ends** - next session repeats from step 1
 
 This requires no special infrastructure. The agent simply calls llmd
 commands to check state and act on it.
@@ -123,7 +123,7 @@ commands to check state and act on it.
 - `--author` is required for all agent-issued commands. Config author
   is for humans only. See `guide audit` for details.
 - Hook output is injected into the agent's context window, so keep
-  responses concise. `audit status` is designed for this — it returns
+  responses concise. `audit status` is designed for this - it returns
   a summary, not full content.
 - For agents managing multiple stores, prefix the llmd command with
   a `cd` to the correct working directory, since llmd uses `.llmd/`

@@ -62,7 +62,7 @@ func TestWebhookBroadcast(t *testing.T) {
 	}
 	h.Broadcast(e)
 
-	// Broadcast fires goroutines — wait briefly for delivery.
+	// Broadcast fires goroutines - wait briefly for delivery.
 	time.Sleep(100 * time.Millisecond)
 
 	mu.Lock()
@@ -156,7 +156,7 @@ func TestWebhookBroadcastServerError(t *testing.T) {
 
 	h.Broadcast(events.Event{Type: events.AuditReplied, Timestamp: time.Now().UnixMilli()})
 	time.Sleep(100 * time.Millisecond)
-	// No panic, no hang — that's the test.
+	// No panic, no hang - that's the test.
 }
 
 func TestWebhookBroadcastUnreachable(t *testing.T) {
@@ -167,5 +167,5 @@ func TestWebhookBroadcastUnreachable(t *testing.T) {
 
 	h.Broadcast(events.Event{Type: events.TaskMoved, Timestamp: time.Now().UnixMilli()})
 	time.Sleep(200 * time.Millisecond)
-	// No panic, no hang — that's the test.
+	// No panic, no hang - that's the test.
 }

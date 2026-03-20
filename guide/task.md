@@ -54,7 +54,7 @@ If no body is provided, the task is created without a document.
 
 Tasks cannot leave the backlog until their spec document has real
 content beyond the title heading. A document containing only
-`# Fix auth tokens` is not enough — add context, acceptance criteria,
+`# Fix auth tokens` is not enough - add context, acceptance criteria,
 or any detail that describes what the work actually is.
 
 ```bash

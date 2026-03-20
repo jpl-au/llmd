@@ -1,7 +1,7 @@
 // Package messages provides the message queue implementation.
 //
 // Messages and acks are stored in two insert-only tables, created
-// lazily on first use. The queue is strictly ordered — consumers
+// lazily on first use. The queue is strictly ordered - consumers
 // must process messages front to back and acknowledge each one
 // before moving to the next.
 package messages

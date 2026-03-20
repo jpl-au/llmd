@@ -1,5 +1,5 @@
 // find.go performs full-text search and returns matching document paths.
-// Unlike grep (which returns content), find returns only paths — similar
+// Unlike grep (which returns content), find returns only paths - similar
 // to grep -l but using FTS5 full-text search.
 //
 // Usage:
@@ -19,7 +19,7 @@ import (
 var findSpec = sdk.Command{
 	Name: "find", Desc: `Full-text search returning matching paths only
 
-Like grep, but prints only document paths — no content. Useful for
+Like grep, but prints only document paths - no content. Useful for
 piping or getting a quick overview of which documents match.`, Usage: "find <query> [path]", MCP: true, MCPName: "llmd_find",
 }
 

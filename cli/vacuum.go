@@ -15,7 +15,7 @@ history, orphaned tags, and orphaned links. This cannot be undone.`, Usage: "vac
 
 // vacuumCmd permanently deletes all soft-deleted documents, tags, and
 // links, then runs SQLite VACUUM to reclaim disk space. This is
-// irreversible — soft-deleted documents cannot be restored after vacuum.
+// irreversible - soft-deleted documents cannot be restored after vacuum.
 func vacuumCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	result, err := ctx.Documents.Vacuum()
 	if err != nil {

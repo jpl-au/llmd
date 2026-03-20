@@ -3,7 +3,7 @@
 //
 // These commands bridge the task board with git, allowing users to
 // associate a task with a branch and then view what changed. All git
-// operations degrade gracefully — if git is unavailable, commands either
+// operations degrade gracefully - if git is unavailable, commands either
 // skip the git parts (finish) or return a clear error.
 
 package cli
@@ -70,13 +70,13 @@ func taskDiff(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, fmt.Errorf("task diff: task has no branch — use 'task start' or 'task set --branch'")
+		return nil, fmt.Errorf("task diff: task has no branch - use 'task start' or 'task set --branch'")
 	}
 
 	if base == "" {
 		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
-			return nil, fmt.Errorf("task diff: %w — use --base to specify", err)
+			return nil, fmt.Errorf("task diff: %w - use --base to specify", err)
 		}
 	}
 
@@ -118,13 +118,13 @@ func taskFiles(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, fmt.Errorf("task files: task has no branch — use 'task start' or 'task set --branch'")
+		return nil, fmt.Errorf("task files: task has no branch - use 'task start' or 'task set --branch'")
 	}
 
 	if base == "" {
 		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
-			return nil, fmt.Errorf("task files: %w — use --base to specify", err)
+			return nil, fmt.Errorf("task files: %w - use --base to specify", err)
 		}
 	}
 
@@ -241,13 +241,13 @@ func taskCommits(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, fmt.Errorf("task commits: task has no branch — use 'task start' or 'task set --branch'")
+		return nil, fmt.Errorf("task commits: task has no branch - use 'task start' or 'task set --branch'")
 	}
 
 	if base == "" {
 		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
-			return nil, fmt.Errorf("task commits: %w — use --base to specify", err)
+			return nil, fmt.Errorf("task commits: %w - use --base to specify", err)
 		}
 	}
 

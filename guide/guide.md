@@ -110,11 +110,11 @@ Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
 
 ## Global flags
 
-- `--author <name>` — author for mutations (required for LLMs and scripts)
-- `--json` — output structured JSON instead of text
-- `--db <path>` — use a different database file
+- `--author <name>` - author for mutations (required for LLMs and scripts)
+- `--json` - output structured JSON instead of text
+- `--db <path>` - use a different database file
 
 ## More help
 
-- `llmd guide <topic>` — detailed help on a topic (workflow, llm, install)
-- `llmd <command> --help` — usage for a specific command
+- `llmd guide <topic>` - detailed help on a topic (workflow, llm, install)
+- `llmd <command> --help` - usage for a specific command

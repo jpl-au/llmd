@@ -198,7 +198,7 @@ func TestExport_TraversalRejected(t *testing.T) {
 
 	// Write a document with a path that looks like a traversal attempt.
 	// Normalisation is the first defence, but os.OpenRoot is the safety
-	// net — verify it rejects the write even if normalisation is bypassed.
+	// net - verify it rejects the write even if normalisation is bypassed.
 	if _, err := s.Documents.Write(ctx, "escape", "pwned", testWriteOpts()); err != nil {
 		t.Fatalf("Write: %v", err)
 	}

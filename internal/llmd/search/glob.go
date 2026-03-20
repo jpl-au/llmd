@@ -62,7 +62,7 @@ func matchGlob(pattern, p string) bool {
 		return matchDoublestar(pattern, p)
 	}
 
-	// Use path.Match — store paths always use forward slashes.
+	// Use path.Match - store paths always use forward slashes.
 	matched, _ := path.Match(pattern, p)
 	return matched
 }

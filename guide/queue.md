@@ -68,7 +68,7 @@ llmd --author claude-code queue peek
 llmd --author claude-code queue ack a8f3k2m1n
 ```
 
-Acknowledging out of order fails. The queue is strictly ordered —
+Acknowledging out of order fails. The queue is strictly ordered  - 
 process front to back, no skipping.
 
 ### View history
@@ -87,7 +87,7 @@ llmd --author claude-code queue history --since 1h
 
 **Domain events** are published automatically. When any mutation occurs
 (document written, task moved, audit created), the event bus inserts a
-queue message. No manual action needed — every store change generates
+queue message. No manual action needed - every store change generates
 a message.
 
 **Direct messages** are sent by humans or agents via `queue send`. These
@@ -96,9 +96,9 @@ complete."
 
 ### Directed vs broadcast
 
-Messages with `--assign` are directed — only the named consumer sees
+Messages with `--assign` are directed - only the named consumer sees
 them in their pending queue. Messages without `--assign` are broadcast
-— all consumers see them.
+ -  all consumers see them.
 
 Work assignments should always use `--assign`. Broadcasts are
 informational only (awareness, not action).
@@ -125,13 +125,13 @@ One mutation, one message.
 
 ## Consumer loop
 
-Every consumer — human, CLI agent, MCP agent, HTTP agent — follows
+Every consumer - human, CLI agent, MCP agent, HTTP agent - follows
 the same pattern:
 
-1. `queue ls` or `queue peek` — what happened?
-2. Read the event type and payload — what do I need to do?
-3. Call domain tools — `task show`, `audit show`, `cat`, etc.
-4. `queue ack` — done with this message, next.
+1. `queue ls` or `queue peek` - what happened?
+2. Read the event type and payload - what do I need to do?
+3. Call domain tools - `task show`, `audit show`, `cat`, etc.
+4. `queue ack` - done with this message, next.
 
 Agents poll the queue periodically or at session start. The queue
 accumulates between polls.
@@ -147,7 +147,7 @@ accumulates between polls.
 
 SSE consumers get real-time notification when messages arrive, then
 call back to read the full message. If the SSE connection drops, fall
-back to polling — the `message_acks` table is the cursor.
+back to polling - the `message_acks` table is the cursor.
 
 ## Notes
 

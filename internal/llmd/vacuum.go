@@ -2,7 +2,7 @@
 //
 // llmd uses a two-phase delete model: "rm" soft-deletes a document by
 // setting deleted_at, keeping it recoverable via "restore". Vacuum is
-// the second phase — it permanently removes soft-deleted documents,
+// the second phase - it permanently removes soft-deleted documents,
 // tags, and links, then runs SQLite VACUUM to reclaim disk space.
 //
 // This is an explicit user action (not automatic) because accidental

@@ -17,7 +17,7 @@ server.addr in your config:
 
   llmd config server.addr "localhost:9090"
 
-Every registered command becomes an HTTP route — reads are GET,
+Every registered command becomes an HTTP route - reads are GET,
 mutations are POST. The /events endpoint streams real-time store
 events via Server-Sent Events (SSE).
 

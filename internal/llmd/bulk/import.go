@@ -63,7 +63,7 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 	}
 
 	if !info.IsDir() {
-		// Single file — confine to its parent directory.
+		// Single file - confine to its parent directory.
 		dir := filepath.Dir(path)
 		root, err := os.OpenRoot(dir)
 		if err != nil {
@@ -81,7 +81,7 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 		return result, nil
 	}
 
-	// Directory — confine to the source directory.
+	// Directory - confine to the source directory.
 	root, err := os.OpenRoot(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening root %s: %w", path, err)

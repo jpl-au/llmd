@@ -75,7 +75,7 @@ func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 		text = strings.TrimSuffix(out.String(), "\n")
 	} else if filesOnly {
-		// Deduplicate paths — a document may have multiple hits.
+		// Deduplicate paths - a document may have multiple hits.
 		seen := make(map[string]bool)
 		var paths []string
 		for _, r := range results {

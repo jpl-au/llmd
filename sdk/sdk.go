@@ -57,7 +57,7 @@ var (
 // plugins via Yaegi), calls Commands() to build its command table, and
 // dispatches execution to Exec().
 //
-// Plugins receive raw args and parse flags themselves — the host does
+// Plugins receive raw args and parse flags themselves - the host does
 // not interpret command arguments. See doc.go for a full example.
 type Plugin interface {
 	Name() string
@@ -121,7 +121,7 @@ type Context struct {
 
 // Response is the marker interface for command return values. It uses
 // a marker method instead of a concrete type so the three result types
-// (Text, Data, Result) remain distinct at the type-switch level — the
+// (Text, Data, Result) remain distinct at the type-switch level - the
 // host switches on the concrete type to decide output format.
 //
 // Choose between the three implementations:

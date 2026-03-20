@@ -1,6 +1,6 @@
 # LLM integration guide
 
-How to use llmd from an AI agent. llmd is a versioned document store —
+How to use llmd from an AI agent. llmd is a versioned document store  - 
 documents have paths, full version history, tags, and links. All content
 is plain text.
 
@@ -57,15 +57,15 @@ sed, rm, mv, restore, revert, tag, unlink, link, task, audit). This is
 how llmd tracks who made each change. Calls without author will be
 rejected.
 
-Via MCP tools — include "author" in every tool call:
+Via MCP tools - include "author" in every tool call:
   `{"author": "Claude", "args": ["notes/summary"], "content": "..."}`
 
-Via CLI — pass --author on the command line:
+Via CLI - pass --author on the command line:
   `llmd --author "Claude" write notes/summary`
 
-Via HTTP — send the `Author` header on POST requests.
+Via HTTP - send the `Author` header on POST requests.
 
-The "config author" setting is for the human user only — do not rely
+The "config author" setting is for the human user only - do not rely
 on it.
 
 ## Commands
@@ -157,7 +157,7 @@ task move <id> in-progress      claim the work
 task move <id> review           submit for review
 ```
 
-Check your audit inbox regularly — reviewers leave feedback there:
+Check your audit inbox regularly - reviewers leave feedback there:
 
 ```
 audit status                    threads assigned to you
@@ -192,10 +192,10 @@ task finish <id>
 Audits are the feedback mechanism between agents. They are immutable,
 insert-only review threads attached to a document or task.
 
-- `audit add <target> "comment"` — open a thread
-- `audit reply <id> "response"` — respond
-- `audit resolve <id>` — mark as approved
-- `audit status` — your inbox (threads assigned to you, awaiting response)
+- `audit add <target> "comment"` - open a thread
+- `audit reply <id> "response"` - respond
+- `audit resolve <id>` - mark as approved
+- `audit status` - your inbox (threads assigned to you, awaiting response)
 
 Use `--assign` to direct feedback to a specific agent. Use `--status`
 to set thread status (pending, needs-work, approved, rejected, info).
@@ -228,9 +228,9 @@ audit status --since 5m           recent inbox items
 
 ## More help
 
-- `guide` — full command reference
-- `guide workflow` — best practices and task lifecycle
-- `guide task` — task board details
-- `guide audit` — audit thread details
-- `guide queue` — message queue for coordination
-- `<command> --help` — usage for a specific command
+- `guide` - full command reference
+- `guide workflow` - best practices and task lifecycle
+- `guide task` - task board details
+- `guide audit` - audit thread details
+- `guide queue` - message queue for coordination
+- `<command> --help` - usage for a specific command

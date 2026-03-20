@@ -3,7 +3,7 @@
 // Config uses nested YAML. Two file locations are checked: local
 // (.llmd/config.yaml) and global (~/.llmd/config.yaml). If a local
 // file exists it is used; otherwise the global file is used. There
-// is no merge — one file wins entirely.
+// is no merge - one file wins entirely.
 package config
 
 import (
@@ -50,7 +50,7 @@ type LimitConfig struct {
 
 // Defaults returns a Config with sensible default values. Fields
 // that have no universal default (author, log level/format) are
-// left as zero values — consumers apply contextual defaults.
+// left as zero values - consumers apply contextual defaults.
 func Defaults() Config {
 	return Config{
 		Server: ServerConfig{
@@ -101,7 +101,7 @@ func Load() (Config, error) {
 // Save writes a single config value by dot-notation key. When
 // global is true it writes to ~/.llmd/config.yaml; otherwise it
 // writes to the local .llmd/config.yaml. Only the target file is
-// read and rewritten — the other file is not touched.
+// read and rewritten - the other file is not touched.
 func Save(key, value string, global bool) error {
 	path := filepath.Join(".llmd", "config.yaml")
 	if global {
@@ -117,7 +117,7 @@ func Save(key, value string, global bool) error {
 	}
 
 	// Load existing values from this specific file (no defaults
-	// applied — we only persist what the user has set).
+	// applied - we only persist what the user has set).
 	var cfg Config
 	if data, err := os.ReadFile(path); err == nil {
 		if err := yaml.Unmarshal(data, &cfg); err != nil {

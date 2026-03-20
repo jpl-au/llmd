@@ -19,7 +19,7 @@ type commandGroup struct {
 
 // helpGroups controls the order and grouping of the root help listing.
 // Commands not listed here are omitted from the root help (they still
-// work — they just aren't advertised at the top level).
+// work - they just aren't advertised at the top level).
 var helpGroups = []commandGroup{
 	{"Reading", []string{"cat", "ls", "grep", "find", "glob"}},
 	{"Writing", []string{"write", "edit", "sed", "rm", "mv", "restore", "revert"}},

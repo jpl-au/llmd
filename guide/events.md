@@ -47,13 +47,13 @@ Every event is a JSON object:
 }
 ```
 
-- `type` — the event type from the table above
-- `path` — document path or audit target
-- `key` — entity key (document key, audit ID, task key)
-- `version` — document version (documents only)
-- `author` — who caused the mutation
-- `timestamp` — Unix milliseconds
-- `metadata` — domain-specific data (tag name, link target, audit
+- `type` - the event type from the table above
+- `path` - document path or audit target
+- `key` - entity key (document key, audit ID, task key)
+- `version` - document version (documents only)
+- `author` - who caused the mutation
+- `timestamp` - Unix milliseconds
+- `metadata` - domain-specific data (tag name, link target, audit
   status, task column, etc.)
 
 ## Delivery mechanisms
@@ -101,7 +101,7 @@ webhook:
 ```
 
 Each event is POSTed as JSON. The `key` is sent as an `Authorization:
-Bearer <key>` header. Delivery is fire-and-forget — errors are logged
+Bearer <key>` header. Delivery is fire-and-forget - errors are logged
 but never block the event bus.
 
 ### CLI polling
@@ -126,7 +126,7 @@ how to wire this into agent session start.
 
 - SSE and webhook delivery only cover mutations that happen through
   `llmd serve`. CLI mutations are consumed by polling.
-- The event bus is in-process and synchronous — handlers are called
+- The event bus is in-process and synchronous - handlers are called
   in subscription order before returning to the caller.
 - Extensions can subscribe to events via the extension event handler
   interface for compile-time plugins.

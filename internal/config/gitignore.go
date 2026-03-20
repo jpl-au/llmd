@@ -5,7 +5,7 @@
 // This means new files (telemetry logs, temp files, plugins) are
 // automatically excluded without maintaining a growing blocklist.
 //
-// llmd only manages .llmd/.gitignore — it never touches the project's
+// llmd only manages .llmd/.gitignore - it never touches the project's
 // root .gitignore.
 package config
 
@@ -35,7 +35,7 @@ func gitignorePath() string {
 }
 
 // InitGitignore creates .llmd/.gitignore with sensible defaults.
-// No-op if the file already exists — preserves user edits on
+// No-op if the file already exists - preserves user edits on
 // subsequent init calls.
 func InitGitignore() error {
 	path := gitignorePath()
@@ -70,7 +70,7 @@ func GitRules() ([]string, error) {
 }
 
 // GitAllow adds a whitelist entry to .llmd/.gitignore so the pattern
-// is committed. The ! prefix is added automatically — callers pass
+// is committed. The ! prefix is added automatically - callers pass
 // the bare pattern (e.g. "reports/" not "!reports/").
 func GitAllow(pattern string) error {
 	pattern = strings.TrimSpace(pattern)

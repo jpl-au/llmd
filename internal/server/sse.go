@@ -50,7 +50,7 @@ func newSSEHub() *sseHub {
 }
 
 // Broadcast sends an event to all connected clients whose filters
-// match. Called synchronously from the event bus — must not block.
+// match. Called synchronously from the event bus - must not block.
 func (h *sseHub) Broadcast(e events.Event) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

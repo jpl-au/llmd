@@ -5,7 +5,7 @@
 // sensible defaults apply when no config is set.
 //
 // This package is used at the API boundary (internal/host) but is
-// available to any layer that needs to validate input — including
+// available to any layer that needs to validate input - including
 // bulk operations and plugins.
 package validate
 

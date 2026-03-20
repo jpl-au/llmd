@@ -19,7 +19,7 @@ type auditAPI struct {
 
 // newAuditAPI creates the SDK-to-internal bridge for audit operations.
 // The context is captured once and reused for all calls because the
-// host creates one API instance per session — each session has a
+// host creates one API instance per session - each session has a
 // single cancellation scope.
 func newAuditAPI(store *llmd.Store, ctx context.Context) *auditAPI {
 	return &auditAPI{ctx: ctx, store: store}

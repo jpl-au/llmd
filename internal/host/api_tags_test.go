@@ -185,7 +185,7 @@ func TestTagsAddDuplicate(t *testing.T) {
 	if err := sdk.Tags.Add("doc", "dupe", "alice"); err != nil {
 		t.Fatalf("Tag dupe: %v", err)
 	}
-	_ = sdk.Tags.Add("doc", "dupe", "alice") // duplicate — expected to fail
+	_ = sdk.Tags.Add("doc", "dupe", "alice") // duplicate - expected to fail
 
 	tags, _ := sdk.Tags.List("doc")
 	if len(tags) != 1 {

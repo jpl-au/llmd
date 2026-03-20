@@ -143,7 +143,7 @@ func (d *Documents) statByPath(ctx context.Context, path string) (*Stat, error) 
 
 // finish populates nullable Stat fields from their sql.Null wrappers
 // and returns the appropriate error. If the document is soft-deleted
-// (deletedAt is valid), finish returns the Stat alongside ErrDeleted —
+// (deletedAt is valid), finish returns the Stat alongside ErrDeleted  - 
 // callers can still inspect the metadata.
 func finish(stat *Stat, message, mime, meta sql.NullString, deletedAt sql.NullInt64) (*Stat, error) {
 	if message.Valid {

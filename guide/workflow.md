@@ -17,7 +17,7 @@ This writes to the local config at `.llmd/config.yaml`. To set it globally
 llmd config --global author "Alice"
 ```
 
-AI agents must not use `config author` — pass `--author` on every
+AI agents must not use `config author` - pass `--author` on every
 mutation command instead (see `guide llm`).
 
 ## Document path conventions
@@ -145,7 +145,7 @@ llmd ls -a                              # include deleted documents
 
 ## Deleting and recovering
 
-Deletion is soft by default — documents are hidden but recoverable:
+Deletion is soft by default - documents are hidden but recoverable:
 
 ```
 llmd rm docs/old-draft
@@ -220,8 +220,8 @@ llmd review --column review             # just what's waiting for review
 
 When a task is in the review column, the reviewer should:
 
-1. **Read the spec** — `task show <id>` to see what was asked for.
-2. **Inspect the work** — check the code, document, or deliverable
+1. **Read the spec** - `task show <id>` to see what was asked for.
+2. **Inspect the work** - check the code, document, or deliverable
    against the spec's acceptance criteria.
 3. **Give feedback or approve:**
    - If changes are needed: `audit add <id> "description of issue"`
@@ -277,7 +277,7 @@ coordinates through the task board and audit threads:
   in progress, and what's waiting for review. Use `status` and `review`
   to stay oriented.
 - **Audits are the communication channel.** Don't just move tasks
-  around silently — leave audit trails explaining decisions, flagging
+  around silently - leave audit trails explaining decisions, flagging
   issues, and confirming approvals.
 - **`audit status` is your inbox.** Check it regularly to see threads
   assigned to you that need a response.

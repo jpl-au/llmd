@@ -8,7 +8,7 @@ If `llmd` is not on your PATH, use the binary built in the project root
 ## Core Principle
 
 **The SDK is the single API surface. Everything goes through it.** CLI,
-MCP, HTTP (coming), plugins, extensions — all are thin consumers that
+MCP, HTTP (coming), plugins, extensions - all are thin consumers that
 call SDK interfaces. No domain logic lives in consumer layers.
 
 This is deliberate: the API controls all actions and interactions through
@@ -20,7 +20,7 @@ Every domain follows the same pattern:
 1. Define the interface in `sdk/`
 2. Implement in `internal/`
 3. Bridge in `internal/host/`
-4. Consumer layers (CLI, MCP, HTTP) are thin callers — no domain logic
+4. Consumer layers (CLI, MCP, HTTP) are thin callers - no domain logic
 
 Use structs-as-options for method parameters so that internal changes
 stay hidden behind the SDK boundary.
@@ -69,31 +69,31 @@ guide/                      User-facing command guides (markdown)
 
 The CLI entry point is split across focused files in the `main` package:
 
-- `main.go` — orchestration only (~114 lines)
-- `flags.go` — `parseGlobal()` extracts global flags from args
-- `output.go` — `display()` renders sdk.Response, `errorf()` formats errors
-- `log.go` — `initLog()` configures slog
-- `help.go` — `printHelp()`, `printCmdHelp()`
+- `main.go` - orchestration only (~114 lines)
+- `flags.go` - `parseGlobal()` extracts global flags from args
+- `output.go` - `display()` renders sdk.Response, `errorf()` formats errors
+- `log.go` - `initLog()` configures slog
+- `help.go` - `printHelp()`, `printCmdHelp()`
 
 Terminal detection and stdin reading live in `internal/term/`.
 
 ```
 main.go → run()
-  ↓ parseGlobal(args) — flags.go
-  ↓ config.Load() + initLog() — log.go
-  ↓ signal.NotifyContext — Ctrl+C cancellation
-  ↓ check extension.Storeless — skip store for init, version, config
+  ↓ parseGlobal(args) - flags.go
+  ↓ config.Load() + initLog() - log.go
+  ↓ signal.NotifyContext - Ctrl+C cancellation
+  ↓ check extension.Storeless - skip store for init, version, config
   ↓ host.Open(dbPath) or host.New() depending on needsStore
   │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags, sdk.Audits, sdk.Activities
   │   ├─ load compiled extensions via extension.All()
   │   ├─ wire extension EventHandlers to internal bus
   │   └─ load Yaegi plugins from .llmd/plugins/ and ~/.llmd/plugins/
   ↓ resolve author (flag → config → term.Interactive() fallback)
-  ↓ term.ReadStdin() — internal/term/
+  ↓ term.ReadStdin() - internal/term/
   ↓ host.Exec(ctx, cmd, args, author, stdin, dbPath)
   │   └─ creates per-request bridge instances bound to ctx
   ↓ plugin.Exec(sctx, cmd, args) → sdk.Response
-  ↓ display(result, jsonOut) — output.go
+  ↓ display(result, jsonOut) - output.go
 ```
 
 ## Flag Parsing
@@ -113,12 +113,12 @@ verbose := flags.Bool("n")
 
 ### Types (`sdk/flags.go`)
 
-- `Flag` — describes one flag: `Name`, `Short` (single-char alias), `Type`
+- `Flag` - describes one flag: `Name`, `Short` (single-char alias), `Type`
   (`"bool"`, `"string"`, `"int"`), `Desc`.
-- `FlagValues` — returned by `ParseArgs`. Accessors: `Bool(name)`, `String(name)`,
+- `FlagValues` - returned by `ParseArgs`. Accessors: `Bool(name)`, `String(name)`,
   `Int(name)`, `Has(name)`. `Has` distinguishes "not provided" from "provided
   with zero value" (e.g. `--priority 0` vs omitted).
-- `ParseArgs(flags []Flag, args []string) (FlagValues, []string, error)` — parses
+- `ParseArgs(flags []Flag, args []string) (FlagValues, []string, error)` - parses
   POSIX-style flags. Returns flag values and remaining positional arguments.
 
 ### Supported syntax
@@ -136,7 +136,7 @@ unlink, import) declare `NeedsAuthor: true` on the `sdk.Command`. The host
 rejects these before dispatch if no author is set.
 
 Mixed commands (tag, link, task) support both reads and writes. They do NOT
-set `NeedsAuthor` — instead, their handlers check `ctx.Author == ""` on
+set `NeedsAuthor` - instead, their handlers check `ctx.Author == ""` on
 mutation paths only. This allows read operations (e.g. `tag -f`, `link <path>`,
 `task list`) to work without an author.
 
@@ -175,7 +175,7 @@ Package globals (`sdk.Documents`, `sdk.Tasks`, `sdk.Audits`) remain wired with
 `context.Background()` in `setup()`. They are still used by `sdk.Git` and
 `sdk.Config` which have no per-request instances.
 
-`sdk.GitStore` and `sdk.ConfigStore` have no host bridges — `internal/git.Git`
+`sdk.GitStore` and `sdk.ConfigStore` have no host bridges - `internal/git.Git`
 and `internal/config.Store` implement their interfaces directly. Both are
 system utilities independent of the store, so bridges would add indirection
 without value. They are shared via `sdk.Git`/`sdk.Config` globals rather
@@ -212,7 +212,7 @@ ctx.Tags.Add("path", "name", ctx.Author)
 ctx.Links.Add("a", "b", "label", ctx.Author)
 ```
 
-Yaegi plugins also use `sdk.Documents`, `sdk.Tasks`, `sdk.Audits` — but these
+Yaegi plugins also use `sdk.Documents`, `sdk.Tasks`, `sdk.Audits` - but these
 resolve through the Yaegi symbol table to per-adapter store fields, not
 package globals. See the Plugin System section below.
 
@@ -220,16 +220,16 @@ package globals. See the Plugin System section below.
 
 Two loading mechanisms, same `sdk.Plugin` interface:
 
-**Compiled extensions** — registered at init-time via `extension.Register()`,
+**Compiled extensions** - registered at init-time via `extension.Register()`,
 following the `database/sql.Register` pattern. The `cli` package uses this.
 Panics on duplicate names to catch programmer errors early.
 
-**Yaegi dynamic plugins** — Go source loaded at runtime without recompilation.
+**Yaegi dynamic plugins** - Go source loaded at runtime without recompilation.
 Discovered from `.llmd/plugins/<name>/` (project-local, takes priority) and
 `~/.llmd/plugins/<name>/` (user-global). Each directory's `.go` files are
 concatenated and evaluated by the Yaegi interpreter. The plugin must export
 a `New()` function returning a value that satisfies `sdk.Plugin`. Yaegi
-provides no security sandbox — plugins have full stdlib access and run with
+provides no security sandbox - plugins have full stdlib access and run with
 the same permissions as the `llmd` process. Only run trusted plugins.
 
 ### Yaegi Symbol Table (`internal/plugin/symbols.go`)
@@ -242,7 +242,7 @@ Domain stores (`sdk.Documents`, `sdk.Tasks`, `sdk.Audits`) in the symbol table p
 at per-adapter fields, not package-level globals. `load()` creates the adapter
 before registering the symbol table so the reflect values are bound to adapter
 fields from the start. `Exec` acquires the adapter mutex and populates those
-fields from `ctx` before each call — giving each request its own request-scoped
+fields from `ctx` before each call - giving each request its own request-scoped
 stores. Plugin source is unchanged: `sdk.Documents.Read(...)` works
 transparently regardless of how the underlying store is wired.
 
@@ -259,15 +259,15 @@ must be updated to match.
 
 Three separate event mechanisms serve different layers:
 
-1. **Internal bus** (`internal/llmd/events/`) — synchronous, in-process. The
+1. **Internal bus** (`internal/llmd/events/`) - synchronous, in-process. The
    FTS5 search handler subscribes to maintain the full-text index on document
    writes and deletes. Uses `pkg/events.Event` as the event type.
 
-2. **Shared event types** (`pkg/events/`) — struct definitions for
+2. **Shared event types** (`pkg/events/`) - struct definitions for
    `document.written`, `document.deleted`, `document.restored`,
    `document.moved`. Consumed by the internal bus.
 
-3. **Extension events** (`extension/events.go`) — fire-and-forget notifications
+3. **Extension events** (`extension/events.go`) - fire-and-forget notifications
    for extensions. Eight event types: document write/delete/restore/move, tag
    add/remove, link create/remove. Extensions implement `EventHandler` to
    observe. The host bridges internal bus events to extension handlers via
@@ -278,7 +278,7 @@ Three separate event mechanisms serve different layers:
 `internal/llmd/key/` generates 9-character base36 identifiers from millisecond
 timestamps plus an atomic counter. These are NOT nanoid. Format: lowercase
 alphanumeric, lexicographically sortable by creation time. Used for all entity
-IDs (documents, tasks, audits). **IDs are bare keys with no prefix** —
+IDs (documents, tasks, audits). **IDs are bare keys with no prefix**  - 
 never add `aud_`, `task_`, `doc_`, or any other prefix.
 
 The counter is seeded with a random offset in [0, 1000) at init to prevent
@@ -290,20 +290,20 @@ collisions between concurrent processes starting in the same millisecond.
 go test ./...
 ```
 
-**Test setup** — `host.TestSetup(t, mode)` is the standard way to initialise
+**Test setup** - `host.TestSetup(t, mode)` is the standard way to initialise
 a store and wire SDK globals for testing. Two modes:
 
-- `host.TestMemory` — in-memory store, fast, no disk I/O
-- `host.TestDisk` — disk-backed store in a temp directory with chdir;
+- `host.TestMemory` - in-memory store, fast, no disk I/O
+- `host.TestDisk` - disk-backed store in a temp directory with chdir;
   use when tests need a real filesystem (e.g. git operations)
 
 Host tests use `TestMemory`; CLI git tests use `TestDisk`. Plugin tests
-cannot import host (import cycle) — they use stubs instead (see below).
+cannot import host (import cycle) - they use stubs instead (see below).
 
-**Plugin tests** (`internal/plugin/loader_test.go`) — use stub implementations
+**Plugin tests** (`internal/plugin/loader_test.go`) - use stub implementations
 of all SDK store interfaces to avoid import cycles (`internal/host` imports
 `internal/plugin`, so plugin tests cannot import host). Stubs are passed
-directly via `sdk.Context` fields (`ctx.Documents`, `ctx.Tasks`, `ctx.Audits`) —
+directly via `sdk.Context` fields (`ctx.Documents`, `ctx.Tasks`, `ctx.Audits`)  - 
 the same way the real host wires stores. Yaegi integration tests load real
 `.go` source through the interpreter and verify that interpreted plugin code
 can call methods on the domain stores.
@@ -369,7 +369,7 @@ when no ID is given (`sdk.Tasks.ByBranch` via the current branch).
 `task show` displays ahead/behind counts when the task has a branch
 and git is available.
 
-All git operations degrade gracefully — `Start` and `Finish` work
+All git operations degrade gracefully - `Start` and `Finish` work
 without git (skipping branch recording and git summary respectively);
 `StartBranch` requires git and returns a clear error if unavailable.
 Default branch detection tries `origin/HEAD` first, then `main`, then
@@ -378,22 +378,22 @@ Default branch detection tries `origin/HEAD` first, then `main`, then
 ## Audit Threads
 
 The audit domain (`sdk.AuditStore`) provides agent-to-agent and human-to-agent
-review threads. Audits are **insert-only** — no record is ever updated. Thread
+review threads. Audits are **insert-only** - no record is ever updated. Thread
 status is derived from the most recent entry.
 
 **Data model:** A single `audits` table. Top-level audits target a document
 path or task key. Replies reference a `parent_id`. The store resolves replies
 to the top-level ancestor (no nested threads). `deleted_at` is the one
-pragmatic mutation — a visibility flag for soft-delete.
+pragmatic mutation - a visibility flag for soft-delete.
 
 **Author vs assignee:** `author` is who created the entry. `assignee` is who
-needs to act on it. These are separate fields — an agent creates an audit
+needs to act on it. These are separate fields - an agent creates an audit
 (`--author`) and directs it to another agent (`--assign`). The assignee
 propagates through replies like status does; the effective assignee is from
 the most recent entry. `audit status` filters by effective assignee.
 
 **ID format:** Bare 9-char base36 key with no prefix (same generator as tasks
-and all other entities). IDs are never prefixed — no `aud_`, `task_`, `doc_`.
+and all other entities). IDs are never prefixed - no `aud_`, `task_`, `doc_`.
 
 **Target type inference:** The store determines `target_type` from the target
 value. If it matches a valid 9-char base36 key, it's a task; otherwise it's
@@ -444,7 +444,7 @@ to avoid feedback loops. Wired in `Store.wire()`.
 oldest pending message (`ErrOrderViolation`).
 
 **Directed vs broadcast:** Messages with `assigned_to` set are only visible
-to that consumer. NULL means broadcast — all consumers see it.
+to that consumer. NULL means broadcast - all consumers see it.
 
 ### CLI subcommands
 
@@ -462,7 +462,7 @@ All subcommands require `--author`.
 
 All database access goes through `qwr.Manager`, which provides serialised
 writes with reader/writer connection separation. Multi-statement write
-operations use `qwr.TransactionFunc` — a callback-based pattern that
+operations use `qwr.TransactionFunc` - a callback-based pattern that
 handles `Begin`/`Commit`/`Rollback` automatically:
 
 ```go
@@ -511,18 +511,18 @@ transaction.
 
 The MCP server (`cli/mcp.go`) exposes llmd commands as MCP tools over stdio.
 All tools share a single `toolInput` schema with `args`, `content`, and `author`
-fields. The `author` field lets the LLM identify itself per-call — this is the
+fields. The `author` field lets the LLM identify itself per-call - this is the
 primary author source in MCP mode, since there is no interactive user.
 
 If the LLM omits `author` and the command has `NeedsAuthor: true`, the server
 rejects the call immediately. Mixed commands (tag, link, task) do not set
-`NeedsAuthor` — their handlers check author on mutation paths only, so read
+`NeedsAuthor` - their handlers check author on mutation paths only, so read
 operations succeed without an author.
 
 ## HTTP Server
 
 The HTTP server (`internal/server/`) exposes llmd commands as HTTP endpoints.
-It follows the same pattern as the MCP server — a thin transport layer over
+It follows the same pattern as the MCP server - a thin transport layer over
 `sdk.Dispatch`. Commands are registered automatically by walking
 `sdk.AllCommands()`, so plugins get HTTP routes for free.
 
@@ -536,7 +536,7 @@ classification and HTTP method selection.
 
 **Headers carry metadata:** `Author` (fallback identity), `Message` (commit
 message), `Source` (origin tracking), `Output` (`json` to request structured
-data). No `X-` prefix — RFC 6648 deprecated it.
+data). No `X-` prefix - RFC 6648 deprecated it.
 
 **Request body is content:** POST bodies carry raw document content (markdown),
 not JSON envelopes. This matches the CLI where stdin is the document body.
@@ -545,7 +545,7 @@ not JSON envelopes. This matches the CLI where stdin is the document body.
 `sdk.Result` returns text by default, or JSON when the `Output: json` header
 is set or when no text representation exists.
 
-**Error mapping:** SDK sentinel errors map to HTTP status codes —
+**Error mapping:** SDK sentinel errors map to HTTP status codes  - 
 `ErrNotFound` → 404, `ErrMissingArg`/`ErrInvalidArg` → 400, `ErrExists` → 409,
 `ErrNoSpec` → 422. All errors return JSON `{"error": "..."}`.
 
@@ -553,7 +553,7 @@ is set or when no text representation exists.
 defaulting to `localhost:5563`. No flags or environment variables.
 
 **Skipped commands:** `mcp`, `serve`, `init`, `config`, `version`, `plugins`,
-`guide`, `llm` are not exposed over HTTP — they are admin or local-only.
+`guide`, `llm` are not exposed over HTTP - they are admin or local-only.
 
 The server uses `github.com/jpl-au/chain` as the HTTP mux, which wraps
 Go 1.22's enhanced `net/http` routing with middleware support.
@@ -574,7 +574,7 @@ blocklist. llmd never touches the project's root `.gitignore`.
 ```
 
 Everything is ignored except database files and the gitignore itself.
-The database (`llmd.db`) is committed by default — shared context is
+The database (`llmd.db`) is committed by default - shared context is
 the intended use case.
 
 **CLI management:**
@@ -595,54 +595,54 @@ quiet unless something needs attention.
 **`--verbose` flag:** overrides to `debug` level for instant diagnostics.
 
 **Config keys** (`.llmd/config`, local or global):
-- `log_level` — `debug`, `info`, `warn`, `error`
-- `log_format` — `text`, `json`
+- `log_level` - `debug`, `info`, `warn`, `error`
+- `log_format` - `text`, `json`
 
 `--json` implies `log_format=json` so structured output stays
 machine-readable. `--verbose` overrides any configured level.
 
-All packages use the process-wide `slog` default — call `slog.Debug`,
+All packages use the process-wide `slog` default - call `slog.Debug`,
 `slog.Info`, `slog.Warn`, `slog.Error` directly. No logger is passed
 through context or structs.
 
 ## Common Pitfalls
 
-- **Version.Number** — `sdk.Version` uses `Number` for the 1-indexed
+- **Version.Number** - `sdk.Version` uses `Number` for the 1-indexed
   version number field (not `Num`, not `Version`).
 
-- **Task Move requires a spec** — Tasks cannot leave the backlog until
+- **Task Move requires a spec** - Tasks cannot leave the backlog until
   their spec document has content beyond the title heading. `hasSpec()`
   in `internal/llmd/tasks/move.go` strips the first line (the `# Title`
   heading) and checks whether any non-whitespace content remains. A
   document with only `# Title` fails; use multi-line content like
   `[]byte("# Title\n\nBody content.")` in tests.
 
-- **Import author** — The import bridge uses `origin("import")` for the author
+- **Import author** - The import bridge uses `origin("import")` for the author
   field. The internal validation requires a non-empty author.
 
-- **Export appends .md** — Exported files get a `.md` extension. For batch
+- **Export appends .md** - Exported files get a `.md` extension. For batch
   export, the prefix must end with `/` (e.g. `"docs/"` not `"docs"`).
 
-- **Remove returns errors for missing items** — `sdk.Links.Remove` and
+- **Remove returns errors for missing items** - `sdk.Links.Remove` and
   `sdk.Tags.Remove` return errors when the target link/tag does not exist.
   They are not idempotent.
 
-- **Task path deduplication** — When `task add` creates a spec document
+- **Task path deduplication** - When `task add` creates a spec document
   automatically (no `--path`), it generates `tasks/<slug>`. If that path
   already exists, it appends `-2`, `-3`, `-4` (incrementing) to avoid silently versioning
   an unrelated document. Explicit `--path` skips deduplication.
 
-- **--db name resolution** — The `--db` flag accepts a bare name (e.g. `docs`)
+- **--db name resolution** - The `--db` flag accepts a bare name (e.g. `docs`)
   which `path.ResolveDB` converts to `.llmd/llmd-docs.db`. A value with path
   separators or ending in `.db` is used as-is. Empty defaults to `.llmd/llmd.db`.
-  `ResolveDB` returns `(string, error)` — shorthand names are sanitised (spaces
+  `ResolveDB` returns `(string, error)` - shorthand names are sanitised (spaces
   become dashes, consecutive dashes collapse, leading/trailing dashes trimmed)
   and rejected if they contain control characters, Windows-illegal characters
   (`< > : " | ? *`), or path traversal (`..`). Explicit paths skip sanitisation.
   `sdk.Mirror.Directory()` returns the mirror directory for the active store.
 
-- **Import cycle: host ↔ plugin** — `internal/host` imports `internal/plugin`.
+- **Import cycle: host ↔ plugin** - `internal/host` imports `internal/plugin`.
   Plugin tests cannot import host. Use stub implementations instead.
 
-- **Compiled extensions register in init()** — Missing a blank import in
+- **Compiled extensions register in init()** - Missing a blank import in
   `main.go` silently omits all commands from that extension.

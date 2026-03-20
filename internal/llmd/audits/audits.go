@@ -1,6 +1,6 @@
 // Package audits provides agent-to-agent and human-to-agent review threads.
 //
-// Audit records are insert-only — once written, a row is never updated
+// Audit records are insert-only - once written, a row is never updated
 // (except for soft-delete via deleted_at). Thread status is derived from
 // the most recent entry. The table is created lazily on first use, so
 // stores that never use audits pay no schema cost.

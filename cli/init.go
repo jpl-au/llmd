@@ -9,7 +9,7 @@ import (
 var initSpec = sdk.Command{
 	Name: "init", Desc: `Create a new document store in the current directory
 
-Creates .llmd/llmd.db. Safe to run if a store already exists — it
+Creates .llmd/llmd.db. Safe to run if a store already exists - it
 will not overwrite existing data. Use --db to specify a custom path.`, Usage: "init",
 }
 

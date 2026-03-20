@@ -15,7 +15,7 @@ import (
 )
 
 // Build information injected via ldflags at build time. Defaults
-// indicate an unofficial build from source — "dirty" signals the
+// indicate an unofficial build from source - "dirty" signals the
 // binary was not produced by the release build tool.
 var (
 	Tag         = "dirty" // Version tag (e.g. "v1.0.0")

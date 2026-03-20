@@ -2,7 +2,7 @@
 
 Agent-to-agent and human-to-agent review threads. Audits are immutable,
 insert-only records attached to documents or tasks. Thread status is
-derived from the latest entry — no record is ever updated.
+derived from the latest entry - no record is ever updated.
 
 ## Usage
 

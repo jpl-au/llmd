@@ -6,7 +6,7 @@
 // ones (e.g. fts.sql depends on tables from content.sql).
 //
 // All statements use CREATE IF NOT EXISTS and INSERT OR IGNORE, making
-// the migration idempotent — it runs on every store open, not just init.
+// the migration idempotent - it runs on every store open, not just init.
 package sql
 
 import (

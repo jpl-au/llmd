@@ -308,7 +308,7 @@ func TestTasksMove(t *testing.T) {
 func TestTasksMoveNoSpec(t *testing.T) {
 	testHost(t)
 
-	// Task without body — no spec document
+	// Task without body - no spec document
 	task, _ := sdk.Tasks.Add("No spec", nil, sdk.TaskAddOpts{Author: "alice"})
 
 	err := sdk.Tasks.Move(task.Key, "in-progress", "alice")

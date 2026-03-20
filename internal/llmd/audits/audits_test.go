@@ -295,7 +295,7 @@ func TestListPending(t *testing.T) {
 	store.Add(ctx, AddOptions{Target: "docs/auth", Content: "B.", Author: "gemini", Status: "approved"})
 	store.Add(ctx, AddOptions{Target: "docs/config", Content: "C.", Author: "gemini", Status: "needs-work"})
 
-	// Resolve aud1 — its effective status should be "approved".
+	// Resolve aud1 - its effective status should be "approved".
 	store.Resolve(ctx, aud1.ID, "claude-code")
 
 	pending, err := store.List(ctx, ListOptions{Pending: true})
@@ -422,7 +422,7 @@ func TestStatus(t *testing.T) {
 		Assignee: "gemini", Status: "pending",
 	})
 
-	// Unassigned audit — should not appear in anyone's status.
+	// Unassigned audit - should not appear in anyone's status.
 	store.Add(ctx, AddOptions{
 		Target: "docs/config", Content: "FYI.", Author: "gemini",
 		Status: "pending",

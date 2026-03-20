@@ -52,7 +52,7 @@ type DocumentStore interface {
 	Diff(a, b string, ctx int) (string, int, int, error)
 
 	// Revert creates a new version with the content from a previous version.
-	// The old version is not modified — revert is non-destructive.
+	// The old version is not modified - revert is non-destructive.
 	Revert(path string, version int, author, msg string) error
 
 	// Vacuum permanently deletes all soft-deleted data and reclaims
@@ -72,7 +72,7 @@ type DocumentStore interface {
 	Preview(path string, lines int) (string, error)
 }
 
-// Doc represents a document's metadata (not its content — use Read for
+// Doc represents a document's metadata (not its content - use Read for
 // that). Returned by List. CreatedAt is a Unix timestamp. Deleted is
 // true for soft-deleted documents (only visible with ListOpts.Deleted).
 type Doc struct {

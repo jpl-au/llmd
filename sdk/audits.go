@@ -7,7 +7,7 @@ import "time"
 //
 // Audits are immutable, insert-only records forming threaded conversations
 // attached to documents or tasks. Thread status is derived from the latest
-// entry — no record is ever updated. Replies, resolves, and status changes
+// entry - no record is ever updated. Replies, resolves, and status changes
 // are all new records.
 //
 // Each audit has an [Audit.ID] (9-char base36 key), making it addressable
@@ -43,12 +43,12 @@ type AuditStore interface {
 	Restore(id, author string) (*Audit, error)
 
 	// Status returns pending audits requiring the given author's
-	// attention — threads where the effective status is pending or
+	// attention - threads where the effective status is pending or
 	// needs-work and the last entry is not from the author.
 	Status(author string, opts AuditStatusOpts) (*AuditStatus, error)
 }
 
-// Audit represents a single audit entry — either a top-level review
+// Audit represents a single audit entry - either a top-level review
 // or a reply within a thread. Records are immutable once created.
 type Audit struct {
 	// ID is the unique identifier (9-char base36).
@@ -68,7 +68,7 @@ type Audit struct {
 	Author string
 
 	// Assignee identifies who needs to act on this audit. Propagates
-	// through replies — the effective assignee is from the latest entry.
+	// through replies - the effective assignee is from the latest entry.
 	Assignee string
 
 	// Status at the time of this entry (e.g. "pending", "approved",
@@ -146,7 +146,7 @@ type AuditStatusOpts struct {
 	Since time.Time
 }
 
-// AuditStatus is the agent's inbox — pending audit threads requiring
+// AuditStatus is the agent's inbox - pending audit threads requiring
 // the given author's response.
 type AuditStatus struct {
 	// Author is the identity this status was computed for.

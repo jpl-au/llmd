@@ -42,7 +42,7 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 	result := &ExportResult{}
 
 	if strings.HasSuffix(path, "/") {
-		// Prefix export — root is the destination directory.
+		// Prefix export - root is the destination directory.
 		root, err := os.OpenRoot(dest)
 		if err != nil {
 			return nil, fmt.Errorf("opening root %s: %w", dest, err)
@@ -71,7 +71,7 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 		return result, nil
 	}
 
-	// Single document export — determine root directory and relative name.
+	// Single document export - determine root directory and relative name.
 	var rootDir, rel string
 	if info, err := os.Stat(dest); err == nil && info.IsDir() {
 		rootDir = dest

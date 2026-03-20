@@ -129,7 +129,7 @@ func toExtEvent(e pkgevents.Event) extension.Event {
 // format so extensions can react to audit mutations without depending
 // on internal types. The event type is passed in because multiple
 // internal event constants (created, replied, resolved, deleted,
-// restored) share the same conversion logic — only the type differs.
+// restored) share the same conversion logic - only the type differs.
 func auditExtEvent(t extension.EventType, e pkgevents.Event) extension.AuditEvent {
 	ev := extension.AuditEvent{
 		Type:   t,
@@ -155,7 +155,7 @@ func auditExtEvent(t extension.EventType, e pkgevents.Event) extension.AuditEven
 //
 // The "to" metadata key (set by task move operations) intentionally
 // overwrites ev.Status because a move's destination column is the
-// task's effective status after the operation — it is more accurate
+// task's effective status after the operation - it is more accurate
 // than the "status" metadata which reflects the state before the move.
 func taskExtEvent(t extension.EventType, e pkgevents.Event) extension.TaskEvent {
 	ev := extension.TaskEvent{

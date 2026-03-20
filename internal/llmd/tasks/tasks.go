@@ -4,7 +4,7 @@
 // Each task points to a document in the content table (the spec body).
 // The history table logs every state change for observability.
 //
-// The tasks table is mutable — status, priority, position, assigned_to,
+// The tasks table is mutable - status, priority, position, assigned_to,
 // and flags are updated in place. The audit package records what changed.
 package tasks
 
@@ -56,7 +56,7 @@ var (
 	ErrNotFound     = errors.New("task not found")
 	ErrNoSpec       = errors.New("task has no spec")
 	ErrInvalidCol   = errors.New("unknown column")
-	ErrColNotEmpty  = errors.New("column has tasks — move or delete them first")
+	ErrColNotEmpty  = errors.New("column has tasks - move or delete them first")
 	ErrColExists    = errors.New("column already exists")
 	ErrColNotFound  = errors.New("column not found")
 	ErrMissingTitle = errors.New("title is required")

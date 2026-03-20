@@ -18,18 +18,18 @@ accessible even without llmd: just use SQLite3's command line interface.
 
 ## Key Features
 
-- **Auto-versioning** — Every write creates a new version. Diff and revert anytime.
-- **Author tracking** — See what the LLM changed vs what you changed.
-- **Full-text search** — Search with `llmd find` or `llmd grep`.
-- **Soft delete** — Nothing is ever lost. Restore with `llmd restore`.
-- **Task board** — Track work with columns, priorities, and git branch integration.
-- **Audit threads** — Agent-to-agent and human-to-agent review threads on documents and tasks.
-- **MCP server** — Native integration with Claude Code, Cursor, and other MCP clients.
-- **HTTP API** — REST interface for programmatic access.
+- **Auto-versioning** - Every write creates a new version. Diff and revert anytime.
+- **Author tracking** - See what the LLM changed vs what you changed.
+- **Full-text search** - Search with `llmd find` or `llmd grep`.
+- **Soft delete** - Nothing is ever lost. Restore with `llmd restore`.
+- **Task board** - Track work with columns, priorities, and git branch integration.
+- **Audit threads** - Agent-to-agent and human-to-agent review threads on documents and tasks.
+- **MCP server** - Native integration with Claude Code, Cursor, and other MCP clients.
+- **HTTP API** - REST interface for programmatic access.
 
 ### llmd teaches itself to your agents
 
-Get your agent to run `llmd llm` for a quick command reference — agents
+Get your agent to run `llmd llm` for a quick command reference - agents
 should hopefully naturally gravitate to this. For deeper dives, `llmd guide`
 provides full documentation with examples and workflows.
 
@@ -100,10 +100,10 @@ author attribution.
 
 ### Built with
 
-- [Go](https://go.dev) — Programming language (BSD 3-Clause)
-- [Claude Code](https://claude.ai/claude-code) — AI coding agent by Anthropic
-- [Gemini CLI](https://github.com/google-gemini/gemini-cli) — AI coding agent by Google
-- [Antigravity](https://antigravity.dev) — AI coding agent
+- [Go](https://go.dev) - Programming language (BSD 3-Clause)
+- [Claude Code](https://claude.ai/claude-code) - AI coding agent by Anthropic
+- [Gemini CLI](https://github.com/google-gemini/gemini-cli) - AI coding agent by Google
+- [Antigravity](https://antigravity.dev) - AI coding agent
 
 ### Libraries
 
@@ -119,5 +119,5 @@ author attribution.
 
 ## Licence
 
-BSL 1.1 — free for all use except commercial distribution as a bundled
+BSL 1.1 - free for all use except commercial distribution as a bundled
 product or hosted service. See [LICENSE](LICENSE).

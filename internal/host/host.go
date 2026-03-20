@@ -37,7 +37,7 @@ type Host struct {
 
 // cmdEntry maps a command to its owning plugin and tracks the plugin's
 // origin. The isPlugin flag distinguishes Yaegi dynamic plugins from
-// compiled extensions — this distinction drives help output grouping
+// compiled extensions - this distinction drives help output grouping
 // (core commands vs plugin commands) and the "plugins" command listing.
 type cmdEntry struct {
 	cmd      sdk.Command
@@ -46,7 +46,7 @@ type cmdEntry struct {
 }
 
 // New creates a Host without a store. The Host can enumerate commands
-// (for help/discovery) but cannot execute store operations — the SDK
+// (for help/discovery) but cannot execute store operations - the SDK
 // domain globals remain nil.
 func New() *Host {
 	return setup(nil)
@@ -82,7 +82,7 @@ type RunOpts struct {
 
 // Run looks up the command, opens a store if needed, resolves the
 // author, executes, and cleans up. It is the main entry point for
-// CLI invocations — callers provide parsed flags and get back a
+// CLI invocations - callers provide parsed flags and get back a
 // response.
 func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 	emit := func(err error) {
@@ -167,9 +167,9 @@ func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
 		return "", nil
 	}
 
-	// Author is required but missing — return a helpful error.
+	// Author is required but missing - return a helpful error.
 	if term.Interactive() {
-		return "", fmt.Errorf("%w: author not configured — run 'llmd config author \"Your Name\"' or pass --author", sdk.ErrMissingArg)
+		return "", fmt.Errorf("%w: author not configured - run 'llmd config author \"Your Name\"' or pass --author", sdk.ErrMissingArg)
 	}
 	return "", fmt.Errorf("%w: --author is required for non-interactive use", sdk.ErrMissingArg)
 }
@@ -183,7 +183,7 @@ func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
 //
 // Plugin loading: compiled extensions (registered via init()) are loaded
 // first, then Yaegi dynamic plugins from user directories. Yaegi load
-// errors are logged but don't prevent startup — a broken user plugin
+// errors are logged but don't prevent startup - a broken user plugin
 // should not take down the entire CLI.
 func setup(store *llmd.Store) *Host {
 	// Load validation limits from config.
@@ -199,10 +199,10 @@ func setup(store *llmd.Store) *Host {
 		commands: make(map[string]*cmdEntry),
 	}
 
-	// Store-independent globals — always available.
+	// Store-independent globals - always available.
 	sdk.Git = igit.New()
 
-	// Event subscription — allows consumers (e.g. HTTP server) to
+	// Event subscription - allows consumers (e.g. HTTP server) to
 	// receive store events without importing internal packages.
 	if store != nil {
 		sdk.SubscribeEvents = func(fn func(pkgevents.Event)) {
@@ -246,7 +246,7 @@ func setup(store *llmd.Store) *Host {
 	}
 
 	// Dynamic plugins from .llmd/plugins/ and ~/.llmd/plugins/.
-	// Errors are logged, not returned — partial plugin loading is
+	// Errors are logged, not returned - partial plugin loading is
 	// better than failing entirely.
 	yaegiPlugins, err := plugin.Load()
 	if err != nil {

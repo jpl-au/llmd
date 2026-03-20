@@ -36,7 +36,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 	remove := flags.Bool("delete")
 	find := flags.Bool("find")
 
-	// llmd tag -f <name> — find documents with tag
+	// llmd tag -f <name> - find documents with tag
 	if find {
 		if len(positional) == 0 {
 			return nil, fmt.Errorf("tag: %w", sdk.ErrMissingArg)
@@ -48,7 +48,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Result{Text: strings.Join(paths, "\n"), Data: paths}, nil
 	}
 
-	// llmd tag — list all tags
+	// llmd tag - list all tags
 	if len(positional) == 0 {
 		infos, err := ctx.Tags.All()
 		if err != nil {
@@ -61,7 +61,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Result{Text: strings.Join(lines, "\n"), Data: infos}, nil
 	}
 
-	// llmd tag <path> — list tags on a document
+	// llmd tag <path> - list tags on a document
 	if len(positional) == 1 {
 		tags, err := ctx.Tags.List(positional[0])
 		if err != nil {
@@ -76,12 +76,12 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	path, name := positional[0], positional[1]
 
-	// Checked here, not via NeedsAuthor — reads don't need an author.
+	// Checked here, not via NeedsAuthor - reads don't need an author.
 	if ctx.Author == "" {
 		return nil, fmt.Errorf("tag: author required for mutations")
 	}
 
-	// llmd tag -d <path> <name> — remove
+	// llmd tag -d <path> <name> - remove
 	if remove {
 		if err := ctx.Tags.Remove(path, name, ctx.Author); err != nil {
 			return nil, fmt.Errorf("tag: %w", err)
@@ -89,7 +89,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Text(fmt.Sprintf("Removed tag %s from %s", name, path)), nil
 	}
 
-	// llmd tag <path> <name> — add
+	// llmd tag <path> <name> - add
 	if err := ctx.Tags.Add(path, name, ctx.Author); err != nil {
 		return nil, fmt.Errorf("tag: %w", err)
 	}

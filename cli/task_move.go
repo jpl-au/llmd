@@ -22,7 +22,7 @@ func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if errors.Is(err, sdk.ErrNoSpec) {
 			tsk, rerr := ctx.Tasks.Read(args[0])
 			if rerr == nil {
-				return nil, fmt.Errorf("task move: spec required — tasks cannot leave the backlog until their document has content beyond the title heading.\n\nWrite the spec:\n  llmd write %s\n\nOr link an existing document:\n  llmd task link %s <path>", tsk.Path, args[0])
+				return nil, fmt.Errorf("task move: spec required - tasks cannot leave the backlog until their document has content beyond the title heading.\n\nWrite the spec:\n  llmd write %s\n\nOr link an existing document:\n  llmd task link %s <path>", tsk.Path, args[0])
 			}
 		}
 		return nil, fmt.Errorf("task move: %w", err)
@@ -87,7 +87,7 @@ func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Updated task %s", key)), nil
 }
 
-// taskRm soft-deletes a task. The backing document is not removed — the
+// taskRm soft-deletes a task. The backing document is not removed - the
 // output reminds the user to delete it separately if desired.
 func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {

@@ -1,7 +1,7 @@
 package cli
 
 // revert rolls a document back to a previous version by creating a new
-// version with that old content. The history is preserved — revert
+// version with that old content. The history is preserved - revert
 // doesn't delete versions, it appends a new one.
 //
 // The version argument accepts an optional "v" prefix ("v3" or "3")
@@ -19,7 +19,7 @@ var revertSpec = sdk.Command{
 	Name: "revert", Desc: `Roll back a document to a previous version
 
 Creates a new version containing the content from an older version.
-Non-destructive — existing versions are preserved in the history.
+Non-destructive - existing versions are preserved in the history.
 Use history to see available version numbers.`, Usage: "revert <path> <version>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
 		{Name: "message", Type: "string", Desc: "Revert message"},
 	},

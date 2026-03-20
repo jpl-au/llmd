@@ -30,7 +30,7 @@ func tagErr(err error) error {
 
 // tagAPI implements [sdk.TagStore] by delegating to the internal tags
 // package. The mapping is straightforward since SDK and internal types
-// are closely aligned — the main translation is building a core.Origin
+// are closely aligned - the main translation is building a core.Origin
 // from the author string and converting internal tag entities to SDK
 // Tag/TagInfo structs.
 type tagAPI struct {

@@ -86,7 +86,7 @@ type TaskStore interface {
 // Task represents a task on the board.
 //
 // Tasks are the SDK's view of a board item. Unlike documents, tasks are
-// mutable — status, priority, position, assignee, branch, and flags can
+// mutable - status, priority, position, assignee, branch, and flags can
 // all be updated in place. Every mutation is recorded in the audit log
 // (see [TaskStore.Log]).
 type Task struct {
@@ -167,7 +167,7 @@ type TaskAddOpts struct {
 
 // TaskListOpts filters the task list. All fields are optional; when all
 // are zero-valued, all non-deleted tasks are returned. Filters are
-// combined with AND — setting both Status and AssignedTo returns only
+// combined with AND - setting both Status and AssignedTo returns only
 // tasks matching both criteria.
 type TaskListOpts struct {
 	// Status filters to tasks in this column (e.g. "in-progress").
@@ -263,8 +263,8 @@ type FinishResult struct {
 }
 
 // TaskEvent is a single audit log entry for a task. Every mutation to a
-// task — creation, movement, field edits, flagging, deletion, and
-// restoration — writes a TaskEvent. Events are returned newest-first
+// task - creation, movement, field edits, flagging, deletion, and
+// restoration - writes a TaskEvent. Events are returned newest-first
 // by [TaskStore.Log].
 type TaskEvent struct {
 	// Timestamp is the Unix timestamp (milliseconds) when the event occurred.

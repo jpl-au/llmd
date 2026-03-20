@@ -1,8 +1,8 @@
 // Package plugin loads Yaegi plugins from user directories.
 //
 // Plugin discovery paths (local overrides global):
-//  1. .llmd/plugins/ — project-local plugins
-//  2. ~/.llmd/plugins/ — global plugins
+//  1. .llmd/plugins/ - project-local plugins
+//  2. ~/.llmd/plugins/ - global plugins
 //
 // Each plugin is a directory containing .go files. If a plugin name exists
 // in both local and global, local wins.
@@ -148,7 +148,7 @@ type adapter struct {
 	// fully independent and run concurrently.
 	mu sync.Mutex
 
-	// Per-request store holders — populated by Exec before each plugin
+	// Per-request store holders - populated by Exec before each plugin
 	// call. The symbol table points at these fields so Yaegi reads the
 	// request-scoped bridges rather than package-level globals.
 	documents  sdk.DocumentStore
@@ -164,7 +164,7 @@ func (a *adapter) Name() string            { return a.name }
 func (a *adapter) Commands() []sdk.Command { return a.cmds }
 
 func (a *adapter) Exec(ctx sdk.Context, cmd string, args []string) (resp sdk.Response, err error) {
-	// Serialise concurrent calls on this adapter — the store fields are
+	// Serialise concurrent calls on this adapter - the store fields are
 	// shared state on the adapter and must not be overwritten mid-flight.
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -315,7 +315,7 @@ func load(dir string) (sdk.Plugin, error) {
 // readSource concatenates all .go files in dir into a single source string.
 // It strips package declarations from all but the first file.
 //
-// Import statements (including the sdk import) are preserved — Yaegi needs
+// Import statements (including the sdk import) are preserved - Yaegi needs
 // them for namespace resolution even when symbols are provided via Use().
 func readSource(dir string) (string, error) {
 	entries, err := os.ReadDir(dir)

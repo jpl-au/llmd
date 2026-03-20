@@ -8,7 +8,7 @@
 //  2. Block on server.Run reading JSON-RPC from stdin, writing to stdout.
 //
 // Every tool uses the same input shape (toolInput) because plugins already
-// parse their own flags from args — there's no benefit to per-tool schema.
+// parse their own flags from args - there's no benefit to per-tool schema.
 // The Content field is piped to the command as stdin, which is how "write"
 // and "edit" receive document bodies.
 
@@ -34,7 +34,7 @@ var mcpSpec = sdk.Command{
 // toolInput is the MCP input schema shared by all tools.
 // Args are passed directly to the plugin's Exec as command-line arguments.
 // Content, when non-empty, is delivered as stdin (used by write, edit).
-// Author identifies who is making the change — the LLM or agent should
+// Author identifies who is making the change - the LLM or agent should
 // supply this so mutations are attributed correctly.
 type toolInput struct {
 	Args    []string `json:"args"    jsonschema:"description=command arguments"`
@@ -104,7 +104,7 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 
 		// Use the author from the tool call, or fall back to the
 		// server-level author (from --author on the mcp command).
-		// MCP callers are non-interactive — no config author fallback.
+		// MCP callers are non-interactive - no config author fallback.
 		a := input.Author
 		if a == "" {
 			a = author

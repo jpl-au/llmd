@@ -240,7 +240,7 @@ func (a *documentAPI) Glob(pattern string) ([]string, error) {
 // search.Options (the Mode enum values are identical by design so a
 // direct cast works). Results are flattened: each search.Result may
 // contain multiple matches, which become individual sdk.GrepHit entries.
-// For GrepPaths mode, results have no matches — just a path.
+// For GrepPaths mode, results have no matches - just a path.
 func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, error) {
 	var errs []error
 	if err := validate.Null(query, "query"); err != nil {
@@ -335,7 +335,7 @@ func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 }
 
 // Revert creates a new version with the content from a previous version.
-// The old version is preserved — revert is non-destructive.
+// The old version is preserved - revert is non-destructive.
 func (a *documentAPI) Revert(path string, version int, author, msg string) error {
 	path, err := docpath.Normalise(path)
 	if err != nil {

@@ -158,7 +158,7 @@ func (t *Tasks) writeColumns(ctx context.Context, cols []string, author string) 
 
 // parseColumns extracts the columns array from the board entity JSON.
 func parseColumns(value string) ([]string, error) {
-	// Simple parsing — the value is {"columns":["a","b","c"]}
+	// Simple parsing - the value is {"columns":["a","b","c"]}
 	// Use strings rather than encoding/json to avoid allocations for
 	// this hot path in list operations.
 	start := strings.Index(value, "[")

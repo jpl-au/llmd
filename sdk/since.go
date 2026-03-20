@@ -8,9 +8,9 @@ import (
 // ParseSince parses a --since value into a time.Time. It accepts two
 // formats:
 //
-//   - Duration shorthand: "5m", "1h", "30s", "2h30m" — subtracted
+//   - Duration shorthand: "5m", "1h", "30s", "2h30m" - subtracted
 //     from time.Now().
-//   - RFC 3339 timestamp: "2026-03-16T04:00:00Z" — used as-is.
+//   - RFC 3339 timestamp: "2026-03-16T04:00:00Z" - used as-is.
 //
 // Returns the zero time and an error if neither format matches.
 func ParseSince(s string) (time.Time, error) {

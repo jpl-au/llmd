@@ -103,12 +103,12 @@ func TestAckOrdering(t *testing.T) {
 		t.Fatal("expected ErrOrderViolation, got nil")
 	}
 
-	// Ack the first one — should succeed.
+	// Ack the first one - should succeed.
 	if err := store.Ack(ctx, first.Key, "claude"); err != nil {
 		t.Fatalf("Ack first: %v", err)
 	}
 
-	// Now ack the second one — should succeed.
+	// Now ack the second one - should succeed.
 	if err := store.Ack(ctx, second.Key, "claude"); err != nil {
 		t.Fatalf("Ack second: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestDeduplication(t *testing.T) {
 		t.Fatalf("Send: %v", err)
 	}
 
-	// Send again with the same source_key — should be silently ignored.
+	// Send again with the same source_key - should be silently ignored.
 	_, err = store.Send(ctx, SendOptions{
 		Type:      "task.created",
 		Author:    "poller",

@@ -3,7 +3,7 @@
 //
 // Keys are 9-character base36 strings derived from millisecond timestamps
 // combined with an atomic counter. This scheme produces lexicographically
-// sortable, globally unique identifiers without coordination — no UUIDs,
+// sortable, globally unique identifiers without coordination - no UUIDs,
 // no central sequence. The 9-char length fits comfortably in terminal
 // output and database indexes.
 //

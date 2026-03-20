@@ -33,12 +33,12 @@ func ReadStdin() []byte {
 		return nil
 	}
 
-	// Interactive terminal — no piped input.
+	// Interactive terminal - no piped input.
 	if stat.Mode()&os.ModeCharDevice != 0 {
 		return nil
 	}
 
-	// Regular file (e.g. redirected from disk) — read directly.
+	// Regular file (e.g. redirected from disk) - read directly.
 	if stat.Mode().IsRegular() {
 		data, err := io.ReadAll(f)
 		if err != nil {
@@ -48,7 +48,7 @@ func ReadStdin() []byte {
 		return data
 	}
 
-	// Pipe — read with timeout to avoid hanging on empty pipes.
+	// Pipe - read with timeout to avoid hanging on empty pipes.
 	done := make(chan []byte, 1)
 	go func() {
 		data, err := io.ReadAll(f)

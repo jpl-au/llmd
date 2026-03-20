@@ -13,7 +13,7 @@
 package events
 
 // Event represents a store event. Fields are populated as
-// appropriate for the domain — not every field applies to every
+// appropriate for the domain - not every field applies to every
 // event type. Path holds the document path for document/tag/link
 // events and the target path for audit events. Key holds the
 // entity key (document key, audit ID, task key, etc.).

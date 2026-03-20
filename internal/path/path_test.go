@@ -31,7 +31,7 @@ func TestNormalise(t *testing.T) {
 		{"docs\\readme", "docs/readme", false},
 		{"docs\\api\\auth.md", "docs/api/auth", false},
 
-		// Absolute paths — rejected
+		// Absolute paths - rejected
 		{"/docs/readme", "", true},
 		{"/docs/readme.md/", "", true},
 		{"/etc/passwd", "", true},

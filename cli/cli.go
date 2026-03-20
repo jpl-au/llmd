@@ -1,6 +1,6 @@
 // Package cli provides the core commands as a compiled extension.
 //
-// Each command is a thin wrapper around the SDK — it parses flags, calls
+// Each command is a thin wrapper around the SDK - it parses flags, calls
 // the store, and returns both human-readable text and structured data.
 // The host decides which to display (text for terminals, data for --json).
 //

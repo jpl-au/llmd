@@ -15,7 +15,7 @@ type AddOptions struct {
 }
 
 // ListOptions filters the task listing. All zero-valued fields mean
-// "no filter" — the query returns all non-deleted tasks. Filters are
+// "no filter" - the query returns all non-deleted tasks. Filters are
 // combined with AND.
 type ListOptions struct {
 	Status     string

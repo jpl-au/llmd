@@ -127,7 +127,7 @@ func TestEditWorkflow(t *testing.T) {
 	// History shows 3 versions.
 	r = dispatch(t, "history", []string{"doc"}, "", nil)
 	out := text(r)
-	// History output is a table with version numbers — check for v1, v2, v3.
+	// History output is a table with version numbers - check for v1, v2, v3.
 	if !strings.Contains(out, "1") || !strings.Contains(out, "3") {
 		t.Errorf("history missing versions: %s", out)
 	}
