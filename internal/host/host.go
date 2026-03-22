@@ -106,18 +106,25 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 		return nil, err
 	}
 
-	// Open a store if the command requires one.
+	// Open a store if the command requires one. Streaming commands
+	// (mcp, serve) treat store errors as non-fatal so they can start
+	// and return per-call errors instead of failing to connect.
 	if h.store == nil && !h.storeless(opts.Cmd) {
 		store, err := llmd.Open(opts.DB)
 		if err != nil {
-			emit(err)
-			return nil, err
-		}
-		defer store.Close()
+			if c.cmd.Streams {
+				slog.Warn("starting without store", "cmd", opts.Cmd, "error", err)
+			} else {
+				emit(err)
+				return nil, err
+			}
+		} else {
+			defer store.Close()
 
-		// Re-setup with the store so SDK globals and bridges
-		// are wired before dispatch.
-		*h = *setup(store)
+			// Re-setup with the store so SDK globals and bridges
+			// are wired before dispatch.
+			*h = *setup(store)
+		}
 	}
 
 	author, err := h.resolveAuthor(opts.Author, c.cmd.NeedsAuthor)
@@ -315,6 +322,14 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 
 	if entry.cmd.NeedsAuthor && author == "" {
 		return nil, fmt.Errorf("%w: author not configured", sdk.ErrMissingArg)
+	}
+
+	// Commands that need a store get a clear error when none is open
+	// rather than a nil pointer panic. This happens when a streaming
+	// server (mcp, serve) started without a .llmd directory and a
+	// tool call arrives.
+	if h.store == nil && !h.storeless(cmd) {
+		return nil, fmt.Errorf("store not initialised - run llmd init")
 	}
 
 	sctx := sdk.Context{
