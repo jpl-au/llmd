@@ -25,7 +25,7 @@ import (
 
 // symbols returns Yaegi exports for the sdk package, wired to the
 // adapter's own store fields rather than package-level globals. This
-// means each adapter has isolated, request-scoped store access  - 
+// means each adapter has isolated, request-scoped store access  -
 // Exec populates the fields before each plugin call so Yaegi reads
 // the correct bridges for that request.
 func (a *adapter) symbols() interp.Exports {

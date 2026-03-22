@@ -25,7 +25,7 @@ build:
 	go build -ldflags="$(LDFLAGS)" -o llmd .
 
 # Telemetry build — records all commands to .llmd/telemetry.jsonl.
-build-telemetry:
+telemetry:
 	go build -tags telemetry -ldflags="$(LDFLAGS)" -o llmd .
 
 # Run all smoke tests (cli, http, telemetry).

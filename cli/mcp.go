@@ -37,9 +37,9 @@ var mcpSpec = sdk.Command{
 // Author identifies who is making the change - the LLM or agent should
 // supply this so mutations are attributed correctly.
 type toolInput struct {
-	Args    []string `json:"args"    jsonschema:"description=command arguments"`
-	Content string   `json:"content" jsonschema:"description=document content (for write/edit)"`
-	Author  string   `json:"author"  jsonschema:"description=author name for attributing changes"`
+	Args    []string `json:"args"    jsonschema:"command arguments"`
+	Content string   `json:"content" jsonschema:"document content (for write/edit)"`
+	Author  string   `json:"author"  jsonschema:"author name for attributing changes"`
 }
 
 // mcpCmd starts an MCP server on stdin/stdout and blocks until the
