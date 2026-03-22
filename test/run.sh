@@ -38,7 +38,7 @@ echo
 # Determine which suites to run.
 suites=("$@")
 if [ ${#suites[@]} -eq 0 ]; then
-    suites=(cli http queue telemetry webhooks)
+    suites=(cli http queue deps telemetry webhooks)
 fi
 
 for suite in "${suites[@]}"; do
