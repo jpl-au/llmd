@@ -11,6 +11,7 @@ type AddOptions struct {
 	Priority   int
 	AssignedTo string
 	Branch     string
+	DependsOn  string
 	Path       string // Existing store document to use as spec
 }
 
@@ -32,6 +33,7 @@ type SetOptions struct {
 	Position   *int
 	AssignedTo *string
 	Branch     *string
+	DependsOn  *string
 	Flag       string // Flag to add
 	Unflag     string // Flag to remove
 }

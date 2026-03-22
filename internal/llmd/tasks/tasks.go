@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     assigned_to TEXT,
     branch TEXT,
     flags TEXT,
+    depends_on TEXT,
     path TEXT NOT NULL,
     author TEXT NOT NULL,
     source TEXT NOT NULL,
@@ -45,6 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status) WHERE deleted_at IS
 CREATE INDEX IF NOT EXISTS idx_tasks_path ON tasks(path);
 CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted_at) WHERE deleted_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_tasks_branch ON tasks(branch) WHERE branch IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_depends_on ON tasks(depends_on) WHERE depends_on IS NOT NULL;
 `
 
 // Default columns for a new board.
@@ -60,6 +62,7 @@ var (
 	ErrColExists    = errors.New("column already exists")
 	ErrColNotFound  = errors.New("column not found")
 	ErrMissingTitle = errors.New("title is required")
+	ErrCycle        = errors.New("dependency cycle detected")
 )
 
 // Tasks provides task CRUD, board column management, and audit logging.

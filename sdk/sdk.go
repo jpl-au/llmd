@@ -35,6 +35,9 @@ var (
 
 	// ErrExists means the resource already exists.
 	ErrExists = errors.New("already exists")
+
+	// ErrCycle means a dependency would create a cycle.
+	ErrCycle = errors.New("dependency cycle detected")
 )
 
 // Domain stores. Each domain has its own focused interface with

@@ -15,6 +15,7 @@ var taskAddFlags = []sdk.Flag{
 	{Name: "column", Type: "string"},
 	{Name: "priority", Type: "int"},
 	{Name: "assign", Type: "string"},
+	{Name: "depends-on", Type: "string"},
 	{Name: "path", Type: "string"},
 	{Name: "file", Type: "string"},
 }
@@ -30,6 +31,7 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		Status:     flags.String("column"),
 		Priority:   flags.Int("priority"),
 		AssignedTo: flags.String("assign"),
+		DependsOn:  flags.String("depends-on"),
 		Path:       flags.String("path"),
 	}
 	file := flags.String("file")

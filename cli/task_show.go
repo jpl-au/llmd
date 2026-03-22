@@ -50,6 +50,9 @@ func taskShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 		fmt.Fprintf(&b, "| Branch | %s |\n", branchVal)
 	}
+	if t.DependsOn != "" {
+		fmt.Fprintf(&b, "| Depends On | %s |\n", t.DependsOn)
+	}
 	if t.Flags != "" {
 		fmt.Fprintf(&b, "| Flags | %s |\n", t.Flags)
 	}

@@ -78,6 +78,20 @@ type TaskStore interface {
 	// direction: "out" (default), "in", or "both".
 	Links(key, dir string) ([]Link, error)
 
+	// Dep returns the single task this task depends on, or nil if none.
+	Dep(key string) (*Task, error)
+
+	// Dependents returns tasks that directly depend on this task.
+	Dependents(key string) ([]*Task, error)
+
+	// Chain returns the full dependency chain starting from key,
+	// walked backwards. Deepest dependency first, key last.
+	Chain(key string) ([]*Task, error)
+
+	// Ready returns true if the full dependency chain is satisfied
+	// (every dependency has status "done").
+	Ready(key string) (bool, error)
+
 	// Log returns audit events for a task, newest first.
 	// Limit 0 means all events.
 	Log(key string, limit int) ([]TaskEvent, error)
@@ -125,6 +139,10 @@ type Task struct {
 	// via [TaskSetOpts.Flag] and [TaskSetOpts.Unflag].
 	Flags string
 
+	// DependsOn is the key of another task this task depends on.
+	// Empty means no dependency.
+	DependsOn string
+
 	// Path is the store document path for this task's spec body.
 	// Points to a document in the content table. May reference a
 	// document that has not yet been written (backlog tasks).
@@ -156,6 +174,9 @@ type TaskAddOpts struct {
 
 	// Branch associates a git branch with the task at creation time.
 	Branch string
+
+	// DependsOn sets the key of another task this task depends on.
+	DependsOn string
 
 	// Path links the task to an existing store document as its spec.
 	// Mutually exclusive with providing a body to Add.
@@ -210,6 +231,10 @@ type TaskSetOpts struct {
 	// Branch changes the associated git branch.
 	// Pointer to empty string removes the branch association.
 	Branch *string
+
+	// DependsOn changes the dependency. Pointer to empty string
+	// clears the dependency.
+	DependsOn *string
 
 	// Flag adds a flag to the task's flag set (e.g. "blocked", "hold").
 	// No-op if the flag is already present.

@@ -52,6 +52,10 @@ type Task struct {
 	// no flags.
 	Flags string
 
+	// DependsOn is the key of another task this task depends on.
+	// Empty means no dependency. Stored as sql.NullString.
+	DependsOn string
+
 	// Path is the document path in the content table that holds this
 	// task's spec body. Convention: "tasks/<slug>" for auto-created
 	// specs, or an arbitrary path for linked documents.

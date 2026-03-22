@@ -21,7 +21,7 @@ func (t *Tasks) Read(ctx context.Context, key string) (*task.Task, error) {
 		return nil, err
 	}
 	row, err := t.db.Query(`
-		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
+		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, depends_on, path, author, source, created_at, deleted_at
 		FROM tasks
 		WHERE key = ? AND deleted_at IS NULL
 	`, key).WithContext(ctx).ReadRow()
@@ -34,7 +34,7 @@ func (t *Tasks) Read(ctx context.Context, key string) (*task.Task, error) {
 // scanDeleted reads a task including soft-deleted ones.
 func (t *Tasks) scanDeleted(ctx context.Context, key string) (*task.Task, error) {
 	row, err := t.db.Query(`
-		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
+		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, depends_on, path, author, source, created_at, deleted_at
 		FROM tasks
 		WHERE key = ?
 		ORDER BY deleted_at DESC
@@ -67,13 +67,13 @@ func (t *Tasks) scanRow(rows *sql.Rows) (*task.Task, error) {
 // to Go zero values.
 func (t *Tasks) scanTask(s scanner) (*task.Task, error) {
 	var tsk task.Task
-	var assignedTo, branch, flags sql.NullString
+	var assignedTo, branch, flags, dependsOn sql.NullString
 	var deletedAt sql.NullInt64
 
 	err := s.Scan(
 		&tsk.ID, &tsk.Key, &tsk.Title, &tsk.Status,
 		&tsk.Priority, &tsk.Position, &assignedTo, &branch, &flags,
-		&tsk.Path, &tsk.Author, &tsk.Source, &tsk.CreatedAt, &deletedAt,
+		&dependsOn, &tsk.Path, &tsk.Author, &tsk.Source, &tsk.CreatedAt, &deletedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -87,6 +87,9 @@ func (t *Tasks) scanTask(s scanner) (*task.Task, error) {
 	}
 	if flags.Valid {
 		tsk.Flags = flags.String
+	}
+	if dependsOn.Valid {
+		tsk.DependsOn = dependsOn.String
 	}
 	if deletedAt.Valid {
 		tsk.DeletedAt = &deletedAt.Int64

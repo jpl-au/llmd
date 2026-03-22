@@ -29,6 +29,8 @@ Subcommands (passed as first arg):
   start <id>                start task (record branch, move to in-progress)
   finish [id]               complete task (move to done, show summary)
   branch <id>               create git branch from task, checkout, start
+  chain <id>                show dependency chain
+  ready <id>                check if dependencies are satisfied
   diff [id]                 show git diff for task's branch
   files [id]                list files changed on task's branch
   commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", Flags: []sdk.Flag{
@@ -36,6 +38,7 @@ Subcommands (passed as first arg):
 		{Name: "priority", Type: "int", Desc: "Filter or set priority"},
 		{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},
 		{Name: "branch", Type: "string", Desc: "Git branch for this task"},
+		{Name: "depends-on", Type: "string", Desc: "Task key this task depends on"},
 		{Name: "path", Type: "string", Desc: "Use existing store document as spec"},
 		{Name: "file", Type: "string", Desc: "Read spec from filesystem path"},
 		{Name: "flag", Type: "string", Desc: "Set a flag (blocked, hold)"},
@@ -121,6 +124,10 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return taskFinish(ctx, args)
 	case "branch":
 		return taskBranch(ctx, args)
+	case "chain":
+		return taskChain(ctx, args)
+	case "ready":
+		return taskReady(ctx, args)
 	case "diff":
 		return taskDiff(ctx, args)
 	case "files":

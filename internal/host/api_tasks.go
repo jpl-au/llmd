@@ -46,6 +46,8 @@ func taskErr(err error) error {
 		return fmt.Errorf("%w: %w", sdk.ErrMissingArg, err)
 	case errors.Is(err, tasks.ErrInvalidCol):
 		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+	case errors.Is(err, tasks.ErrCycle):
+		return fmt.Errorf("%w: %w", sdk.ErrCycle, err)
 	default:
 		return err
 	}
@@ -64,6 +66,7 @@ func taskToSDK(t *task.Task) *sdk.Task {
 		AssignedTo: t.AssignedTo,
 		Branch:     t.Branch,
 		Flags:      t.Flags,
+		DependsOn:  t.DependsOn,
 		Path:       t.Path,
 		Author:     t.Author,
 		CreatedAt:  t.CreatedAt,
@@ -85,6 +88,7 @@ func (a *taskAPI) Add(title string, body []byte, opts sdk.TaskAddOpts) (*sdk.Tas
 		Priority:   opts.Priority,
 		AssignedTo: opts.AssignedTo,
 		Branch:     opts.Branch,
+		DependsOn:  opts.DependsOn,
 		Path:       opts.Path,
 	})
 	if err != nil {
@@ -142,6 +146,7 @@ func (a *taskAPI) Set(key, author string, opts sdk.TaskSetOpts) error {
 		Position:   opts.Position,
 		AssignedTo: opts.AssignedTo,
 		Branch:     opts.Branch,
+		DependsOn:  opts.DependsOn,
 		Flag:       opts.Flag,
 		Unflag:     opts.Unflag,
 	}))
@@ -396,6 +401,49 @@ func branchSlug(title string) string {
 		}
 	}
 	return strings.TrimRight(b.String(), "-")
+}
+
+// Dep returns the single task this task depends on, or nil if none.
+func (a *taskAPI) Dep(key string) (*sdk.Task, error) {
+	t, err := a.store.Tasks.Dep(a.ctx, key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+	if t == nil {
+		return nil, nil
+	}
+	return taskToSDK(t), nil
+}
+
+// Dependents returns tasks that directly depend on this task.
+func (a *taskAPI) Dependents(key string) ([]*sdk.Task, error) {
+	tt, err := a.store.Tasks.Dependents(a.ctx, key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+	out := make([]*sdk.Task, len(tt))
+	for i, t := range tt {
+		out[i] = taskToSDK(t)
+	}
+	return out, nil
+}
+
+// Chain returns the full dependency chain for a task.
+func (a *taskAPI) Chain(key string) ([]*sdk.Task, error) {
+	tt, err := a.store.Tasks.Chain(a.ctx, key)
+	if err != nil {
+		return nil, taskErr(err)
+	}
+	out := make([]*sdk.Task, len(tt))
+	for i, t := range tt {
+		out[i] = taskToSDK(t)
+	}
+	return out, nil
+}
+
+// Ready returns true if the full dependency chain is satisfied.
+func (a *taskAPI) Ready(key string) (bool, error) {
+	return a.store.Tasks.Ready(a.ctx, key)
 }
 
 // Log returns audit events for a task, newest first. Converts internal

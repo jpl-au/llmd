@@ -299,6 +299,10 @@ func (s *stubTasks) ByBranch(string) (*sdk.Task, error)              { return ni
 func (s *stubTasks) CheckSpecs([]*sdk.Task) (map[string]bool, error) { return nil, nil }
 func (s *stubTasks) Link(string, string, string) error               { return nil }
 func (s *stubTasks) Links(string, string) ([]sdk.Link, error)        { return nil, nil }
+func (s *stubTasks) Dep(string) (*sdk.Task, error)                   { return nil, nil }
+func (s *stubTasks) Dependents(string) ([]*sdk.Task, error)          { return nil, nil }
+func (s *stubTasks) Chain(string) ([]*sdk.Task, error)               { return nil, nil }
+func (s *stubTasks) Ready(string) (bool, error)                      { return true, nil }
 func (s *stubTasks) Log(string, int) ([]sdk.TaskEvent, error)        { return nil, nil }
 
 // stubTags is a minimal TagStore for testing Yaegi access.

@@ -76,6 +76,41 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 			recordTx(ctx, tx, author, "edited:position", key, old, fmt.Sprintf("%d", *opts.Position))
 		}
 
+		if opts.DependsOn != nil {
+			old := tsk.DependsOn
+			newDep := *opts.DependsOn
+			if newDep != "" {
+				// Validate target exists.
+				if _, err := t.Read(ctx, newDep); err != nil {
+					return nil, fmt.Errorf("dependency target: %w", err)
+				}
+				// Cycle detection: walk from newDep's chain. If we
+				// encounter key, setting this dependency would create
+				// a cycle.
+				if newDep == key {
+					return nil, ErrCycle
+				}
+				current := newDep
+				seen := map[string]bool{key: true}
+				for current != "" {
+					if seen[current] {
+						return nil, ErrCycle
+					}
+					seen[current] = true
+					dep, err := t.Read(ctx, current)
+					if err != nil {
+						return nil, fmt.Errorf("walking dependency chain: %w", err)
+					}
+					current = dep.DependsOn
+				}
+			}
+			_, err := tx.ExecContext(ctx, `UPDATE tasks SET depends_on = ? WHERE key = ? AND deleted_at IS NULL`, nullStr(newDep), key)
+			if err != nil {
+				return nil, fmt.Errorf("setting depends_on: %w", err)
+			}
+			recordTx(ctx, tx, author, "edited:depends_on", key, old, newDep)
+		}
+
 		if opts.Flag != "" {
 			old := tsk.Flags
 			flags := addFlag(tsk.Flags, opts.Flag)

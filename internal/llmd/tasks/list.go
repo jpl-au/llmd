@@ -22,7 +22,7 @@ func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error
 	var args []any
 
 	query.WriteString(`
-		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at, deleted_at
+		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, depends_on, path, author, source, created_at, deleted_at
 		FROM tasks
 		WHERE deleted_at IS NULL
 	`)

@@ -54,6 +54,7 @@ func (a *adapter) symbols() interp.Exports {
 			"ErrNotFound":   reflect.ValueOf(&sdk.ErrNotFound).Elem(),
 			"ErrNoSpec":     reflect.ValueOf(&sdk.ErrNoSpec).Elem(),
 			"ErrExists":     reflect.ValueOf(&sdk.ErrExists).Elem(),
+			"ErrCycle":      reflect.ValueOf(&sdk.ErrCycle).Elem(),
 
 			// Functions
 			"Init":      reflect.ValueOf(&sdk.Init).Elem(),
@@ -248,6 +249,10 @@ type _sdk_TaskStore struct {
 	WCheckSpecs   func(tasks []*sdk.Task) (map[string]bool, error)
 	WLink         func(key string, target string, author string) error
 	WLinks        func(key string, dir string) ([]sdk.Link, error)
+	WDep          func(key string) (*sdk.Task, error)
+	WDependents   func(key string) ([]*sdk.Task, error)
+	WChain        func(key string) ([]*sdk.Task, error)
+	WReady        func(key string) (bool, error)
 	WLog          func(key string, limit int) ([]sdk.TaskEvent, error)
 }
 
@@ -304,6 +309,18 @@ func (W _sdk_TaskStore) Link(key string, target string, author string) error {
 }
 func (W _sdk_TaskStore) Links(key string, dir string) ([]sdk.Link, error) {
 	return W.WLinks(key, dir)
+}
+func (W _sdk_TaskStore) Dep(key string) (*sdk.Task, error) {
+	return W.WDep(key)
+}
+func (W _sdk_TaskStore) Dependents(key string) ([]*sdk.Task, error) {
+	return W.WDependents(key)
+}
+func (W _sdk_TaskStore) Chain(key string) ([]*sdk.Task, error) {
+	return W.WChain(key)
+}
+func (W _sdk_TaskStore) Ready(key string) (bool, error) {
+	return W.WReady(key)
 }
 func (W _sdk_TaskStore) Log(key string, limit int) ([]sdk.TaskEvent, error) {
 	return W.WLog(key, limit)

@@ -43,6 +43,7 @@ var taskSetFlags = []sdk.Flag{
 	{Name: "flag", Type: "string"},
 	{Name: "unflag", Type: "string"},
 	{Name: "branch", Type: "string"},
+	{Name: "depends-on", Type: "string"},
 }
 
 func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -76,6 +77,10 @@ func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if flags.Has("branch") {
 		v := flags.String("branch")
 		opts.Branch = &v
+	}
+	if flags.Has("depends-on") {
+		v := flags.String("depends-on")
+		opts.DependsOn = &v
 	}
 	opts.Flag = flags.String("flag")
 	opts.Unflag = flags.String("unflag")

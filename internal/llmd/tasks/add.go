@@ -85,6 +85,13 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	now := time.Now().UnixMilli()
 	k := key.Generate()
 
+	// Validate dependency target exists.
+	if opts.DependsOn != "" {
+		if _, err := t.Read(ctx, opts.DependsOn); err != nil {
+			return nil, fmt.Errorf("dependency target: %w", err)
+		}
+	}
+
 	var assignedTo sql.NullString
 	if opts.AssignedTo != "" {
 		assignedTo = sql.NullString{String: opts.AssignedTo, Valid: true}
@@ -106,9 +113,9 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		}
 
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO tasks (key, title, status, priority, position, assigned_to, branch, flags, path, author, source, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
-		`, k, title, status, opts.Priority, maxPos+1, assignedTo, branch, path, opts.Author, opts.Source, now)
+			INSERT INTO tasks (key, title, status, priority, position, assigned_to, branch, flags, depends_on, path, author, source, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+		`, k, title, status, opts.Priority, maxPos+1, assignedTo, branch, nullStr(opts.DependsOn), path, opts.Author, opts.Source, now)
 		if err != nil {
 			return nil, fmt.Errorf("inserting task: %w", err)
 		}
@@ -130,6 +137,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		Position:   pos,
 		AssignedTo: opts.AssignedTo,
 		Branch:     opts.Branch,
+		DependsOn:  opts.DependsOn,
 		Path:       path,
 		Origin:     opts.Origin,
 		CreatedAt:  now,
