@@ -23,6 +23,7 @@ import (
 	"github.com/jpl-au/llmd/app"
 	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/sdk"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -59,7 +60,24 @@ func mcpCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		registerTool(server, cmd, author)
 	}
 
-	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+	telemetry.Emit(telemetry.Entry{
+		Source:  "mcp",
+		Event:   "start",
+		Command: "mcp",
+		Success: true,
+	})
+
+	err := server.Run(context.Background(), &mcp.StdioTransport{})
+
+	telemetry.Emit(telemetry.Entry{
+		Source:  "mcp",
+		Event:   "stop",
+		Command: "mcp",
+		Success: err == nil,
+		Error:   telemetry.ErrStr(err),
+	})
+
+	if err != nil {
 		return nil, fmt.Errorf("mcp: %w", err)
 	}
 	return nil, nil

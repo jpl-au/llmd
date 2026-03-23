@@ -114,6 +114,13 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 		if err != nil {
 			if c.cmd.Streams {
 				slog.Warn("starting without store", "cmd", opts.Cmd, "error", err)
+				telemetry.Emit(telemetry.Entry{
+					Source:  "cli",
+					Event:   "start.nostore",
+					Command: opts.Cmd,
+					Success: true,
+					Error:   err.Error(),
+				})
 			} else {
 				emit(err)
 				return nil, err
@@ -328,7 +335,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 	// rather than a nil pointer panic. This happens when a streaming
 	// server (mcp, serve) started without a .llmd directory and a
 	// tool call arrives.
-	if h.store == nil && !h.storeless(cmd) {
+	if h.store == nil && !h.storeless(cmd) && !entry.cmd.Streams {
 		return nil, fmt.Errorf("store not initialised - run llmd init")
 	}
 
@@ -353,7 +360,23 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		sctx.Mirror = newMirrorAPI(h.store, ctx)
 	}
 
-	return entry.plugin.Exec(sctx, cmd, args)
+	resp, err := entry.plugin.Exec(sctx, cmd, args)
+
+	// After a storeless command succeeds (e.g. init), try to open the
+	// store so subsequent calls on this host have a working connection.
+	if err == nil && h.store == nil {
+		if store, serr := llmd.Open(dbPath); serr == nil {
+			*h = *setup(store)
+			telemetry.Emit(telemetry.Entry{
+				Source:  "cli",
+				Event:   "connect",
+				Command: cmd,
+				Success: true,
+			})
+		}
+	}
+
+	return resp, err
 }
 
 // Commands returns a copy of all registered commands, keyed by name.

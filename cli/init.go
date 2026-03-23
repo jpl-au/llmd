@@ -11,6 +11,7 @@ var initSpec = sdk.Command{
 
 Creates .llmd/llmd.db. Safe to run if a store already exists - it
 will not overwrite existing data. Use --db to specify a custom path.`, Usage: "init",
+	MCP: true, MCPName: "llmd_init",
 }
 
 // initCmd creates a new llmd store. Uses ctx.DBPath if set,
