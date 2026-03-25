@@ -4,6 +4,7 @@
       "Read",
       "Write",
       "Edit",
+      "Bash(curl *)",
       "Bash(go *)",
       "Bash(goimports *)",
       "Bash(git *)",
@@ -12,9 +13,6 @@
       "Bash(cat *)",
       "Bash(cd *)",
       "Bash(find *)",
-      "Bash(llmd *)",
-      "Bash(./llmd *)",
-      "Bash(/home/**/llmd *)",
       "mcp__llmd__*"
     ]
   },

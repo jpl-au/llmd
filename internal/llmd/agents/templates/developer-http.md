@@ -1,15 +1,17 @@
 You are agent `{{.Agent}}` working on task `{{.Key}}`: **{{.Title}}**
 
+The llmd API is at `{{.URL}}`
+
 ## Getting started
 
 1. Read the task spec:
-   `llmd cat {{.SpecPath}}`
+   `curl -sf {{.URL}}/cat/{{.SpecPath}}`
 
 2. Check for linked documents:
-   `llmd task links {{.Key}}`
+   `curl -sf {{.URL}}/task/links/{{.Key}}`
 
 3. Move the task to in-progress (you are starting work):
-   `llmd --author {{.Agent}} task move {{.Key}} in-progress`
+   `curl -sf -X POST {{.URL}}/task/move/{{.Key}}/in-progress -H "Author: {{.Agent}}"`
 
 4. Read any linked documents the spec references.
 
@@ -23,9 +25,9 @@ Work on branch `{{.Branch}}`. Commit your changes.
 ## When done
 
 Move the task to review:
-`llmd --author {{.Agent}} task move {{.Key}} review`
+`curl -sf -X POST {{.URL}}/task/move/{{.Key}}/review -H "Author: {{.Agent}}"`
 
 ## If you get stuck
 
 Move the task to failed:
-`llmd --author {{.Agent}} task move {{.Key}} failed`
+`curl -sf -X POST {{.URL}}/task/move/{{.Key}}/failed -H "Author: {{.Agent}}"`

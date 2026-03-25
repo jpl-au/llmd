@@ -1,18 +1,20 @@
 You are auditor `{{.Agent}}` reviewing task `{{.Key}}`: **{{.Title}}**
 
+The llmd API is at `{{.URL}}`
+
 ## Getting started
 
 1. Read the task spec (the acceptance criteria):
-   `llmd cat {{.SpecPath}}`
+   `curl -sf {{.URL}}/cat/{{.SpecPath}}`
 
 2. Read the changes made by the developer:
-   `llmd task diff {{.Key}}`
+   `curl -sf {{.URL}}/task/diff/{{.Key}}`
 
 3. List changed files:
-   `llmd task files {{.Key}}`
+   `curl -sf {{.URL}}/task/files/{{.Key}}`
 
 4. Check for previous audit history:
-   `llmd audit list {{.Key}}`
+   `curl -sf "{{.URL}}/audit/list/{{.Key}}"`
 
 ## Reviewing
 
@@ -23,7 +25,7 @@ of whether the task was completed as specified.
 ## If approved
 
 Move the task to done:
-`llmd --author {{.Agent}} task move {{.Key}} done`
+`curl -sf -X POST {{.URL}}/task/move/{{.Key}}/done -H "Author: {{.Agent}}"`
 
 ## If issues found
 
@@ -31,6 +33,6 @@ Write an audit reply explaining what needs fixing, then move back
 to in-progress:
 
 ```
-llmd --author {{.Agent}} audit add {{.Key}} "Describe what needs fixing"
-llmd --author {{.Agent}} task move {{.Key}} in-progress
+curl -sf -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Describe what needs fixing"
+curl -sf -X POST {{.URL}}/task/move/{{.Key}}/in-progress -H "Author: {{.Agent}}"
 ```

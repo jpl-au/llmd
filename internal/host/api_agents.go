@@ -15,8 +15,6 @@ import (
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
-	"github.com/jpl-au/llmd/internal/llmd/audits"
-	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	"github.com/jpl-au/llmd/pkg/model/task"
 	"github.com/jpl-au/llmd/sdk"
@@ -411,22 +409,8 @@ type promptData struct {
 	Branch     string
 	AssignedTo string
 	Agent      string
-	URL        string // HTTP API URL (empty if not available)
-	Spec       string
-	Diff       string
-	LinkedDocs []linkedDoc
-	Audits     []auditEntry
-}
-
-type linkedDoc struct {
-	Path    string
-	Content string
-}
-
-type auditEntry struct {
-	Author  string
-	Status  string
-	Content string
+	URL        string // HTTP API URL (empty if server not running)
+	SpecPath   string // document path for the task spec
 }
 
 // buildContext assembles a prompt by executing the stored prompt
@@ -441,14 +425,33 @@ func (a *agentAPI) buildContext(t *task.Task, cfg *agents.Config) string {
 	// Gather template data.
 	data := a.gatherPromptData(t, cfg)
 
-	// Read the prompt template.
-	tmplContent, _, err := a.store.Agents.Prompt(a.ctx, cfg.Name, role)
-	if err != nil {
-		// Fall back to built-in default.
-		slog.Debug("no stored prompt template, using built-in", "agent", cfg.Name, "role", role)
-		tmplContent = agents.DefaultTemplate(role)
+	// Determine transport suffix based on what's available.
+	// HTTP templates are used when the server is running, otherwise
+	// fall back to CLI templates. Each is a separate file:
+	//   developer-http.md, developer.md (CLI default)
+	transport := ""
+	if data.URL != "" {
+		transport = "-http"
+	}
+
+	// Read the prompt template with transport suffix fallback:
+	// agents/<name>/<role>-http → agents/<name>/<role> →
+	// agents/default/<role>-http → agents/default/<role> → built-in
+	tmplContent := ""
+	var err error
+	if transport != "" {
+		tmplContent, _, err = a.store.Agents.Prompt(a.ctx, cfg.Name, role+transport)
+	}
+	if tmplContent == "" || err != nil {
+		tmplContent, _, err = a.store.Agents.Prompt(a.ctx, cfg.Name, role)
+	}
+	if tmplContent == "" || err != nil {
+		slog.Debug("no stored prompt template, using built-in", "agent", cfg.Name, "role", role, "transport", transport)
+		if transport != "" {
+			tmplContent = agents.DefaultTemplate(role + transport)
+		}
 		if tmplContent == "" {
-			tmplContent = agents.DefaultTemplate("developer")
+			tmplContent = agents.DefaultTemplate(role)
 		}
 	}
 
@@ -456,13 +459,13 @@ func (a *agentAPI) buildContext(t *task.Task, cfg *agents.Config) string {
 	tmpl, err := texttemplate.New("prompt").Parse(tmplContent)
 	if err != nil {
 		slog.Warn("parsing prompt template", "agent", cfg.Name, "role", role, "error", err)
-		return fmt.Sprintf("Task %s: %s\nBranch: %s\n\n%s", t.Key, t.Title, t.Branch, data.Spec)
+		return fmt.Sprintf("You are agent %s working on task %s: %s. API at %s", cfg.Name, t.Key, t.Title, data.URL)
 	}
 
 	var b strings.Builder
 	if err := tmpl.Execute(&b, data); err != nil {
 		slog.Warn("executing prompt template", "agent", cfg.Name, "role", role, "error", err)
-		return fmt.Sprintf("Task %s: %s\nBranch: %s\n\n%s", t.Key, t.Title, t.Branch, data.Spec)
+		return fmt.Sprintf("You are agent %s working on task %s: %s. API at %s", cfg.Name, t.Key, t.Title, data.URL)
 	}
 
 	return b.String()
@@ -475,65 +478,15 @@ func (a *agentAPI) gatherPromptData(t *task.Task, cfg *agents.Config) promptData
 		llmdURL = "http://" + c.Server.Addr
 	}
 
-	data := promptData{
+	return promptData{
 		Key:        t.Key,
 		Title:      t.Title,
 		Branch:     t.Branch,
 		AssignedTo: t.AssignedTo,
 		Agent:      cfg.Name,
 		URL:        llmdURL,
+		SpecPath:   t.Path,
 	}
-
-	// Read the spec document.
-	if t.Path != "" {
-		doc, err := a.store.Documents.Read(a.ctx, t.Path)
-		if err == nil {
-			data.Spec = doc.Content
-		} else {
-			slog.Debug("reading task spec for agent context", "path", t.Path, "error", err)
-		}
-	}
-
-	// Read linked documents.
-	if t.Path != "" {
-		ll, err := a.store.Links.List(a.ctx, t.Path, links.Options{Direction: links.Outgoing})
-		if err == nil {
-			for _, lk := range ll {
-				doc, err := a.store.Documents.Read(a.ctx, lk.Value.To)
-				if err == nil {
-					data.LinkedDocs = append(data.LinkedDocs, linkedDoc{
-						Path:    lk.Value.To,
-						Content: doc.Content,
-					})
-				}
-			}
-		}
-	}
-
-	// Read audit history.
-	auditList, err := a.store.Audits.List(a.ctx, audits.ListOptions{Target: t.Key})
-	if err == nil {
-		for _, au := range auditList {
-			data.Audits = append(data.Audits, auditEntry{
-				Author:  au.Author,
-				Status:  au.Status,
-				Content: au.Content,
-			})
-		}
-	}
-
-	// Git diff (useful for auditor role).
-	if t.Branch != "" && sdk.Git.Available() == nil {
-		base, err := sdk.Git.DefaultBranch()
-		if err == nil {
-			diff, err := sdk.Git.Diff(base, t.Branch, sdk.DiffOpts{})
-			if err == nil {
-				data.Diff = diff
-			}
-		}
-	}
-
-	return data
 }
 
 // writeWorktreeSettings writes agent-specific settings into the

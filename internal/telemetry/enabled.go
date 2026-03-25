@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -19,11 +20,16 @@ var (
 	enc  *json.Encoder
 )
 
-// Init opens the telemetry log file in the current working directory.
-// If the file cannot be opened, telemetry is silently disabled -
-// diagnostic logging must never break normal operation.
+// Init opens the telemetry log file in the .llmd directory. If the
+// directory does not exist (no store initialised), falls back to the
+// current working directory. Telemetry is silently disabled if the
+// file cannot be opened - diagnostic logging must never break normal
+// operation.
 func Init() {
-	path := "telemetry.jsonl"
+	path := filepath.Join(".llmd", "telemetry.jsonl")
+	if _, err := os.Stat(".llmd"); os.IsNotExist(err) {
+		path = "telemetry.jsonl"
+	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		slog.Debug("telemetry disabled: cannot open log", "path", path, "err", err)

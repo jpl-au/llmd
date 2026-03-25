@@ -107,12 +107,32 @@ func (s *Server) log(next http.Handler) http.Handler {
 	})
 }
 
+// mixedCommands lists commands that support both reads and writes
+// via subcommands. These are registered as both GET and POST so
+// agents can read (GET /task/show/abc) and mutate (POST /task/move/abc/review)
+// through the same command namespace.
+var mixedCommands = map[string]bool{
+	"task": true, "agent": true, "audit": true, "queue": true,
+	"tag": true, "link": true,
+}
+
 // register walks all registered commands and creates an HTTP route
-// for each one. Read commands (NeedsAuthor == false) are registered
-// as GET, mutation commands as POST.
+// for each one. Read commands are GET, mutation commands are POST.
+// Mixed commands (task, agent, audit, queue) get both methods.
 func (s *Server) register() {
 	for _, cmd := range sdk.AllCommands() {
 		if skip(cmd.Name) {
+			continue
+		}
+
+		handler := s.handle(cmd.Name)
+
+		if mixedCommands[cmd.Name] {
+			// Register both GET (reads) and POST (mutations).
+			s.mux.HandleFunc("GET /"+cmd.Name+"/{path...}", handler)
+			s.mux.HandleFunc("GET /"+cmd.Name, handler)
+			s.mux.HandleFunc("POST /"+cmd.Name+"/{path...}", handler)
+			s.mux.HandleFunc("POST /"+cmd.Name, handler)
 			continue
 		}
 
@@ -122,12 +142,10 @@ func (s *Server) register() {
 		}
 
 		pattern := fmt.Sprintf("%s /%s/{path...}", method, cmd.Name)
-		s.mux.HandleFunc(pattern, s.handle(cmd.Name))
+		s.mux.HandleFunc(pattern, handler)
 
-		// Also register the bare path without a trailing wildcard so
-		// commands like /ls or /grep work without a path argument.
 		bare := fmt.Sprintf("%s /%s", method, cmd.Name)
-		s.mux.HandleFunc(bare, s.handle(cmd.Name))
+		s.mux.HandleFunc(bare, handler)
 	}
 }
 
