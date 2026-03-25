@@ -8,24 +8,24 @@
 #
 # Template variables are replaced by llmd at spawn time.
 
-set -euo pipefail
-
 TASK_ID="{{.TaskID}}"
 AGENT="{{.Agent}}"
 LLMD="{{.LLMD}}"
 WORKTREE="{{.Worktree}}"
 
-# Run the agent. The command and args are substituted at generation time.
+# Run the agent. Capture exit code without letting it terminate
+# the script (no set -e).
 cd "${WORKTREE}"
 {{.Command}} {{.Args}}
 EXIT=$?
 
 # Check current task status before moving. Hooks may have already
 # moved the task (e.g. Claude Code SessionEnd hook). We only move
-# if the task is still in-progress.
-STATUS=$("${LLMD}" task show "${TASK_ID}" --json 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+# if the task is still in-progress. The grep is best-effort - if
+# it fails, we still attempt the move.
+STATUS=$("${LLMD}" task show "${TASK_ID}" --json 2>/dev/null | grep -oi '"Status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
 
-if [ "${STATUS}" = "in-progress" ]; then
+if [ "${STATUS}" = "in-progress" ] || [ "${STATUS}" = "unknown" ]; then
   if [ ${EXIT} -eq 0 ]; then
     "${LLMD}" --author "${AGENT}" task move "${TASK_ID}" review 2>/dev/null || true
   else

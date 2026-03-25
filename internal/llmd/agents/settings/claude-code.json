@@ -5,12 +5,16 @@
       "Write",
       "Edit",
       "Bash(go *)",
+      "Bash(goimports *)",
       "Bash(git *)",
       "Bash(mkdir *)",
       "Bash(ls *)",
       "Bash(cat *)",
+      "Bash(cd *)",
+      "Bash(find *)",
       "Bash(llmd *)",
       "Bash(./llmd *)",
+      "Bash(/home/**/llmd *)",
       "mcp__llmd__*"
     ]
   },
@@ -21,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "llmd --author {{.Agent}} queue send \"Agent stop: task {{.TaskID}}\" 2>/dev/null || true"
+            "command": "llmd --author {{.Agent}} queue send 'Agent stop: task {{.TaskID}}' 2>/dev/null || true"
           }
         ]
       }
