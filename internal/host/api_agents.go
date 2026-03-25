@@ -139,6 +139,17 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, agentErr(err)
 	}
 
+	// Auto-detect role from column. Tasks in review need an auditor,
+	// not a developer. An explicit role in the config takes priority.
+	if cfg.Role == "" {
+		switch t.Status {
+		case "review":
+			cfg.Role = "auditor"
+		default:
+			cfg.Role = "developer"
+		}
+	}
+
 	// Resolve the command binary.
 	cmdPath, err := exec.LookPath(cfg.Command)
 	if err != nil {
@@ -157,37 +168,48 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		branch = "task/" + branchSlug(t.Title)
 	}
 
-	// Create worktree (and branch if needed).
-	worktreeDir := filepath.Join(".llmd", "worktrees", taskKey)
-	absWorktree, err := filepath.Abs(worktreeDir)
-	if err != nil {
-		return nil, fmt.Errorf("resolving worktree path: %w", err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(absWorktree), 0755); err != nil {
-		return nil, fmt.Errorf("creating worktree parent: %w", err)
-	}
-
-	if needsBranch {
-		// Create branch + worktree in one step, without touching
-		// the main working directory.
-		if err := sdk.Git.WorktreeCreate(absWorktree, branch); err != nil {
-			return nil, fmt.Errorf("creating worktree: %w", err)
-		}
-		if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{
-			Branch: &branch,
-		}); err != nil {
-			return nil, taskErr(err)
+	// Auditors review existing work - they don't need an isolated
+	// worktree. They run from the main working directory and read
+	// the developer's diff via task commands.
+	var absWorktree string
+	if cfg.Role == "auditor" {
+		absWorktree, err = filepath.Abs(".")
+		if err != nil {
+			return nil, fmt.Errorf("resolving working directory: %w", err)
 		}
 	} else {
-		if err := sdk.Git.WorktreeAdd(absWorktree, branch); err != nil {
-			return nil, fmt.Errorf("creating worktree: %w", err)
+		// Create worktree (and branch if needed).
+		worktreeDir := filepath.Join(".llmd", "worktrees", taskKey)
+		absWorktree, err = filepath.Abs(worktreeDir)
+		if err != nil {
+			return nil, fmt.Errorf("resolving worktree path: %w", err)
+		}
+
+		if err := os.MkdirAll(filepath.Dir(absWorktree), 0755); err != nil {
+			return nil, fmt.Errorf("creating worktree parent: %w", err)
+		}
+
+		if needsBranch {
+			// Create branch + worktree in one step, without touching
+			// the main working directory.
+			if err := sdk.Git.WorktreeCreate(absWorktree, branch); err != nil {
+				return nil, fmt.Errorf("creating worktree: %w", err)
+			}
+			if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{
+				Branch: &branch,
+			}); err != nil {
+				return nil, taskErr(err)
+			}
+		} else {
+			if err := sdk.Git.WorktreeAdd(absWorktree, branch); err != nil {
+				return nil, fmt.Errorf("creating worktree: %w", err)
+			}
 		}
 	}
 
 	// Write agent runtime settings (e.g. permissions, hooks) into
-	// the worktree. Settings are templated with task-specific values
-	// so hooks can reference the task ID and agent name.
+	// the working directory. Settings are templated with task-specific
+	// values so hooks can reference the task ID and agent name.
 	if settings := a.store.Agents.Settings(a.ctx, agent); settings != "" {
 		templated := strings.ReplaceAll(settings, "{{.Agent}}", agent)
 		templated = strings.ReplaceAll(templated, "{{.TaskID}}", taskKey)
@@ -234,6 +256,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	wrapperPath, err := agents.GenerateWrapper(absWorktree, agents.WrapperData{
 		TaskID:   taskKey,
 		Agent:    agent,
+		Role:     cfg.Role,
 		LLMD:     llmdPath,
 		URL:      llmdURL,
 		Worktree: absWorktree,
@@ -241,7 +264,9 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		Args:     shellJoin(cmdArgs),
 	})
 	if err != nil {
-		sdk.Git.WorktreeRemove(absWorktree)
+		if cfg.Role != "auditor" {
+			sdk.Git.WorktreeRemove(absWorktree)
+		}
 		return nil, fmt.Errorf("generating wrapper: %w", err)
 	}
 
@@ -260,9 +285,10 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	cmd.Stderr = logFile
 
 	if err := cmd.Start(); err != nil {
-		// Clean up worktree on spawn failure.
-		if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
-			slog.Warn("cleaning up worktree after spawn failure", "path", absWorktree, "error", rmErr)
+		if cfg.Role != "auditor" {
+			if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
+				slog.Warn("cleaning up worktree after spawn failure", "path", absWorktree, "error", rmErr)
+			}
 		}
 		return nil, fmt.Errorf("starting agent process: %w", err)
 	}
@@ -277,17 +303,21 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		Author:   author,
 	})
 	if err != nil {
-		// Kill the process if we can't record it.
 		cmd.Process.Kill()
-		if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
-			slog.Warn("cleaning up worktree after record failure", "path", absWorktree, "error", rmErr)
+		if cfg.Role != "auditor" {
+			if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
+				slog.Warn("cleaning up worktree after record failure", "path", absWorktree, "error", rmErr)
+			}
 		}
 		return nil, agentErr(err)
 	}
 
-	// Move the task to in-progress.
-	if err := a.store.Tasks.Move(a.ctx, taskKey, "in-progress", author); err != nil {
-		slog.Warn("moving task to in-progress after spawn", "key", taskKey, "error", err)
+	// Developers start work - move to in-progress. Auditors stay
+	// in review - the auditor template handles its own moves.
+	if cfg.Role != "auditor" {
+		if err := a.store.Tasks.Move(a.ctx, taskKey, "in-progress", author); err != nil {
+			slog.Warn("moving task to in-progress after spawn", "key", taskKey, "error", err)
+		}
 	}
 
 	// Wait for the process in a goroutine so we can record completion.

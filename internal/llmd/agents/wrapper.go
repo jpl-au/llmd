@@ -16,6 +16,7 @@ var wrapperTemplate string
 type WrapperData struct {
 	TaskID   string
 	Agent    string
+	Role     string // developer or auditor
 	LLMD     string // absolute path to the llmd binary
 	URL      string // HTTP API URL (empty if server not configured)
 	Worktree string // absolute path to the worktree

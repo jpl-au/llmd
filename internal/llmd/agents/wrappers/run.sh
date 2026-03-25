@@ -10,6 +10,7 @@
 
 TASK_ID="{{.TaskID}}"
 AGENT="{{.Agent}}"
+ROLE="{{.Role}}"
 LLMD="{{.LLMD}}"
 LLMD_URL="{{.URL}}"
 WORKTREE="{{.Worktree}}"
@@ -42,15 +43,18 @@ cd "${WORKTREE}"
 {{.Command}} {{.Args}}
 EXIT=$?
 
-# Check current task status before moving. Hooks may have already
-# moved the task. We only move if still in-progress.
-STATUS=$(task_status || echo "unknown")
+# Auditors handle their own lifecycle moves via the template
+# (approve -> done, reject -> in-progress). Only developers get
+# automatic moves from the wrapper.
+if [ "${ROLE}" != "auditor" ]; then
+  STATUS=$(task_status || echo "unknown")
 
-if [ "${STATUS}" = "in-progress" ] || [ "${STATUS}" = "unknown" ]; then
-  if [ ${EXIT} -eq 0 ]; then
-    task_move review || true
-  else
-    task_move failed || true
+  if [ "${STATUS}" = "in-progress" ] || [ "${STATUS}" = "unknown" ]; then
+    if [ ${EXIT} -eq 0 ]; then
+      task_move review || true
+    else
+      task_move failed || true
+    fi
   fi
 fi
 
