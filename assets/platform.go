@@ -51,7 +51,7 @@ func (claude) BudgetArgs(budget float64) []string {
 
 // Cost reads the agent log and extracts cost from Claude Code's
 // JSON output. Claude Code with --output-format json writes a JSON
-// object to stdout that may contain a cost_usd field.
+// object to stdout containing a total_cost_usd field.
 func (claude) Cost(logPath string) (*float64, error) {
 	f, err := os.Open(logPath)
 	if err != nil {
@@ -77,13 +77,13 @@ func (claude) Cost(logPath string) (*float64, error) {
 	}
 
 	var output struct {
-		CostUSD *float64 `json:"cost_usd"`
+		TotalCost *float64 `json:"total_cost_usd"`
 	}
 	if err := json.Unmarshal([]byte(last), &output); err != nil {
 		slog.Debug("parsing agent JSON output", "error", err)
 		return nil, nil
 	}
-	return output.CostUSD, nil
+	return output.TotalCost, nil
 }
 
 // generic is the no-op Platform for unknown agents.
