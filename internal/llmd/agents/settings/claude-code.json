@@ -9,7 +9,22 @@
       "Bash(mkdir *)",
       "Bash(ls *)",
       "Bash(cat *)",
+      "Bash(llmd *)",
+      "Bash(./llmd *)",
       "mcp__llmd__*"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "llmd --author {{.Agent}} queue send \"Agent stop: task {{.TaskID}}\" 2>/dev/null || true"
+          }
+        ]
+      }
     ]
   }
 }

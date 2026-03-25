@@ -186,10 +186,13 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
-	// Write agent runtime settings (e.g. permissions) into the
-	// worktree so the agent process picks them up.
+	// Write agent runtime settings (e.g. permissions, hooks) into
+	// the worktree. Settings are templated with task-specific values
+	// so hooks can reference the task ID and agent name.
 	if settings := a.store.Agents.Settings(a.ctx, agent); settings != "" {
-		a.writeWorktreeSettings(absWorktree, agent, settings)
+		templated := strings.ReplaceAll(settings, "{{.Agent}}", agent)
+		templated = strings.ReplaceAll(templated, "{{.TaskID}}", taskKey)
+		a.writeWorktreeSettings(absWorktree, agent, templated)
 	}
 
 	// Build the context prompt.
@@ -213,17 +216,36 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		cmdArgs = appendBudgetFlag(cfg.Command, cmdArgs, budget)
 	}
 
-	// Start the subprocess in the worktree. Use a background context
-	// so the agent outlives the CLI request that spawned it.
-	cmd := exec.Command(cmdPath, cmdArgs...)
+	// Resolve the llmd binary path for the wrapper script.
+	llmdPath, err := os.Executable()
+	if err != nil {
+		llmdPath, _ = exec.LookPath("llmd")
+	}
+
+	// Generate the wrapper script that runs the agent and handles
+	// task lifecycle (moving the task on completion/failure).
+	wrapperPath, err := agents.GenerateWrapper(absWorktree, agents.WrapperData{
+		TaskID:   taskKey,
+		Agent:    agent,
+		LLMD:     llmdPath,
+		Worktree: absWorktree,
+		Command:  cmdPath,
+		Args:     shellJoin(cmdArgs),
+	})
+	if err != nil {
+		sdk.Git.WorktreeRemove(absWorktree)
+		return nil, fmt.Errorf("generating wrapper: %w", err)
+	}
+
+	// Start the wrapper script instead of the agent directly.
+	cmd := exec.Command("/bin/bash", wrapperPath)
 	cmd.Dir = absWorktree
 	cmd.Env = append(os.Environ(),
 		"LLMD_TASK_ID="+taskKey,
 		"LLMD_AGENT="+agent,
 	)
 
-	// Send agent output to log files in the worktree so we can
-	// debug if needed, and the agent has a valid stdout/stderr.
+	// Send output to a log file so we can debug if needed.
 	logPath := filepath.Join(absWorktree, ".llmd-agent.log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
@@ -515,6 +537,20 @@ func (a *agentAPI) writeWorktreeSettings(worktree, agent, content string) {
 			slog.Warn("writing agent settings", "path", path, "error", err)
 		}
 	}
+}
+
+// shellJoin combines args into a shell-safe string. Arguments
+// containing spaces or special characters are single-quoted.
+func shellJoin(args []string) string {
+	var parts []string
+	for _, a := range args {
+		if strings.ContainsAny(a, " \t\n\"'\\$`!#&|;(){}[]<>?*~") {
+			parts = append(parts, "'"+strings.ReplaceAll(a, "'", "'\\''")+"'")
+		} else {
+			parts = append(parts, a)
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 // appendBudgetFlag adds a budget flag appropriate for the agent
