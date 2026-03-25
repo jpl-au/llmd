@@ -207,17 +207,24 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		cmdArgs = appendBudgetFlag(cfg.Command, cmdArgs, budget)
 	}
 
-	// Start the subprocess in the worktree.
-	cmd := exec.CommandContext(a.ctx, cmdPath, cmdArgs...)
+	// Start the subprocess in the worktree. Use a background context
+	// so the agent outlives the CLI request that spawned it.
+	cmd := exec.Command(cmdPath, cmdArgs...)
 	cmd.Dir = absWorktree
 	cmd.Env = append(os.Environ(),
 		"LLMD_TASK_ID="+taskKey,
 		"LLMD_AGENT="+agent,
 	)
 
-	// Detach stdout/stderr so the agent runs independently.
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	// Send agent output to log files in the worktree so we can
+	// debug if needed, and the agent has a valid stdout/stderr.
+	logPath := filepath.Join(absWorktree, ".llmd-agent.log")
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		slog.Warn("creating agent log file", "path", logPath, "error", err)
+	}
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
 
 	if err := cmd.Start(); err != nil {
 		// Clean up worktree on spawn failure.
@@ -251,7 +258,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	}
 
 	// Wait for the process in a goroutine so we can record completion.
-	go a.waitForProcess(cmd, taskKey, absWorktree)
+	go a.waitForProcess(cmd, taskKey, absWorktree, logFile)
 
 	return runToSDK(r), nil
 }
@@ -334,7 +341,10 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 
 // waitForProcess waits for the agent subprocess to exit and records the
 // result. Runs in a goroutine started by Spawn.
-func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey, worktree string) {
+func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey, worktree string, logFile *os.File) {
+	if logFile != nil {
+		defer logFile.Close()
+	}
 	err := cmd.Wait()
 	exitCode := 0
 	if err != nil {
