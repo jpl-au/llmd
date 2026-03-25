@@ -12,6 +12,7 @@ import (
 	"syscall"
 	texttemplate "text/template"
 
+	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
@@ -59,6 +60,7 @@ func runToSDK(r *agents.Run) *sdk.AgentRun {
 		Status:    r.Status,
 		PID:       r.PID,
 		ExitCode:  r.ExitCode,
+		Cost:      r.Cost,
 		Author:    r.Author,
 		StartedAt: r.StartedAt,
 		StoppedAt: r.StoppedAt,
@@ -420,7 +422,9 @@ func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey, worktree string, logFi
 	}
 
 	ctx := context.Background()
-	if err := a.store.Agents.Complete(ctx, taskKey, exitCode); err != nil {
+	if err := a.store.Agents.Complete(ctx, taskKey, agents.CompleteOpts{
+		ExitCode: exitCode,
+	}); err != nil {
 		slog.Warn("recording agent completion", "task", taskKey, "error", err)
 	}
 
@@ -478,10 +482,10 @@ func (a *agentAPI) buildContext(t *task.Task, cfg *agents.Config) string {
 	if tmplContent == "" || err != nil {
 		slog.Debug("no stored prompt template, using built-in", "agent", cfg.Name, "role", role, "transport", transport)
 		if transport != "" {
-			tmplContent = agents.DefaultTemplate(role + transport)
+			tmplContent = assets.Agent.Template(role + transport)
 		}
 		if tmplContent == "" {
-			tmplContent = agents.DefaultTemplate(role)
+			tmplContent = assets.Agent.Template(role)
 		}
 	}
 
@@ -520,19 +524,19 @@ func (a *agentAPI) gatherPromptData(t *task.Task, cfg *agents.Config) promptData
 }
 
 // writeWorktreeSettings writes agent-specific settings into the
-// worktree. The file location depends on the agent platform.
+// worktree. The file location is determined by the agent's platform.
 func (a *agentAPI) writeWorktreeSettings(worktree, agent, content string) {
-	// Claude Code reads project settings from .claude/settings.json
-	if strings.Contains(agent, "claude") {
-		dir := filepath.Join(worktree, ".claude")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			slog.Warn("creating agent settings directory", "path", dir, "error", err)
-			return
-		}
-		path := filepath.Join(dir, "settings.json")
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			slog.Warn("writing agent settings", "path", path, "error", err)
-		}
+	rel := assets.Agent.SettingsPath(agent)
+	if rel == "" {
+		return
+	}
+	path := filepath.Join(worktree, rel)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		slog.Warn("creating agent settings directory", "path", filepath.Dir(path), "error", err)
+		return
+	}
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		slog.Warn("writing agent settings", "path", path, "error", err)
 	}
 }
 

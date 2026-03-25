@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/pkg/model/core"
 )
@@ -45,13 +46,13 @@ func (a *Agents) Register(ctx context.Context, cfg Config, author string) error 
 	}
 
 	// Seed default prompt templates if they don't already exist.
-	for role, content := range DefaultTemplates {
+	for role, content := range assets.Agent.Templates() {
 		a.seedPrompt(ctx, cfg.Name, role, content, orig)
 	}
 
 	// Seed default runtime settings if available.
-	if settings, ok := DefaultSettings[cfg.Name]; ok {
-		a.seedDoc(ctx, SettingsPath(cfg.Name), settings, orig)
+	if s := assets.Agent.Settings(cfg.Name); s != "" {
+		a.seedDoc(ctx, SettingsPath(cfg.Name), s, orig)
 	}
 
 	return nil

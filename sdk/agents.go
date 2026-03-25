@@ -98,6 +98,10 @@ type AgentRun struct {
 	// ExitCode is the process exit code. -1 while running.
 	ExitCode int `json:"exit_code"`
 
+	// Cost is the monetary cost reported by the agent in USD.
+	// Nil when the agent does not report cost.
+	Cost *float64 `json:"cost,omitempty"`
+
 	// Author is who initiated the spawn.
 	Author string `json:"author"`
 

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -96,7 +97,7 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	command := flags.String("command")
 
 	// Look up built-in profile first.
-	profile := agents.Profile(name)
+	profile := assets.Agent.Profile(name)
 
 	if profile != nil && command == "" {
 		// Known agent - use the built-in profile.
@@ -260,7 +261,7 @@ func agentStop(ctx sdk.Context, args []string) (sdk.Response, error) {
 }
 
 func sortedProfileNames() []string {
-	names := agents.ProfileNames()
+	names := assets.Agent.ProfileNames()
 	sort.Strings(names)
 	return names
 }

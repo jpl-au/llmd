@@ -11,8 +11,8 @@
 // through the standard document interface. The agent CLI command
 // provides the user-facing surface.
 //
-// Agent runs are tracked in a dedicated table so consumers can
-// observe status and history.
+// Agent activity is tracked in a dedicated table so consumers can
+// observe status, cost, and history.
 //
 // This package handles data operations only. Process management
 // (worktree creation, subprocess spawning, context assembly) lives
@@ -31,7 +31,7 @@ import (
 )
 
 const schema = `
-CREATE TABLE IF NOT EXISTS agent_runs (
+CREATE TABLE IF NOT EXISTS agent_activity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT NOT NULL UNIQUE,
     task_key TEXT NOT NULL,
@@ -41,14 +41,15 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     status TEXT NOT NULL,
     pid INTEGER NOT NULL DEFAULT 0,
     exit_code INTEGER NOT NULL DEFAULT -1,
+    cost REAL,
     author TEXT NOT NULL,
     started_at INTEGER NOT NULL,
     stopped_at INTEGER
 );
 
-CREATE INDEX IF NOT EXISTS idx_agent_runs_key ON agent_runs(key);
-CREATE INDEX IF NOT EXISTS idx_agent_runs_task ON agent_runs(task_key);
-CREATE INDEX IF NOT EXISTS idx_agent_runs_status ON agent_runs(status);
+CREATE INDEX IF NOT EXISTS idx_agent_activity_key ON agent_activity(key);
+CREATE INDEX IF NOT EXISTS idx_agent_activity_task ON agent_activity(task_key);
+CREATE INDEX IF NOT EXISTS idx_agent_activity_status ON agent_activity(status);
 `
 
 // Document path conventions for agent storage.
@@ -99,7 +100,7 @@ func SettingsPath(name string) string {
 	return PathPrefix + name + "/" + SettingsDoc
 }
 
-// ensure creates the agent_runs table if it does not exist.
+// ensure creates the agent_activity table if it does not exist.
 func (a *Agents) ensure() error {
 	a.once.Do(func() {
 		_, a.err = a.db.Query(schema).Write()
@@ -110,7 +111,7 @@ func (a *Agents) ensure() error {
 // hasRunning checks whether a task already has a running agent.
 func (a *Agents) hasRunning(ctx context.Context, taskKey string) (bool, error) {
 	row, err := a.db.Query(`
-		SELECT COUNT(*) FROM agent_runs
+		SELECT COUNT(*) FROM agent_activity
 		WHERE task_key = ? AND status = 'running'
 	`, taskKey).WithContext(ctx).ReadRow()
 	if err != nil {

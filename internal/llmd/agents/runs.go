@@ -20,6 +20,7 @@ type Run struct {
 	Status    string
 	PID       int
 	ExitCode  int
+	Cost      *float64
 	Author    string
 	StartedAt int64
 	StoppedAt int64
@@ -54,7 +55,7 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	now := time.Now().UnixMilli()
 
 	_, err = a.db.Query(`
-		INSERT INTO agent_runs (key, task_key, agent, branch, worktree, status, pid, exit_code, author, started_at)
+		INSERT INTO agent_activity (key, task_key, agent, branch, worktree, status, pid, exit_code, author, started_at)
 		VALUES (?, ?, ?, ?, ?, 'running', ?, -1, ?, ?)
 	`, k, opts.TaskKey, opts.Agent, opts.Branch, opts.Worktree, opts.PID, opts.Author, now).Write()
 	if err != nil {
@@ -91,9 +92,15 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	return r, nil
 }
 
+// CompleteOpts holds values for completing an agent run.
+type CompleteOpts struct {
+	ExitCode int
+	Cost     *float64
+}
+
 // Complete marks a run as completed or failed based on exit code and
-// emits the appropriate event.
-func (a *Agents) Complete(ctx context.Context, taskKey string, exitCode int) error {
+// emits the appropriate event. Cost is recorded when available.
+func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts) error {
 	r, err := a.RunByTask(ctx, taskKey)
 	if err != nil {
 		return err
@@ -105,17 +112,31 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, exitCode int) err
 	now := time.Now().UnixMilli()
 	status := "completed"
 	evtType := pkgevents.AgentCompleted
-	if exitCode != 0 {
+	if opts.ExitCode != 0 {
 		status = "failed"
 		evtType = pkgevents.AgentFailed
 	}
 
+	var costVal sql.NullFloat64
+	if opts.Cost != nil {
+		costVal = sql.NullFloat64{Float64: *opts.Cost, Valid: true}
+	}
+
 	_, err = a.db.Query(`
-		UPDATE agent_runs SET status = ?, exit_code = ?, pid = 0, stopped_at = ?
+		UPDATE agent_activity SET status = ?, exit_code = ?, cost = ?, pid = 0, stopped_at = ?
 		WHERE key = ?
-	`, status, exitCode, now, r.Key).Write()
+	`, status, opts.ExitCode, costVal, now, r.Key).Write()
 	if err != nil {
 		return fmt.Errorf("completing agent run: %w", err)
+	}
+
+	metadata := map[string]any{
+		"task_key":  r.TaskKey,
+		"agent":     r.Agent,
+		"exit_code": opts.ExitCode,
+	}
+	if opts.Cost != nil {
+		metadata["cost"] = *opts.Cost
 	}
 
 	if a.bus != nil {
@@ -124,11 +145,7 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, exitCode int) err
 			Key:       r.Key,
 			Author:    r.Author,
 			Timestamp: now,
-			Metadata: map[string]any{
-				"task_key":  r.TaskKey,
-				"agent":     r.Agent,
-				"exit_code": exitCode,
-			},
+			Metadata:  metadata,
 		})
 	}
 	return nil
@@ -146,7 +163,7 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 
 	now := time.Now().UnixMilli()
 	_, err = a.db.Query(`
-		UPDATE agent_runs SET status = 'stopped', pid = 0, stopped_at = ?
+		UPDATE agent_activity SET status = 'stopped', pid = 0, stopped_at = ?
 		WHERE key = ?
 	`, now, r.Key).Write()
 	if err != nil {
@@ -178,8 +195,8 @@ func (a *Agents) RunByTask(ctx context.Context, taskKey string) (*Run, error) {
 		return nil, err
 	}
 	row, err := a.db.Query(`
-		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, author, started_at, stopped_at
-		FROM agent_runs
+		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, cost, author, started_at, stopped_at
+		FROM agent_activity
 		WHERE task_key = ?
 		ORDER BY started_at DESC
 		LIMIT 1
@@ -204,8 +221,8 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 	}
 
 	query := `
-		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, author, started_at, stopped_at
-		FROM agent_runs WHERE 1=1
+		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, cost, author, started_at, stopped_at
+		FROM agent_activity WHERE 1=1
 	`
 	var args []any
 
@@ -234,10 +251,11 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 	for rows.Next() {
 		var r Run
 		var branch, worktree sql.NullString
+		var cost sql.NullFloat64
 		var stoppedAt sql.NullInt64
 		if err := rows.Scan(
 			&r.Key, &r.TaskKey, &r.Agent, &branch, &worktree,
-			&r.Status, &r.PID, &r.ExitCode, &r.Author,
+			&r.Status, &r.PID, &r.ExitCode, &cost, &r.Author,
 			&r.StartedAt, &stoppedAt,
 		); err != nil {
 			return nil, err
@@ -247,6 +265,9 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 		}
 		if worktree.Valid {
 			r.Worktree = worktree.String
+		}
+		if cost.Valid {
+			r.Cost = &cost.Float64
 		}
 		if stoppedAt.Valid {
 			r.StoppedAt = stoppedAt.Int64
@@ -260,11 +281,12 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 func scanRun(row *sql.Row) (*Run, error) {
 	var r Run
 	var branch, worktree sql.NullString
+	var cost sql.NullFloat64
 	var stoppedAt sql.NullInt64
 
 	err := row.Scan(
 		&r.Key, &r.TaskKey, &r.Agent, &branch, &worktree,
-		&r.Status, &r.PID, &r.ExitCode, &r.Author,
+		&r.Status, &r.PID, &r.ExitCode, &cost, &r.Author,
 		&r.StartedAt, &stoppedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -279,6 +301,9 @@ func scanRun(row *sql.Row) (*Run, error) {
 	}
 	if worktree.Valid {
 		r.Worktree = worktree.String
+	}
+	if cost.Valid {
+		r.Cost = &cost.Float64
 	}
 	if stoppedAt.Valid {
 		r.StoppedAt = stoppedAt.Int64

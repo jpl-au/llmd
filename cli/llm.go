@@ -6,7 +6,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/jpl-au/llmd/guide"
+	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -15,7 +15,7 @@ var llmSpec = sdk.Command{
 }
 
 func llm(ctx sdk.Context, args []string) (sdk.Response, error) {
-	content, err := guide.Get("llm")
+	content, err := assets.Guide.Get("llm")
 	if err != nil {
 		return nil, fmt.Errorf("llm: %w", err)
 	}
