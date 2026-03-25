@@ -49,17 +49,37 @@ func (a *Agents) Register(ctx context.Context, cfg Config, author string) error 
 		a.seedPrompt(ctx, cfg.Name, role, content, orig)
 	}
 
+	// Seed default runtime settings if available.
+	if settings, ok := DefaultSettings[cfg.Name]; ok {
+		a.seedDoc(ctx, SettingsPath(cfg.Name), settings, orig)
+	}
+
 	return nil
 }
 
 // seedPrompt writes a default prompt template only if the document
 // does not already exist.
 func (a *Agents) seedPrompt(ctx context.Context, name, role, content string, opts documents.WriteOptions) {
-	path := PromptPath(name, role)
+	a.seedDoc(ctx, PromptPath(name, role), content, opts)
+}
+
+// seedDoc writes a document only if it does not already exist.
+func (a *Agents) seedDoc(ctx context.Context, path, content string, opts documents.WriteOptions) {
 	if _, err := a.docs.Read(ctx, path); err == nil {
-		return // already exists
+		return
 	}
 	a.docs.Write(ctx, path, content, opts)
+}
+
+// Settings reads the runtime settings for an agent. Returns empty
+// string if no settings document exists.
+func (a *Agents) Settings(ctx context.Context, name string) string {
+	path := SettingsPath(name)
+	doc, err := a.docs.Read(ctx, path)
+	if err != nil {
+		return ""
+	}
+	return doc.Content
 }
 
 // Remove soft-deletes an agent's config document.

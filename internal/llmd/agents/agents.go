@@ -58,6 +58,10 @@ const (
 
 	// ConfigDoc is the document name for agent operational config.
 	ConfigDoc = "config"
+
+	// SettingsDoc is the document name for agent runtime settings
+	// (e.g. permissions). Written to the worktree during spawn.
+	SettingsDoc = "settings"
 )
 
 var (
@@ -88,6 +92,11 @@ func ConfigPath(name string) string {
 // PromptPath returns the document path for an agent's prompt template.
 func PromptPath(name, role string) string {
 	return PathPrefix + name + "/" + role
+}
+
+// SettingsPath returns the document path for an agent's runtime settings.
+func SettingsPath(name string) string {
+	return PathPrefix + name + "/" + SettingsDoc
 }
 
 // ensure creates the agent_runs table if it does not exist.

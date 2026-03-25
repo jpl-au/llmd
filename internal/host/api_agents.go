@@ -186,6 +186,12 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
+	// Write agent runtime settings (e.g. permissions) into the
+	// worktree so the agent process picks them up.
+	if settings := a.store.Agents.Settings(a.ctx, agent); settings != "" {
+		a.writeWorktreeSettings(absWorktree, agent, settings)
+	}
+
 	// Build the context prompt.
 	prompt := opts.Prompt
 	if prompt == "" {
@@ -492,6 +498,23 @@ func (a *agentAPI) gatherPromptData(t *task.Task, cfg *agents.Config) promptData
 	}
 
 	return data
+}
+
+// writeWorktreeSettings writes agent-specific settings into the
+// worktree. The file location depends on the agent platform.
+func (a *agentAPI) writeWorktreeSettings(worktree, agent, content string) {
+	// Claude Code reads project settings from .claude/settings.json
+	if strings.Contains(agent, "claude") {
+		dir := filepath.Join(worktree, ".claude")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			slog.Warn("creating agent settings directory", "path", dir, "error", err)
+			return
+		}
+		path := filepath.Join(dir, "settings.json")
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			slog.Warn("writing agent settings", "path", path, "error", err)
+		}
+	}
 }
 
 // appendBudgetFlag adds a budget flag appropriate for the agent
