@@ -186,7 +186,11 @@ func (s *Store) wire() {
 	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit, s.bus)
 	s.Audits = audits.New(s.db, s.bus)
 	s.Messages = messages.New(s.db, s.bus)
-	s.Agents = agents.New(s.db, s.Documents, s.bus)
+	agentsDir := filepath.Join(filepath.Dir(s.path), "agents")
+	if s.path == ":memory:" {
+		agentsDir = filepath.Join(os.TempDir(), "llmd-test-agents")
+	}
+	s.Agents = agents.New(s.db, agentsDir, s.bus)
 
 	// Bridge domain events into the message queue so consumers
 	// can poll for changes across all domains.

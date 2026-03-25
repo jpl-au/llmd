@@ -1,31 +1,34 @@
 // Package agents manages agent configurations and execution records.
 //
-// Agent configurations and prompt templates are stored as documents
-// under the agents/ path prefix:
+// Agent configurations, prompt templates, and runtime settings are
+// stored as plain files under .llmd/agents/:
 //
-//   - agents/<name>/config      operational config (JSON)
-//   - agents/<name>/<role>      prompt template (markdown with Go templates)
-//   - agents/default/<role>     fallback prompt templates
+//	.llmd/agents/
+//	  claude-code/
+//	    config.json        operational config
+//	    settings.json      runtime settings (permissions, hooks)
+//	    developer.md       prompt template
+//	    auditor.md         prompt template
+//	  default/
+//	    developer.md       fallback prompt templates
+//	    auditor.md
 //
-// This makes agent configuration portable, versioned, and manageable
-// through the standard document interface. The agent CLI command
-// provides the user-facing surface.
+// Files are seeded from embedded assets on registration and can be
+// edited directly. The filesystem is the source of truth.
 //
-// Agent activity is tracked in a dedicated table so consumers can
-// observe status, cost, and history.
+// Agent activity (run tracking) is stored in SQLite for querying.
 //
 // This package handles data operations only. Process management
 // (worktree creation, subprocess spawning, context assembly) lives
-// in the host bridge layer, following the same pattern as task git
-// integration.
+// in the host bridge layer.
 package agents
 
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"sync"
 
-	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/qwr"
 )
@@ -52,52 +55,37 @@ CREATE INDEX IF NOT EXISTS idx_agent_activity_task ON agent_activity(task_key);
 CREATE INDEX IF NOT EXISTS idx_agent_activity_status ON agent_activity(status);
 `
 
-// Document path conventions for agent storage.
-const (
-	// PathPrefix is the root for all agent documents.
-	PathPrefix = "agents/"
-
-	// ConfigDoc is the document name for agent operational config.
-	ConfigDoc = "config"
-
-	// SettingsDoc is the document name for agent runtime settings
-	// (e.g. permissions). Written to the worktree during spawn.
-	SettingsDoc = "settings"
-)
-
 var (
 	ErrNotFound    = errors.New("agent not found")
 	ErrRunNotFound = errors.New("agent run not found")
 	ErrRunning     = errors.New("agent already running for task")
 )
 
-// Agents provides agent configuration and run tracking.
+// Agents provides agent configuration and run tracking. Config,
+// prompts, and settings are plain files under dir. Run tracking
+// uses the SQLite database.
 type Agents struct {
 	db   *qwr.Manager
-	docs *documents.Documents
+	dir  string // .llmd/agents/
 	bus  *events.Bus
 	once sync.Once
 	err  error
 }
 
-// New creates an Agents instance.
-func New(db *qwr.Manager, docs *documents.Documents, bus *events.Bus) *Agents {
-	return &Agents{db: db, docs: docs, bus: bus}
+// New creates an Agents instance. dir is the base directory for
+// agent files (typically .llmd/agents/).
+func New(db *qwr.Manager, dir string, bus *events.Bus) *Agents {
+	return &Agents{db: db, dir: dir, bus: bus}
 }
 
-// ConfigPath returns the document path for an agent's config.
+// ConfigPath returns the filesystem path for an agent's config.
 func ConfigPath(name string) string {
-	return PathPrefix + name + "/" + ConfigDoc
+	return filepath.Join(".llmd", "agents", name, "config.json")
 }
 
-// PromptPath returns the document path for an agent's prompt template.
+// PromptPath returns the filesystem path for an agent's prompt template.
 func PromptPath(name, role string) string {
-	return PathPrefix + name + "/" + role
-}
-
-// SettingsPath returns the document path for an agent's runtime settings.
-func SettingsPath(name string) string {
-	return PathPrefix + name + "/" + SettingsDoc
+	return filepath.Join(".llmd", "agents", name, role+".md")
 }
 
 // ensure creates the agent_activity table if it does not exist.

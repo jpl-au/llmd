@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jpl-au/llmd/assets"
-	"github.com/jpl-au/llmd/internal/llmd/documents"
-	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 // Config is the internal representation of an agent configuration.
-// Stored as a JSON document at agents/<name>/config.
 type Config struct {
 	Name      string   `json:"name"`
 	Command   string   `json:"command"`
@@ -21,9 +20,10 @@ type Config struct {
 	MaxBudget float64  `json:"max_budget,omitempty"`
 }
 
-// Register writes an agent configuration as a document. If the config
-// document already exists, it is versioned (standard document behaviour).
-func (a *Agents) Register(ctx context.Context, cfg Config, author string) error {
+// Register writes an agent's config, prompts, and settings to disk.
+// Existing files are overwritten for config; prompts and settings
+// are only written if they don't already exist (seed behaviour).
+func (a *Agents) Register(_ context.Context, cfg Config, _ string) error {
 	if cfg.Name == "" {
 		return fmt.Errorf("agent name is required")
 	}
@@ -31,139 +31,176 @@ func (a *Agents) Register(ctx context.Context, cfg Config, author string) error 
 		return fmt.Errorf("agent command is required")
 	}
 
+	dir := filepath.Join(a.dir, cfg.Name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating agent directory: %w", err)
+	}
+
+	// Write config.json (always overwrite).
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encoding agent config: %w", err)
 	}
-
-	path := ConfigPath(cfg.Name)
-	orig := documents.WriteOptions{
-		Origin: core.Origin{Author: author, Source: "cli"},
-	}
-	_, err = a.docs.Write(ctx, path, string(data), orig)
-	if err != nil {
-		return err
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), data, 0644); err != nil {
+		return fmt.Errorf("writing agent config: %w", err)
 	}
 
-	// Seed default prompt templates if they don't already exist.
+	// Seed default prompt templates (write only if missing).
 	for role, content := range assets.Agent.Templates() {
-		a.seedPrompt(ctx, cfg.Name, role, content, orig)
+		a.seed(filepath.Join(dir, role+".md"), content)
 	}
 
-	// Seed default runtime settings if available.
+	// Seed default prompt templates into default/ too.
+	defaultDir := filepath.Join(a.dir, "default")
+	os.MkdirAll(defaultDir, 0755)
+	for role, content := range assets.Agent.Templates() {
+		a.seed(filepath.Join(defaultDir, role+".md"), content)
+	}
+
+	// Seed runtime settings if available.
 	if s := assets.Agent.Settings(cfg.Name); s != "" {
-		a.seedDoc(ctx, SettingsPath(cfg.Name), s, orig)
+		a.seed(filepath.Join(dir, "settings.json"), s)
 	}
 
 	return nil
 }
 
-// seedPrompt writes a default prompt template only if the document
-// does not already exist.
-func (a *Agents) seedPrompt(ctx context.Context, name, role, content string, opts documents.WriteOptions) {
-	a.seedDoc(ctx, PromptPath(name, role), content, opts)
-}
-
-// seedDoc writes a document only if it does not already exist.
-func (a *Agents) seedDoc(ctx context.Context, path, content string, opts documents.WriteOptions) {
-	if _, err := a.docs.Read(ctx, path); err == nil {
+// seed writes content to path only if the file does not exist.
+func (a *Agents) seed(path, content string) {
+	if _, err := os.Stat(path); err == nil {
 		return
 	}
-	a.docs.Write(ctx, path, content, opts)
+	os.WriteFile(path, []byte(content), 0644)
 }
 
-// Settings reads the runtime settings for an agent. Returns empty
-// string if no settings document exists.
-func (a *Agents) Settings(ctx context.Context, name string) string {
-	path := SettingsPath(name)
-	doc, err := a.docs.Read(ctx, path)
+// Settings returns the runtime settings for an agent, or empty
+// string if no settings file exists.
+func (a *Agents) Settings(_ context.Context, name string) string {
+	data, err := os.ReadFile(filepath.Join(a.dir, name, "settings.json"))
 	if err != nil {
 		return ""
 	}
-	return doc.Content
+	return string(data)
 }
 
-// Remove soft-deletes an agent's config document.
-func (a *Agents) Remove(ctx context.Context, name, author string) error {
-	path := ConfigPath(name)
-	return a.docs.Delete(ctx, path, documents.DeleteOptions{
-		Origin: core.Origin{Author: author, Source: "cli"},
-	})
+// Remove deletes an agent's directory from disk.
+func (a *Agents) Remove(_ context.Context, name, _ string) error {
+	dir := filepath.Join(a.dir, name)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return fmt.Errorf("%w: %s", ErrNotFound, name)
+	}
+	return os.RemoveAll(dir)
 }
 
 // Agent reads a single agent configuration by name.
-func (a *Agents) Agent(ctx context.Context, name string) (*Config, error) {
-	path := ConfigPath(name)
-	doc, err := a.docs.Read(ctx, path)
+func (a *Agents) Agent(_ context.Context, name string) (*Config, error) {
+	data, err := os.ReadFile(filepath.Join(a.dir, name, "config.json"))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, name)
 	}
-
 	var cfg Config
-	if err := json.Unmarshal([]byte(doc.Content), &cfg); err != nil {
-		return nil, fmt.Errorf("decoding agent config at %s: %w", path, err)
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing agent config for %s: %w", name, err)
 	}
 	return &cfg, nil
 }
 
-// Agents returns all registered agent configurations by listing
-// documents under the agents/ prefix and reading each config.
-func (a *Agents) Agents(ctx context.Context) ([]Config, error) {
-	docs, err := a.docs.List(ctx, documents.ListOptions{Prefix: PathPrefix})
+// Agents returns all registered agent configurations by scanning
+// the agents directory for subdirectories containing config.json.
+func (a *Agents) Agents(_ context.Context) ([]Config, error) {
+	entries, err := os.ReadDir(a.dir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
-	// Collect unique agent names from config document paths.
-	seen := make(map[string]bool)
 	var configs []Config
-	for _, d := range docs {
-		if !strings.HasSuffix(d.Path, "/"+ConfigDoc) {
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "default" {
 			continue
 		}
-		// Extract agent name: agents/<name>/config → <name>
-		name := strings.TrimPrefix(d.Path, PathPrefix)
-		name = strings.TrimSuffix(name, "/"+ConfigDoc)
-		if name == "" || seen[name] {
-			continue
-		}
-		seen[name] = true
-
-		cfg, err := a.Agent(ctx, name)
+		data, err := os.ReadFile(filepath.Join(a.dir, e.Name(), "config.json"))
 		if err != nil {
 			continue
 		}
-		configs = append(configs, *cfg)
+		var cfg Config
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			continue
+		}
+		configs = append(configs, cfg)
 	}
 	return configs, nil
 }
 
-// Prompt reads a prompt template document. It follows the fallback
-// chain: agents/<name>/<role> → agents/default/<role>.
-// Returns the template content and the path it was found at.
-func (a *Agents) Prompt(ctx context.Context, name, role string) (string, string, error) {
-	// Try agent-specific template first.
-	path := PromptPath(name, role)
-	doc, err := a.docs.Read(ctx, path)
-	if err == nil {
-		return doc.Content, path, nil
+// Prompt reads a prompt template from disk. Follows the fallback
+// chain: .llmd/agents/<name>/<role>.md then
+// .llmd/agents/default/<role>.md.
+func (a *Agents) Prompt(_ context.Context, name, role string) (string, string, error) {
+	// Agent-specific template.
+	path := filepath.Join(a.dir, name, role+".md")
+	if data, err := os.ReadFile(path); err == nil {
+		return string(data), path, nil
 	}
 
-	// Fall back to default template.
-	fallback := PromptPath("default", role)
-	doc, err = a.docs.Read(ctx, fallback)
-	if err == nil {
-		return doc.Content, fallback, nil
+	// Default fallback.
+	fallback := filepath.Join(a.dir, "default", role+".md")
+	if data, err := os.ReadFile(fallback); err == nil {
+		return string(data), fallback, nil
 	}
 
 	return "", "", fmt.Errorf("%w: no prompt template for %s/%s", ErrNotFound, name, role)
 }
 
-// WritePrompt writes a prompt template document.
-func (a *Agents) WritePrompt(ctx context.Context, name, role, content, author string) error {
-	path := PromptPath(name, role)
-	_, err := a.docs.Write(ctx, path, content, documents.WriteOptions{
-		Origin: core.Origin{Author: author, Source: "cli"},
-	})
-	return err
+// WritePrompt writes a prompt template to disk.
+func (a *Agents) WritePrompt(_ context.Context, name, role, content, _ string) error {
+	dir := filepath.Join(a.dir, name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating agent directory: %w", err)
+	}
+	path := filepath.Join(dir, role+".md")
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// Dir returns the base directory. Used by the host bridge to
+// resolve relative paths for display.
+func (a *Agents) Dir() string {
+	return a.dir
+}
+
+// Registered reports whether an agent has a config file on disk.
+func (a *Agents) Registered(name string) bool {
+	_, err := os.Stat(filepath.Join(a.dir, name, "config.json"))
+	return err == nil
+}
+
+// Names returns the names of all registered agents (directories
+// with a config.json). Excludes "default".
+func (a *Agents) Names() []string {
+	entries, err := os.ReadDir(a.dir)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "default" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(a.dir, e.Name(), "config.json")); err == nil {
+			names = append(names, e.Name())
+		}
+	}
+	return names
+}
+
+// agentDir returns the directory for a named agent, joining paths
+// with filepath separators.
+func (a *Agents) agentDir(name string) string {
+	// Prevent path traversal.
+	clean := filepath.Base(name)
+	if clean != name || strings.ContainsAny(name, `/\`) {
+		return filepath.Join(a.dir, "invalid")
+	}
+	return filepath.Join(a.dir, name)
 }
