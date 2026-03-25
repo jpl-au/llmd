@@ -4,32 +4,53 @@
 #   1. Runs the agent command
 #   2. On exit, checks if the task was already moved (by hooks)
 #   3. If not, moves the task based on exit code
-#   4. Records the result
 #
+# Transport: HTTP API first (if LLMD_URL is set), CLI fallback.
 # Template variables are replaced by llmd at spawn time.
 
 TASK_ID="{{.TaskID}}"
 AGENT="{{.Agent}}"
 LLMD="{{.LLMD}}"
+LLMD_URL="${LLMD_URL:-{{.URL}}}"
 WORKTREE="{{.Worktree}}"
 
-# Run the agent. Capture exit code without letting it terminate
-# the script (no set -e).
+# task_move moves a task to the given column. Tries HTTP then CLI.
+task_move() {
+  local col="$1"
+  if [ -n "${LLMD_URL}" ]; then
+    curl -sf -X POST "${LLMD_URL}/task/move/${TASK_ID}/${col}" \
+      -H "Author: ${AGENT}" 2>/dev/null && return 0
+  fi
+  "${LLMD}" --author "${AGENT}" task move "${TASK_ID}" "${col}" 2>/dev/null
+}
+
+# task_status returns the current task status. Tries HTTP then CLI.
+task_status() {
+  if [ -n "${LLMD_URL}" ]; then
+    local resp
+    resp=$(curl -sf "${LLMD_URL}/task/show/${TASK_ID}" -H "Output: json" 2>/dev/null)
+    if [ -n "${resp}" ]; then
+      echo "${resp}" | grep -oi '"Status":"[^"]*"' | head -1 | cut -d'"' -f4
+      return 0
+    fi
+  fi
+  "${LLMD}" task show "${TASK_ID}" --json 2>/dev/null | grep -oi '"Status":"[^"]*"' | head -1 | cut -d'"' -f4
+}
+
+# Run the agent.
 cd "${WORKTREE}"
 {{.Command}} {{.Args}}
 EXIT=$?
 
 # Check current task status before moving. Hooks may have already
-# moved the task (e.g. Claude Code SessionEnd hook). We only move
-# if the task is still in-progress. The grep is best-effort - if
-# it fails, we still attempt the move.
-STATUS=$("${LLMD}" task show "${TASK_ID}" --json 2>/dev/null | grep -oi '"Status":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "unknown")
+# moved the task. We only move if still in-progress.
+STATUS=$(task_status || echo "unknown")
 
 if [ "${STATUS}" = "in-progress" ] || [ "${STATUS}" = "unknown" ]; then
   if [ ${EXIT} -eq 0 ]; then
-    "${LLMD}" --author "${AGENT}" task move "${TASK_ID}" review 2>/dev/null || true
+    task_move review || true
   else
-    "${LLMD}" --author "${AGENT}" task move "${TASK_ID}" failed 2>/dev/null || true
+    task_move failed || true
   fi
 fi
 

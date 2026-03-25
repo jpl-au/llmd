@@ -12,6 +12,7 @@ import (
 	"syscall"
 	texttemplate "text/template"
 
+	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/internal/llmd/audits"
@@ -222,12 +223,21 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		llmdPath, _ = exec.LookPath("llmd")
 	}
 
+	// Resolve the HTTP API URL from config. The wrapper uses HTTP
+	// as primary transport (faster, no process spawn per call) and
+	// falls back to the CLI binary.
+	llmdURL := ""
+	if cfg, err := config.Load(); err == nil && cfg.Server.Addr != "" {
+		llmdURL = "http://" + cfg.Server.Addr
+	}
+
 	// Generate the wrapper script that runs the agent and handles
 	// task lifecycle (moving the task on completion/failure).
 	wrapperPath, err := agents.GenerateWrapper(absWorktree, agents.WrapperData{
 		TaskID:   taskKey,
 		Agent:    agent,
 		LLMD:     llmdPath,
+		URL:      llmdURL,
 		Worktree: absWorktree,
 		Command:  cmdPath,
 		Args:     shellJoin(cmdArgs),
@@ -243,6 +253,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	cmd.Env = append(os.Environ(),
 		"LLMD_TASK_ID="+taskKey,
 		"LLMD_AGENT="+agent,
+		"LLMD_URL="+llmdURL,
 	)
 
 	// Send output to a log file so we can debug if needed.
@@ -404,6 +415,7 @@ type promptData struct {
 	Branch     string
 	AssignedTo string
 	Agent      string
+	URL        string // HTTP API URL (empty if not available)
 	Spec       string
 	Diff       string
 	LinkedDocs []linkedDoc
@@ -462,12 +474,18 @@ func (a *agentAPI) buildContext(t *task.Task, cfg *agents.Config) string {
 
 // gatherPromptData reads all the context data needed by prompt templates.
 func (a *agentAPI) gatherPromptData(t *task.Task, cfg *agents.Config) promptData {
+	llmdURL := ""
+	if c, err := config.Load(); err == nil && c.Server.Addr != "" {
+		llmdURL = "http://" + c.Server.Addr
+	}
+
 	data := promptData{
 		Key:        t.Key,
 		Title:      t.Title,
 		Branch:     t.Branch,
 		AssignedTo: t.AssignedTo,
 		Agent:      cfg.Name,
+		URL:        llmdURL,
 	}
 
 	// Read the spec document.

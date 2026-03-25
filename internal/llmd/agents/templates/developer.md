@@ -26,6 +26,14 @@
 ## Instructions
 
 - Work in git branch `{{.Branch}}`
-- Use `llmd` to read specs and update task status
-- When done, run: `llmd --author {{.Agent}} task move {{.Key}} review`
-- If you encounter issues, run: `llmd --author {{.Agent}} task move {{.Key}} failed`
+- Implement the specification above
+{{- if .Audits}}
+- Address the audit feedback above
+{{- end}}
+- When done, move the task to review:
+{{- if .URL}}
+  `curl -sf -X POST "{{.URL}}/task/move/{{.Key}}?column=review" -H "Author: {{.Agent}}"`
+{{- else}}
+  `llmd --author {{.Agent}} task move {{.Key}} review`
+{{- end}}
+- The wrapper script will also handle this automatically on exit

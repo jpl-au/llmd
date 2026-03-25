@@ -17,6 +17,7 @@ type WrapperData struct {
 	TaskID   string
 	Agent    string
 	LLMD     string // absolute path to the llmd binary
+	URL      string // HTTP API URL (empty if server not configured)
 	Worktree string // absolute path to the worktree
 	Command  string // agent command (resolved path)
 	Args     string // agent arguments as a single string

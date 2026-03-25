@@ -19,6 +19,15 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// subcommandRoutes lists commands that use subcommand dispatching.
+// For these, the URL path is split on "/" so each segment becomes a
+// separate arg (e.g. /task/move/abc → ["move", "abc"]). All other
+// commands receive the full path as a single arg.
+var subcommandRoutes = map[string]bool{
+	"task": true, "agent": true, "audit": true, "queue": true,
+	"mirror": true, "tag": true, "link": true,
+}
+
 // handle returns an http.HandlerFunc that dispatches to the named
 // command. The URL path after the command name becomes the command's
 // positional arguments. Headers carry metadata. The request body,
@@ -27,7 +36,7 @@ func (s *Server) handle(cmd string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Build args from the URL path after the command prefix.
 		path := r.PathValue("path")
-		args := buildArgs(r, path)
+		args := buildArgs(cmd, r, path)
 
 		// Read metadata from headers.
 		author := r.Header.Get("Author")
@@ -77,7 +86,11 @@ func (s *Server) handle(cmd string) http.HandlerFunc {
 // parameters. The "q" query parameter is treated as a positional
 // argument (prepended before the path) for search commands. All other
 // query parameters become flags (e.g. ?version=3 → --version 3).
-func buildArgs(r *http.Request, path string) []string {
+//
+// For subcommand dispatchers (task, agent, audit, queue), the path
+// is split on "/" so each segment becomes a separate arg. For all
+// other commands, the path is passed as a single arg.
+func buildArgs(cmd string, r *http.Request, path string) []string {
 	var args []string
 	query := r.URL.Query()
 
@@ -87,7 +100,11 @@ func buildArgs(r *http.Request, path string) []string {
 	}
 
 	if path != "" {
-		args = append(args, path)
+		if subcommandRoutes[cmd] {
+			args = append(args, strings.Split(path, "/")...)
+		} else {
+			args = append(args, path)
+		}
 	}
 
 	for k, vals := range query {
