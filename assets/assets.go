@@ -155,18 +155,6 @@ func (*agentAssets) Templates() map[string]string {
 	return out
 }
 
-// SettingsPath returns the file path relative to the worktree root
-// where runtime settings should be written for the named agent.
-// Returns empty string if the agent has no known settings location.
-func (*agentAssets) SettingsPath(name string) string {
-	switch {
-	case strings.Contains(name, "claude"):
-		return ".claude/settings.json"
-	default:
-		return ""
-	}
-}
-
 // guideAssets provides access to embedded documentation pages.
 type guideAssets struct{}
 

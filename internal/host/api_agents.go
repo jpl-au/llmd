@@ -209,13 +209,16 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
+	// Resolve platform-specific behaviour for this agent.
+	plat := assets.Agent.Platform(agent)
+
 	// Write agent runtime settings (e.g. permissions, hooks) into
 	// the working directory. Settings are templated with task-specific
 	// values so hooks can reference the task ID and agent name.
 	if settings := a.store.Agents.Settings(a.ctx, agent); settings != "" {
 		templated := strings.ReplaceAll(settings, "{{.Agent}}", agent)
 		templated = strings.ReplaceAll(templated, "{{.TaskID}}", taskKey)
-		a.writeWorktreeSettings(absWorktree, agent, templated)
+		a.writeSettings(absWorktree, plat, templated)
 	}
 
 	// Build the context prompt.
@@ -236,7 +239,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		budget = opts.MaxBudget
 	}
 	if budget > 0 {
-		cmdArgs = appendBudgetFlag(cfg.Command, cmdArgs, budget)
+		cmdArgs = append(cmdArgs, plat.BudgetArgs(budget)...)
 	}
 
 	// Resolve the llmd binary path for the wrapper script.
@@ -323,7 +326,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	}
 
 	// Wait for the process in a goroutine so we can record completion.
-	go a.waitForProcess(cmd, taskKey, absWorktree, logFile)
+	go a.waitForProcess(cmd, taskKey, plat, absWorktree, logFile)
 
 	return runToSDK(r), nil
 }
@@ -404,9 +407,10 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 	return nil
 }
 
-// waitForProcess waits for the agent subprocess to exit and records the
-// result. Runs in a goroutine started by Spawn.
-func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey, worktree string, logFile *os.File) {
+// waitForProcess waits for the agent subprocess to exit, extracts
+// cost if the platform supports it, and records the result. Runs
+// in a goroutine started by Spawn.
+func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey string, plat assets.Platform, worktree string, logFile *os.File) {
 	if logFile != nil {
 		defer logFile.Close()
 	}
@@ -421,9 +425,17 @@ func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey, worktree string, logFi
 		}
 	}
 
+	// Extract cost from the agent's output log.
+	logPath := filepath.Join(worktree, ".llmd-agent.log")
+	cost, err := plat.Cost(logPath)
+	if err != nil {
+		slog.Debug("extracting agent cost", "task", taskKey, "error", err)
+	}
+
 	ctx := context.Background()
 	if err := a.store.Agents.Complete(ctx, taskKey, agents.CompleteOpts{
 		ExitCode: exitCode,
+		Cost:     cost,
 	}); err != nil {
 		slog.Warn("recording agent completion", "task", taskKey, "error", err)
 	}
@@ -523,10 +535,10 @@ func (a *agentAPI) gatherPromptData(t *task.Task, cfg *agents.Config) promptData
 	}
 }
 
-// writeWorktreeSettings writes agent-specific settings into the
-// worktree. The file location is determined by the agent's platform.
-func (a *agentAPI) writeWorktreeSettings(worktree, agent, content string) {
-	rel := assets.Agent.SettingsPath(agent)
+// writeSettings writes agent runtime settings into the worktree at
+// the path determined by the platform.
+func (a *agentAPI) writeSettings(worktree string, plat assets.Platform, content string) {
+	rel := plat.SettingsPath()
 	if rel == "" {
 		return
 	}
@@ -554,11 +566,3 @@ func shellJoin(args []string) string {
 	return strings.Join(parts, " ")
 }
 
-// appendBudgetFlag adds a budget flag appropriate for the agent
-// platform. Currently only supports Claude Code's --max-budget-usd.
-func appendBudgetFlag(command string, args []string, budget float64) []string {
-	if strings.Contains(command, "claude") {
-		return append(args, fmt.Sprintf("--max-budget-usd=%.2f", budget))
-	}
-	return args
-}
