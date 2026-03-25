@@ -4,8 +4,10 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -13,15 +15,16 @@ var agentSpec = sdk.Command{
 	Name: "agent", Desc: `Manage AI agent configurations and runs.
 
 Subcommands:
-  add <name> <command> [args...]   register an agent
+  add <name>                       register an agent (built-in or custom)
   rm <name>                        remove an agent
   ls                               list registered agents
   config <name>                    show agent configuration
   prompt <name> <role>             show prompt template
   runs [--status S] [--task K]     list agent runs
-  stop <task-key>                  stop a running agent`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Flags: []sdk.Flag{
-		{Name: "role", Type: "string", Desc: "Agent role (developer, auditor)"},
-		{Name: "budget", Type: "string", Desc: "Max budget per spawn in USD"},
+  stop <task-key>                  stop a running agent
+
+Built-in agents: claude-code, gemini, aider`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Flags: []sdk.Flag{
+		{Name: "command", Type: "string", Desc: "Command to run (for custom agents)"},
 		{Name: "status", Type: "string", Desc: "Filter runs by status"},
 		{Name: "task", Type: "string", Desc: "Filter runs by task key"},
 		{Name: "agent", Type: "string", Desc: "Filter runs by agent name"},
@@ -64,8 +67,7 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 }
 
 var agentAddFlags = []sdk.Flag{
-	{Name: "role", Type: "string"},
-	{Name: "budget", Type: "string"},
+	{Name: "command", Type: "string", Desc: "Command to run (for custom agents)"},
 }
 
 func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -73,37 +75,57 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("agent add: %w", err)
 	}
-	if len(positional) < 2 {
-		return nil, fmt.Errorf("agent add: %w: name and command required", sdk.ErrMissingArg)
+	if len(positional) == 0 {
+		return nil, fmt.Errorf("agent add: %w: name required\n\nBuilt-in agents: %s\nCustom: llmd agent add <name> --command <binary>",
+			sdk.ErrMissingArg, strings.Join(sortedProfileNames(), ", "))
 	}
 
 	name := positional[0]
-	command := positional[1]
-	var cmdArgs []string
-	if len(positional) > 2 {
-		cmdArgs = positional[2:]
-	}
+	command := flags.String("command")
 
-	var budget float64
-	if b := flags.String("budget"); b != "" {
-		if _, err := fmt.Sscanf(b, "%f", &budget); err != nil {
-			return nil, fmt.Errorf("agent add: invalid budget %q: %w", b, err)
+	// Look up built-in profile first.
+	profile := agents.Profile(name)
+
+	if profile != nil && command == "" {
+		// Known agent - use the built-in profile.
+		cfg := sdk.AgentConfig{
+			Name:    profile.Name,
+			Command: profile.Command,
+			Args:    profile.Args,
 		}
+		if err := ctx.Agents.Register(cfg, ctx.Author); err != nil {
+			return nil, fmt.Errorf("agent add: %w", err)
+		}
+		return sdk.Text(fmt.Sprintf(
+			"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s",
+			name, profile.Command,
+			agents.ConfigPath(name),
+			agents.PromptPath(name, "developer"),
+			agents.PromptPath(name, "auditor"),
+		)), nil
 	}
 
+	if command == "" {
+		return nil, fmt.Errorf("agent add: %q is not a built-in agent - use --command to specify the binary\n\nBuilt-in agents: %s",
+			name, strings.Join(sortedProfileNames(), ", "))
+	}
+
+	// Custom agent.
 	cfg := sdk.AgentConfig{
-		Name:      name,
-		Command:   command,
-		Args:      cmdArgs,
-		Role:      flags.String("role"),
-		MaxBudget: budget,
+		Name:    name,
+		Command: command,
+		Args:    []string{"-p", "{{.Prompt}}"},
 	}
-
 	if err := ctx.Agents.Register(cfg, ctx.Author); err != nil {
 		return nil, fmt.Errorf("agent add: %w", err)
 	}
-
-	return sdk.Text(fmt.Sprintf("Registered agent %q (%s)", name, command)), nil
+	return sdk.Text(fmt.Sprintf(
+		"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s",
+		name, command,
+		agents.ConfigPath(name),
+		agents.PromptPath(name, "developer"),
+		agents.PromptPath(name, "auditor"),
+	)), nil
 }
 
 func agentRm(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -122,24 +144,12 @@ func agentList(ctx sdk.Context, _ []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent ls: %w", err)
 	}
 	if len(cfgs) == 0 {
-		return sdk.Text("No agents registered"), nil
+		return sdk.Text("No agents registered\n\nAdd one with: llmd agent add claude-code"), nil
 	}
 
-	t := newTable("NAME", "COMMAND", "ROLE", "BUDGET")
+	t := newTable("NAME", "COMMAND")
 	for _, c := range cfgs {
-		cmd := c.Command
-		if len(c.Args) > 0 {
-			cmd += " " + strings.Join(c.Args, " ")
-		}
-		role := c.Role
-		if role == "" {
-			role = "-"
-		}
-		budget := "-"
-		if c.MaxBudget > 0 {
-			budget = fmt.Sprintf("$%.2f", c.MaxBudget)
-		}
-		t.Row(c.Name, cmd, role, budget)
+		t.Row(c.Name, c.Command)
 	}
 
 	return sdk.Result{Text: t.String(), Data: cfgs}, nil
@@ -233,4 +243,10 @@ func agentStop(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent stop: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Stopped agent for task %s", args[0])), nil
+}
+
+func sortedProfileNames() []string {
+	names := agents.ProfileNames()
+	sort.Strings(names)
+	return names
 }

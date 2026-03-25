@@ -10,7 +10,7 @@ in the llmd store, making them versioned, portable, and editable.
 ## Usage
 
 ```
-llmd agent add <name> <command> [args...]   Register an agent
+llmd agent add <name>                       Register an agent
 llmd agent rm <name>                        Remove an agent
 llmd agent ls                               List registered agents
 llmd agent config <name>                    Show agent configuration
@@ -21,31 +21,54 @@ llmd agent stop <task-key>                  Stop a running agent
 
 ## Registering agents
 
-Register an agent with its command and default arguments. The
-`{{.Prompt}}` placeholder in arguments is replaced with the
-assembled context prompt at spawn time.
+llmd ships with built-in profiles for common agents. Registration
+is a single command:
 
 ```bash
-# Claude Code
-llmd agent add claude-code claude \
-  -p "{{.Prompt}}" --output-format json
-
-# Gemini CLI
-llmd agent add gemini gemini \
-  -p "{{.Prompt}}"
-
-# With a role and budget
-llmd agent add claude-auditor claude \
-  -p "{{.Prompt}}" --output-format json \
-  --role auditor --budget 1.00
+llmd agent add claude-code
+llmd agent add gemini
+llmd agent add aider
 ```
 
-### Add flags
+That's it. llmd knows the binary, arguments, and prompt patterns
+for each. Default prompt templates are seeded automatically.
 
-| Flag | Description |
-|------|-------------|
-| `--role <role>` | Constrain agent to a role (developer, auditor) |
-| `--budget <usd>` | Max spend per spawn in USD |
+### Custom agents
+
+For agents llmd doesn't know about, provide the command:
+
+```bash
+llmd agent add my-agent --command ./my-tool
+```
+
+### What happens on add
+
+When you register an agent, llmd creates three documents:
+
+```
+agents/<name>/config       Configuration (command, args)
+agents/<name>/developer    Developer prompt template
+agents/<name>/auditor      Auditor prompt template
+```
+
+View what was created:
+
+```bash
+llmd agent config claude-code
+llmd agent prompt claude-code developer
+```
+
+Customise a template:
+
+```bash
+llmd edit agents/claude-code/developer "old text" "new text"
+```
+
+Or rewrite it entirely:
+
+```bash
+llmd write agents/claude-code/developer < my-template.md
+```
 
 ## Spawning agents
 
@@ -69,34 +92,18 @@ The agent works independently. When done, it calls llmd to move the
 task (e.g. `llmd task move <id> review`). The worktree is cleaned up
 automatically after the agent process exits.
 
+### Budget control
+
+Set a per-spawn budget limit:
+
+```bash
+llmd task start a1b2c3d4e --assign claude-code --budget 3.00
+```
+
+Budget flags are platform-specific. Currently `--max-budget-usd` is
+appended for Claude Code agents.
+
 ## Prompt templates
-
-When an agent is registered, default prompt templates are seeded at:
-
-```
-agents/<name>/developer    Developer prompt template
-agents/<name>/auditor      Auditor prompt template
-```
-
-View a template:
-
-```bash
-llmd agent prompt claude-code developer
-```
-
-Edit a template using standard document commands:
-
-```bash
-llmd edit agents/claude-code/developer "old text" "new text"
-```
-
-Or rewrite it entirely:
-
-```bash
-llmd write agents/claude-code/developer < my-template.md
-```
-
-### Template syntax
 
 Templates use Go `text/template` syntax. Available fields:
 
@@ -156,23 +163,6 @@ llmd agent stop a1b2c3d4e
 This sends SIGTERM to the agent process, marks the run as stopped,
 and cleans up the worktree.
 
-## Document storage
-
-All agent configuration lives in the llmd store as documents:
-
-```
-agents/claude-code/config       JSON configuration
-agents/claude-code/developer    Developer prompt template
-agents/claude-code/auditor      Auditor prompt template
-agents/gemini/config            JSON configuration
-agents/gemini/auditor           Auditor prompt template
-agents/default/developer        Shared default developer template
-```
-
-Because these are documents, they are versioned, searchable, and
-travel with the repo. Use `llmd history agents/claude-code/config`
-to see who changed the configuration and when.
-
 ## Environment variables
 
 Agents receive these environment variables:
@@ -185,29 +175,23 @@ Agents receive these environment variables:
 ## Examples
 
 ```bash
-# Set up two agents: one for development, one for auditing
-llmd agent add claude-code claude \
-  -p "{{.Prompt}}" --output-format json \
-  --role developer --budget 3.00
+# Register Claude Code
+llmd agent add claude-code
 
-llmd agent add gemini-auditor gemini \
-  -p "{{.Prompt}}" \
-  --role auditor --budget 1.00
-
-# Create a task and start it with an agent
+# Create a task and assign it
 llmd task add "Implement auth middleware" < spec.md
 llmd task start a1b2c3d4e --assign claude-code
 
-# Check what's running
+# Check progress
 llmd agent runs --status running
 
-# View the prompt the agent received
+# View the prompt template
 llmd agent prompt claude-code developer
 
-# Customise the auditor template for this project
-llmd write agents/gemini-auditor/auditor < custom-audit-template.md
+# Customise the auditor prompt for this project
+llmd write agents/claude-code/auditor < custom-audit-template.md
 
-# See all agent configuration
+# See all agent documents
 llmd ls agents/
 ```
 
@@ -216,12 +200,11 @@ llmd ls agents/
 - Agents run as subprocesses in git worktrees. Each task gets its
   own worktree for isolation.
 - The agent process is responsible for moving the task when done.
-  llmd does not poll or monitor - it records completion when the
-  process exits.
-- Budget flags are platform-specific. Currently `--max-budget-usd`
-  is appended for Claude Code agents.
+  llmd records completion when the process exits.
 - Worktrees are created at `.llmd/worktrees/<task-key>/` and cleaned
   up automatically after the agent exits.
+- Built-in profiles: claude-code, gemini, aider. Use `--command` for
+  anything else.
 
 See `guide task` for task management and `guide workflow` for the
 full task lifecycle with agents.

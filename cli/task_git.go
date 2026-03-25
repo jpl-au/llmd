@@ -18,6 +18,7 @@ import (
 var taskStartFlags = []sdk.Flag{
 	{Name: "column", Type: "string"},
 	{Name: "assign", Type: "string", Desc: "Spawn an agent for this task"},
+	{Name: "budget", Type: "string", Desc: "Max agent budget in USD for this spawn"},
 }
 
 // taskStart moves a task to in-progress and records the current git
@@ -38,13 +39,19 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	agent := flags.String("assign")
 	if agent != "" {
+		var opts sdk.SpawnOpts
+		if b := flags.String("budget"); b != "" {
+			if _, err := fmt.Sscanf(b, "%f", &opts.MaxBudget); err != nil {
+				return nil, fmt.Errorf("task start: invalid budget %q: %w", b, err)
+			}
+		}
 		// Spawn an agent - this handles branch creation, worktree,
 		// context assembly, process start, and moving to in-progress.
-		r, err := ctx.Agents.Spawn(key, agent, ctx.Author, sdk.SpawnOpts{})
+		r, err := ctx.Agents.Spawn(key, agent, ctx.Author, opts)
 		if err != nil {
 			return nil, fmt.Errorf("task start: %w", err)
 		}
-		text := fmt.Sprintf("Started %s with agent %s (run %s, pid %d)\nWorktree: %s\nBranch: %s",
+		text := fmt.Sprintf("Started %s with agent %s (run %s, pid %d)\n  Worktree: %s\n  Branch:   %s",
 			key, agent, r.Key, r.PID, r.Worktree, r.Branch)
 		return sdk.Result{Text: text, Data: r}, nil
 	}
