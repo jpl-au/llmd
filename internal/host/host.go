@@ -237,6 +237,7 @@ func setup(store *llmd.Store) *Host {
 		sdk.Queue = newQueueAPI(store, bg)
 		sdk.Activities = newActivityAPI(store, bg)
 		sdk.Mirror = newMirrorAPI(store, bg)
+		sdk.Agents = newAgentAPI(store, bg)
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
@@ -358,6 +359,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		sctx.Queue = newQueueAPI(h.store, ctx)
 		sctx.Activities = newActivityAPI(h.store, ctx)
 		sctx.Mirror = newMirrorAPI(h.store, ctx)
+		sctx.Agents = newAgentAPI(h.store, ctx)
 	}
 
 	resp, err := entry.plugin.Exec(sctx, cmd, args)

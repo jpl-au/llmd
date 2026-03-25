@@ -17,16 +17,17 @@ import (
 
 var taskStartFlags = []sdk.Flag{
 	{Name: "column", Type: "string"},
+	{Name: "assign", Type: "string", Desc: "Spawn an agent for this task"},
 }
 
 // taskStart moves a task to in-progress and records the current git
-// branch if available. Delegates to ctx.Tasks.Start.
+// branch if available. When --assign is set, spawns an agent process
+// in a git worktree to work on the task.
 func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 	flags, positional, err := sdk.ParseArgs(taskStartFlags, args)
 	if err != nil {
 		return nil, fmt.Errorf("task start: %w", err)
 	}
-	opts := sdk.StartOpts{Column: flags.String("column")}
 	var key string
 	if len(positional) > 0 {
 		key = positional[0]
@@ -35,6 +36,21 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task start: %w: id", sdk.ErrMissingArg)
 	}
 
+	agent := flags.String("assign")
+	if agent != "" {
+		// Spawn an agent - this handles branch creation, worktree,
+		// context assembly, process start, and moving to in-progress.
+		r, err := ctx.Agents.Spawn(key, agent, ctx.Author, sdk.SpawnOpts{})
+		if err != nil {
+			return nil, fmt.Errorf("task start: %w", err)
+		}
+		text := fmt.Sprintf("Started %s with agent %s (run %s, pid %d)\nWorktree: %s\nBranch: %s",
+			key, agent, r.Key, r.PID, r.Worktree, r.Branch)
+		return sdk.Result{Text: text, Data: r}, nil
+	}
+
+	// No agent - standard start.
+	opts := sdk.StartOpts{Column: flags.String("column")}
 	t, err := ctx.Tasks.Start(key, ctx.Author, opts)
 	if err != nil {
 		return nil, fmt.Errorf("task start: %w", err)

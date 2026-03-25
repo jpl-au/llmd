@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/audits"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
@@ -56,6 +57,7 @@ type Store struct {
 	Tasks     *tasks.Tasks
 	Audits    *audits.Audits
 	Messages  *messages.Messages
+	Agents    *agents.Agents
 	Audit     *audit.Log
 
 	db   *qwr.Manager
@@ -184,6 +186,7 @@ func (s *Store) wire() {
 	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit, s.bus)
 	s.Audits = audits.New(s.db, s.bus)
 	s.Messages = messages.New(s.db, s.bus)
+	s.Agents = agents.New(s.db, s.Documents, s.bus)
 
 	// Bridge domain events into the message queue so consumers
 	// can poll for changes across all domains.

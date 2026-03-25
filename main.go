@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +20,7 @@ import (
 	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/internal/term"
+	"github.com/jpl-au/llmd/sdk"
 )
 
 func main() {
@@ -86,6 +88,14 @@ func run(args []string) int {
 		DB:     g.DB,
 	})
 	if err != nil {
+		// If a command fails because it needs arguments, show help
+		// instead of a bare error. The user clearly needs guidance.
+		if errors.Is(err, sdk.ErrMissingArg) {
+			if c := cmds[g.Cmd]; c != nil {
+				printCmdHelp(c)
+				return 1
+			}
+		}
 		return errorf(g.JSON, "%v", err)
 	}
 

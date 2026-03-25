@@ -34,6 +34,15 @@ type GitStore interface {
 	// RevCount returns the number of commits ahead and behind between
 	// branch and base.
 	RevCount(base, branch string) (ahead, behind int, err error)
+
+	// WorktreeAdd creates a new git worktree at the given path,
+	// checked out to the specified branch. The branch must already
+	// exist.
+	WorktreeAdd(path, branch string) error
+
+	// WorktreeRemove removes a git worktree at the given path. The
+	// worktree directory is deleted from disk.
+	WorktreeRemove(path string) error
 }
 
 // DiffOpts configures a git diff operation.

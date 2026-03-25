@@ -147,6 +147,32 @@ func (g *Git) RevCount(base, branch string) (ahead, behind int, err error) {
 	return ahead, behind, nil
 }
 
+// WorktreeAdd creates a new git worktree at path for the given branch.
+func (g *Git) WorktreeAdd(path, branch string) error {
+	out, err := exec.Command("git", "worktree", "add", path, branch).CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg != "" {
+			return fmt.Errorf("git worktree add: %s", msg)
+		}
+		return fmt.Errorf("git worktree add: %w", err)
+	}
+	return nil
+}
+
+// WorktreeRemove removes a git worktree at the given path.
+func (g *Git) WorktreeRemove(path string) error {
+	out, err := exec.Command("git", "worktree", "remove", "--force", path).CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg != "" {
+			return fmt.Errorf("git worktree remove: %s", msg)
+		}
+		return fmt.Errorf("git worktree remove: %w", err)
+	}
+	return nil
+}
+
 // branchError extracts a useful message from a failed git command.
 func branchError(err error, branch string) error {
 	if exitErr, ok := err.(*exec.ExitError); ok {

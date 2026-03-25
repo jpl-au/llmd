@@ -38,6 +38,12 @@ var (
 
 	// ErrCycle means a dependency would create a cycle.
 	ErrCycle = errors.New("dependency cycle detected")
+
+	// ErrAgentRunning means a task already has a running agent.
+	ErrAgentRunning = errors.New("agent already running for task")
+
+	// ErrNotReady means a task's dependencies are not satisfied.
+	ErrNotReady = errors.New("task dependencies not satisfied")
 )
 
 // Domain stores. Each domain has its own focused interface with
@@ -53,6 +59,7 @@ var (
 	Activities ActivityStore
 	Mirror     MirrorStore
 	Git        GitStore
+	Agents     AgentStore
 )
 
 // Plugin is the interface that command providers implement. The host
@@ -120,6 +127,7 @@ type Context struct {
 	Activities ActivityStore
 	Mirror     MirrorStore
 	Git        GitStore
+	Agents     AgentStore
 }
 
 // Response is the marker interface for command return values. It uses

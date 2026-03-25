@@ -105,4 +105,16 @@ const (
 
 	// MessageAcknowledged fires when a consumer acknowledges a message.
 	MessageAcknowledged = "message.acknowledged"
+
+	// AgentSpawned fires when an agent process is started for a task.
+	AgentSpawned = "agent.spawned"
+
+	// AgentCompleted fires when an agent process exits successfully.
+	AgentCompleted = "agent.completed"
+
+	// AgentFailed fires when an agent process exits with an error.
+	AgentFailed = "agent.failed"
+
+	// AgentStopped fires when an agent process is manually terminated.
+	AgentStopped = "agent.stopped"
 )

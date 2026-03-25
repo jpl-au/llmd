@@ -26,7 +26,7 @@ Subcommands (passed as first arg):
   link <id> <path>          link task to document
   links <id>                list linked documents
   log <id> [-n limit]       audit history for a task
-  start <id>                start task (record branch, move to in-progress)
+  start <id> [--assign agent]  start task (--assign spawns an agent)
   finish [id]               complete task (move to done, show summary)
   branch <id>               create git branch from task, checkout, start
   chain <id>                show dependency chain
