@@ -109,11 +109,12 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 			return nil, fmt.Errorf("agent add: %w", err)
 		}
 		return sdk.Text(fmt.Sprintf(
-			"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s",
+			"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s\n\nAssign to a task with: llmd task start <task-id> --assign %s",
 			name, profile.Command,
 			agents.ConfigPath(name),
 			agents.PromptPath(name, "developer"),
 			agents.PromptPath(name, "auditor"),
+			name,
 		)), nil
 	}
 
@@ -132,11 +133,12 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent add: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf(
-		"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s",
+		"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s\n\nAssign to a task with: llmd task start <task-id> --assign %s",
 		name, command,
 		agents.ConfigPath(name),
 		agents.PromptPath(name, "developer"),
 		agents.PromptPath(name, "auditor"),
+		name,
 	)), nil
 }
 
