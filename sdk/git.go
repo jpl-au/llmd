@@ -40,6 +40,11 @@ type GitStore interface {
 	// exist.
 	WorktreeAdd(path, branch string) error
 
+	// WorktreeCreate creates a new branch and worktree in one
+	// operation. Unlike CheckoutNew + WorktreeAdd, this does not
+	// affect the main working directory.
+	WorktreeCreate(path, branch string) error
+
 	// WorktreeRemove removes a git worktree at the given path. The
 	// worktree directory is deleted from disk.
 	WorktreeRemove(path string) error

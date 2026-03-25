@@ -146,24 +146,19 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, fmt.Errorf("agent command %q not found: %w", cfg.Command, err)
 	}
 
-	// Ensure the task has a branch. Create one if missing.
-	branch := t.Branch
-	if branch == "" {
-		branch = "task/" + branchSlug(t.Title)
-		if err := sdk.Git.Available(); err != nil {
-			return nil, fmt.Errorf("git required for agent spawn: %w", err)
-		}
-		if err := sdk.Git.CheckoutNew(branch); err != nil {
-			return nil, fmt.Errorf("creating branch: %w", err)
-		}
-		if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{
-			Branch: &branch,
-		}); err != nil {
-			return nil, taskErr(err)
-		}
+	// Ensure git is available - worktrees are required for agent isolation.
+	if err := sdk.Git.Available(); err != nil {
+		return nil, fmt.Errorf("git required for agent spawn: %w", err)
 	}
 
-	// Create worktree.
+	// Determine the branch name.
+	branch := t.Branch
+	needsBranch := branch == ""
+	if needsBranch {
+		branch = "task/" + branchSlug(t.Title)
+	}
+
+	// Create worktree (and branch if needed).
 	worktreeDir := filepath.Join(".llmd", "worktrees", taskKey)
 	absWorktree, err := filepath.Abs(worktreeDir)
 	if err != nil {
@@ -174,8 +169,21 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, fmt.Errorf("creating worktree parent: %w", err)
 	}
 
-	if err := sdk.Git.WorktreeAdd(absWorktree, branch); err != nil {
-		return nil, fmt.Errorf("creating worktree: %w", err)
+	if needsBranch {
+		// Create branch + worktree in one step, without touching
+		// the main working directory.
+		if err := sdk.Git.WorktreeCreate(absWorktree, branch); err != nil {
+			return nil, fmt.Errorf("creating worktree: %w", err)
+		}
+		if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{
+			Branch: &branch,
+		}); err != nil {
+			return nil, taskErr(err)
+		}
+	} else {
+		if err := sdk.Git.WorktreeAdd(absWorktree, branch); err != nil {
+			return nil, fmt.Errorf("creating worktree: %w", err)
+		}
 	}
 
 	// Build the context prompt.

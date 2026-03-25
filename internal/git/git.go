@@ -160,6 +160,21 @@ func (g *Git) WorktreeAdd(path, branch string) error {
 	return nil
 }
 
+// WorktreeCreate creates a new branch and worktree in one operation.
+// Uses "git worktree add -b <branch> <path>" so the main working
+// directory is not affected.
+func (g *Git) WorktreeCreate(path, branch string) error {
+	out, err := exec.Command("git", "worktree", "add", "-b", branch, path).CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg != "" {
+			return fmt.Errorf("git worktree create: %s", msg)
+		}
+		return fmt.Errorf("git worktree create: %w", err)
+	}
+	return nil
+}
+
 // WorktreeRemove removes a git worktree at the given path.
 func (g *Git) WorktreeRemove(path string) error {
 	out, err := exec.Command("git", "worktree", "remove", "--force", path).CombinedOutput()
