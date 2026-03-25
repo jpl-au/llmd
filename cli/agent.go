@@ -12,10 +12,14 @@ import (
 )
 
 var agentSpec = sdk.Command{
-	Name: "agent", Desc: `Manage AI agent configurations and runs.
+	Name: "agent", Desc: `Spawn AI agents to work on tasks in isolated git worktrees.
+
+Quick start:
+  llmd agent add claude-code
+  llmd task start <task-id> --assign claude-code
 
 Subcommands:
-  add <name>                       register an agent (built-in or custom)
+  add <name>                       register an agent
   rm <name>                        remove an agent
   ls                               list registered agents
   config <name>                    show agent configuration
@@ -23,7 +27,8 @@ Subcommands:
   runs [--status S] [--task K]     list agent runs
   stop <task-key>                  stop a running agent
 
-Built-in agents: claude-code, gemini, aider`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Flags: []sdk.Flag{
+Built-in agents: claude-code, gemini, aider
+See "llmd guide agent" for full documentation.`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Flags: []sdk.Flag{
 		{Name: "command", Type: "string", Desc: "Command to run (for custom agents)"},
 		{Name: "status", Type: "string", Desc: "Filter runs by status"},
 		{Name: "task", Type: "string", Desc: "Filter runs by task key"},
@@ -39,10 +44,17 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	sub := args[0]
 	args = args[1:]
 
+	// stop requires an author (it's an operational action on a running
+	// task). add/rm are configuration - use "llmd" as default author
+	// so users don't need --author just to set up their tools.
 	switch sub {
-	case "add", "rm", "stop":
+	case "stop":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("agent %s: author required for mutations", sub)
+			return nil, fmt.Errorf("agent stop: author required")
+		}
+	case "add", "rm":
+		if ctx.Author == "" {
+			ctx.Author = "llmd"
 		}
 	}
 
