@@ -44,7 +44,10 @@ CREATE TABLE IF NOT EXISTS agent_activity (
     status TEXT NOT NULL,
     pid INTEGER NOT NULL DEFAULT 0,
     exit_code INTEGER NOT NULL DEFAULT -1,
-    cost REAL,
+    monetary_cost REAL,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    model TEXT,
     author TEXT NOT NULL,
     started_at INTEGER NOT NULL,
     stopped_at INTEGER

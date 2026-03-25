@@ -12,18 +12,21 @@ import (
 
 // Run is the internal representation of an agent execution.
 type Run struct {
-	Key       string
-	TaskKey   string
-	Agent     string
-	Branch    string
-	Worktree  string
-	Status    string
-	PID       int
-	ExitCode  int
-	Cost      *float64
-	Author    string
-	StartedAt int64
-	StoppedAt int64
+	Key          string
+	TaskKey      string
+	Agent        string
+	Branch       string
+	Worktree     string
+	Status       string
+	PID          int
+	ExitCode     int
+	MonetaryCost *float64
+	InputTokens  *int
+	OutputTokens *int
+	Model        string
+	Author       string
+	StartedAt    int64
+	StoppedAt    int64
 }
 
 // RecordOpts holds values for creating a new agent run record.
@@ -94,8 +97,11 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 
 // CompleteOpts holds values for completing an agent run.
 type CompleteOpts struct {
-	ExitCode int
-	Cost     *float64
+	ExitCode     int
+	MonetaryCost *float64
+	InputTokens  *int
+	OutputTokens *int
+	Model        string
 }
 
 // Complete marks a run as completed or failed based on exit code and
@@ -118,14 +124,26 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 	}
 
 	var costVal sql.NullFloat64
-	if opts.Cost != nil {
-		costVal = sql.NullFloat64{Float64: *opts.Cost, Valid: true}
+	if opts.MonetaryCost != nil {
+		costVal = sql.NullFloat64{Float64: *opts.MonetaryCost, Valid: true}
+	}
+	var inTok, outTok sql.NullInt64
+	if opts.InputTokens != nil {
+		inTok = sql.NullInt64{Int64: int64(*opts.InputTokens), Valid: true}
+	}
+	if opts.OutputTokens != nil {
+		outTok = sql.NullInt64{Int64: int64(*opts.OutputTokens), Valid: true}
+	}
+	var model sql.NullString
+	if opts.Model != "" {
+		model = sql.NullString{String: opts.Model, Valid: true}
 	}
 
 	_, err = a.db.Query(`
-		UPDATE agent_activity SET status = ?, exit_code = ?, cost = ?, pid = 0, stopped_at = ?
+		UPDATE agent_activity
+		SET status = ?, exit_code = ?, monetary_cost = ?, input_tokens = ?, output_tokens = ?, model = ?, pid = 0, stopped_at = ?
 		WHERE key = ?
-	`, status, opts.ExitCode, costVal, now, r.Key).Write()
+	`, status, opts.ExitCode, costVal, inTok, outTok, model, now, r.Key).Write()
 	if err != nil {
 		return fmt.Errorf("completing agent run: %w", err)
 	}
@@ -135,8 +153,8 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 		"agent":     r.Agent,
 		"exit_code": opts.ExitCode,
 	}
-	if opts.Cost != nil {
-		metadata["cost"] = *opts.Cost
+	if opts.MonetaryCost != nil {
+		metadata["monetary_cost"] = *opts.MonetaryCost
 	}
 
 	if a.bus != nil {
@@ -195,7 +213,7 @@ func (a *Agents) RunByTask(ctx context.Context, taskKey string) (*Run, error) {
 		return nil, err
 	}
 	row, err := a.db.Query(`
-		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, cost, author, started_at, stopped_at
+		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, monetary_cost, input_tokens, output_tokens, model, author, started_at, stopped_at
 		FROM agent_activity
 		WHERE task_key = ?
 		ORDER BY started_at DESC
@@ -221,7 +239,7 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 	}
 
 	query := `
-		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, cost, author, started_at, stopped_at
+		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, monetary_cost, input_tokens, output_tokens, model, author, started_at, stopped_at
 		FROM agent_activity WHERE 1=1
 	`
 	var args []any
@@ -250,12 +268,12 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 	var runs []*Run
 	for rows.Next() {
 		var r Run
-		var branch, worktree sql.NullString
+		var branch, worktree, model sql.NullString
 		var cost sql.NullFloat64
-		var stoppedAt sql.NullInt64
+		var inTok, outTok, stoppedAt sql.NullInt64
 		if err := rows.Scan(
 			&r.Key, &r.TaskKey, &r.Agent, &branch, &worktree,
-			&r.Status, &r.PID, &r.ExitCode, &cost, &r.Author,
+			&r.Status, &r.PID, &r.ExitCode, &cost, &inTok, &outTok, &model, &r.Author,
 			&r.StartedAt, &stoppedAt,
 		); err != nil {
 			return nil, err
@@ -267,7 +285,18 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 			r.Worktree = worktree.String
 		}
 		if cost.Valid {
-			r.Cost = &cost.Float64
+			r.MonetaryCost = &cost.Float64
+		}
+		if inTok.Valid {
+			v := int(inTok.Int64)
+			r.InputTokens = &v
+		}
+		if outTok.Valid {
+			v := int(outTok.Int64)
+			r.OutputTokens = &v
+		}
+		if model.Valid {
+			r.Model = model.String
 		}
 		if stoppedAt.Valid {
 			r.StoppedAt = stoppedAt.Int64
@@ -280,13 +309,13 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 // scanRun reads a single run from a database row.
 func scanRun(row *sql.Row) (*Run, error) {
 	var r Run
-	var branch, worktree sql.NullString
+	var branch, worktree, model sql.NullString
 	var cost sql.NullFloat64
-	var stoppedAt sql.NullInt64
+	var inTok, outTok, stoppedAt sql.NullInt64
 
 	err := row.Scan(
 		&r.Key, &r.TaskKey, &r.Agent, &branch, &worktree,
-		&r.Status, &r.PID, &r.ExitCode, &cost, &r.Author,
+		&r.Status, &r.PID, &r.ExitCode, &cost, &inTok, &outTok, &model, &r.Author,
 		&r.StartedAt, &stoppedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -303,7 +332,18 @@ func scanRun(row *sql.Row) (*Run, error) {
 		r.Worktree = worktree.String
 	}
 	if cost.Valid {
-		r.Cost = &cost.Float64
+		r.MonetaryCost = &cost.Float64
+	}
+	if inTok.Valid {
+		v := int(inTok.Int64)
+		r.InputTokens = &v
+	}
+	if outTok.Valid {
+		v := int(outTok.Int64)
+		r.OutputTokens = &v
+	}
+	if model.Valid {
+		r.Model = model.String
 	}
 	if stoppedAt.Valid {
 		r.StoppedAt = stoppedAt.Int64

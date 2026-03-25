@@ -50,18 +50,21 @@ func agentErr(err error) error {
 
 func runToSDK(r *agents.Run) *sdk.AgentRun {
 	return &sdk.AgentRun{
-		Key:       r.Key,
-		TaskKey:   r.TaskKey,
-		Agent:     r.Agent,
-		Branch:    r.Branch,
-		Worktree:  r.Worktree,
-		Status:    r.Status,
-		PID:       r.PID,
-		ExitCode:  r.ExitCode,
-		Cost:      r.Cost,
-		Author:    r.Author,
-		StartedAt: r.StartedAt,
-		StoppedAt: r.StoppedAt,
+		Key:          r.Key,
+		TaskKey:      r.TaskKey,
+		Agent:        r.Agent,
+		Branch:       r.Branch,
+		Worktree:     r.Worktree,
+		Status:       r.Status,
+		PID:          r.PID,
+		ExitCode:     r.ExitCode,
+		MonetaryCost: r.MonetaryCost,
+		InputTokens:  r.InputTokens,
+		OutputTokens: r.OutputTokens,
+		Model:        r.Model,
+		Author:       r.Author,
+		StartedAt:    r.StartedAt,
+		StoppedAt:    r.StoppedAt,
 	}
 }
 
@@ -409,18 +412,23 @@ func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey string, plat assets.Pla
 		}
 	}
 
-	// Extract cost from the agent's output log.
+	// Extract stats from the agent's output log.
 	logPath := filepath.Join(worktree, ".llmd-agent.log")
-	cost, err := plat.Cost(logPath)
+	stats, err := plat.Stats(logPath)
 	if err != nil {
-		slog.Debug("extracting agent cost", "task", taskKey, "error", err)
+		slog.Debug("extracting agent stats", "task", taskKey, "error", err)
+	}
+
+	opts := agents.CompleteOpts{ExitCode: exitCode}
+	if stats != nil {
+		opts.MonetaryCost = stats.MonetaryCost
+		opts.InputTokens = stats.InputTokens
+		opts.OutputTokens = stats.OutputTokens
+		opts.Model = stats.Model
 	}
 
 	ctx := context.Background()
-	if err := a.store.Agents.Complete(ctx, taskKey, agents.CompleteOpts{
-		ExitCode: exitCode,
-		Cost:     cost,
-	}); err != nil {
+	if err := a.store.Agents.Complete(ctx, taskKey, opts); err != nil {
 		slog.Warn("recording agent completion", "task", taskKey, "error", err)
 	}
 

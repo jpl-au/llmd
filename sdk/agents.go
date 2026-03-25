@@ -98,9 +98,21 @@ type AgentRun struct {
 	// ExitCode is the process exit code. -1 while running.
 	ExitCode int `json:"exit_code"`
 
-	// Cost is the monetary cost reported by the agent in USD.
-	// Nil when the agent does not report cost.
-	Cost *float64 `json:"cost,omitempty"`
+	// MonetaryCost is the cost reported by the agent. Nil when
+	// the agent does not report cost.
+	MonetaryCost *float64 `json:"monetary_cost,omitempty"`
+
+	// InputTokens is the number of input tokens consumed. Nil
+	// when the agent does not report token usage.
+	InputTokens *int `json:"input_tokens,omitempty"`
+
+	// OutputTokens is the number of output tokens generated. Nil
+	// when the agent does not report token usage.
+	OutputTokens *int `json:"output_tokens,omitempty"`
+
+	// Model is the AI model used for this run. Empty when the
+	// agent does not report it.
+	Model string `json:"model,omitempty"`
 
 	// Author is who initiated the spawn.
 	Author string `json:"author"`

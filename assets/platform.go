@@ -9,6 +9,15 @@ import (
 	"strings"
 )
 
+// RunStats holds execution metrics extracted from an agent's output.
+// All fields are nullable - agents report what they can.
+type RunStats struct {
+	MonetaryCost *float64
+	InputTokens  *int
+	OutputTokens *int
+	Model        string
+}
+
 // Platform describes platform-specific behaviour for an agent tool
 // (Claude Code, Gemini CLI, Aider, Codex, etc.). Common concerns
 // like worktree management, prompt assembly, and run tracking stay
@@ -22,9 +31,9 @@ type Platform interface {
 	// platform has no budget mechanism.
 	BudgetArgs(budget float64) []string
 
-	// Cost extracts the monetary spend (USD) from the agent's output
-	// log. Returns nil when unavailable.
-	Cost(logPath string) (*float64, error)
+	// Stats extracts execution metrics from the agent's output log.
+	// Returns nil when no stats are available.
+	Stats(logPath string) (*RunStats, error)
 }
 
 // Platform returns the Platform for the named agent. Unknown agents
@@ -33,6 +42,8 @@ func (*agentAssets) Platform(name string) Platform {
 	switch {
 	case strings.Contains(name, "claude"):
 		return claude{}
+	case strings.Contains(name, "gemini"):
+		return gemini{}
 	default:
 		return generic{}
 	}
@@ -49,18 +60,113 @@ func (claude) BudgetArgs(budget float64) []string {
 	return []string{fmt.Sprintf("--max-budget-usd=%.2f", budget)}
 }
 
-// Cost reads the agent log and extracts cost from Claude Code's
-// JSON output. Claude Code with --output-format json writes a JSON
-// object to stdout containing a total_cost_usd field.
-func (claude) Cost(logPath string) (*float64, error) {
-	f, err := os.Open(logPath)
+// Stats reads the agent log and extracts metrics from Claude Code's
+// JSON output (--output-format json).
+func (claude) Stats(logPath string) (*RunStats, error) {
+	data, err := lastJSON(logPath)
 	if err != nil {
-		return nil, fmt.Errorf("opening agent log: %w", err)
+		return nil, err
+	}
+	if data == "" {
+		return nil, nil
+	}
+
+	var output struct {
+		TotalCost *float64 `json:"total_cost_usd"`
+		Usage     struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
+		ModelUsage map[string]json.RawMessage `json:"modelUsage"`
+	}
+	if err := json.Unmarshal([]byte(data), &output); err != nil {
+		slog.Debug("parsing claude JSON output", "error", err)
+		return nil, nil
+	}
+
+	stats := &RunStats{
+		MonetaryCost: output.TotalCost,
+	}
+	if output.Usage.InputTokens > 0 {
+		stats.InputTokens = &output.Usage.InputTokens
+	}
+	if output.Usage.OutputTokens > 0 {
+		stats.OutputTokens = &output.Usage.OutputTokens
+	}
+	// Model name is the first key in modelUsage.
+	for name := range output.ModelUsage {
+		stats.Model = name
+		break
+	}
+	return stats, nil
+}
+
+// gemini is the Platform for Gemini CLI.
+type gemini struct{}
+
+func (gemini) SettingsPath() string            { return "" }
+func (gemini) BudgetArgs(float64) []string     { return nil }
+
+// Stats reads the agent log and extracts metrics from Gemini CLI's
+// JSON output (--output-format json).
+func (gemini) Stats(logPath string) (*RunStats, error) {
+	data, err := lastJSON(logPath)
+	if err != nil {
+		return nil, err
+	}
+	if data == "" {
+		return nil, nil
+	}
+
+	var output struct {
+		Stats struct {
+			Models map[string]struct {
+				Tokens struct {
+					Input      int `json:"input"`
+					Candidates int `json:"candidates"`
+				} `json:"tokens"`
+			} `json:"models"`
+		} `json:"stats"`
+	}
+	if err := json.Unmarshal([]byte(data), &output); err != nil {
+		slog.Debug("parsing gemini JSON output", "error", err)
+		return nil, nil
+	}
+
+	stats := &RunStats{}
+	for name, m := range output.Stats.Models {
+		stats.Model = name
+		if m.Tokens.Input > 0 {
+			stats.InputTokens = &m.Tokens.Input
+		}
+		if m.Tokens.Candidates > 0 {
+			stats.OutputTokens = &m.Tokens.Candidates
+		}
+		break
+	}
+
+	if stats.Model == "" {
+		return nil, nil
+	}
+	return stats, nil
+}
+
+// generic is the no-op Platform for unknown agents.
+type generic struct{}
+
+func (generic) SettingsPath() string              { return "" }
+func (generic) BudgetArgs(float64) []string       { return nil }
+func (generic) Stats(string) (*RunStats, error)   { return nil, nil }
+
+// lastJSON scans a file and returns the last line that starts with
+// '{'. Agent tools write their JSON result as the final output line.
+func lastJSON(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("opening agent log: %w", err)
 	}
 	defer f.Close()
 
-	// Scan for the last JSON object in the log. Claude Code writes
-	// its result as a single JSON line to stdout.
 	var last string
 	s := bufio.NewScanner(f)
 	for s.Scan() {
@@ -70,25 +176,7 @@ func (claude) Cost(logPath string) (*float64, error) {
 		}
 	}
 	if err := s.Err(); err != nil {
-		return nil, fmt.Errorf("reading agent log: %w", err)
+		return "", fmt.Errorf("reading agent log: %w", err)
 	}
-	if last == "" {
-		return nil, nil
-	}
-
-	var output struct {
-		TotalCost *float64 `json:"total_cost_usd"`
-	}
-	if err := json.Unmarshal([]byte(last), &output); err != nil {
-		slog.Debug("parsing agent JSON output", "error", err)
-		return nil, nil
-	}
-	return output.TotalCost, nil
+	return last, nil
 }
-
-// generic is the no-op Platform for unknown agents.
-type generic struct{}
-
-func (generic) SettingsPath() string                  { return "" }
-func (generic) BudgetArgs(float64) []string           { return nil }
-func (generic) Cost(string) (*float64, error)         { return nil, nil }
