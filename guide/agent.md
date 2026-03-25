@@ -163,14 +163,16 @@ llmd agent stop a1b2c3d4e
 This sends SIGTERM to the agent process, marks the run as stopped,
 and cleans up the worktree.
 
-## Environment variables
+## How agents communicate with llmd
 
-Agents receive these environment variables:
+Everything the agent needs is in the prompt: task ID, branch, spec,
+and the commands to move the task when done. If the HTTP server is
+running (`llmd serve`), the prompt includes `curl` commands against
+the API. Otherwise it includes CLI commands.
 
-| Variable | Description |
-|----------|-------------|
-| `LLMD_TASK_ID` | The task key being worked on |
-| `LLMD_AGENT` | The agent configuration name |
+The wrapper script also handles task lifecycle automatically on
+agent exit - moving to review on success, failed on error. This is
+a safety net in case the agent doesn't move the task itself.
 
 ## Examples
 

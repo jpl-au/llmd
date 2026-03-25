@@ -250,11 +250,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// Start the wrapper script instead of the agent directly.
 	cmd := exec.Command("/bin/bash", wrapperPath)
 	cmd.Dir = absWorktree
-	cmd.Env = append(os.Environ(),
-		"LLMD_TASK_ID="+taskKey,
-		"LLMD_AGENT="+agent,
-		"LLMD_URL="+llmdURL,
-	)
+	cmd.Env = os.Environ()
 
 	// Send output to a log file so we can debug if needed.
 	logPath := filepath.Join(absWorktree, ".llmd-agent.log")

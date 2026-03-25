@@ -11,7 +11,7 @@
 TASK_ID="{{.TaskID}}"
 AGENT="{{.Agent}}"
 LLMD="{{.LLMD}}"
-LLMD_URL="${LLMD_URL:-{{.URL}}}"
+LLMD_URL="{{.URL}}"
 WORKTREE="{{.Worktree}}"
 
 # task_move moves a task to the given column. Tries HTTP then CLI.
