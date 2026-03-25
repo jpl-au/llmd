@@ -1,68 +1,45 @@
 package agents
 
-// Default prompt templates seeded when an agent is registered.
-// These use Go text/template syntax with the context data passed
-// during spawning.
+import (
+	"embed"
+	"log/slog"
+	"strings"
+)
 
-// DefaultDeveloperPrompt is the built-in developer prompt template.
-const DefaultDeveloperPrompt = `# Task: {{.Title}}
+//go:embed templates/*.md
+var templateFiles embed.FS
 
-- **ID:** {{.Key}}
-- **Branch:** {{.Branch}}
-{{- if .AssignedTo}}
-- **Assigned to:** {{.AssignedTo}}
-{{- end}}
+// DefaultTemplates maps role names to their built-in prompt templates,
+// loaded from embedded markdown files in the templates/ directory.
+// Adding a new default role template is as simple as dropping an .md
+// file there.
+var DefaultTemplates map[string]string
 
-## Specification
+func init() {
+	DefaultTemplates = make(map[string]string)
 
-{{.Spec}}
-{{if .LinkedDocs}}
-## Linked Documents
-{{range .LinkedDocs}}
-### {{.Path}}
+	entries, err := templateFiles.ReadDir("templates")
+	if err != nil {
+		slog.Warn("reading embedded agent templates", "error", err)
+		return
+	}
 
-{{.Content}}
-{{end}}
-{{- end}}
-{{- if .Audits}}
-## Audit History
-{{range .Audits}}
-**{{.Author}}** ({{.Status}}): {{.Content}}
-{{end}}
-{{- end}}
-## Instructions
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		data, err := templateFiles.ReadFile("templates/" + e.Name())
+		if err != nil {
+			slog.Warn("reading agent template", "file", e.Name(), "error", err)
+			continue
+		}
+		role := strings.TrimSuffix(e.Name(), ".md")
+		DefaultTemplates[role] = string(data)
+	}
+}
 
-- Work in git branch ` + "`{{.Branch}}`" + `
-- Use ` + "`llmd`" + ` to read specs and update task status
-- When done, run: ` + "`llmd --author {{.Agent}} task move {{.Key}} review`" + `
-- If you encounter issues, run: ` + "`llmd --author {{.Agent}} task move {{.Key}} failed`" + `
-`
-
-// DefaultAuditorPrompt is the built-in auditor prompt template.
-const DefaultAuditorPrompt = `# Review: {{.Title}}
-
-- **Task:** {{.Key}}
-- **Branch:** {{.Branch}}
-
-## Specification
-
-{{.Spec}}
-{{if .Diff}}
-## Changes to Review
-
-` + "```" + `
-{{.Diff}}
-` + "```" + `
-{{end}}
-{{- if .Audits}}
-## Previous Audit History
-{{range .Audits}}
-**{{.Author}}** ({{.Status}}): {{.Content}}
-{{end}}
-{{- end}}
-## Instructions
-
-- Review the changes against the specification
-- If approved: run ` + "`llmd --author {{.Agent}} task move {{.Key}} done`" + `
-- If issues found: run ` + "`llmd --author {{.Agent}} audit add {{.Key}} \"<your feedback>\"`" + ` then ` + "`llmd --author {{.Agent}} task move {{.Key}} in-progress`" + `
-`
+// DefaultTemplate returns the built-in template for a role, or empty
+// string if no default exists.
+func DefaultTemplate(role string) string {
+	return DefaultTemplates[role]
+}

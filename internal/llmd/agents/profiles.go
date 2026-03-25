@@ -1,25 +1,45 @@
 package agents
 
-// Profiles are built-in agent configurations for well-known AI tools.
-// When a user runs "llmd agent add claude-code", llmd already knows
-// the binary, arguments, and prompt patterns. The user does not need
-// to teach llmd how to invoke common agents.
-var Profiles = map[string]Config{
-	"claude-code": {
-		Name:    "claude-code",
-		Command: "claude",
-		Args:    []string{"-p", "{{.Prompt}}", "--output-format", "json"},
-	},
-	"gemini": {
-		Name:    "gemini",
-		Command: "gemini",
-		Args:    []string{"-p", "{{.Prompt}}"},
-	},
-	"aider": {
-		Name:    "aider",
-		Command: "aider",
-		Args:    []string{"--message", "{{.Prompt}}"},
-	},
+import (
+	"embed"
+	"encoding/json"
+	"log/slog"
+	"strings"
+)
+
+//go:embed profiles/*.json
+var profileFiles embed.FS
+
+// Profiles are built-in agent configurations for well-known AI tools,
+// loaded from embedded JSON files in the profiles/ directory. Adding
+// a new profile is as simple as dropping a JSON file there.
+var Profiles map[string]Config
+
+func init() {
+	Profiles = make(map[string]Config)
+
+	entries, err := profileFiles.ReadDir("profiles")
+	if err != nil {
+		slog.Warn("reading embedded agent profiles", "error", err)
+		return
+	}
+
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		data, err := profileFiles.ReadFile("profiles/" + e.Name())
+		if err != nil {
+			slog.Warn("reading agent profile", "file", e.Name(), "error", err)
+			continue
+		}
+		var cfg Config
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			slog.Warn("parsing agent profile", "file", e.Name(), "error", err)
+			continue
+		}
+		Profiles[cfg.Name] = cfg
+	}
 }
 
 // Profile returns the built-in profile for a known agent, or nil

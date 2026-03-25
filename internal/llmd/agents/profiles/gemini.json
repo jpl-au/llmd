@@ -1,0 +1,5 @@
+{
+  "name": "gemini",
+  "command": "gemini",
+  "args": ["-p", "{{.Prompt}}"]
+}

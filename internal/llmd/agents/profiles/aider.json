@@ -1,0 +1,5 @@
+{
+  "name": "aider",
+  "command": "aider",
+  "args": ["--message", "{{.Prompt}}"]
+}

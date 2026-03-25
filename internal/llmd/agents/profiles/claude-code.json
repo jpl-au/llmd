@@ -1,0 +1,5 @@
+{
+  "name": "claude-code",
+  "command": "claude",
+  "args": ["-p", "{{.Prompt}}", "--output-format", "json"]
+}

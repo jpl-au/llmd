@@ -392,10 +392,9 @@ func (a *agentAPI) buildContext(t *task.Task, cfg *agents.Config) string {
 	if err != nil {
 		// Fall back to built-in default.
 		slog.Debug("no stored prompt template, using built-in", "agent", cfg.Name, "role", role)
-		if role == "auditor" {
-			tmplContent = agents.DefaultAuditorPrompt
-		} else {
-			tmplContent = agents.DefaultDeveloperPrompt
+		tmplContent = agents.DefaultTemplate(role)
+		if tmplContent == "" {
+			tmplContent = agents.DefaultTemplate("developer")
 		}
 	}
 

@@ -45,8 +45,9 @@ func (a *Agents) Register(ctx context.Context, cfg Config, author string) error 
 	}
 
 	// Seed default prompt templates if they don't already exist.
-	a.seedPrompt(ctx, cfg.Name, "developer", DefaultDeveloperPrompt, orig)
-	a.seedPrompt(ctx, cfg.Name, "auditor", DefaultAuditorPrompt, orig)
+	for role, content := range DefaultTemplates {
+		a.seedPrompt(ctx, cfg.Name, role, content, orig)
+	}
 
 	return nil
 }
