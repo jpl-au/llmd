@@ -101,12 +101,7 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	if profile != nil && command == "" {
 		// Known agent - use the built-in profile.
-		cfg := sdk.AgentConfig{
-			Name:    profile.Name,
-			Command: profile.Command,
-			Args:    profile.Args,
-		}
-		if err := ctx.Agents.Register(cfg, ctx.Author); err != nil {
+		if err := ctx.Agents.Register(*profile, ctx.Author); err != nil {
 			return nil, fmt.Errorf("agent add: %w", err)
 		}
 		return sdk.Text(fmt.Sprintf(

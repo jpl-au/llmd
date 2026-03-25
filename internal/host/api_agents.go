@@ -10,14 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	texttemplate "text/template"
 
 	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
-	"github.com/jpl-au/llmd/pkg/model/task"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -69,13 +67,7 @@ func runToSDK(r *agents.Run) *sdk.AgentRun {
 
 // Register adds or updates an agent configuration.
 func (a *agentAPI) Register(cfg sdk.AgentConfig, author string) error {
-	return a.store.Agents.Register(a.ctx, agents.Config{
-		Name:      cfg.Name,
-		Command:   cfg.Command,
-		Args:      cfg.Args,
-		Role:      cfg.Role,
-		MaxBudget: cfg.MaxBudget,
-	}, author)
+	return a.store.Agents.Register(a.ctx, cfg, author)
 }
 
 // Remove deletes an agent configuration by name.
@@ -89,32 +81,12 @@ func (a *agentAPI) Agent(name string) (*sdk.AgentConfig, error) {
 	if err != nil {
 		return nil, agentErr(err)
 	}
-	return &sdk.AgentConfig{
-		Name:      cfg.Name,
-		Command:   cfg.Command,
-		Args:      cfg.Args,
-		Role:      cfg.Role,
-		MaxBudget: cfg.MaxBudget,
-	}, nil
+	return cfg, nil
 }
 
 // Agents returns all registered agent configurations.
 func (a *agentAPI) Agents() ([]sdk.AgentConfig, error) {
-	cfgs, err := a.store.Agents.Agents(a.ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]sdk.AgentConfig, len(cfgs))
-	for i, c := range cfgs {
-		out[i] = sdk.AgentConfig{
-			Name:      c.Name,
-			Command:   c.Command,
-			Args:      c.Args,
-			Role:      c.Role,
-			MaxBudget: c.MaxBudget,
-		}
-	}
-	return out, nil
+	return a.store.Agents.Agents(a.ctx)
 }
 
 // Spawn creates a worktree, assembles context, and starts the agent
@@ -224,7 +196,19 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// Build the context prompt.
 	prompt := opts.Prompt
 	if prompt == "" {
-		prompt = a.buildContext(t, cfg)
+		llmdURL := ""
+		if c, err := config.Load(); err == nil && c.Server.Addr != "" {
+			llmdURL = "http://" + c.Server.Addr
+		}
+		prompt = a.store.Agents.BuildPrompt(a.ctx, cfg, agents.PromptData{
+			Key:        t.Key,
+			Title:      t.Title,
+			Branch:     branch,
+			AssignedTo: t.AssignedTo,
+			Agent:      agent,
+			URL:        llmdURL,
+			SpecPath:   t.Path,
+		})
 	}
 
 	// Build command args, replacing {{.Prompt}} placeholder.
@@ -445,93 +429,6 @@ func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey string, plat assets.Pla
 		if err := sdk.Git.WorktreeRemove(worktree); err != nil {
 			slog.Debug("removing worktree after completion", "path", worktree, "error", err)
 		}
-	}
-}
-
-// promptData is the data passed to prompt templates during execution.
-type promptData struct {
-	Key        string
-	Title      string
-	Branch     string
-	AssignedTo string
-	Agent      string
-	URL        string // HTTP API URL (empty if server not running)
-	SpecPath   string // document path for the task spec
-}
-
-// buildContext assembles a prompt by executing the stored prompt
-// template for the agent/role combination. Falls back through:
-// agents/<name>/<role> → agents/default/<role> → built-in default.
-func (a *agentAPI) buildContext(t *task.Task, cfg *agents.Config) string {
-	role := cfg.Role
-	if role == "" {
-		role = "developer"
-	}
-
-	// Gather template data.
-	data := a.gatherPromptData(t, cfg)
-
-	// Determine transport suffix based on what's available.
-	// HTTP templates are used when the server is running, otherwise
-	// fall back to CLI templates. Each is a separate file:
-	//   developer-http.md, developer.md (CLI default)
-	transport := ""
-	if data.URL != "" {
-		transport = "-http"
-	}
-
-	// Read the prompt template with transport suffix fallback:
-	// agents/<name>/<role>-http → agents/<name>/<role> →
-	// agents/default/<role>-http → agents/default/<role> → built-in
-	tmplContent := ""
-	var err error
-	if transport != "" {
-		tmplContent, _, err = a.store.Agents.Prompt(a.ctx, cfg.Name, role+transport)
-	}
-	if tmplContent == "" || err != nil {
-		tmplContent, _, err = a.store.Agents.Prompt(a.ctx, cfg.Name, role)
-	}
-	if tmplContent == "" || err != nil {
-		slog.Debug("no stored prompt template, using built-in", "agent", cfg.Name, "role", role, "transport", transport)
-		if transport != "" {
-			tmplContent = assets.Agent.Template(role + transport)
-		}
-		if tmplContent == "" {
-			tmplContent = assets.Agent.Template(role)
-		}
-	}
-
-	// Execute the template.
-	tmpl, err := texttemplate.New("prompt").Parse(tmplContent)
-	if err != nil {
-		slog.Warn("parsing prompt template", "agent", cfg.Name, "role", role, "error", err)
-		return fmt.Sprintf("You are agent %s working on task %s: %s. API at %s", cfg.Name, t.Key, t.Title, data.URL)
-	}
-
-	var b strings.Builder
-	if err := tmpl.Execute(&b, data); err != nil {
-		slog.Warn("executing prompt template", "agent", cfg.Name, "role", role, "error", err)
-		return fmt.Sprintf("You are agent %s working on task %s: %s. API at %s", cfg.Name, t.Key, t.Title, data.URL)
-	}
-
-	return b.String()
-}
-
-// gatherPromptData reads all the context data needed by prompt templates.
-func (a *agentAPI) gatherPromptData(t *task.Task, cfg *agents.Config) promptData {
-	llmdURL := ""
-	if c, err := config.Load(); err == nil && c.Server.Addr != "" {
-		llmdURL = "http://" + c.Server.Addr
-	}
-
-	return promptData{
-		Key:        t.Key,
-		Title:      t.Title,
-		Branch:     t.Branch,
-		AssignedTo: t.AssignedTo,
-		Agent:      cfg.Name,
-		URL:        llmdURL,
-		SpecPath:   t.Path,
 	}
 }
 

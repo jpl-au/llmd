@@ -6,24 +6,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jpl-au/llmd/assets"
+	"github.com/jpl-au/llmd/sdk"
 )
-
-// Config is the internal representation of an agent configuration.
-type Config struct {
-	Name      string   `json:"name"`
-	Command   string   `json:"command"`
-	Args      []string `json:"args,omitempty"`
-	Role      string   `json:"role,omitempty"`
-	MaxBudget float64  `json:"max_budget,omitempty"`
-}
 
 // Register writes an agent's config, prompts, and settings to disk.
 // Existing files are overwritten for config; prompts and settings
 // are only written if they don't already exist (seed behaviour).
-func (a *Agents) Register(_ context.Context, cfg Config, _ string) error {
+func (a *Agents) Register(_ context.Context, cfg sdk.AgentConfig, _ string) error {
 	if cfg.Name == "" {
 		return fmt.Errorf("agent name is required")
 	}
@@ -93,12 +84,12 @@ func (a *Agents) Remove(_ context.Context, name, _ string) error {
 }
 
 // Agent reads a single agent configuration by name.
-func (a *Agents) Agent(_ context.Context, name string) (*Config, error) {
+func (a *Agents) Agent(_ context.Context, name string) (*sdk.AgentConfig, error) {
 	data, err := os.ReadFile(filepath.Join(a.dir, name, "config.json"))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, name)
 	}
-	var cfg Config
+	var cfg sdk.AgentConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing agent config for %s: %w", name, err)
 	}
@@ -107,7 +98,7 @@ func (a *Agents) Agent(_ context.Context, name string) (*Config, error) {
 
 // Agents returns all registered agent configurations by scanning
 // the agents directory for subdirectories containing config.json.
-func (a *Agents) Agents(_ context.Context) ([]Config, error) {
+func (a *Agents) Agents(_ context.Context) ([]sdk.AgentConfig, error) {
 	entries, err := os.ReadDir(a.dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -116,7 +107,7 @@ func (a *Agents) Agents(_ context.Context) ([]Config, error) {
 		return nil, err
 	}
 
-	var configs []Config
+	var configs []sdk.AgentConfig
 	for _, e := range entries {
 		if !e.IsDir() || e.Name() == "default" {
 			continue
@@ -125,7 +116,7 @@ func (a *Agents) Agents(_ context.Context) ([]Config, error) {
 		if err != nil {
 			continue
 		}
-		var cfg Config
+		var cfg sdk.AgentConfig
 		if err := json.Unmarshal(data, &cfg); err != nil {
 			continue
 		}
@@ -163,44 +154,7 @@ func (a *Agents) WritePrompt(_ context.Context, name, role, content, _ string) e
 	return os.WriteFile(path, []byte(content), 0644)
 }
 
-// Dir returns the base directory. Used by the host bridge to
-// resolve relative paths for display.
+// Dir returns the base directory.
 func (a *Agents) Dir() string {
 	return a.dir
-}
-
-// Registered reports whether an agent has a config file on disk.
-func (a *Agents) Registered(name string) bool {
-	_, err := os.Stat(filepath.Join(a.dir, name, "config.json"))
-	return err == nil
-}
-
-// Names returns the names of all registered agents (directories
-// with a config.json). Excludes "default".
-func (a *Agents) Names() []string {
-	entries, err := os.ReadDir(a.dir)
-	if err != nil {
-		return nil
-	}
-	var names []string
-	for _, e := range entries {
-		if !e.IsDir() || e.Name() == "default" {
-			continue
-		}
-		if _, err := os.Stat(filepath.Join(a.dir, e.Name(), "config.json")); err == nil {
-			names = append(names, e.Name())
-		}
-	}
-	return names
-}
-
-// agentDir returns the directory for a named agent, joining paths
-// with filepath separators.
-func (a *Agents) agentDir(name string) string {
-	// Prevent path traversal.
-	clean := filepath.Base(name)
-	if clean != name || strings.ContainsAny(name, `/\`) {
-		return filepath.Join(a.dir, "invalid")
-	}
-	return filepath.Join(a.dir, name)
 }

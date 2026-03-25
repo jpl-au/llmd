@@ -24,6 +24,8 @@ import (
 	"log/slog"
 	"runtime"
 	"strings"
+
+	"github.com/jpl-au/llmd/sdk"
 )
 
 //go:embed agents/*/* guide/*.md
@@ -35,24 +37,15 @@ var Agent = &agentAssets{}
 // Guide provides access to embedded documentation pages.
 var Guide = &guideAssets{}
 
-// AgentConfig is the built-in profile for a known agent.
-type AgentConfig struct {
-	Name      string   `json:"name"`
-	Command   string   `json:"command"`
-	Args      []string `json:"args,omitempty"`
-	Role      string   `json:"role,omitempty"`
-	MaxBudget float64  `json:"max_budget,omitempty"`
-}
-
 // profiles, settings, and templates are populated once at init.
 var (
-	profiles  map[string]AgentConfig
+	profiles  map[string]sdk.AgentConfig
 	settings  map[string]string
 	templates map[string]string
 )
 
 func init() {
-	profiles = make(map[string]AgentConfig)
+	profiles = make(map[string]sdk.AgentConfig)
 	settings = make(map[string]string)
 	templates = make(map[string]string)
 
@@ -87,7 +80,7 @@ func init() {
 
 			switch {
 			case e.Name() == "config.json":
-				var cfg AgentConfig
+				var cfg sdk.AgentConfig
 				if err := json.Unmarshal(data, &cfg); err != nil {
 					slog.Warn("parsing agent config", "path", path, "error", err)
 					continue
@@ -114,7 +107,7 @@ type agentAssets struct{}
 
 // Profile returns the built-in profile for a known agent, or nil
 // if the name is not recognised.
-func (*agentAssets) Profile(name string) *AgentConfig {
+func (*agentAssets) Profile(name string) *sdk.AgentConfig {
 	cfg, ok := profiles[name]
 	if !ok {
 		return nil
