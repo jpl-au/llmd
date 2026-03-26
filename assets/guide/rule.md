@@ -28,7 +28,7 @@ A rule has four fields:
 
 Columns without an `agent` field are **manual** - a human (or an
 explicit `--assign` flag) triggers the work. The transitions still
-apply: the wrapper script reads success/failure from the rule
+apply: `llmd agent run` reads success/failure from the rule
 regardless of whether the column is manual or automated.
 
 ## Default rules
@@ -69,8 +69,8 @@ llmd rule set code --agent claude-code --role developer
 
 Now when a task enters the "code" column, claude-code is
 automatically spawned to work on it. When claude finishes
-successfully, the wrapper moves the task to "test" (the success
-transition). If it fails, the task goes to "blocked".
+successfully, the task moves to "test" (the success transition).
+If it fails, the task goes to "blocked".
 
 ## Setting up a full pipeline
 
@@ -170,7 +170,7 @@ success/failure transitions intact. The column becomes manual again.
 
 - Rules are stored in `.llmd/rules/default.yaml` and committed with
   the repository
-- The wrapper script reads transitions from the rule at spawn time
+- Transitions are resolved from the rule at spawn time
 - Agent prompt templates can reference `{{.OnSuccess}}` and
   `{{.OnFailure}}` to tell the agent which columns to use
 - Worktrees persist across the full pipeline and are cleaned up by

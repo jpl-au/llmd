@@ -28,7 +28,7 @@ Work on branch `{{.Branch}}`. Commit your test changes.
 
 ## If tests pass
 
-Exit cleanly. The wrapper script will move the task to `{{.OnSuccess}}`.
+Exit cleanly. The task will be moved to `{{.OnSuccess}}`.
 
 ## If tests fail
 

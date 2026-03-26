@@ -155,11 +155,11 @@ type SpawnOpts struct {
 	Role string
 
 	// OnSuccess is the column to move to on exit 0. When empty,
-	// the wrapper uses role-dependent defaults.
+	// the task is not moved.
 	OnSuccess string
 
 	// OnFailure is the column to move to on non-zero exit. When
-	// empty, defaults to "failed".
+	// empty, the task is not moved.
 	OnFailure string
 }
 

@@ -110,8 +110,8 @@ Agents can fill three roles:
 | `tester` | Writes and runs tests against the developer's implementation. |
 | `auditor` | Reviews changes against the spec. Approves or rejects. |
 
-The role determines which prompt template is used and how the
-wrapper script handles task transitions.
+The role determines which prompt template is used and how task
+transitions are handled after the agent exits.
 
 ## Prompt templates
 
@@ -172,13 +172,15 @@ llmd agent runs --task a1b2c3d4e
 
 ## Completion
 
-When an agent process exits, the wrapper script calls
-`llmd agent complete` to record the result. This extracts stats
-(cost, tokens, model) from the agent's output log and updates the
-run record.
+When an agent process exits, `llmd agent run` records the result
+automatically. It extracts stats (cost, tokens, model) from the
+agent's output log and updates the run record.
 
-The wrapper also moves the task to the next column based on the
-exit code and the rule's success/failure transitions.
+On failure, the last output from the agent log is captured as an
+audit note on the task so humans can see what went wrong.
+
+The task is then moved to the next column based on the exit code
+and the rule's success/failure transitions.
 
 ## Worktree lifecycle
 

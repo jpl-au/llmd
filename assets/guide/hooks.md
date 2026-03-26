@@ -77,7 +77,7 @@ Add a hook in your Gemini CLI hooks configuration:
 
 ### SSE stream consumer
 
-Any agent or wrapper script can connect to the SSE endpoint and react
+Any agent or script can connect to the SSE endpoint and react
 to events:
 
 ```bash
