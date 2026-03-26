@@ -33,6 +33,11 @@ type AgentStore interface {
 	// Runs returns agent runs matching the filter.
 	Runs(opts RunListOpts) ([]*AgentRun, error)
 
+	// Complete records an agent run as finished. Extracts stats
+	// (cost, tokens, model) from the agent's output log and
+	// cleans up the worktree.
+	Complete(taskKey string, exitCode int) error
+
 	// Stop terminates a running agent process and cleans up its
 	// worktree.
 	Stop(taskKey, author string) error

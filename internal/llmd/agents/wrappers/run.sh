@@ -4,6 +4,7 @@
 #   1. Runs the agent command
 #   2. On exit, checks if the task was already moved (by hooks)
 #   3. If not, moves the task based on exit code
+#   4. Records run completion (stats, cost, tokens)
 #
 # Transport: HTTP API first (if LLMD_URL is set), CLI fallback.
 # Template variables are replaced by llmd at spawn time.
@@ -38,6 +39,13 @@ task_status() {
   "${LLMD}" task show "${TASK_ID}" --json 2>/dev/null | grep -oi '"Status":"[^"]*"' | head -1 | cut -d'"' -f4
 }
 
+# agent_complete records run completion with stats extracted from
+# the agent's output log.
+agent_complete() {
+  local exit_code="$1"
+  "${LLMD}" --author "${AGENT}" agent complete "${TASK_ID}" --exit-code "${exit_code}" 2>/dev/null
+}
+
 # Run the agent.
 cd "${WORKTREE}"
 {{.Command}} {{.Args}}
@@ -57,5 +65,8 @@ if [ "${ROLE}" != "auditor" ]; then
     fi
   fi
 fi
+
+# Record run completion (extracts stats from the agent log).
+agent_complete ${EXIT}
 
 exit ${EXIT}

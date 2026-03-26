@@ -316,6 +316,13 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 		}
 	}
 
+	// Clean up agent worktree if one exists for this task.
+	if r, err := a.store.Agents.RunByTask(a.ctx, key); err == nil && r.Worktree != "" {
+		if err := sdk.Git.WorktreeRemove(r.Worktree); err != nil {
+			slog.Debug("removing agent worktree on finish", "path", r.Worktree, "error", err)
+		}
+	}
+
 	return result, nil
 }
 

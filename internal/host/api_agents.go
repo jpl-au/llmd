@@ -312,9 +312,6 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
-	// Wait for the process in a goroutine so we can record completion.
-	go a.waitForProcess(cmd, taskKey, plat, absWorktree, logFile)
-
 	return runToSDK(r), nil
 }
 
@@ -358,7 +355,36 @@ func (a *agentAPI) WritePrompt(name, role, content, author string) error {
 	return a.store.Agents.WritePrompt(a.ctx, name, role, content, author)
 }
 
-// Stop terminates a running agent and cleans up its worktree.
+// Complete records an agent run as finished. It looks up the run,
+// extracts stats from the output log via the Platform, and updates
+// the database. The worktree is left intact for subsequent pipeline
+// steps (testing, auditing) and cleaned up by task finish.
+func (a *agentAPI) Complete(taskKey string, exitCode int) error {
+	r, err := a.store.Agents.RunByTask(a.ctx, taskKey)
+	if err != nil {
+		return agentErr(err)
+	}
+
+	// Extract stats from the agent's output log.
+	plat := assets.Agent.Platform(r.Agent)
+	logPath := filepath.Join(r.Worktree, ".llmd-agent.log")
+	stats, err := plat.Stats(logPath)
+	if err != nil {
+		slog.Debug("extracting agent stats", "task", taskKey, "error", err)
+	}
+
+	opts := agents.CompleteOpts{ExitCode: exitCode}
+	if stats != nil {
+		opts.MonetaryCost = stats.MonetaryCost
+		opts.InputTokens = stats.InputTokens
+		opts.OutputTokens = stats.OutputTokens
+		opts.Model = stats.Model
+	}
+
+	return agentErr(a.store.Agents.Complete(a.ctx, taskKey, opts))
+}
+
+// Stop terminates a running agent process and cleans up its worktree.
 func (a *agentAPI) Stop(taskKey, author string) error {
 	r, err := a.store.Agents.RunByTask(a.ctx, taskKey)
 	if err != nil {
@@ -392,52 +418,6 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 	}
 
 	return nil
-}
-
-// waitForProcess waits for the agent subprocess to exit, extracts
-// cost if the platform supports it, and records the result. Runs
-// in a goroutine started by Spawn.
-func (a *agentAPI) waitForProcess(cmd *exec.Cmd, taskKey string, plat assets.Platform, worktree string, logFile *os.File) {
-	if logFile != nil {
-		defer logFile.Close()
-	}
-	err := cmd.Wait()
-	exitCode := 0
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = 1
-		}
-	}
-
-	// Extract stats from the agent's output log.
-	logPath := filepath.Join(worktree, ".llmd-agent.log")
-	stats, err := plat.Stats(logPath)
-	if err != nil {
-		slog.Debug("extracting agent stats", "task", taskKey, "error", err)
-	}
-
-	opts := agents.CompleteOpts{ExitCode: exitCode}
-	if stats != nil {
-		opts.MonetaryCost = stats.MonetaryCost
-		opts.InputTokens = stats.InputTokens
-		opts.OutputTokens = stats.OutputTokens
-		opts.Model = stats.Model
-	}
-
-	ctx := context.Background()
-	if err := a.store.Agents.Complete(ctx, taskKey, opts); err != nil {
-		slog.Warn("recording agent completion", "task", taskKey, "error", err)
-	}
-
-	// Clean up worktree after completion.
-	if worktree != "" {
-		if err := sdk.Git.WorktreeRemove(worktree); err != nil {
-			slog.Debug("removing worktree after completion", "path", worktree, "error", err)
-		}
-	}
 }
 
 // writeSettings writes agent runtime settings into the worktree at

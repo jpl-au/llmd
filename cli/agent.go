@@ -50,7 +50,7 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	// task). add/rm are configuration - use "llmd" as default author
 	// so users don't need --author just to set up their tools.
 	switch sub {
-	case "stop", "spawn":
+	case "stop", "spawn", "complete":
 		if ctx.Author == "" {
 			return nil, fmt.Errorf("agent %s: author required", sub)
 		}
@@ -79,6 +79,8 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 			return nil, fmt.Errorf("agent spawn: %w: <task-key> <agent>", sdk.ErrMissingArg)
 		}
 		return taskStart(ctx, []string{args[0], "--assign", args[1]})
+	case "complete":
+		return agentComplete(ctx, args)
 	case "stop":
 		return agentStop(ctx, args)
 	default:
@@ -250,6 +252,27 @@ func agentRuns(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	return sdk.Result{Text: t.String(), Data: runs}, nil
+}
+
+var agentCompleteFlags = []sdk.Flag{
+	{Name: "exit-code", Type: "int", Desc: "Process exit code"},
+}
+
+func agentComplete(ctx sdk.Context, args []string) (sdk.Response, error) {
+	flags, positional, err := sdk.ParseArgs(agentCompleteFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("agent complete: %w", err)
+	}
+	if len(positional) == 0 {
+		return nil, fmt.Errorf("agent complete: %w: task key", sdk.ErrMissingArg)
+	}
+	key := positional[0]
+	exitCode := flags.Int("exit-code")
+
+	if err := ctx.Agents.Complete(key, exitCode); err != nil {
+		return nil, fmt.Errorf("agent complete: %w", err)
+	}
+	return sdk.Text(fmt.Sprintf("Completed agent run for task %s (exit %d)", key, exitCode)), nil
 }
 
 func agentStop(ctx sdk.Context, args []string) (sdk.Response, error) {
