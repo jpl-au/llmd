@@ -8,7 +8,10 @@ import (
 	"strings"
 	"unicode"
 
+	"path/filepath"
+
 	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/rules"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	"github.com/jpl-au/llmd/internal/validate"
 	"github.com/jpl-au/llmd/pkg/model/task"
@@ -183,18 +186,37 @@ func (a *taskAPI) AddColumn(name, after, author string) error {
 	if err := validate.Text(name, "column name"); err != nil {
 		return err
 	}
-	return a.store.Tasks.AddColumn(a.ctx, name, after, author)
+	if err := a.store.Tasks.AddColumn(a.ctx, name, after, author); err != nil {
+		return err
+	}
+	return a.syncRules()
 }
 
 // RemoveColumn removes a column from the board. Fails if the column
 // still contains tasks - they must be moved or deleted first.
 func (a *taskAPI) RemoveColumn(name, author string) error {
-	return a.store.Tasks.RemoveColumn(a.ctx, name, author)
+	if err := a.store.Tasks.RemoveColumn(a.ctx, name, author); err != nil {
+		return err
+	}
+	return a.syncRules()
 }
 
 // MoveColumn reorders a column to appear after the named column.
 func (a *taskAPI) MoveColumn(name, after, author string) error {
-	return a.store.Tasks.MoveColumn(a.ctx, name, after, author)
+	if err := a.store.Tasks.MoveColumn(a.ctx, name, after, author); err != nil {
+		return err
+	}
+	return a.syncRules()
+}
+
+// syncRules updates the rules file to match the current board columns.
+func (a *taskAPI) syncRules() error {
+	cols, err := a.store.Tasks.Columns(a.ctx)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(a.store.Path())
+	return rules.Sync(dir, cols)
 }
 
 // Start moves a task to a column and records the current git branch
@@ -202,7 +224,7 @@ func (a *taskAPI) MoveColumn(name, after, author string) error {
 func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, error) {
 	col := opts.Column
 	if col == "" {
-		col = "code"
+		col = "in-progress"
 	}
 	if err := taskErr(a.store.Tasks.Move(a.ctx, key, col, author)); err != nil {
 		return nil, err
@@ -256,7 +278,7 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 
 	col := opts.Column
 	if col == "" {
-		col = "code"
+		col = "in-progress"
 	}
 	if err := taskErr(a.store.Tasks.Move(a.ctx, key, col, author)); err != nil {
 		return nil, err

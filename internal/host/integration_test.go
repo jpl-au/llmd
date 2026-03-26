@@ -223,10 +223,10 @@ func TestTaskWorkflow(t *testing.T) {
 	}
 
 	// Move to code.
-	dispatch(t, "task", []string{"move", key, "code"}, "alice", nil)
+	dispatch(t, "task", []string{"move", key, "in-progress"}, "alice", nil)
 
 	// List code shows the task.
-	r = dispatch(t, "task", []string{"list", "code"}, "alice", nil)
+	r = dispatch(t, "task", []string{"list", "in-progress"}, "alice", nil)
 	out = text(r)
 	if !strings.Contains(out, "Build feature") {
 		t.Errorf("task list code missing task: %s", out)

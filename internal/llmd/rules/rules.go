@@ -78,23 +78,31 @@ func Save(dir, name string, rs RuleSet) error {
 	return os.WriteFile(path, data, 0644)
 }
 
+// FromColumns generates a rule set from a list of board columns.
+// Each "working" column (not the first or last) gets a rule with
+// success pointing to the next column and failure pointing to
+// itself. The first and last columns (typically backlog and done)
+// are not included - nothing happens automatically there.
+func FromColumns(cols []string) RuleSet {
+	rs := make(RuleSet)
+	if len(cols) < 3 {
+		return rs
+	}
+
+	// Skip first (backlog) and last (done) - those are manual endpoints.
+	for i := 1; i < len(cols)-1; i++ {
+		rs[cols[i]] = ColumnRule{
+			Success: cols[i+1],
+			Failure: cols[i],
+		}
+	}
+	return rs
+}
+
 // Default returns the standard manual transitions for the default
 // board columns. No agents are configured - all columns are manual.
 func Default() RuleSet {
-	return RuleSet{
-		"code": {
-			Success: "test",
-			Failure: "blocked",
-		},
-		"test": {
-			Success: "review",
-			Failure: "code",
-		},
-		"review": {
-			Success: "done",
-			Failure: "code",
-		},
-	}
+	return FromColumns([]string{"backlog", "up-next", "in-progress", "review", "done"})
 }
 
 // Seed creates the default rule file if it does not exist and
@@ -110,4 +118,45 @@ func Seed(dir string) error {
 	}
 
 	return config.GitAllow("rules/")
+}
+
+// Sync updates the default rule file to match the current board
+// columns. New columns get rule entries; removed columns have their
+// entries deleted and any transitions pointing to them are cleared.
+func Sync(dir string, cols []string) error {
+	rs, err := Load(dir, "default")
+	if err != nil {
+		return err
+	}
+
+	// Build a set of working columns (skip first and last).
+	working := make(map[string]bool)
+	for i := 1; i < len(cols)-1; i++ {
+		working[cols[i]] = true
+	}
+
+	// Add entries for new working columns.
+	for i := 1; i < len(cols)-1; i++ {
+		col := cols[i]
+		if _, ok := rs[col]; ok {
+			continue
+		}
+		rs[col] = ColumnRule{
+			Success: cols[i+1],
+			Failure: col,
+		}
+	}
+
+	// Remove entries for columns no longer on the board.
+	all := make(map[string]bool, len(cols))
+	for _, c := range cols {
+		all[c] = true
+	}
+	for col := range rs {
+		if !all[col] {
+			delete(rs, col)
+		}
+	}
+
+	return Save(dir, "default", rs)
 }

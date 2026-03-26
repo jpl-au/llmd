@@ -4,10 +4,10 @@ package cli
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
+	"github.com/jpl-au/llmd/ui"
+	"github.com/jpl-au/llmd/ui/terminal"
 )
 
 var ruleSpec = sdk.Command{
@@ -18,7 +18,7 @@ on success or failure, and optionally which agent handles the work.
 Columns without an agent are manual.
 
 Subcommands:
-  show                        display all column rules
+  list                        display all column rules
   set <column> [flags]        configure a column rule
   unset <column>              remove agent (keep transitions)
 
@@ -33,15 +33,15 @@ See "llmd guide rule" for full documentation.`, Usage: "rule <subcommand> [optio
 
 func ruleCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return ruleShow(ctx, nil)
+		return ruleList(ctx, nil)
 	}
 
 	sub := args[0]
 	args = args[1:]
 
 	switch sub {
-	case "show", "ls":
-		return ruleShow(ctx, args)
+	case "list", "ls", "show":
+		return ruleList(ctx, args)
 	case "set":
 		return ruleSet(ctx, args)
 	case "unset":
@@ -51,37 +51,17 @@ func ruleCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 }
 
-func ruleShow(ctx sdk.Context, _ []string) (sdk.Response, error) {
+func ruleList(ctx sdk.Context, _ []string) (sdk.Response, error) {
 	rs, err := ctx.Rules.Show()
 	if err != nil {
-		return nil, fmt.Errorf("rule show: %w", err)
+		return nil, fmt.Errorf("rule list: %w", err)
 	}
 	if len(rs) == 0 {
-		return sdk.Text("No rules configured\n\nSet one with: llmd rule set code --agent claude-code --role developer --success test --failure blocked"), nil
+		return sdk.Text("No rules configured\n\nSet one with: llmd rule set code --agent claude-code --role developer"), nil
 	}
 
-	// Sort columns for stable output.
-	var cols []string
-	for col := range rs {
-		cols = append(cols, col)
-	}
-	sort.Strings(cols)
-
-	t := newTable("COLUMN", "AGENT", "ROLE", "SUCCESS", "FAILURE")
-	for _, col := range cols {
-		r := rs[col]
-		agent := r.Agent
-		if agent == "" {
-			agent = "-"
-		}
-		role := r.Role
-		if role == "" {
-			role = "-"
-		}
-		t.Row(col, agent, role, r.Success, r.Failure)
-	}
-
-	return sdk.Result{Text: t.String(), Data: rs}, nil
+	views := ui.NewRuleViews(rs)
+	return sdk.Result{Text: terminal.RenderRules(views), Data: rs}, nil
 }
 
 var ruleSetFlags = []sdk.Flag{
@@ -126,21 +106,8 @@ func ruleSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("rule set: %w", err)
 	}
 
-	var parts []string
-	if rule.Agent != "" {
-		parts = append(parts, fmt.Sprintf("agent=%s", rule.Agent))
-	}
-	if rule.Role != "" {
-		parts = append(parts, fmt.Sprintf("role=%s", rule.Role))
-	}
-	if rule.Success != "" {
-		parts = append(parts, fmt.Sprintf("success=%s", rule.Success))
-	}
-	if rule.Failure != "" {
-		parts = append(parts, fmt.Sprintf("failure=%s", rule.Failure))
-	}
-
-	return sdk.Text(fmt.Sprintf("Set rule for %s: %s", column, strings.Join(parts, " "))), nil
+	view := ui.NewRuleView(column, rule)
+	return sdk.Result{Text: terminal.RenderRule(view), Data: rule}, nil
 }
 
 func ruleUnset(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -148,9 +115,14 @@ func ruleUnset(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("rule unset: %w: column name", sdk.ErrMissingArg)
 	}
 
-	if err := ctx.Rules.Unset(args[0]); err != nil {
+	column := args[0]
+	if err := ctx.Rules.Unset(column); err != nil {
 		return nil, fmt.Errorf("rule unset: %w", err)
 	}
 
-	return sdk.Text(fmt.Sprintf("Removed agent from %s (transitions preserved)", args[0])), nil
+	rs, _ := ctx.Rules.Show()
+	rule := rs[column]
+
+	view := ui.NewRuleView(column, rule)
+	return sdk.Result{Text: terminal.RenderRule(view), Data: rule}, nil
 }

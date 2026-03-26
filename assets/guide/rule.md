@@ -37,19 +37,19 @@ After `llmd init`, the default rule set looks like this:
 
 ```yaml
 # .llmd/rules/default.yaml
-code:
-  success: test
-  failure: blocked
-test:
+in-progress:
   success: review
-  failure: code
+  failure: in-progress
 review:
   success: done
-  failure: code
+  failure: in-progress
+up-next:
+  success: in-progress
+  failure: up-next
 ```
 
 All columns are manual by default. The board columns are:
-backlog, up-next, code, test, review, done.
+backlog, up-next, in-progress, review, done.
 
 Columns not listed (backlog, up-next, done) have no transitions -
 tasks stay there until moved manually.
