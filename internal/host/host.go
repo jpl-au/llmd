@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"slices"
 
 	"github.com/jpl-au/llmd/extension"
@@ -241,11 +239,7 @@ func setup(store *llmd.Store) *Host {
 		sdk.Activities = newActivityAPI(store, bg)
 		sdk.Mirror = newMirrorAPI(store, bg)
 		sdk.Agents = newAgentAPI(store, bg)
-		rulesDir := filepath.Dir(store.Path())
-		if store.Path() == ":memory:" {
-			rulesDir = filepath.Join(os.TempDir(), "llmd-test-rules")
-		}
-		sdk.Rules = newRuleAPI(rulesDir)
+		sdk.Rules = newRuleAPI(store.Dir())
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
@@ -256,12 +250,8 @@ func setup(store *llmd.Store) *Host {
 	// Pipeline handler: auto-spawn agents when tasks enter columns
 	// with pipeline configuration.
 	if store != nil {
-		pDir := filepath.Dir(store.Path())
-		if store.Path() == ":memory:" {
-			pDir = filepath.Join(os.TempDir(), "llmd-test-rules")
-		}
 		store.Bus().Subscribe(&pipelineHandler{
-			dir:   pDir,
+			dir:   store.Dir(),
 			agent: newAgentAPI(store, bg),
 		})
 	}
@@ -381,11 +371,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		sctx.Activities = newActivityAPI(h.store, ctx)
 		sctx.Mirror = newMirrorAPI(h.store, ctx)
 		sctx.Agents = newAgentAPI(h.store, ctx)
-		rDir := filepath.Dir(h.store.Path())
-		if h.store.Path() == ":memory:" {
-			rDir = filepath.Join(os.TempDir(), "llmd-test-rules")
-		}
-		sctx.Rules = newRuleAPI(rDir)
+		sctx.Rules = newRuleAPI(h.store.Dir())
 	}
 
 	resp, err := entry.plugin.Exec(sctx, cmd, args)

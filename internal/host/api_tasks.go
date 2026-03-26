@@ -5,11 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"unicode"
-
-	"path/filepath"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/rules"
@@ -216,11 +213,7 @@ func (a *taskAPI) syncRules() error {
 	if err != nil {
 		return err
 	}
-	dir := filepath.Dir(a.store.Path())
-	if a.store.Path() == ":memory:" {
-		dir = filepath.Join(os.TempDir(), "llmd-test-rules")
-	}
-	return rules.Sync(dir, cols)
+	return rules.Sync(a.store.Dir(), cols)
 }
 
 // Start moves a task to a column and records the current git branch

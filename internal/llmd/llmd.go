@@ -186,11 +186,7 @@ func (s *Store) wire() {
 	s.Tasks = tasks.New(s.db, s.Documents, s.Entities, s.Audit, s.bus)
 	s.Audits = audits.New(s.db, s.bus)
 	s.Messages = messages.New(s.db, s.bus)
-	agentsDir := filepath.Join(filepath.Dir(s.path), "agents")
-	if s.path == ":memory:" {
-		agentsDir = filepath.Join(os.TempDir(), "llmd-test-agents")
-	}
-	s.Agents = agents.New(s.db, agentsDir, s.bus)
+	s.Agents = agents.New(s.db, filepath.Join(s.Dir(), "agents"), s.bus)
 
 	// Bridge domain events into the message queue so consumers
 	// can poll for changes across all domains.
@@ -214,6 +210,18 @@ func (s *Store) Checkpoint() error {
 // Path returns the path to the store database.
 func (s *Store) Path() string {
 	return s.path
+}
+
+// Dir returns the .llmd/ directory that contains the store. For
+// in-memory stores used in tests, returns a temporary directory.
+// All callers that need the .llmd/ path should use this instead of
+// filepath.Dir(store.Path()) to avoid scattering the :memory:
+// check everywhere.
+func (s *Store) Dir() string {
+	if s.path == ":memory:" {
+		return filepath.Join(os.TempDir(), "llmd-memory-store")
+	}
+	return filepath.Dir(s.path)
 }
 
 // DB returns the qwr manager. Used by the host to create extension
