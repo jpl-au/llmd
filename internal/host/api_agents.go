@@ -175,31 +175,34 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 			return nil, fmt.Errorf("resolving working directory: %w", err)
 		}
 	} else {
-		// Create worktree (and branch if needed).
+		// Create or reuse worktree. Multiple agents may work on the
+		// same task (developer then tester), sharing the worktree.
 		worktreeDir := filepath.Join(".llmd", "worktrees", taskKey)
 		absWorktree, err = filepath.Abs(worktreeDir)
 		if err != nil {
 			return nil, fmt.Errorf("resolving worktree path: %w", err)
 		}
 
-		if err := os.MkdirAll(filepath.Dir(absWorktree), 0755); err != nil {
-			return nil, fmt.Errorf("creating worktree parent: %w", err)
-		}
-
-		if needsBranch {
-			// Create branch + worktree in one step, without touching
-			// the main working directory.
-			if err := sdk.Git.WorktreeCreate(absWorktree, branch); err != nil {
-				return nil, fmt.Errorf("creating worktree: %w", err)
-			}
-			if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{
-				Branch: &branch,
-			}); err != nil {
-				return nil, taskErr(err)
-			}
+		// Reuse existing worktree from a previous pipeline step.
+		if _, statErr := os.Stat(absWorktree); statErr == nil {
+			slog.Debug("reusing existing worktree", "path", absWorktree)
 		} else {
-			if err := sdk.Git.WorktreeAdd(absWorktree, branch); err != nil {
-				return nil, fmt.Errorf("creating worktree: %w", err)
+			if err := os.MkdirAll(filepath.Dir(absWorktree), 0755); err != nil {
+				return nil, fmt.Errorf("creating worktree parent: %w", err)
+			}
+			if needsBranch {
+				if err := sdk.Git.WorktreeCreate(absWorktree, branch); err != nil {
+					return nil, fmt.Errorf("creating worktree: %w", err)
+				}
+				if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{
+					Branch: &branch,
+				}); err != nil {
+					return nil, taskErr(err)
+				}
+			} else {
+				if err := sdk.Git.WorktreeAdd(absWorktree, branch); err != nil {
+					return nil, fmt.Errorf("creating worktree: %w", err)
+				}
 			}
 		}
 	}

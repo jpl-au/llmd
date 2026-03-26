@@ -46,6 +46,10 @@ cd "${WORKTREE}"
 {{.Command}} {{.Args}}
 EXIT=$?
 
+# Record run completion first so the pipeline handler sees this run
+# as finished when the task move triggers the next step.
+agent_complete ${EXIT}
+
 # Move the task based on exit code. Auditors handle their own moves
 # via the prompt template. Developers and testers get automatic moves.
 if [ "${ROLE}" != "auditor" ]; then
@@ -55,8 +59,5 @@ if [ "${ROLE}" != "auditor" ]; then
     task_move "${ON_FAILURE}" || true
   fi
 fi
-
-# Record run completion (extracts stats from the agent log).
-agent_complete ${EXIT}
 
 exit ${EXIT}
