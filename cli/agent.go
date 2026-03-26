@@ -79,6 +79,8 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 			return nil, fmt.Errorf("agent spawn: %w: <task-key> <agent>", sdk.ErrMissingArg)
 		}
 		return taskStart(ctx, []string{args[0], "--assign", args[1]})
+	case "run":
+		return agentRun(ctx, args)
 	case "complete":
 		return agentComplete(ctx, args)
 	case "stop":
