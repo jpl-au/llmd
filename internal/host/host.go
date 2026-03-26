@@ -15,7 +15,7 @@ import (
 	"github.com/jpl-au/llmd/internal/config"
 	igit "github.com/jpl-au/llmd/internal/git"
 	"github.com/jpl-au/llmd/internal/llmd"
-	"github.com/jpl-au/llmd/internal/llmd/rules"
+
 	"github.com/jpl-au/llmd/internal/plugin"
 	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/internal/term"
@@ -295,12 +295,6 @@ func setup(store *llmd.Store) *Host {
 		// Create default .llmd/.gitignore for new stores.
 		if err := config.InitGitignore(); err != nil {
 			return "", fmt.Errorf("creating gitignore: %w", err)
-		}
-
-		// Seed default column rules.
-		llmdDir := filepath.Dir(path)
-		if err := rules.Seed(llmdDir); err != nil {
-			return "", fmt.Errorf("seeding rules: %w", err)
 		}
 
 		return path, nil

@@ -7,7 +7,7 @@
 // still follow the rule.
 //
 //	.llmd/rules/
-//	  default.yaml     default rule set (created on init)
+//	  default.yaml     default rule set (created on first use)
 package rules
 
 import (
@@ -36,12 +36,19 @@ func (rs RuleSet) Column(name string) ColumnRule {
 	return rs[name]
 }
 
-// Load reads a rule set from <dir>/rules/<name>.yaml. Returns an
-// empty RuleSet (not an error) if the file does not exist.
+// Load reads a rule set from <dir>/rules/<name>.yaml. If the
+// default rule file does not exist, it is created with standard
+// transitions on first access (lazy initialisation).
 func Load(dir, name string) (RuleSet, error) {
 	path := filepath.Join(dir, "rules", name+".yaml")
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
+		if name == "default" {
+			if err := Seed(dir); err != nil {
+				return nil, err
+			}
+			return Default(), nil
+		}
 		return RuleSet{}, nil
 	}
 	if err != nil {
