@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 
 	"github.com/jpl-au/llmd/internal/llmd/agents"
@@ -48,6 +49,7 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 	cmd := exec.Command(cfg.Command, cfg.Args...)
 	cmd.Dir = worktree
 	cmd.Env = os.Environ()
+	setup(cmd)
 
 	logPath := filepath.Join(worktree, ".llmd-agent.log")
 	logFile, err := os.Create(logPath)
@@ -63,8 +65,11 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent run: starting agent: %w", err)
 	}
 
-	// Forward termination signals to the child so llmd agent stop
-	// cleanly shuts down the agent rather than orphaning it.
+	// Clear any signal handlers registered by the parent (main.go's
+	// signal.NotifyContext) so that forward() is the sole handler.
+	// Without this, an interrupt cancels the parent context and kills
+	// the runner before it can manage the child's shutdown.
+	signal.Reset(os.Interrupt)
 	defer forward(cmd)()
 
 	// Wait for the agent to finish.

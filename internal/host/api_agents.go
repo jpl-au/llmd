@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 
 	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/internal/config"
@@ -289,6 +288,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	cmd := exec.Command(llmdPath, "--author", agent, "agent", "run", taskKey, "--worktree", absWorktree)
 	cmd.Dir, _ = filepath.Abs(".")
 	cmd.Env = os.Environ()
+	detach(cmd)
 
 	if err := cmd.Start(); err != nil {
 		if cfg.Role != "auditor" {
@@ -412,12 +412,14 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 		return fmt.Errorf("agent run %s is not running", r.Key)
 	}
 
-	// Kill the process.
+	// Gracefully terminate the process. On Unix this sends SIGTERM; on
+	// Windows it sends CTRL_BREAK_EVENT to the process group. If the
+	// graceful signal fails, fall back to a hard kill.
 	if r.PID > 0 {
 		proc, err := os.FindProcess(r.PID)
 		if err == nil {
-			if err := proc.Signal(syscall.SIGTERM); err != nil {
-				slog.Debug("sending SIGTERM to agent", "pid", r.PID, "error", err)
+			if err := terminate(proc); err != nil {
+				slog.Debug("graceful termination failed, killing", "pid", r.PID, "error", err)
 				proc.Kill()
 			}
 		}

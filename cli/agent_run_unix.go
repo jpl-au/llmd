@@ -9,6 +9,9 @@ import (
 	"syscall"
 )
 
+// setup is a no-op on Unix. No special process attributes are needed.
+func setup(_ *exec.Cmd) {}
+
 // forward arranges for SIGTERM and SIGINT to be forwarded to
 // the child process. Returns a function that stops the forwarding.
 func forward(cmd *exec.Cmd) func() {
