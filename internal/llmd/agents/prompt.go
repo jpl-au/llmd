@@ -20,6 +20,8 @@ type PromptData struct {
 	Agent      string
 	URL        string // HTTP API URL (empty if server not running)
 	SpecPath   string
+	OnSuccess  string // column to move to on success
+	OnFailure  string // column to move to on failure
 }
 
 // BuildPrompt resolves a prompt template for the agent/role, renders

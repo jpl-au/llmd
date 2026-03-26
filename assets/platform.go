@@ -104,8 +104,8 @@ func (claude) Stats(logPath string) (*RunStats, error) {
 // gemini is the Platform for Gemini CLI.
 type gemini struct{}
 
-func (gemini) SettingsPath() string            { return "" }
-func (gemini) BudgetArgs(float64) []string     { return nil }
+func (gemini) SettingsPath() string        { return "" }
+func (gemini) BudgetArgs(float64) []string { return nil }
 
 // Stats reads the agent log and extracts metrics from Gemini CLI's
 // JSON output (--output-format json).
@@ -154,9 +154,9 @@ func (gemini) Stats(logPath string) (*RunStats, error) {
 // generic is the no-op Platform for unknown agents.
 type generic struct{}
 
-func (generic) SettingsPath() string              { return "" }
-func (generic) BudgetArgs(float64) []string       { return nil }
-func (generic) Stats(string) (*RunStats, error)   { return nil, nil }
+func (generic) SettingsPath() string            { return "" }
+func (generic) BudgetArgs(float64) []string     { return nil }
+func (generic) Stats(string) (*RunStats, error) { return nil, nil }
 
 // lastJSON scans a file and returns the last line that starts with
 // '{'. Agent tools write their JSON result as the final output line.

@@ -24,15 +24,14 @@ of whether the task was completed as specified.
 
 ## If approved
 
-Move the task to done:
-`curl -sf -X POST {{.URL}}/task/move/{{.Key}}/done -H "Author: {{.Agent}}"`
+Move the task forward:
+`curl -sf -X POST {{.URL}}/task/move/{{.Key}}/{{.OnSuccess}} -H "Author: {{.Agent}}"`
 
 ## If issues found
 
-Write an audit reply explaining what needs fixing, then move back
-to in-progress:
+Write an audit reply explaining what needs fixing, then move back:
 
 ```
 curl -sf -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Describe what needs fixing"
-curl -sf -X POST {{.URL}}/task/move/{{.Key}}/in-progress -H "Author: {{.Agent}}"
+curl -sf -X POST {{.URL}}/task/move/{{.Key}}/{{.OnFailure}} -H "Author: {{.Agent}}"
 ```

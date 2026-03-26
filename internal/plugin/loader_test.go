@@ -304,6 +304,9 @@ func (s *stubTasks) Dependents(string) ([]*sdk.Task, error)          { return ni
 func (s *stubTasks) Chain(string) ([]*sdk.Task, error)               { return nil, nil }
 func (s *stubTasks) Ready(string) (bool, error)                      { return true, nil }
 func (s *stubTasks) Log(string, int) ([]sdk.TaskEvent, error)        { return nil, nil }
+func (s *stubTasks) Step(string) (*sdk.StepConfig, error)            { return nil, nil }
+func (s *stubTasks) SetStep(string, sdk.StepConfig, string) error    { return nil }
+func (s *stubTasks) UnsetStep(string, string) error                  { return nil }
 
 // stubTags is a minimal TagStore for testing Yaegi access.
 type stubTags struct {

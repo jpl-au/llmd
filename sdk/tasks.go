@@ -95,6 +95,17 @@ type TaskStore interface {
 	// Log returns audit events for a task, newest first.
 	// Limit 0 means all events.
 	Log(key string, limit int) ([]TaskEvent, error)
+
+	// Step returns the pipeline configuration for a column, or nil
+	// if the column has no pipeline step configured.
+	Step(column string) (*StepConfig, error)
+
+	// SetStep configures a pipeline step for a column. Defines
+	// which agent to auto-spawn when a task enters this column.
+	SetStep(column string, cfg StepConfig, author string) error
+
+	// UnsetStep removes pipeline configuration from a column.
+	UnsetStep(column, author string) error
 }
 
 // Task represents a task on the board.
@@ -162,6 +173,14 @@ type Task struct {
 // "backlog". When Path is set, the task links to an existing store
 // document instead of creating a new one. Author is required for all
 // write operations.
+// StepConfig configures automatic agent spawning for a board column.
+type StepConfig struct {
+	Agent     string `json:"agent"`
+	Role      string `json:"role"`
+	OnSuccess string `json:"on_success,omitempty"`
+	OnFailure string `json:"on_failure,omitempty"`
+}
+
 type TaskAddOpts struct {
 	// Status is the initial column. Defaults to "backlog".
 	Status string

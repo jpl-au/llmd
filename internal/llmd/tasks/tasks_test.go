@@ -269,29 +269,35 @@ func TestColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cols) != 5 {
-		t.Fatalf("len = %d, want 5", len(cols))
-	}
-
-	// Add column
-	if err := ts.AddColumn(ctx, "testing", "review", "alice"); err != nil {
-		t.Fatal(err)
-	}
-	cols, _ = ts.Columns(ctx)
 	if len(cols) != 6 {
 		t.Fatalf("len = %d, want 6", len(cols))
 	}
-	if cols[4] != "testing" {
-		t.Errorf("cols[4] = %q, want %q", cols[4], "testing")
+
+	// Add column
+	if err := ts.AddColumn(ctx, "staging", "review", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	cols, err = ts.Columns(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cols) != 7 {
+		t.Fatalf("len = %d, want 7", len(cols))
+	}
+	if cols[5] != "staging" {
+		t.Errorf("cols[5] = %q, want %q", cols[5], "staging")
 	}
 
 	// Remove column
-	if err := ts.RemoveColumn(ctx, "testing", "alice"); err != nil {
+	if err := ts.RemoveColumn(ctx, "staging", "alice"); err != nil {
 		t.Fatal(err)
 	}
-	cols, _ = ts.Columns(ctx)
-	if len(cols) != 5 {
-		t.Fatalf("len = %d, want 5", len(cols))
+	cols, err = ts.Columns(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cols) != 6 {
+		t.Fatalf("len = %d, want 6", len(cols))
 	}
 }
 

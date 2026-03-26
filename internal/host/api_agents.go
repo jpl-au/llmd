@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -117,7 +118,10 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	}
 
 	// Auto-detect role from column. Tasks in review need an auditor,
-	// not a developer. An explicit role in the config takes priority.
+	// Role resolution: SpawnOpts > AgentConfig > auto-detection.
+	if opts.Role != "" {
+		cfg.Role = opts.Role
+	}
 	if cfg.Role == "" {
 		switch t.Status {
 		case "review":
@@ -211,6 +215,8 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 			Agent:      agent,
 			URL:        llmdURL,
 			SpecPath:   t.Path,
+			OnSuccess:  opts.OnSuccess,
+			OnFailure:  opts.OnFailure,
 		})
 	}
 
@@ -246,14 +252,16 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// Generate the wrapper script that runs the agent and handles
 	// task lifecycle (moving the task on completion/failure).
 	wrapperPath, err := agents.GenerateWrapper(absWorktree, agents.WrapperData{
-		TaskID:   taskKey,
-		Agent:    agent,
-		Role:     cfg.Role,
-		LLMD:     llmdPath,
-		URL:      llmdURL,
-		Worktree: absWorktree,
-		Command:  cmdPath,
-		Args:     shellJoin(cmdArgs),
+		TaskID:    taskKey,
+		Agent:     agent,
+		Role:      cfg.Role,
+		LLMD:      llmdPath,
+		URL:       llmdURL,
+		Worktree:  absWorktree,
+		Command:   cmdPath,
+		Args:      shellJoin(cmdArgs),
+		OnSuccess: opts.OnSuccess,
+		OnFailure: opts.OnFailure,
 	})
 	if err != nil {
 		if cfg.Role != "auditor" {
@@ -304,11 +312,15 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, agentErr(err)
 	}
 
-	// Developers start work - move to in-progress. Auditors stay
-	// in review - the auditor template handles its own moves.
+	// Non-auditors move to in-progress when their agent starts, if
+	// the column exists. Pipeline-driven boards may not have an
+	// in-progress column - the task stays in the pipeline step column.
 	if cfg.Role != "auditor" {
-		if err := a.store.Tasks.Move(a.ctx, taskKey, "in-progress", author); err != nil {
-			slog.Warn("moving task to in-progress after spawn", "key", taskKey, "error", err)
+		cols, _ := a.store.Tasks.Columns(a.ctx)
+		if slices.Contains(cols, "in-progress") {
+			if err := a.store.Tasks.Move(a.ctx, taskKey, "in-progress", author); err != nil {
+				slog.Warn("moving task to in-progress after spawn", "key", taskKey, "error", err)
+			}
 		}
 	}
 
@@ -450,4 +462,3 @@ func shellJoin(args []string) string {
 	}
 	return strings.Join(parts, " ")
 }
-

@@ -222,14 +222,14 @@ func TestTaskWorkflow(t *testing.T) {
 		t.Errorf("task list backlog missing task: %s", out)
 	}
 
-	// Move to in-progress.
-	dispatch(t, "task", []string{"move", key, "in-progress"}, "alice", nil)
+	// Move to code.
+	dispatch(t, "task", []string{"move", key, "code"}, "alice", nil)
 
-	// List in-progress shows the task.
-	r = dispatch(t, "task", []string{"list", "in-progress"}, "alice", nil)
+	// List code shows the task.
+	r = dispatch(t, "task", []string{"list", "code"}, "alice", nil)
 	out = text(r)
 	if !strings.Contains(out, "Build feature") {
-		t.Errorf("task list in-progress missing task: %s", out)
+		t.Errorf("task list code missing task: %s", out)
 	}
 
 	// Move to done.

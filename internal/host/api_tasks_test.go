@@ -37,8 +37,8 @@ func TestTasksStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if updated.Status != "in-progress" {
-		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
+	if updated.Status != "code" {
+		t.Errorf("status = %q, want %q", updated.Status, "code")
 	}
 }
 
@@ -60,7 +60,7 @@ func TestTasksFinish(t *testing.T) {
 	testHost(t)
 
 	task, _ := sdk.Tasks.Add("Finish me", []byte("# Spec\n\nDo it."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.Move(task.Key, "code", "alice"); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 
@@ -77,7 +77,7 @@ func TestTasksFinishCustomColumn(t *testing.T) {
 	testHost(t)
 
 	task, _ := sdk.Tasks.Add("Review me", []byte("# Spec\n\nReview."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.Move(task.Key, "code", "alice"); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 
@@ -295,13 +295,13 @@ func TestTasksMove(t *testing.T) {
 	// hasSpec strips the first line (heading) and checks for content after it.
 	task, _ := sdk.Tasks.Add("Movable", []byte("# Spec\n\nDo the thing."), sdk.TaskAddOpts{Author: "alice"})
 
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.Move(task.Key, "code", "alice"); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 
 	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.Status != "in-progress" {
-		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
+	if updated.Status != "code" {
+		t.Errorf("status = %q, want %q", updated.Status, "code")
 	}
 }
 
@@ -311,7 +311,7 @@ func TestTasksMoveNoSpec(t *testing.T) {
 	// Task without body - no spec document
 	task, _ := sdk.Tasks.Add("No spec", nil, sdk.TaskAddOpts{Author: "alice"})
 
-	err := sdk.Tasks.Move(task.Key, "in-progress", "alice")
+	err := sdk.Tasks.Move(task.Key, "code", "alice")
 	if err == nil {
 		t.Fatal("Move should fail for task without spec")
 	}
@@ -406,7 +406,7 @@ func TestTasksColumns(t *testing.T) {
 		t.Fatalf("Columns: %v", err)
 	}
 
-	expected := []string{"backlog", "up-next", "in-progress", "review", "done"}
+	expected := []string{"backlog", "up-next", "code", "test", "review", "done"}
 	if len(cols) != len(expected) {
 		t.Fatalf("got %d columns, want %d", len(cols), len(expected))
 	}
@@ -420,17 +420,17 @@ func TestTasksColumns(t *testing.T) {
 func TestTasksAddColumn(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Tasks.AddColumn("testing", "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.AddColumn("staging", "code", "alice"); err != nil {
 		t.Fatalf("AddColumn: %v", err)
 	}
 
 	cols, _ := sdk.Tasks.Columns()
 	found := false
 	for i, c := range cols {
-		if c == "testing" {
+		if c == "staging" {
 			found = true
-			if i == 0 || cols[i-1] != "in-progress" {
-				t.Errorf("testing column not after in-progress")
+			if i == 0 || cols[i-1] != "code" {
+				t.Errorf("staging column not after code")
 			}
 		}
 	}
@@ -481,7 +481,7 @@ func TestTasksLog(t *testing.T) {
 	testHost(t)
 
 	task, _ := sdk.Tasks.Add("Logged", []byte("# Spec\n\nDetails here."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.Move(task.Key, "code", "alice"); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 
@@ -512,7 +512,7 @@ func TestTasksLogLimit(t *testing.T) {
 	if err := sdk.Tasks.Move(task.Key, "up-next", "alice"); err != nil {
 		t.Fatalf("Move up-next: %v", err)
 	}
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.Move(task.Key, "code", "alice"); err != nil {
 		t.Fatalf("Move in-progress: %v", err)
 	}
 	if err := sdk.Tasks.Move(task.Key, "review", "alice"); err != nil {
@@ -586,7 +586,7 @@ func TestTasksMoveAcrossColumns(t *testing.T) {
 	task, _ := sdk.Tasks.Add("Journey", []byte("# Spec\n\nFull lifecycle."), sdk.TaskAddOpts{Author: "alice"})
 
 	// Move through the whole board
-	for _, col := range []string{"up-next", "in-progress", "review", "done"} {
+	for _, col := range []string{"up-next", "code", "review", "done"} {
 		if err := sdk.Tasks.Move(task.Key, col, "alice"); err != nil {
 			t.Fatalf("Move to %s: %v", col, err)
 		}
@@ -665,7 +665,7 @@ func TestTasksLogEventDetails(t *testing.T) {
 	testHost(t)
 
 	task, _ := sdk.Tasks.Add("Detailed", []byte("# Spec\n\nLog details."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.Move(task.Key, "code", "alice"); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 

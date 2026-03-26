@@ -148,6 +148,19 @@ type SpawnOpts struct {
 	// MaxBudget overrides the agent config's budget for this spawn.
 	// Zero means use the agent config default.
 	MaxBudget float64
+
+	// Role overrides the auto-detected role for this spawn. When
+	// empty, the role is inferred from the agent config or task
+	// status.
+	Role string
+
+	// OnSuccess is the column to move to on exit 0. When empty,
+	// the wrapper uses role-dependent defaults.
+	OnSuccess string
+
+	// OnFailure is the column to move to on non-zero exit. When
+	// empty, defaults to "failed".
+	OnFailure string
 }
 
 // RunListOpts filters agent run queries.

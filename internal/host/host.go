@@ -245,6 +245,15 @@ func setup(store *llmd.Store) *Host {
 		h.addPlugin(ext.Plugin(), false)
 	}
 
+	// Pipeline handler: auto-spawn agents when tasks enter columns
+	// with pipeline configuration.
+	if store != nil {
+		store.Bus().Subscribe(&pipelineHandler{
+			store: store,
+			agent: newAgentAPI(store, bg),
+		})
+	}
+
 	// Wire extension event handlers to the internal bus so extensions
 	// can react to document changes.
 	if store != nil {

@@ -77,8 +77,8 @@ func TestTaskBranch(t *testing.T) {
 	if updated.Branch != "task/fix-login-flow" {
 		t.Errorf("task branch = %q, want %q", updated.Branch, "task/fix-login-flow")
 	}
-	if updated.Status != "in-progress" {
-		t.Errorf("task status = %q, want %q", updated.Status, "in-progress")
+	if updated.Status != "code" {
+		t.Errorf("task status = %q, want %q", updated.Status, "code")
 	}
 
 	// Creating a branch for a task that already has one should error
@@ -128,7 +128,7 @@ func TestTaskFinish(t *testing.T) {
 	}
 
 	task, _ := sdk.Tasks.Add("Finish me", []byte("# Spec\n\nDo the thing."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.Move(task.Key, "code", "alice"); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 
@@ -166,7 +166,7 @@ func TestTaskFinishWithoutGit(t *testing.T) {
 	host.TestSetup(t, host.TestDisk)
 
 	task, _ := sdk.Tasks.Add("No git", []byte("# Spec\n\nPlain task."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+	if err := sdk.Tasks.Move(task.Key, "code", "alice"); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 
@@ -249,8 +249,8 @@ func TestTaskStartWithGit(t *testing.T) {
 	}
 
 	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.Status != "in-progress" {
-		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
+	if updated.Status != "code" {
+		t.Errorf("status = %q, want %q", updated.Status, "code")
 	}
 	if updated.Branch != "main" {
 		t.Errorf("branch = %q, want %q", updated.Branch, "main")
@@ -274,8 +274,8 @@ func TestTaskStartWithoutGit(t *testing.T) {
 	}
 
 	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.Status != "in-progress" {
-		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
+	if updated.Status != "code" {
+		t.Errorf("status = %q, want %q", updated.Status, "code")
 	}
 	if updated.Branch != "" {
 		t.Errorf("branch = %q, want empty", updated.Branch)

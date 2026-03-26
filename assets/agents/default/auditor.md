@@ -22,15 +22,14 @@ of whether the task was completed as specified.
 
 ## If approved
 
-Move the task to done:
-`llmd --author {{.Agent}} task move {{.Key}} done`
+Move the task forward:
+`llmd --author {{.Agent}} task move {{.Key}} {{.OnSuccess}}`
 
 ## If issues found
 
-Write an audit reply explaining what needs fixing, then move back
-to in-progress:
+Write an audit reply explaining what needs fixing, then move back:
 
 ```
 llmd --author {{.Agent}} audit add {{.Key}} "Describe what needs fixing"
-llmd --author {{.Agent}} task move {{.Key}} in-progress
+llmd --author {{.Agent}} task move {{.Key}} {{.OnFailure}}
 ```

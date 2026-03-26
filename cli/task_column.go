@@ -1,4 +1,5 @@
-// task_column.go handles column subcommands: list, add, rm, mv.
+// task_column.go handles column subcommands: list, add, rm, mv,
+// set, unset, show. Also provides pipeline display.
 
 package cli
 
@@ -79,4 +80,112 @@ func taskMvColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	return sdk.Text(fmt.Sprintf("Moved column %s after %s", name, after)), nil
+}
+
+var taskStepFlags = []sdk.Flag{
+	{Name: "agent", Type: "string", Desc: "Agent to auto-spawn"},
+	{Name: "role", Type: "string", Desc: "Agent role (developer, tester, auditor)"},
+	{Name: "on-success", Type: "string", Desc: "Column to move to on success"},
+	{Name: "on-failure", Type: "string", Desc: "Column to move to on failure"},
+}
+
+func taskColumnSet(ctx sdk.Context, args []string) (sdk.Response, error) {
+	flags, positional, err := sdk.ParseArgs(taskStepFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("task column set: %w", err)
+	}
+	if len(positional) == 0 {
+		return nil, fmt.Errorf("task column set: %w: column name", sdk.ErrMissingArg)
+	}
+
+	name := positional[0]
+	agent := flags.String("agent")
+	role := flags.String("role")
+	if agent == "" {
+		return nil, fmt.Errorf("task column set: --agent is required")
+	}
+	if role == "" {
+		return nil, fmt.Errorf("task column set: --role is required")
+	}
+
+	cfg := sdk.StepConfig{
+		Agent:     agent,
+		Role:      role,
+		OnSuccess: flags.String("on-success"),
+		OnFailure: flags.String("on-failure"),
+	}
+
+	if err := ctx.Tasks.SetStep(name, cfg, ctx.Author); err != nil {
+		return nil, fmt.Errorf("task column set: %w", err)
+	}
+
+	return sdk.Text(fmt.Sprintf("Configured %s: agent=%s role=%s", name, agent, role)), nil
+}
+
+func taskColumnUnset(ctx sdk.Context, args []string) (sdk.Response, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("task column unset: %w: column name", sdk.ErrMissingArg)
+	}
+
+	if err := ctx.Tasks.UnsetStep(args[0], ctx.Author); err != nil {
+		return nil, fmt.Errorf("task column unset: %w", err)
+	}
+
+	return sdk.Text(fmt.Sprintf("Removed pipeline config from %s", args[0])), nil
+}
+
+func taskColumnShow(ctx sdk.Context, args []string) (sdk.Response, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("task column show: %w: column name", sdk.ErrMissingArg)
+	}
+
+	step, err := ctx.Tasks.Step(args[0])
+	if err != nil {
+		return nil, fmt.Errorf("task column show: %w", err)
+	}
+	if step == nil {
+		return sdk.Text(fmt.Sprintf("%s: no pipeline config", args[0])), nil
+	}
+
+	var lines []string
+	lines = append(lines, fmt.Sprintf("Column:     %s", args[0]))
+	lines = append(lines, fmt.Sprintf("Agent:      %s", step.Agent))
+	lines = append(lines, fmt.Sprintf("Role:       %s", step.Role))
+	if step.OnSuccess != "" {
+		lines = append(lines, fmt.Sprintf("On success: %s", step.OnSuccess))
+	}
+	if step.OnFailure != "" {
+		lines = append(lines, fmt.Sprintf("On failure: %s", step.OnFailure))
+	}
+
+	return sdk.Result{Text: strings.Join(lines, "\n"), Data: step}, nil
+}
+
+func taskPipeline(ctx sdk.Context, _ []string) (sdk.Response, error) {
+	cols, err := ctx.Tasks.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("task pipeline: %w", err)
+	}
+
+	var lines []string
+	for _, col := range cols {
+		step, err := ctx.Tasks.Step(col)
+		if err != nil {
+			continue
+		}
+		if step == nil {
+			lines = append(lines, fmt.Sprintf("%-15s  -", col))
+			continue
+		}
+		parts := []string{fmt.Sprintf("%-15s  %s (%s)", col, step.Agent, step.Role)}
+		if step.OnSuccess != "" {
+			parts = append(parts, fmt.Sprintf("-> %s", step.OnSuccess))
+		}
+		if step.OnFailure != "" {
+			parts = append(parts, fmt.Sprintf("!! %s", step.OnFailure))
+		}
+		lines = append(lines, strings.Join(parts, "  "))
+	}
+
+	return sdk.Text(strings.Join(lines, "\n")), nil
 }
