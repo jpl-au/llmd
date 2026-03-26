@@ -50,7 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_depends_on ON tasks(depends_on) WHERE depen
 `
 
 // Default columns for a new board.
-var DefaultColumns = []string{"backlog", "up-next", "in-progress", "review", "done"}
+var DefaultColumns = []string{"backlog", "up-next", "in-progress", "review", "approval", "done", "blocked"}
 
 const boardNamespace = "task:board"
 
@@ -111,7 +111,7 @@ func (t *Tasks) ensureBoard(ctx context.Context, author, source string) error {
 	if exists {
 		return nil
 	}
-	cols := `{"columns":["backlog","up-next","in-progress","review","done"]}`
+	cols := `{"columns":["backlog","up-next","in-progress","review","approval","done","blocked"]}`
 	_, err = t.entities.Write(ctx, boardNamespace, cols, entities.WriteOptions{
 		Origin: core.Origin{Author: author, Source: source},
 	})

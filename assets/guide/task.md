@@ -1,9 +1,9 @@
 # llmd task
 
 Manage tasks on the board. Tasks track work through columns (backlog,
-up-next, in-progress, review, done). Each task has a backing document
-that holds the spec. Columns can have rules that automate agent
-spawning - see `guide rule`.
+up-next, in-progress, review, approval, done, blocked). Each task has
+a backing document that holds the spec. Columns can have rules that
+automate agent spawning - see `guide rule`.
 
 ## Usage
 

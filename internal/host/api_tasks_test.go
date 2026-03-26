@@ -406,7 +406,7 @@ func TestTasksColumns(t *testing.T) {
 		t.Fatalf("Columns: %v", err)
 	}
 
-	expected := []string{"backlog", "up-next", "in-progress", "review", "done"}
+	expected := []string{"backlog", "up-next", "in-progress", "review", "approval", "done", "blocked"}
 	if len(cols) != len(expected) {
 		t.Fatalf("got %d columns, want %d", len(cols), len(expected))
 	}

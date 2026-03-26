@@ -39,17 +39,22 @@ After `llmd init`, the default rule set looks like this:
 # .llmd/rules/default.yaml
 in-progress:
   success: review
-  failure: in-progress
+  failure: blocked
 review:
-  success: done
-  failure: in-progress
+  success: approval
+  failure: blocked
 up-next:
   success: in-progress
   failure: up-next
 ```
 
 All columns are manual by default. The board columns are:
-backlog, up-next, in-progress, review, done.
+backlog, up-next, in-progress, review, approval, done, blocked.
+
+The `approval` column is a positive human checkpoint - the agent
+completed its work and a human signs off before done. The `blocked`
+column is the escape hatch - the agent failed and a human needs to
+investigate before retrying.
 
 Columns not listed (backlog, up-next, done) have no transitions -
 tasks stay there until moved manually.

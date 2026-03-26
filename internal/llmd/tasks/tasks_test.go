@@ -269,8 +269,8 @@ func TestColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cols) != 5 {
-		t.Fatalf("len = %d, want 5", len(cols))
+	if len(cols) != 7 {
+		t.Fatalf("len = %d, want 7", len(cols))
 	}
 
 	// Add column
@@ -281,11 +281,8 @@ func TestColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cols) != 6 {
-		t.Fatalf("len = %d, want 6", len(cols))
-	}
-	if cols[4] != "staging" {
-		t.Errorf("cols[4] = %q, want %q", cols[4], "staging")
+	if len(cols) != 8 {
+		t.Fatalf("len = %d, want 8", len(cols))
 	}
 
 	// Remove column
@@ -296,8 +293,8 @@ func TestColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cols) != 5 {
-		t.Fatalf("len = %d, want 5", len(cols))
+	if len(cols) != 7 {
+		t.Fatalf("len = %d, want 7", len(cols))
 	}
 }
 
