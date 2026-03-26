@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -219,13 +220,21 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		a.writeSettings(absWorktree, plat, templated)
 	}
 
+	// Resolve the HTTP API URL. Only use it if the server is
+	// actually reachable - a configured but stopped server should
+	// not cause agents to receive HTTP-based prompts they can't use.
+	llmdURL := ""
+	if c, err := config.Load(); err == nil && c.Server.Addr != "" {
+		candidate := "http://" + c.Server.Addr
+		if resp, err := http.Get(candidate + "/version"); err == nil {
+			resp.Body.Close()
+			llmdURL = candidate
+		}
+	}
+
 	// Build the context prompt.
 	prompt := opts.Prompt
 	if prompt == "" {
-		llmdURL := ""
-		if c, err := config.Load(); err == nil && c.Server.Addr != "" {
-			llmdURL = "http://" + c.Server.Addr
-		}
 		prompt = a.store.Agents.BuildPrompt(a.ctx, cfg, agents.PromptData{
 			Key:        t.Key,
 			Title:      t.Title,
@@ -258,14 +267,6 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	llmdPath, err := os.Executable()
 	if err != nil {
 		llmdPath, _ = exec.LookPath("llmd")
-	}
-
-	// Resolve the HTTP API URL from config. The wrapper uses HTTP
-	// as primary transport (faster, no process spawn per call) and
-	// falls back to the CLI binary.
-	llmdURL := ""
-	if cfg, err := config.Load(); err == nil && cfg.Server.Addr != "" {
-		llmdURL = "http://" + cfg.Server.Addr
 	}
 
 	// Generate the wrapper script that runs the agent and handles

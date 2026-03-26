@@ -50,14 +50,12 @@ EXIT=$?
 # as finished when the task move triggers the next step.
 agent_complete ${EXIT}
 
-# Move the task based on exit code. Auditors handle their own moves
-# via the prompt template. Developers and testers get automatic moves.
-if [ "${ROLE}" != "auditor" ]; then
-  if [ ${EXIT} -eq 0 ]; then
-    task_move "${ON_SUCCESS}" || true
-  else
-    task_move "${ON_FAILURE}" || true
-  fi
+# Move the task based on exit code. All roles get automatic moves
+# driven by the rule's success/failure transitions.
+if [ ${EXIT} -eq 0 ]; then
+  task_move "${ON_SUCCESS}" || true
+else
+  task_move "${ON_FAILURE}" || true
 fi
 
 exit ${EXIT}

@@ -24,14 +24,11 @@ of whether the task was completed as specified.
 
 ## If approved
 
-Move the task forward:
-`curl -sf -X POST {{.URL}}/task/move/{{.Key}}/{{.OnSuccess}} -H "Author: {{.Agent}}"`
+Exit successfully (exit code 0). The task will automatically move
+to `{{.OnSuccess}}`.
 
 ## If issues found
 
-Write an audit reply explaining what needs fixing, then move back:
-
-```
-curl -sf -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Describe what needs fixing"
-curl -sf -X POST {{.URL}}/task/move/{{.Key}}/{{.OnFailure}} -H "Author: {{.Agent}}"
-```
+Write a clear summary of what needs fixing to stdout, then exit
+with a non-zero code. The task will automatically move to
+`{{.OnFailure}}` for the developer to address.

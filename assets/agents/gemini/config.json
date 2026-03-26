@@ -1,5 +1,5 @@
 {
   "name": "gemini",
   "command": "gemini",
-  "args": ["-p", "{{.Prompt}}"]
+  "args": ["-p", "{{.Prompt}}", "--output-format", "json", "--yolo"]
 }
