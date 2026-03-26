@@ -3,7 +3,7 @@
 # This wrapper runs the agent and handles task lifecycle:
 #   1. Runs the agent command
 #   2. On exit, checks if the task was already moved (by hooks)
-#   3. If not, moves the task based on exit code
+#   3. If not, moves the task based on exit code using rule transitions
 #   4. Records run completion (stats, cost, tokens)
 #
 # Transport: HTTP API first (if LLMD_URL is set), CLI fallback.
@@ -16,23 +16,16 @@ LLMD="{{.LLMD}}"
 LLMD_URL="{{.URL}}"
 WORKTREE="{{.Worktree}}"
 
-# Pipeline transitions. Empty values fall back to role defaults.
+# Transitions from the rule. Always set at spawn time.
 ON_SUCCESS="{{.OnSuccess}}"
 ON_FAILURE="{{.OnFailure}}"
-
-if [ -z "${ON_SUCCESS}" ]; then
-  case "${ROLE}" in
-    auditor) ON_SUCCESS="done" ;;
-    *)       ON_SUCCESS="review" ;;
-  esac
-fi
-if [ -z "${ON_FAILURE}" ]; then
-  ON_FAILURE="failed"
-fi
 
 # task_move moves a task to the given column. Tries HTTP then CLI.
 task_move() {
   local col="$1"
+  if [ -z "${col}" ]; then
+    return 0
+  fi
   if [ -n "${LLMD_URL}" ]; then
     curl -sf -X POST "${LLMD_URL}/task/move/${TASK_ID}/${col}" \
       -H "Author: ${AGENT}" 2>/dev/null && return 0
@@ -65,13 +58,12 @@ cd "${WORKTREE}"
 {{.Command}} {{.Args}}
 EXIT=$?
 
-# Auditors handle their own lifecycle moves via the prompt template
-# (approve -> on_success, reject -> on_failure). Only developers
-# and testers get automatic moves from the wrapper.
+# Auditors handle their own lifecycle moves via the prompt template.
+# Developers and testers get automatic moves from the wrapper.
 if [ "${ROLE}" != "auditor" ]; then
   STATUS=$(task_status || echo "unknown")
 
-  if [ "${STATUS}" = "in-progress" ] || [ "${STATUS}" = "unknown" ]; then
+  if [ "${STATUS}" = "in-progress" ] || [ "${STATUS}" = "${ROLE}" ] || [ "${STATUS}" = "unknown" ]; then
     if [ ${EXIT} -eq 0 ]; then
       task_move "${ON_SUCCESS}" || true
     else

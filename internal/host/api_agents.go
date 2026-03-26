@@ -16,6 +16,7 @@ import (
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
+	"github.com/jpl-au/llmd/internal/llmd/rules"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -128,6 +129,21 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 			cfg.Role = "auditor"
 		default:
 			cfg.Role = "developer"
+		}
+	}
+
+	// Resolve transitions from the rule if not explicitly provided.
+	if opts.OnSuccess == "" || opts.OnFailure == "" {
+		llmdDir := filepath.Dir(a.store.Path())
+		rs, err := rules.Load(llmdDir, "default")
+		if err == nil {
+			cr := rs.Column(t.Status)
+			if opts.OnSuccess == "" {
+				opts.OnSuccess = cr.Success
+			}
+			if opts.OnFailure == "" {
+				opts.OnFailure = cr.Failure
+			}
 		}
 	}
 

@@ -94,8 +94,6 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return taskRm(ctx, args)
 	case "restore":
 		return taskRestore(ctx, args)
-	case "pipeline":
-		return taskPipeline(ctx, args)
 	case "column":
 		if len(args) == 0 {
 			return taskColumns(ctx, nil)
@@ -111,12 +109,6 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 			return taskRmColumn(ctx, args)
 		case "mv", "move":
 			return taskMvColumn(ctx, args)
-		case "set":
-			return taskColumnSet(ctx, args)
-		case "unset":
-			return taskColumnUnset(ctx, args)
-		case "show":
-			return taskColumnShow(ctx, args)
 		default:
 			return nil, fmt.Errorf("task column: unknown subcommand %q", colSub)
 		}

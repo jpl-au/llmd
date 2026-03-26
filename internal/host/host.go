@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"path/filepath"
 	"slices"
 
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/config"
 	igit "github.com/jpl-au/llmd/internal/git"
 	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/rules"
 	"github.com/jpl-au/llmd/internal/plugin"
 	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/internal/term"
@@ -238,6 +240,7 @@ func setup(store *llmd.Store) *Host {
 		sdk.Activities = newActivityAPI(store, bg)
 		sdk.Mirror = newMirrorAPI(store, bg)
 		sdk.Agents = newAgentAPI(store, bg)
+		sdk.Rules = newRuleAPI(filepath.Dir(store.Path()))
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
@@ -249,7 +252,7 @@ func setup(store *llmd.Store) *Host {
 	// with pipeline configuration.
 	if store != nil {
 		store.Bus().Subscribe(&pipelineHandler{
-			store: store,
+			dir:   filepath.Dir(store.Path()),
 			agent: newAgentAPI(store, bg),
 		})
 	}
@@ -292,6 +295,12 @@ func setup(store *llmd.Store) *Host {
 		// Create default .llmd/.gitignore for new stores.
 		if err := config.InitGitignore(); err != nil {
 			return "", fmt.Errorf("creating gitignore: %w", err)
+		}
+
+		// Seed default column rules.
+		llmdDir := filepath.Dir(path)
+		if err := rules.Seed(llmdDir); err != nil {
+			return "", fmt.Errorf("seeding rules: %w", err)
 		}
 
 		return path, nil
@@ -369,6 +378,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		sctx.Activities = newActivityAPI(h.store, ctx)
 		sctx.Mirror = newMirrorAPI(h.store, ctx)
 		sctx.Agents = newAgentAPI(h.store, ctx)
+		sctx.Rules = newRuleAPI(filepath.Dir(h.store.Path()))
 	}
 
 	resp, err := entry.plugin.Exec(sctx, cmd, args)

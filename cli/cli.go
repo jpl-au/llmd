@@ -47,7 +47,7 @@ func (c *CLI) Commands() []sdk.Command {
 		grepSpec, findSpec, globSpec, historySpec, diffSpec, restoreSpec, revertSpec,
 		tagSpec, linkSpec, unlinkSpec,
 		importSpec, exportSpec,
-		taskSpec, auditSpec, queueSpec, agentSpec,
+		taskSpec, auditSpec, queueSpec, agentSpec, ruleSpec,
 		statusSpec, reviewSpec,
 		versionSpec, configSpec, initSpec, vacuumSpec,
 		mcpSpec, serveSpec, mirrorSpec, pluginsSpec, guideSpec, llmSpec,
@@ -127,6 +127,8 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return queueCmd(ctx, args)
 	case "agent":
 		return agentCmd(ctx, args)
+	case "rule":
+		return ruleCmd(ctx, args)
 	default:
 		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 	}

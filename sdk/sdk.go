@@ -60,6 +60,7 @@ var (
 	Mirror     MirrorStore
 	Git        GitStore
 	Agents     AgentStore
+	Rules      RuleStore
 )
 
 // Plugin is the interface that command providers implement. The host
@@ -128,6 +129,7 @@ type Context struct {
 	Mirror     MirrorStore
 	Git        GitStore
 	Agents     AgentStore
+	Rules      RuleStore
 }
 
 // Response is the marker interface for command return values. It uses

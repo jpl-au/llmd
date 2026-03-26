@@ -12,18 +12,9 @@ import (
 	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
-// StepConfig configures automatic agent spawning for a column.
-type StepConfig struct {
-	Agent     string `json:"agent"`
-	Role      string `json:"role"`
-	OnSuccess string `json:"on_success,omitempty"`
-	OnFailure string `json:"on_failure,omitempty"`
-}
-
-// Board holds the column list and optional pipeline configuration.
+// Board holds the column list.
 type Board struct {
-	Columns  []string              `json:"columns"`
-	Pipeline map[string]StepConfig `json:"pipeline,omitempty"`
+	Columns []string `json:"columns"`
 }
 
 // Columns returns the board columns in order.
@@ -33,62 +24,6 @@ func (t *Tasks) Columns(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	return b.Columns, nil
-}
-
-// Board returns the full board including pipeline configuration.
-func (t *Tasks) Board(ctx context.Context) (*Board, error) {
-	return t.readBoard(ctx)
-}
-
-// Step returns the pipeline configuration for a column, or nil if
-// the column has no pipeline step configured.
-func (t *Tasks) Step(ctx context.Context, column string) (*StepConfig, error) {
-	b, err := t.readBoard(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if b.Pipeline == nil {
-		return nil, nil
-	}
-	cfg, ok := b.Pipeline[column]
-	if !ok {
-		return nil, nil
-	}
-	return &cfg, nil
-}
-
-// SetStep configures a pipeline step for a column.
-func (t *Tasks) SetStep(ctx context.Context, column string, cfg StepConfig, author string) error {
-	b, err := t.readBoard(ctx)
-	if err != nil {
-		return err
-	}
-
-	if !slices.Contains(b.Columns, column) {
-		return fmt.Errorf("%w: %s", ErrColNotFound, column)
-	}
-
-	if b.Pipeline == nil {
-		b.Pipeline = make(map[string]StepConfig)
-	}
-	b.Pipeline[column] = cfg
-
-	return t.writeBoard(ctx, b, author)
-}
-
-// UnsetStep removes pipeline configuration from a column.
-func (t *Tasks) UnsetStep(ctx context.Context, column, author string) error {
-	b, err := t.readBoard(ctx)
-	if err != nil {
-		return err
-	}
-
-	if b.Pipeline == nil {
-		return nil
-	}
-	delete(b.Pipeline, column)
-
-	return t.writeBoard(ctx, b, author)
 }
 
 // AddColumn adds a new column. If after is empty, appends to the end.
@@ -151,11 +86,6 @@ func (t *Tasks) RemoveColumn(ctx context.Context, name, author string) error {
 		}
 	}
 	b.Columns = filtered
-
-	// Remove pipeline config for the deleted column.
-	if b.Pipeline != nil {
-		delete(b.Pipeline, name)
-	}
 
 	return t.writeBoard(ctx, b, author)
 }

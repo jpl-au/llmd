@@ -4,8 +4,9 @@ Manage AI agent configurations and runs. Agents are external tools
 (Claude Code, Gemini CLI, Aider, etc.) that can be spawned to work
 on tasks in isolated git worktrees.
 
-Agent configurations and prompt templates are stored as documents
-in the llmd store, making them versioned, portable, and editable.
+Agent configurations, prompt templates, and runtime settings are
+stored as plain files in `.llmd/agents/`, making them immediately
+discoverable and editable with any text editor.
 
 ## Usage
 
@@ -15,7 +16,9 @@ llmd agent rm <name>                        Remove an agent
 llmd agent ls                               List registered agents
 llmd agent config <name>                    Show agent configuration
 llmd agent prompt <name> <role>             Show prompt template
+llmd agent spawn <task-key> <agent>         Spawn agent for a task
 llmd agent runs [--status S] [--task K]     List agent runs
+llmd agent complete <task-key> --exit-code  Record run completion
 llmd agent stop <task-key>                  Stop a running agent
 ```
 
@@ -31,7 +34,8 @@ llmd agent add aider
 ```
 
 That's it. llmd knows the binary, arguments, and prompt patterns
-for each. Default prompt templates are seeded automatically.
+for each. Default prompt templates and runtime settings are seeded
+automatically.
 
 ### Custom agents
 
@@ -43,65 +47,71 @@ llmd agent add my-agent --command ./my-tool
 
 ### What happens on add
 
-When you register an agent, llmd creates three documents:
+When you register an agent, llmd creates files on disk:
 
 ```
-agents/<name>/config       Configuration (command, args)
-agents/<name>/developer    Developer prompt template
-agents/<name>/auditor      Auditor prompt template
+.llmd/agents/<name>/
+  config.json         Configuration (command, args)
+  settings.json       Runtime settings (permissions, hooks)
+  developer.md        Developer prompt template
+  developer-http.md   Developer HTTP transport template
+  tester.md           Tester prompt template
+  auditor.md          Auditor prompt template
+  auditor-http.md     Auditor HTTP transport template
 ```
 
-View what was created:
+View the configuration:
 
 ```bash
 llmd agent config claude-code
 llmd agent prompt claude-code developer
 ```
 
-Customise a template:
+Edit files directly:
 
 ```bash
-llmd edit agents/claude-code/developer "old text" "new text"
-```
-
-Or rewrite it entirely:
-
-```bash
-llmd write agents/claude-code/developer < my-template.md
+vi .llmd/agents/claude-code/developer.md
 ```
 
 ## Spawning agents
 
-Agents are spawned via `task start --assign`:
+There are two ways to spawn an agent:
 
 ```bash
-llmd task start a1b2c3d4e --assign claude-code
+# Via agent spawn (natural shorthand)
+llmd agent spawn <task-key> claude-code
+
+# Via task start with --assign
+llmd task start <task-key> --assign claude-code
 ```
 
-This:
+Both do the same thing:
 
-1. Checks that the task's dependencies are satisfied
-2. Creates a git branch if the task doesn't have one
-3. Creates an isolated git worktree at `.llmd/worktrees/<task-key>/`
-4. Assembles the context prompt from the task's spec, linked
-   documents, and audit history
-5. Starts the agent process in the worktree
-6. Moves the task to in-progress
+1. Check that the task's dependencies are satisfied
+2. Create a git branch if the task doesn't have one
+3. Create an isolated git worktree at `.llmd/worktrees/<task-key>/`
+4. Assemble the context prompt from the task's spec and templates
+5. Start the agent process in the worktree
+6. Record the run in the agent_activity table
 
-The agent works independently. When done, it calls llmd to move the
-task (e.g. `llmd task move <id> review`). The worktree is cleaned up
-automatically after the agent process exits.
+### Automatic spawning via rules
 
-### Budget control
+When a column has a rule with an agent configured, the agent is
+spawned automatically when a task enters that column. See
+`guide rule` for details.
 
-Set a per-spawn budget limit:
+## Agent roles
 
-```bash
-llmd task start a1b2c3d4e --assign claude-code --budget 3.00
-```
+Agents can fill three roles:
 
-Budget flags are platform-specific. Currently `--max-budget-usd` is
-appended for Claude Code agents.
+| Role | Purpose |
+|------|---------|
+| `developer` | Implements the task spec. Works in an isolated worktree. |
+| `tester` | Writes and runs tests against the developer's implementation. |
+| `auditor` | Reviews changes against the spec. Approves or rejects. |
+
+The role determines which prompt template is used and how the
+wrapper script handles task transitions.
 
 ## Prompt templates
 
@@ -114,22 +124,31 @@ Templates use Go `text/template` syntax. Available fields:
 | `{{.Branch}}` | Git branch name |
 | `{{.AssignedTo}}` | Who the task is assigned to |
 | `{{.Agent}}` | Agent name |
-| `{{.Spec}}` | Spec document content |
-| `{{.Diff}}` | Git diff (for auditor templates) |
-| `{{.LinkedDocs}}` | Linked documents (range with `.Path`, `.Content`) |
-| `{{.Audits}}` | Audit history (range with `.Author`, `.Status`, `.Content`) |
+| `{{.URL}}` | HTTP API URL (if server is running) |
+| `{{.SpecPath}}` | Path to the task's spec document |
+| `{{.OnSuccess}}` | Column to move to on success (from rule) |
+| `{{.OnFailure}}` | Column to move to on failure (from rule) |
 
 ### Fallback chain
 
 When spawning, the prompt template is resolved in order:
 
-1. `agents/<name>/<role>` - agent-specific template
-2. `agents/default/<role>` - shared default template
-3. Built-in fallback - hardcoded in llmd
+1. `.llmd/agents/<name>/<role>.md` - agent-specific template
+2. `.llmd/agents/default/<role>.md` - shared default template
+3. Built-in embedded template
 
-This means you can customise per agent or set project-wide defaults.
+If the HTTP server is running, the `-http` variant is tried first
+(e.g. `developer-http.md` before `developer.md`).
 
-## Monitoring runs
+## Run tracking
+
+Every agent spawn is recorded in the `agent_activity` table with:
+
+- Monetary cost (when reported by the agent)
+- Input and output token counts
+- Model name
+- Exit code, start/stop timestamps
+- Git branch and worktree path
 
 ```bash
 # List all runs
@@ -140,9 +159,6 @@ llmd agent runs --status running
 
 # Filter by task
 llmd agent runs --task a1b2c3d4e
-
-# Filter by agent
-llmd agent runs --agent claude-code
 ```
 
 ### Run statuses
@@ -154,59 +170,54 @@ llmd agent runs --agent claude-code
 | `failed` | Agent exited with an error |
 | `stopped` | Agent was manually terminated |
 
-## Stopping agents
+## Completion
 
-```bash
-llmd agent stop a1b2c3d4e
-```
+When an agent process exits, the wrapper script calls
+`llmd agent complete` to record the result. This extracts stats
+(cost, tokens, model) from the agent's output log and updates the
+run record.
 
-This sends SIGTERM to the agent process, marks the run as stopped,
-and cleans up the worktree.
+The wrapper also moves the task to the next column based on the
+exit code and the rule's success/failure transitions.
 
-## How agents communicate with llmd
+## Worktree lifecycle
 
-Everything the agent needs is in the prompt: task ID, branch, spec,
-and the commands to move the task when done. If the HTTP server is
-running (`llmd serve`), the prompt includes `curl` commands against
-the API. Otherwise it includes CLI commands.
+Worktrees persist across the full pipeline. When a developer agent
+finishes and the task moves to testing, the tester agent uses the
+same worktree and branch. The worktree is only cleaned up when
+`task finish` is called (moving the task to done).
 
-The wrapper script also handles task lifecycle automatically on
-agent exit - moving to review on success, failed on error. This is
-a safety net in case the agent doesn't move the task itself.
+## Platform support
+
+llmd detects the agent platform and handles differences
+automatically:
+
+| Platform | Budget flags | Cost extraction | Settings location |
+|----------|-------------|-----------------|-------------------|
+| Claude Code | `--max-budget-usd` | JSON output (`total_cost_usd`) | `.claude/settings.json` |
+| Gemini CLI | - | Token counts from JSON | - |
+| Generic | - | - | - |
 
 ## Examples
 
 ```bash
-# Register Claude Code
+# Register agents
 llmd agent add claude-code
+llmd agent add gemini
 
-# Create a task and assign it
-llmd task add "Implement auth middleware" < spec.md
-llmd task start a1b2c3d4e --assign claude-code
+# Set up automated pipeline via rules
+llmd rule set code --agent claude-code --role developer
+llmd rule set review --agent gemini --role auditor
 
-# Check progress
+# Create a task and kick off the pipeline
+llmd task add "Fix auth bug" < spec.md
+llmd task move <key> code
+# Automation takes over from here
+
+# Monitor progress
 llmd agent runs --status running
-
-# View the prompt template
-llmd agent prompt claude-code developer
-
-# Customise the auditor prompt for this project
-llmd write agents/claude-code/auditor < custom-audit-template.md
-
-# See all agent documents
-llmd ls agents/
+llmd task board
 ```
 
-## Notes
-
-- Agents run as subprocesses in git worktrees. Each task gets its
-  own worktree for isolation.
-- The agent process is responsible for moving the task when done.
-  llmd records completion when the process exits.
-- Worktrees are created at `.llmd/worktrees/<task-key>/` and cleaned
-  up automatically after the agent exits.
-- Built-in profiles: claude-code, gemini, aider. Use `--command` for
-  anything else.
-
-See `guide task` for task management and `guide workflow` for the
-full task lifecycle with agents.
+See `guide rule` for column automation and `guide task` for task
+management.

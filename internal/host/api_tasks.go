@@ -197,35 +197,6 @@ func (a *taskAPI) MoveColumn(name, after, author string) error {
 	return a.store.Tasks.MoveColumn(a.ctx, name, after, author)
 }
 
-func (a *taskAPI) Step(column string) (*sdk.StepConfig, error) {
-	step, err := a.store.Tasks.Step(a.ctx, column)
-	if err != nil {
-		return nil, err
-	}
-	if step == nil {
-		return nil, nil
-	}
-	return &sdk.StepConfig{
-		Agent:     step.Agent,
-		Role:      step.Role,
-		OnSuccess: step.OnSuccess,
-		OnFailure: step.OnFailure,
-	}, nil
-}
-
-func (a *taskAPI) SetStep(column string, cfg sdk.StepConfig, author string) error {
-	return a.store.Tasks.SetStep(a.ctx, column, tasks.StepConfig{
-		Agent:     cfg.Agent,
-		Role:      cfg.Role,
-		OnSuccess: cfg.OnSuccess,
-		OnFailure: cfg.OnFailure,
-	}, author)
-}
-
-func (a *taskAPI) UnsetStep(column, author string) error {
-	return a.store.Tasks.UnsetStep(a.ctx, column, author)
-}
-
 // Start moves a task to a column and records the current git branch
 // when available. Git is optional - the task starts regardless.
 func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, error) {
