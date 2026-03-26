@@ -267,17 +267,22 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 
 	// Generate the wrapper script that runs the agent and handles
 	// task lifecycle (moving the task on completion/failure).
+	// Resolve the project root (where .llmd/ lives) so the wrapper
+	// can run llmd commands from the correct directory.
+	projectDir, _ := filepath.Abs(".")
+
 	wrapperPath, err := agents.GenerateWrapper(absWorktree, agents.WrapperData{
-		TaskID:    taskKey,
-		Agent:     agent,
-		Role:      cfg.Role,
-		LLMD:      llmdPath,
-		URL:       llmdURL,
-		Worktree:  absWorktree,
-		Command:   cmdPath,
-		Args:      shellJoin(cmdArgs),
-		OnSuccess: opts.OnSuccess,
-		OnFailure: opts.OnFailure,
+		TaskID:     taskKey,
+		Agent:      agent,
+		Role:       cfg.Role,
+		LLMD:       llmdPath,
+		URL:        llmdURL,
+		ProjectDir: projectDir,
+		Worktree:   absWorktree,
+		Command:    cmdPath,
+		Args:       shellJoin(cmdArgs),
+		OnSuccess:  opts.OnSuccess,
+		OnFailure:  opts.OnFailure,
 	})
 	if err != nil {
 		if cfg.Role != "auditor" {

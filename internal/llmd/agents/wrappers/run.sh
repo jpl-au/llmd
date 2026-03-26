@@ -14,6 +14,7 @@ AGENT="{{.Agent}}"
 ROLE="{{.Role}}"
 LLMD="{{.LLMD}}"
 LLMD_URL="{{.URL}}"
+PROJECT_DIR="{{.ProjectDir}}"
 WORKTREE="{{.Worktree}}"
 
 # Transitions from the rule. Always set at spawn time.
@@ -30,27 +31,14 @@ task_move() {
     curl -sf -X POST "${LLMD_URL}/task/move/${TASK_ID}/${col}" \
       -H "Author: ${AGENT}" 2>/dev/null && return 0
   fi
-  "${LLMD}" --author "${AGENT}" task move "${TASK_ID}" "${col}" 2>/dev/null
-}
-
-# task_status returns the current task status. Tries HTTP then CLI.
-task_status() {
-  if [ -n "${LLMD_URL}" ]; then
-    local resp
-    resp=$(curl -sf "${LLMD_URL}/task/show/${TASK_ID}" -H "Output: json" 2>/dev/null)
-    if [ -n "${resp}" ]; then
-      echo "${resp}" | grep -oi '"Status":"[^"]*"' | head -1 | cut -d'"' -f4
-      return 0
-    fi
-  fi
-  "${LLMD}" task show "${TASK_ID}" --json 2>/dev/null | grep -oi '"Status":"[^"]*"' | head -1 | cut -d'"' -f4
+  (cd "${PROJECT_DIR}" && "${LLMD}" --author "${AGENT}" task move "${TASK_ID}" "${col}") 2>/dev/null
 }
 
 # agent_complete records run completion with stats extracted from
 # the agent's output log.
 agent_complete() {
   local exit_code="$1"
-  "${LLMD}" --author "${AGENT}" agent complete "${TASK_ID}" --exit-code "${exit_code}" 2>/dev/null
+  (cd "${PROJECT_DIR}" && "${LLMD}" --author "${AGENT}" agent complete "${TASK_ID}" --exit-code "${exit_code}") 2>/dev/null
 }
 
 # Run the agent.
@@ -58,17 +46,13 @@ cd "${WORKTREE}"
 {{.Command}} {{.Args}}
 EXIT=$?
 
-# Auditors handle their own lifecycle moves via the prompt template.
-# Developers and testers get automatic moves from the wrapper.
+# Move the task based on exit code. Auditors handle their own moves
+# via the prompt template. Developers and testers get automatic moves.
 if [ "${ROLE}" != "auditor" ]; then
-  STATUS=$(task_status || echo "unknown")
-
-  if [ "${STATUS}" = "in-progress" ] || [ "${STATUS}" = "${ROLE}" ] || [ "${STATUS}" = "unknown" ]; then
-    if [ ${EXIT} -eq 0 ]; then
-      task_move "${ON_SUCCESS}" || true
-    else
-      task_move "${ON_FAILURE}" || true
-    fi
+  if [ ${EXIT} -eq 0 ]; then
+    task_move "${ON_SUCCESS}" || true
+  else
+    task_move "${ON_FAILURE}" || true
   fi
 fi
 
