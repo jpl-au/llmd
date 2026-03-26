@@ -63,6 +63,10 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent run: starting agent: %w", err)
 	}
 
+	// Forward termination signals to the child so llmd agent stop
+	// cleanly shuts down the agent rather than orphaning it.
+	defer forward(cmd)()
+
 	// Wait for the agent to finish.
 	exitCode := 0
 	if err := cmd.Wait(); err != nil {

@@ -17,6 +17,7 @@ llmd agent ls                               List registered agents
 llmd agent config <name>                    Show agent configuration
 llmd agent prompt <name> <role>             Show prompt template
 llmd agent spawn <task-key> <agent>         Spawn agent for a task
+llmd agent run <task-key> --worktree <path> Run agent lifecycle (internal)
 llmd agent runs [--status S] [--task K]     List agent runs
 llmd agent complete <task-key> --exit-code  Record run completion
 llmd agent stop <task-key>                  Stop a running agent
@@ -91,8 +92,14 @@ Both do the same thing:
 2. Create a git branch if the task doesn't have one
 3. Create an isolated git worktree at `.llmd/worktrees/<task-key>/`
 4. Assemble the context prompt from the task's spec and templates
-5. Start the agent process in the worktree
-6. Record the run in the agent_activity table
+5. Write a run config (`.llmd-run.json`) to the worktree
+6. Start `llmd agent run` as a detached process
+7. Record the run in the agent_activity table
+
+The `agent run` process then starts the actual agent (claude, gemini,
+etc.), waits for it to finish, records completion stats, captures
+failure output as an audit note, and moves the task based on the
+exit code and rule transitions.
 
 ### Automatic spawning via rules
 
