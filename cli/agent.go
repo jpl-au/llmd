@@ -25,6 +25,7 @@ Subcommands:
   ls                               list registered agents
   config <name>                    show agent configuration
   prompt <name> <role>             show prompt template
+  spawn <task-key> <agent>         spawn agent for a task
   runs [--status S] [--task K]     list agent runs
   stop <task-key>                  stop a running agent
 
@@ -49,9 +50,9 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	// task). add/rm are configuration - use "llmd" as default author
 	// so users don't need --author just to set up their tools.
 	switch sub {
-	case "stop":
+	case "stop", "spawn":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("agent stop: author required")
+			return nil, fmt.Errorf("agent %s: author required", sub)
 		}
 	case "add", "rm":
 		if ctx.Author == "" {
@@ -72,6 +73,12 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return agentPrompt(ctx, args)
 	case "runs":
 		return agentRuns(ctx, args)
+	case "spawn":
+		// agent spawn <task> <agent> → task start <task> --assign <agent>
+		if len(args) < 2 {
+			return nil, fmt.Errorf("agent spawn: %w: <task-key> <agent>", sdk.ErrMissingArg)
+		}
+		return taskStart(ctx, []string{args[0], "--assign", args[1]})
 	case "stop":
 		return agentStop(ctx, args)
 	default:

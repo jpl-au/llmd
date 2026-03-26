@@ -82,7 +82,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	switch sub {
 	case "add":
 		return taskAdd(ctx, args)
-	case "list", "ls":
+	case "list", "ls", "board":
 		return taskList(ctx, args)
 	case "show":
 		return taskShow(ctx, args)
