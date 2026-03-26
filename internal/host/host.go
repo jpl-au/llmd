@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"slices"
 
@@ -240,7 +241,11 @@ func setup(store *llmd.Store) *Host {
 		sdk.Activities = newActivityAPI(store, bg)
 		sdk.Mirror = newMirrorAPI(store, bg)
 		sdk.Agents = newAgentAPI(store, bg)
-		sdk.Rules = newRuleAPI(filepath.Dir(store.Path()))
+		rulesDir := filepath.Dir(store.Path())
+		if store.Path() == ":memory:" {
+			rulesDir = filepath.Join(os.TempDir(), "llmd-test-rules")
+		}
+		sdk.Rules = newRuleAPI(rulesDir)
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
@@ -251,8 +256,12 @@ func setup(store *llmd.Store) *Host {
 	// Pipeline handler: auto-spawn agents when tasks enter columns
 	// with pipeline configuration.
 	if store != nil {
+		pDir := filepath.Dir(store.Path())
+		if store.Path() == ":memory:" {
+			pDir = filepath.Join(os.TempDir(), "llmd-test-rules")
+		}
 		store.Bus().Subscribe(&pipelineHandler{
-			dir:   filepath.Dir(store.Path()),
+			dir:   pDir,
 			agent: newAgentAPI(store, bg),
 		})
 	}
@@ -372,7 +381,11 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		sctx.Activities = newActivityAPI(h.store, ctx)
 		sctx.Mirror = newMirrorAPI(h.store, ctx)
 		sctx.Agents = newAgentAPI(h.store, ctx)
-		sctx.Rules = newRuleAPI(filepath.Dir(h.store.Path()))
+		rDir := filepath.Dir(h.store.Path())
+		if h.store.Path() == ":memory:" {
+			rDir = filepath.Join(os.TempDir(), "llmd-test-rules")
+		}
+		sctx.Rules = newRuleAPI(rDir)
 	}
 
 	resp, err := entry.plugin.Exec(sctx, cmd, args)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"unicode"
 
@@ -216,6 +217,9 @@ func (a *taskAPI) syncRules() error {
 		return err
 	}
 	dir := filepath.Dir(a.store.Path())
+	if a.store.Path() == ":memory:" {
+		dir = filepath.Join(os.TempDir(), "llmd-test-rules")
+	}
 	return rules.Sync(dir, cols)
 }
 

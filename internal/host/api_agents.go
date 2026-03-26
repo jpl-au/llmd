@@ -136,6 +136,9 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// Resolve transitions from the rule if not explicitly provided.
 	if opts.OnSuccess == "" || opts.OnFailure == "" {
 		llmdDir := filepath.Dir(a.store.Path())
+		if a.store.Path() == ":memory:" {
+			llmdDir = filepath.Join(os.TempDir(), "llmd-test-rules")
+		}
 		rs, err := rules.Load(llmdDir, "default")
 		if err == nil {
 			cr := rs.Column(t.Status)
