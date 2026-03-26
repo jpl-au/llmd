@@ -1,6 +1,6 @@
 # LLM integration guide
 
-How to use llmd from an AI agent. llmd is a versioned document store  - 
+How to use llmd from an AI agent. llmd is a versioned document store -
 documents have paths, full version history, tags, and links. All content
 is plain text.
 
@@ -10,7 +10,7 @@ Call the "guide" tool for detailed help on any topic:
 
   guide                        overview and all commands
   guide <topic>                detailed help (cat, grep, edit, tag, link,
-                               workflow, import, export, config, mcp, ...)
+                               workflow, rule, agent, task, audit, ...)
 
 ## Connecting
 
@@ -23,7 +23,7 @@ Context Protocol. Three tool names are renamed to avoid collisions:
 
 All other tool names match their CLI command name (cat, write, edit, ls,
 rm, mv, tag, link, history, diff, restore, revert, sed, unlink, audit,
-task, queue).
+task, queue, agent, rule).
 
 All tools accept: `{"args": [...], "content": "...", "author": "..."}`
 Use `content` for document bodies (write, edit). Use `args` for
@@ -97,12 +97,25 @@ DELETE   rm <path>                   soft-delete
          restore <path>              recover deleted
 
 TASKS    task list                   board view (all columns)
+         task board                  alias for task list
          task show <id>              metadata + spec body
          task add <title>            create task (body via content/stdin)
          task move <id> <column>     move to column
          task set <id> --flag hold   set flag, priority, assign, column
+         task start <id>             start work (record branch)
          task finish <id>            approve and mark done
-         task rm <id>                soft-delete task (doc untouched)
+         task rm <id>                soft-delete task
+
+AGENTS   agent add <name>            register an agent (claude-code, gemini, aider)
+         agent ls                    list registered agents
+         agent spawn <task> <agent>  spawn agent for a task
+         agent runs                  list agent runs
+         agent complete <task>       record run completion
+         agent stop <task>           stop a running agent
+
+RULES    rule list                   display all column rules
+         rule set <col> [flags]      configure a column rule
+         rule unset <col>            remove agent (keep transitions)
 
 AUDITS   audit add <target> [text]   create review on doc or task
          audit reply <id> [text]     reply to a thread
@@ -110,28 +123,51 @@ AUDITS   audit add <target> [text]   create review on doc or task
          audit list [target]         list audits (filterable)
          audit show <id>             full thread
          audit status                inbox: what needs my response
-         audit rm <id>               soft-delete
-         audit restore <id>          recover deleted audit
 
 QUEUE    queue ls                    pending messages, oldest first
          queue peek                  next unacknowledged message
          queue ack <key>             acknowledge oldest pending
          queue send <text>           send a message (--assign for directed)
-         queue history               all messages including acknowledged
 
 VIEWS    status                      dashboard: recent docs, board, activity
          review                      pending tasks with spec previews
-         review --column <name>      filter to a specific column
 
 ## Task workflow
 
 Tasks flow through columns on a board:
 
-  backlog → up-next → in-progress → review → done
+  backlog → up-next → in-progress → review → approval → done
+
+Failed tasks go to `blocked` for human intervention.
 
 Each task has a backing spec document that describes the work. Tasks
 cannot leave the backlog until the spec has content beyond the title
 (spec gating).
+
+### Board columns
+
+| Column | Purpose |
+|--------|---------|
+| backlog | Ideas and unstarted work |
+| up-next | Ready to start |
+| in-progress | Being worked on (by human or agent) |
+| review | Work complete, awaiting audit |
+| approval | Agent approved, awaiting human sign-off |
+| done | Completed |
+| blocked | Agent stuck, needs human help |
+
+### Automated pipeline
+
+Columns can have rules that auto-spawn agents. Check the current
+rules:
+
+```
+rule list
+```
+
+When a task enters a column with an agent rule, the agent is spawned
+automatically. On success, the task moves to the next column. On
+failure, it moves to blocked.
 
 ### Orientation
 
@@ -141,8 +177,8 @@ Start here to understand what needs doing:
 status                          overview of board and recent activity
 review                          all tasks with spec previews
 review --column up-next         what's ready to start
-review --column review          what's waiting for review
 task show <id>                  full spec and metadata for one task
+agent runs                      active and completed agent runs
 ```
 
 ### Coder workflow
@@ -157,14 +193,6 @@ task move <id> in-progress      claim the work
 task move <id> review           submit for review
 ```
 
-Check your audit inbox regularly - reviewers leave feedback there:
-
-```
-audit status                    threads assigned to you
-audit show <id>                 read full thread
-audit reply <id> "Fixed."       respond to feedback
-```
-
 ### Reviewer workflow
 
 Review submitted work, give feedback or approve:
@@ -173,64 +201,24 @@ Review submitted work, give feedback or approve:
 review --column review          see what's waiting
 task show <id>                  read the spec
 (inspect the work against the spec)
+audit add <id> "Issue"          flag a problem
+task finish <id>                approve and complete
 ```
 
-If the work needs changes, create an audit thread:
+### If you cannot complete your task
 
-```
-audit add <id> "Issue description" --assign <coder>
-```
-
-If the work is good, finish the task:
-
-```
-task finish <id>
-```
-
-### Audit threads
-
-Audits are the feedback mechanism between agents. They are immutable,
-insert-only review threads attached to a document or task.
-
-- `audit add <target> "comment"` - open a thread
-- `audit reply <id> "response"` - respond
-- `audit resolve <id>` - mark as approved
-- `audit status` - your inbox (threads assigned to you, awaiting response)
-
-Use `--assign` to direct feedback to a specific agent. Use `--status`
-to set thread status (pending, needs-work, approved, rejected, info).
-
-See `guide audit` for full details.
-
-## Polling for changes
-
-Check the message queue for pending events and direct messages:
-
-```
-queue ls                          all pending messages, oldest first
-queue peek                        next message to process
-queue ack <key>                   acknowledge after processing
-```
-
-The queue collects all domain events (document writes, task moves, audit
-creation) and direct messages from humans or agents. Poll it to discover
-what happened since your last check. Process messages in order, ack each
-one. See `guide queue` for details.
-
-For finer-grained polling, use `--since` on domain commands:
-
-```
-ls --since 5m                     new/updated documents
-task list --since 5m              recently created tasks
-audit list --since 5m             recent audits
-audit status --since 5m           recent inbox items
-```
+If you encounter tool failures, permission issues, rate limits, or
+any problem that prevents you from completing the work, write a
+clear description of the problem to stdout and exit with a non-zero
+code. Do not retry endlessly. The task will be moved to blocked
+where a human can investigate.
 
 ## More help
 
 - `guide` - full command reference
-- `guide workflow` - best practices and task lifecycle
+- `guide workflow` - best practices and agent orchestration
 - `guide task` - task board details
+- `guide rule` - column automation rules
+- `guide agent` - agent registration and management
 - `guide audit` - audit thread details
 - `guide queue` - message queue for coordination
-- `<command> --help` - usage for a specific command
