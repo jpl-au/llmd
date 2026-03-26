@@ -27,5 +27,8 @@ Move the task to review:
 
 ## If you get stuck
 
-Move the task to failed:
-`llmd --author {{.Agent}} task move {{.Key}} failed`
+If you encounter tool failures, permission issues, or any problem
+that prevents you from completing the work, write a clear description
+of the problem to stdout and exit with a non-zero code. Do not retry
+endlessly. The task will be moved to `{{.OnFailure}}` where a human
+can investigate.

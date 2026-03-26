@@ -50,6 +50,18 @@ EXIT=$?
 # as finished when the task move triggers the next step.
 agent_complete ${EXIT}
 
+# On failure, capture the agent's last output as an audit note so
+# the human reviewing the blocked task can see what went wrong.
+if [ ${EXIT} -ne 0 ]; then
+  LOG_FILE="${WORKTREE}/.llmd-agent.log"
+  if [ -f "${LOG_FILE}" ]; then
+    LAST_OUTPUT=$(tail -10 "${LOG_FILE}" 2>/dev/null | head -c 1000)
+    if [ -n "${LAST_OUTPUT}" ]; then
+      (cd "${PROJECT_DIR}" && "${LLMD}" --author "${AGENT}" audit add "${TASK_ID}" "${LAST_OUTPUT}") 2>/dev/null || true
+    fi
+  fi
+fi
+
 # Move the task based on exit code. All roles get automatic moves
 # driven by the rule's success/failure transitions.
 if [ ${EXIT} -eq 0 ]; then

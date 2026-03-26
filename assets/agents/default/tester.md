@@ -34,3 +34,10 @@ Write an audit note describing what failed:
 `llmd --author {{.Agent}} audit add {{.Key}} "Test failures: ..."`
 
 Exit with a non-zero code. The task will move to `{{.OnFailure}}`.
+
+## If you cannot run tests
+
+If you encounter tool failures, permission issues, or any problem
+that prevents you from testing, write a clear description of the
+problem to stdout and exit with a non-zero code. Do not retry
+endlessly.

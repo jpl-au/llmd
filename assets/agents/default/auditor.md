@@ -30,3 +30,11 @@ to `{{.OnSuccess}}`.
 Write a clear summary of what needs fixing to stdout, then exit
 with a non-zero code. The task will automatically move to
 `{{.OnFailure}}` for the developer to address.
+
+## If you cannot complete the review
+
+If you encounter tool failures, permission issues, rate limits, or
+any problem that prevents you from reviewing, write a clear
+description of the problem to stdout and exit immediately with a
+non-zero code. Do not retry endlessly. The task will be moved to
+`{{.OnFailure}}` where a human can investigate.
