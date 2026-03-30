@@ -162,10 +162,10 @@ _smoke_cli() {
         log_fail "gitignore allows .gitignore through: got '$out'"
     fi
 
-    if echo "$out" | grep -q '!\*\.db'; then
-        log_pass "gitignore allows *.db through"
+    if echo "$out" | grep -q '!llmd\.db'; then
+        log_pass "gitignore allows llmd.db through"
     else
-        log_fail "gitignore allows *.db through: got '$out'"
+        log_fail "gitignore allows llmd.db through: got '$out'"
     fi
 
     # --- config git allow/deny/ls ---

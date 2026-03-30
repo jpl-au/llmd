@@ -262,10 +262,19 @@ func (s *Store) WorkDB() *qwr.Manager {
 	return s.work
 }
 
-// workOpen reports whether work.db is currently open. Used by the
-// message queue handler to skip writes when no work database exists.
+// workOpen reports whether work.db exists. Used by the message queue
+// handler to skip writes when no work database has ever been created.
+// Checks the file on disk rather than the in-memory connection so
+// that events are queued when work.db was created by a previous process.
 func (s *Store) workOpen() bool {
-	return s.work != nil
+	if s.work != nil {
+		return true
+	}
+	if s.workPath == ":memory:" {
+		return false
+	}
+	_, err := os.Stat(s.workPath)
+	return err == nil
 }
 
 // migrateWork creates all work tables in a single pass. Called once
