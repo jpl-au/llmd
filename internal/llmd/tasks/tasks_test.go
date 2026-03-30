@@ -7,7 +7,6 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
-	"github.com/jpl-au/llmd/internal/llmd/entities"
 	"github.com/jpl-au/llmd/internal/llmd/events"
 	intsql "github.com/jpl-au/llmd/internal/sql"
 	"github.com/jpl-au/llmd/pkg/model/core"
@@ -33,11 +32,10 @@ func setup(t *testing.T) *Tasks {
 
 	bus := events.New()
 	docs := documents.New(db, bus)
-	ents := entities.New(db)
 	dbFn := func() *qwr.Manager { return db }
 	aud := audit.New(dbFn)
 
-	return New(dbFn, docs, ents, aud, bus)
+	return New(dbFn, docs, aud, bus)
 }
 
 func TestAdd(t *testing.T) {

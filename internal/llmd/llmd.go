@@ -219,7 +219,7 @@ func (s *Store) wire() {
 
 	// Work-side domains (work.db, opened on demand).
 	s.Audit = audit.New(s.WorkDB)
-	s.Tasks = tasks.New(s.WorkDB, s.Documents, s.Entities, s.Audit, s.bus)
+	s.Tasks = tasks.New(s.WorkDB, s.Documents, s.Audit, s.bus)
 	s.Audits = audits.New(s.WorkDB, s.bus)
 	s.Messages = messages.New(s.WorkDB, s.bus)
 	s.Agents = agents.New(s.WorkDB, filepath.Join(s.Dir(), "agents"), s.bus)

@@ -25,7 +25,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	if err := t.ensure(); err != nil {
 		return nil, err
 	}
-	if err := t.ensureBoard(ctx, opts.Author, opts.Source); err != nil {
+	if err := t.ensureBoard(ctx, opts.Origin.Author); err != nil {
 		return nil, err
 	}
 

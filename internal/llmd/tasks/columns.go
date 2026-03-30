@@ -7,9 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-
-	"github.com/jpl-au/llmd/internal/llmd/entities"
-	"github.com/jpl-au/llmd/pkg/model/core"
+	"time"
 )
 
 // Board holds the column list.
@@ -19,6 +17,9 @@ type Board struct {
 
 // Columns returns the board columns in order.
 func (t *Tasks) Columns(ctx context.Context) ([]string, error) {
+	if err := t.ensure(); err != nil {
+		return nil, err
+	}
 	b, err := t.readBoard(ctx)
 	if err != nil {
 		return nil, err
@@ -28,6 +29,9 @@ func (t *Tasks) Columns(ctx context.Context) ([]string, error) {
 
 // AddColumn adds a new column. If after is empty, appends to the end.
 func (t *Tasks) AddColumn(ctx context.Context, name, after, author string) error {
+	if err := t.ensure(); err != nil {
+		return err
+	}
 	b, err := t.readBoard(ctx)
 	if err != nil {
 		return err
@@ -92,6 +96,9 @@ func (t *Tasks) RemoveColumn(ctx context.Context, name, author string) error {
 
 // MoveColumn reorders a column to be after another column.
 func (t *Tasks) MoveColumn(ctx context.Context, name, after, author string) error {
+	if err := t.ensure(); err != nil {
+		return err
+	}
 	b, err := t.readBoard(ctx)
 	if err != nil {
 		return err
@@ -117,58 +124,38 @@ func (t *Tasks) MoveColumn(ctx context.Context, name, after, author string) erro
 	return t.writeBoard(ctx, b, author)
 }
 
-// readBoard reads the full board from the entity store. Handles
-// both the old format (columns-only array) and the new format
-// (object with columns and pipeline).
+// readBoard reads the latest board row. Returns default columns if
+// the table is empty.
 func (t *Tasks) readBoard(ctx context.Context) (*Board, error) {
-	exists, err := t.entities.ExistsInNamespace(ctx, boardNamespace, "")
+	row, err := t.db.Query(
+		`SELECT value FROM board ORDER BY created_at DESC, id DESC LIMIT 1`,
+	).WithContext(ctx).ReadRow()
 	if err != nil {
-		return nil, err
-	}
-	if !exists {
 		return &Board{Columns: DefaultColumns}, nil
 	}
-
-	ents, err := t.entities.List(ctx, boardNamespace, entities.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	if len(ents) == 0 {
+	var value string
+	if err := row.Scan(&value); err != nil {
 		return &Board{Columns: DefaultColumns}, nil
 	}
-
-	return parseBoard(ents[0].Value)
+	return parseBoard(value)
 }
 
-// writeBoard serialises the full board and writes it to the entity
-// store. Soft-deletes the old entity and creates a new one.
+// writeBoard inserts a new board row. Previous rows are preserved
+// as history.
 func (t *Tasks) writeBoard(ctx context.Context, b *Board, author string) error {
-	ents, err := t.entities.List(ctx, boardNamespace, entities.ListOptions{})
-	if err != nil {
-		return err
-	}
-	for _, e := range ents {
-		if err := t.entities.Delete(ctx, e.Key, entities.DeleteOptions{
-			Origin: core.Origin{Author: author, Source: "cli"},
-		}); err != nil {
-			return err
-		}
-	}
-
 	data, err := json.Marshal(b)
 	if err != nil {
 		return fmt.Errorf("encoding board: %w", err)
 	}
-
-	_, err = t.entities.Write(ctx, boardNamespace, string(data), entities.WriteOptions{
-		Origin: core.Origin{Author: author, Source: "cli"},
-	})
+	now := time.Now().UnixMilli()
+	_, err = t.db.Query(
+		`INSERT INTO board (value, author, created_at) VALUES (?, ?, ?)`,
+		string(data), author, now,
+	).WithContext(ctx).Execute()
 	return err
 }
 
-// parseBoard parses a board entity value. Handles both formats:
-// old: {"columns":["a","b"]} (no pipeline key)
-// new: {"columns":["a","b"],"pipeline":{"a":{...}}}
+// parseBoard parses a board JSON value. Returns defaults on any error.
 func parseBoard(value string) (*Board, error) {
 	var b Board
 	if err := json.Unmarshal([]byte(value), &b); err != nil {
