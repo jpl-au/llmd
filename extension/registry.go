@@ -11,12 +11,16 @@
 
 package extension
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/jpl-au/llmd/sdk"
+)
 
 // Registry holds all registered extensions.
 var (
 	mu       sync.RWMutex
-	registry = make(map[string]Extension)
+	registry = make(map[string]sdk.Extension)
 	order    []string // preserve registration order
 )
 
@@ -30,7 +34,7 @@ var (
 // 3. Makes duplicate registration impossible to ignore
 //
 // This follows the pattern used by database/sql.Register, flag.Var, etc.
-func Register(e Extension) {
+func Register(e sdk.Extension) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -44,11 +48,11 @@ func Register(e Extension) {
 }
 
 // All returns all registered extensions in registration order.
-func All() []Extension {
+func All() []sdk.Extension {
 	mu.RLock()
 	defer mu.RUnlock()
 
-	exts := make([]Extension, 0, len(order))
+	exts := make([]sdk.Extension, 0, len(order))
 	for _, name := range order {
 		exts = append(exts, registry[name])
 	}
@@ -56,7 +60,7 @@ func All() []Extension {
 }
 
 // Get returns a specific extension by name, or nil if not found.
-func Get(name string) Extension {
+func Get(name string) sdk.Extension {
 	mu.RLock()
 	defer mu.RUnlock()
 	return registry[name]

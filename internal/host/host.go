@@ -1,6 +1,6 @@
-// Package host provides the plugin host for llmd. It discovers compiled
+// Package host provides the command host for llmd. It discovers compiled
 // extensions, builds a command table, and dispatches command execution
-// to the owning plugin.
+// to the owning extension.
 package host
 
 import (
@@ -20,22 +20,22 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// Host manages plugins and command execution. It is the central
+// Host manages extensions and command execution. It is the central
 // orchestrator: it discovers compiled extensions, builds a unified
-// command table, and dispatches execution to the owning plugin. The
+// command table, and dispatches execution to the owning extension. The
 // Host also wires up the SDK domain globals (sdk.Documents, sdk.Tasks,
-// etc.) so that plugins can access the store without direct dependencies.
+// etc.) so that extensions can access the store without direct dependencies.
 type Host struct {
-	store    *llmd.Store
-	lim      validate.Limits
-	commands map[string]*cmdEntry
-	plugins  []sdk.Plugin
+	store      *llmd.Store
+	lim        validate.Limits
+	commands   map[string]*cmdEntry
+	extensions []sdk.Extension
 }
 
-// cmdEntry maps a command to its owning plugin.
+// cmdEntry maps a command to its owning extension.
 type cmdEntry struct {
-	cmd    sdk.Command
-	plugin sdk.Plugin
+	cmd sdk.Command
+	ext sdk.Extension
 }
 
 // New creates a Host without a store. The Host can enumerate commands
@@ -185,7 +185,7 @@ func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
 // command table. Called by both New() and Open().
 //
 // When store is non-nil, it sets sdk.Documents, sdk.Tasks, sdk.Links,
-// sdk.Tags, and sdk.Activities so plugins can access the store. It also
+// sdk.Tags, and sdk.Activities so extensions can access the store. It also
 // bridges internal bus events to extension EventHandlers.
 func setup(store *llmd.Store) *Host {
 	// Load validation limits from config.
@@ -231,7 +231,7 @@ func setup(store *llmd.Store) *Host {
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
 	for _, ext := range extension.All() {
-		h.addPlugin(ext.Plugin())
+		h.addExtension(ext)
 	}
 
 	// Pipeline handler: auto-spawn agents when tasks enter columns
@@ -282,17 +282,17 @@ func setup(store *llmd.Store) *Host {
 	return h
 }
 
-// addPlugin registers a plugin's commands.
-func (h *Host) addPlugin(p sdk.Plugin) {
-	h.plugins = append(h.plugins, p)
-	for _, cmd := range p.Commands() {
-		h.commands[cmd.Name] = &cmdEntry{cmd: cmd, plugin: p}
+// addExtension registers an extension's commands.
+func (h *Host) addExtension(ext sdk.Extension) {
+	h.extensions = append(h.extensions, ext)
+	for _, cmd := range ext.Commands() {
+		h.commands[cmd.Name] = &cmdEntry{cmd: cmd, ext: ext}
 	}
 }
 
-// Exec dispatches a command to its owning plugin. It creates fresh
+// Exec dispatches a command to its owning extension. It creates fresh
 // per-request bridge instances bound to the given context, populates
-// an sdk.Context with them, and delegates to the plugin's Exec method.
+// an sdk.Context with them, and delegates to the extension's Exec method.
 // Returns sdk.ErrUnknownCmd if cmd is not registered.
 func (h *Host) Exec(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
 	entry, ok := h.commands[cmd]
@@ -335,7 +335,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		sctx.Rules = newRuleAPI(h.store.Dir())
 	}
 
-	resp, err := entry.plugin.Exec(sctx, cmd, args)
+	resp, err := entry.ext.Exec(sctx, cmd, args)
 
 	// After a storeless command succeeds (e.g. init), try to open the
 	// store so subsequent calls on this host have a working connection.
@@ -364,9 +364,9 @@ func (h *Host) Commands() map[string]*sdk.Command {
 	return cmds
 }
 
-// Plugins returns all loaded plugins in registration order.
-func (h *Host) Plugins() []sdk.Plugin {
-	return h.plugins
+// Extensions returns all loaded extensions in registration order.
+func (h *Host) Extensions() []sdk.Extension {
+	return h.extensions
 }
 
 // callbackHandler adapts a plain function to the internal bus Handler

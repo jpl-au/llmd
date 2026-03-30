@@ -2,7 +2,7 @@
 //
 // The gitignore uses a whitelist approach: everything is ignored by
 // default, and specific files are allowed through with ! patterns.
-// This means new files (telemetry logs, temp files, plugins) are
+// This means new files (telemetry logs, temp files) are
 // automatically excluded without maintaining a growing blocklist.
 //
 // llmd only manages .llmd/.gitignore - it never touches the project's
@@ -20,12 +20,14 @@ import (
 
 // defaultGitignore is written by InitGitignore for new stores.
 // Whitelist approach: ignore everything, then allow only the files
-// that should be committed (the database and this gitignore).
+// that should be committed (the document database and this gitignore).
+// work.db is excluded - it holds operational state (tasks, audits,
+// agent activity) that should not be published.
 const defaultGitignore = `# Ignore everything by default
 *
 
-# Allow the database and this file
-!*.db
+# Allow the document database and this file
+!llmd.db
 !.gitignore
 `
 

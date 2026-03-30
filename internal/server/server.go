@@ -8,7 +8,7 @@
 // content when appropriate.
 //
 // Commands are registered automatically by walking [sdk.AllCommands],
-// so plugins that register commands get HTTP routes for free.
+// so extensions that register commands get HTTP routes for free.
 //
 // The /events endpoint streams real-time store events via SSE. Agents
 // and external systems can subscribe to receive notifications when
@@ -152,7 +152,7 @@ func (s *Server) register() {
 // skip returns true for commands that should not be exposed over HTTP.
 func skip(name string) bool {
 	switch name {
-	case "mcp", "serve", "init", "config", "version", "plugins":
+	case "mcp", "serve", "init", "config", "version", "extensions":
 		return true
 	}
 	return false

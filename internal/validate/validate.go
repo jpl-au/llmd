@@ -6,7 +6,7 @@
 //
 // This package is used at the API boundary (internal/host) but is
 // available to any layer that needs to validate input - including
-// bulk operations and plugins.
+// bulk operations and extensions.
 package validate
 
 import (

@@ -26,7 +26,7 @@ var helpGroups = []commandGroup{
 	{"Tags & Links", []string{"tag", "link", "unlink"}},
 	{"Tasks", []string{"task", "agent", "status", "review"}},
 	{"Bulk", []string{"import", "export", "mirror"}},
-	{"Admin", []string{"init", "config", "vacuum", "version", "mcp", "serve", "plugins"}},
+	{"Admin", []string{"init", "config", "vacuum", "version", "mcp", "serve", "extensions"}},
 	{"Help", []string{"guide", "llm"}},
 }
 

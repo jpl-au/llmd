@@ -1,25 +1,26 @@
-// Package sdk provides the plugin SDK for llmd.
+// Package sdk provides the extension SDK for llmd.
 //
-// Plugins implement the [Plugin] interface to provide commands. The host
-// loads plugins and routes commands to them. Plugins access the store
-// through domain-specific globals: [Documents], [Tasks], [Links], and
-// [Tags]. Each global is a focused interface with unprefixed methods.
+// Extensions implement the [Extension] interface to provide commands. The
+// host loads extensions and routes commands to them. Extensions access
+// the store through domain-specific globals: [Documents], [Tasks],
+// [Links], and [Tags]. Each global is a focused interface with
+// unprefixed methods.
 //
-// # Writing a Plugin
+// # Writing an Extension
 //
-// A plugin is a type that implements three methods:
+// An extension is a type that implements three methods:
 //
-//	type MyPlugin struct{}
+//	type MyExt struct{}
 //
-//	func (p *MyPlugin) Name() string { return "myplugin" }
+//	func (e *MyExt) Name() string { return "myext" }
 //
-//	func (p *MyPlugin) Commands() []sdk.Command {
+//	func (e *MyExt) Commands() []sdk.Command {
 //	    return []sdk.Command{
 //	        {Name: "hello", Desc: "Say hello", Usage: "hello <name>"},
 //	    }
 //	}
 //
-//	func (p *MyPlugin) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
+//	func (e *MyExt) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
 //	    switch cmd {
 //	    case "hello":
 //	        if len(args) == 0 {

@@ -1,7 +1,7 @@
 package sdk
 
 // GitStore provides git repository operations. All consumers (CLI,
-// MCP, HTTP, plugins) access git through this interface.
+// MCP, HTTP) access git through this interface.
 type GitStore interface {
 	// Available checks that git is installed and the working directory
 	// is inside a git repository. Returns nil if both conditions are

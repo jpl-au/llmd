@@ -1,16 +1,14 @@
-// Package host provides the plugin host for llmd.
+// Package host provides the command host for llmd.
 //
-// The host manages plugin registration and command execution. It connects
-// plugins to the document store and routes commands to the appropriate plugin.
+// The host manages extension registration and command execution. It
+// connects extensions to the document store and routes commands to the
+// appropriate extension.
 //
 // # Architecture
 //
-// The host loads plugins from two sources:
-//
-//  1. Compiled extensions - registered at init-time via [extension.Register]
-//  2. Yaegi dynamic plugins - Go source loaded at runtime from plugin directories
-//
-// Commands are routed by name to the plugin that registered them.
+// The host loads compiled extensions registered at init-time via
+// [extension.Register]. Commands are routed by name to the extension
+// that registered them.
 //
 // # Creating a Host
 //
@@ -31,30 +29,19 @@
 // # Store API
 //
 // The host sets domain-specific globals ([sdk.Documents], [sdk.Tasks],
-// [sdk.Links], [sdk.Tags]) that wrap the llmd store. This allows plugins
-// to access the store without direct dependencies:
+// [sdk.Links], [sdk.Tags]) that wrap the llmd store. This allows
+// extensions to access the store without direct dependencies:
 //
-//	// In a plugin command:
+//	// In an extension command:
 //	content, _ := sdk.Documents.Read("path/to/doc.md", 0)
 //	sdk.Documents.Write("path/to/doc.md", content, author, message)
 //	sdk.Tags.Add("path/to/doc.md", "important", author)
 //
-// # Adding Compiled Plugins
+// # Adding Extensions
 //
-// Compiled plugins are discovered via the extension registry:
+// Extensions are discovered via the extension registry:
 //
-//  1. Create a package implementing [sdk.Plugin]
-//  2. Wrap it in an [extension.Extension] and call [extension.Register] in init()
+//  1. Create a package implementing [sdk.Extension]
+//  2. Call [extension.Register] in init()
 //  3. Import the package (blank import) in main.go
-//
-// # Yaegi Dynamic Plugins
-//
-// Yaegi plugins are Go source files loaded at runtime. Plugin directories
-// are searched in order (local overrides global):
-//
-//  1. .llmd/plugins/<name>/ - project-local plugins
-//  2. ~/.llmd/plugins/<name>/ - global plugins
-//
-// Each plugin directory must contain .go files with a New() function
-// returning an [sdk.Plugin]. A broken plugin is logged and skipped.
 package host

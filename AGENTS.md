@@ -8,8 +8,8 @@ If `llmd` is not on your PATH, use the binary built in the project root
 ## Core Principle
 
 **The SDK is the single API surface. Everything goes through it.** CLI,
-MCP, HTTP (coming), plugins, extensions - all are thin consumers that
-call SDK interfaces. No domain logic lives in consumer layers.
+MCP, HTTP (coming), extensions - all are thin consumers that call SDK
+interfaces. No domain logic lives in consumer layers.
 
 This is deliberate: the API controls all actions and interactions through
 a consistent code contract. Changes to internals are hidden behind the
@@ -36,8 +36,7 @@ app/                        Build-time metadata: version tag, commit, build time
 cli/                        Thin CLI dispatch: calls SDK, formats output
 extension/                  Caddy-style compile-time plugin registry
 internal/host/              SDK bridge: translates SDK calls to internal packages
-internal/plugin/            Yaegi dynamic plugin loader
-internal/llmd/              Store: opens database, coordinates sub-packages
+internal/llmd/              Store: opens databases, coordinates sub-packages
 internal/llmd/documents/    Document CRUD, versioning, soft-delete
 internal/llmd/history/      Version listings, unified diffs, reverts
 internal/llmd/search/       FTS5 full-text search and glob matching
@@ -58,10 +57,9 @@ internal/line/              Platform-aware line ending conversion (build-tagged)
 internal/validate/          Input validation: null bytes, path length, content size
 internal/server/            HTTP API server: thin transport over sdk.Dispatch
 internal/term/              Terminal detection and stdin reading utilities
-internal/sql/               Schema migrations, SQL helpers
+internal/sql/               Schema migrations for llmd.db
 pkg/model/core/             Core model types (Origin)
 pkg/events/                 Shared event type definitions
-plugins/sample/             Example Yaegi plugin (stat, recent, wc)
 guide/                      User-facing command guides (markdown)
 ```
 
@@ -86,13 +84,12 @@ main.go → run()
   ↓ host.Open(dbPath) or host.New() depending on needsStore
   │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags, sdk.Audits, sdk.Activities
   │   ├─ load compiled extensions via extension.All()
-  │   ├─ wire extension EventHandlers to internal bus
-  │   └─ load Yaegi plugins from .llmd/plugins/ and ~/.llmd/plugins/
+  │   └─ wire extension EventHandlers to internal bus
   ↓ resolve author (flag → config → term.Interactive() fallback)
   ↓ term.ReadStdin() - internal/term/
   ↓ host.Exec(ctx, cmd, args, author, stdin, dbPath)
   │   └─ creates per-request bridge instances bound to ctx
-  ↓ plugin.Exec(sctx, cmd, args) → sdk.Response
+  ↓ extension.Exec(sctx, cmd, args) → sdk.Response
   ↓ display(result, jsonOut) - output.go
 ```
 
@@ -212,48 +209,13 @@ ctx.Tags.Add("path", "name", ctx.Author)
 ctx.Links.Add("a", "b", "label", ctx.Author)
 ```
 
-Yaegi plugins also use `sdk.Documents`, `sdk.Tasks`, `sdk.Audits` - but these
-resolve through the Yaegi symbol table to per-adapter store fields, not
-package globals. See the Plugin System section below.
+## Extension System
 
-## Plugin System
-
-Two loading mechanisms, same `sdk.Plugin` interface:
-
-**Compiled extensions** - registered at init-time via `extension.Register()`,
-following the `database/sql.Register` pattern. The `cli` package uses this.
-Panics on duplicate names to catch programmer errors early.
-
-**Yaegi dynamic plugins** - Go source loaded at runtime without recompilation.
-Discovered from `.llmd/plugins/<name>/` (project-local, takes priority) and
-`~/.llmd/plugins/<name>/` (user-global). Each directory's `.go` files are
-concatenated and evaluated by the Yaegi interpreter. The plugin must export
-a `New()` function returning a value that satisfies `sdk.Plugin`. Yaegi
-provides no security sandbox - plugins have full stdlib access and run with
-the same permissions as the `llmd` process. Only run trusted plugins.
-
-### Yaegi Symbol Table (`internal/plugin/symbols.go`)
-
-The symbol table exports SDK types, constants, errors, domain stores, and
-flag parsing (`FlagValues`, `ParseArgs`) so that interpreted plugin code can
-`import "github.com/jpl-au/llmd/sdk"`.
-
-Domain stores (`sdk.Documents`, `sdk.Tasks`, `sdk.Audits`) in the symbol table point
-at per-adapter fields, not package-level globals. `load()` creates the adapter
-before registering the symbol table so the reflect values are bound to adapter
-fields from the start. `Exec` acquires the adapter mutex and populates those
-fields from `ctx` before each call - giving each request its own request-scoped
-stores. Plugin source is unchanged: `sdk.Documents.Read(...)` works
-transparently regardless of how the underlying store is wired.
-
-Interface wrappers (`_sdk_DocumentStore`, `_sdk_TaskStore`, `_sdk_AuditStore`)
-exist because
-Yaegi uses reflection to bridge interpreted types to Go interfaces. Each wrapper
-struct has a `WMethodName` function field for every interface method. When Yaegi
-needs to assign an interpreted struct to an interface variable, it populates
-these fields with the plugin's method implementations, then the wrapper's
-concrete methods delegate to the fields. When an interface changes, the wrapper
-must be updated to match.
+Extensions are registered at init-time via `extension.Register()`, following
+the `database/sql.Register` pattern. The `cli` package uses this. Panics on
+duplicate names to catch programmer errors early. Extensions implement
+`sdk.Plugin` (Name, Commands, Exec) and receive raw args, parsing flags
+themselves.
 
 ## Event System
 
@@ -297,16 +259,7 @@ a store and wire SDK globals for testing. Two modes:
 - `host.TestDisk` - disk-backed store in a temp directory with chdir;
   use when tests need a real filesystem (e.g. git operations)
 
-Host tests use `TestMemory`; CLI git tests use `TestDisk`. Plugin tests
-cannot import host (import cycle) - they use stubs instead (see below).
-
-**Plugin tests** (`internal/plugin/loader_test.go`) - use stub implementations
-of all SDK store interfaces to avoid import cycles (`internal/host` imports
-`internal/plugin`, so plugin tests cannot import host). Stubs are passed
-directly via `sdk.Context` fields (`ctx.Documents`, `ctx.Tasks`, `ctx.Audits`)  - 
-the same way the real host wires stores. Yaegi integration tests load real
-`.go` source through the interpreter and verify that interpreted plugin code
-can call methods on the domain stores.
+Host tests use `TestMemory`; CLI git tests use `TestDisk`.
 
 ## CLI Views
 
@@ -338,7 +291,7 @@ Task audit actions use past tense: `"created"`, `"moved"`, `"deleted"`,
 
 Tasks can be linked to git branches via the `Branch` field. Multi-step
 orchestration (start, finish, branch creation) lives in the SDK so all
-consumers (CLI, MCP, HTTP, plugins) can use it. The CLI provides thin
+consumers (CLI, MCP, HTTP) can use it. The CLI provides thin
 dispatch on top.
 
 ### SDK methods (`sdk.TaskStore`)
@@ -438,7 +391,8 @@ Host bridge in `internal/host/api_queue.go`.
 
 **Event bus wiring:** `messages.QueueHandler` subscribes to the internal
 bus and publishes domain events as queue messages. Skips `message.*` events
-to avoid feedback loops. Wired in `Store.wire()`.
+to avoid feedback loops. The handler only queues when work.db is open -
+document-only stores skip queue writes silently. Wired in `Store.wire()`.
 
 **Strict ordering:** `Ack` rejects if the key does not match the consumer's
 oldest pending message (`ErrOrderViolation`).
@@ -552,7 +506,7 @@ is set or when no text representation exists.
 **Configuration:** Listen address is read from `serve_addr` config key,
 defaulting to `localhost:5563`. No flags or environment variables.
 
-**Skipped commands:** `mcp`, `serve`, `init`, `config`, `version`, `plugins`,
+**Skipped commands:** `mcp`, `serve`, `init`, `config`, `version`,
 `guide`, `llm` are not exposed over HTTP - they are admin or local-only.
 
 The server uses `github.com/jpl-au/chain` as the HTTP mux, which wraps
@@ -569,13 +523,14 @@ blocklist. llmd never touches the project's root `.gitignore`.
 **Default `.llmd/.gitignore` (created by `llmd init`):**
 ```
 *
-!*.db
+!llmd.db
 !.gitignore
 ```
 
-Everything is ignored except database files and the gitignore itself.
-The database (`llmd.db`) is committed by default - shared context is
-the intended use case.
+Everything is ignored except the document database and the gitignore
+itself. `llmd.db` (documents, tags, links) is committed by default -
+shared context is the intended use case. `work.db` (tasks, audits,
+agent activity) is excluded as operational state.
 
 **CLI management:**
 ```bash
@@ -640,9 +595,6 @@ through context or structs.
   and rejected if they contain control characters, Windows-illegal characters
   (`< > : " | ? *`), or path traversal (`..`). Explicit paths skip sanitisation.
   `sdk.Mirror.Directory()` returns the mirror directory for the active store.
-
-- **Import cycle: host ↔ plugin** - `internal/host` imports `internal/plugin`.
-  Plugin tests cannot import host. Use stub implementations instead.
 
 - **Compiled extensions register in init()** - Missing a blank import in
   `main.go` silently omits all commands from that extension.

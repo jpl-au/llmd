@@ -1,4 +1,4 @@
-// Package sdk provides the plugin SDK for llmd.
+// Package sdk provides the extension SDK for llmd.
 package sdk
 
 import (
@@ -21,7 +21,7 @@ var (
 	// (e.g. non-numeric version string).
 	ErrInvalidArg = errors.New("invalid argument")
 
-	// ErrUnknownCmd means the command name was not found in the plugin's
+	// ErrUnknownCmd means the command name was not found in the extension's
 	// command table.
 	ErrUnknownCmd = errors.New("unknown command")
 
@@ -63,20 +63,20 @@ var (
 	Rules      RuleStore
 )
 
-// Plugin is the interface that command providers implement. The host
-// discovers plugins at startup (compiled extensions via init()), calls
-// Commands() to build its command table, and dispatches execution to
-// Exec().
+// Extension is the interface that command providers implement. The host
+// discovers extensions at startup (compiled extensions via init()),
+// calls Commands() to build its command table, and dispatches execution
+// to Exec().
 //
-// Plugins receive raw args and parse flags themselves - the host does
-// not interpret command arguments. See doc.go for a full example.
-type Plugin interface {
+// Extensions receive raw args and parse flags themselves - the host
+// does not interpret command arguments. See doc.go for a full example.
+type Extension interface {
 	Name() string
 	Commands() []Command
 	Exec(ctx Context, cmd string, args []string) (Response, error)
 }
 
-// Command describes a plugin command. Name is the invocation word
+// Command describes an extension command. Name is the invocation word
 // (e.g. "cat", "ls"). Desc is a short one-line description shown in
 // help output. Usage shows the argument pattern (e.g. "cat [options] <path>...").
 //

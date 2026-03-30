@@ -24,19 +24,17 @@ func init() {
 	extension.Register(&CLI{})
 }
 
-// CLI implements [sdk.Plugin] and [extension.Extension] to provide the
-// core command set. It registers itself at init time via
-// [extension.Register] and provides all built-in commands: document
-// CRUD, search, tags, links, tasks, bulk operations, and administrative
-// commands. The CLI is the only compiled extension that ships with llmd.
+// CLI implements [sdk.Extension] to provide the core command set. It
+// registers itself at init time via [extension.Register] and provides
+// all built-in commands: document CRUD, search, tags, links, tasks,
+// bulk operations, and administrative commands.
 type CLI struct{}
 
-func (c *CLI) Name() string       { return "cli" }
-func (c *CLI) Plugin() sdk.Plugin { return c }
+func (c *CLI) Name() string { return "cli" }
 
 // NoStoreCommands returns commands that can run without an open store.
 func (c *CLI) NoStoreCommands() []string {
-	return []string{"version", "config", "init", "plugins", "guide", "llm"}
+	return []string{"version", "config", "init", "extensions", "guide", "llm"}
 }
 
 // Commands returns the full command table. Each command's spec is defined
@@ -50,7 +48,7 @@ func (c *CLI) Commands() []sdk.Command {
 		taskSpec, auditSpec, queueSpec, agentSpec, ruleSpec,
 		statusSpec, reviewSpec,
 		versionSpec, configSpec, initSpec, vacuumSpec,
-		mcpSpec, serveSpec, mirrorSpec, pluginsSpec, guideSpec, llmSpec,
+		mcpSpec, serveSpec, mirrorSpec, extensionsSpec, guideSpec, llmSpec,
 	}
 }
 
@@ -115,8 +113,8 @@ func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, er
 		return mcpCmd(ctx, args)
 	case "serve":
 		return serve(ctx, args)
-	case "plugins":
-		return pluginsCmd(ctx, args)
+	case "extensions":
+		return extensionsCmd(ctx, args)
 	case "mirror":
 		return mirror(ctx, args)
 	case "guide":

@@ -2,8 +2,8 @@
 //
 // ParseArgs uses the same []Flag metadata that powers --help and MCP tool
 // schemas, so a single definition drives parsing, documentation, and tool
-// discovery. Plugins (including Yaegi) get correct flag parsing by calling
-// ParseArgs with their Command.Flags - no external dependencies required.
+// discovery. Extensions get correct flag parsing by calling ParseArgs with
+// their Command.Flags - no external dependencies required.
 
 package sdk
 
