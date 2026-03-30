@@ -12,20 +12,30 @@ import (
 
 // QueueHandler subscribes to the event bus and publishes domain events
 // as queue messages. It skips queue's own events (message.sent,
-// message.acknowledged) to avoid infinite loops.
+// message.acknowledged) to avoid infinite loops. The ready function
+// gates writes so document-only stores do not create work.db merely
+// because the handler is subscribed.
 type QueueHandler struct {
 	store *Messages
+	ready func() bool
 }
 
 // NewHandler creates a handler that bridges bus events to the queue.
-func NewHandler(store *Messages) *QueueHandler {
-	return &QueueHandler{store: store}
+// The ready function should return true only when work.db is open.
+func NewHandler(store *Messages, ready func() bool) *QueueHandler {
+	return &QueueHandler{store: store, ready: ready}
 }
 
 // HandleEvent converts a domain event into a queue message. The
 // source_key is derived from the event type and entity key, so
 // cross-process deduplication works automatically.
 func (h *QueueHandler) HandleEvent(ctx context.Context, e pkgevents.Event) error {
+	// Only queue events when work.db is open. Document-only
+	// stores skip queue writes silently.
+	if !h.ready() {
+		return nil
+	}
+
 	// Skip queue's own events to avoid feedback loops.
 	if strings.HasPrefix(e.Type, "message.") {
 		return nil

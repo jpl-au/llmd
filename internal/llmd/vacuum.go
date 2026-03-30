@@ -53,9 +53,14 @@ func (s *Store) Vacuum(ctx context.Context) (*VacuumResult, error) {
 	}
 	result.Links = n
 
-	// Run SQLite VACUUM to reclaim disk space
+	// Run SQLite VACUUM to reclaim disk space.
 	if _, err := s.db.Query("VACUUM").WithContext(ctx).Execute(); err != nil {
 		return nil, fmt.Errorf("vacuuming database: %w", err)
+	}
+	if s.work != nil {
+		if _, err := s.work.Query("VACUUM").WithContext(ctx).Execute(); err != nil {
+			return nil, fmt.Errorf("vacuuming work database: %w", err)
+		}
 	}
 
 	return &result, nil

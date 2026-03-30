@@ -8,13 +8,15 @@ package messages
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/qwr"
 )
 
-const schema = `
+// Schema is the DDL for the messages and message_acks tables.
+const Schema = `
 CREATE TABLE IF NOT EXISTS messages (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     key         TEXT NOT NULL UNIQUE,
@@ -49,21 +51,28 @@ var (
 
 // Messages provides queue operations backed by SQLite.
 type Messages struct {
+	dbFn func() *qwr.Manager
 	db   *qwr.Manager
 	bus  *events.Bus
 	once sync.Once
 	err  error
 }
 
-// New creates a Messages instance. Tables are created lazily on first use.
-func New(db *qwr.Manager, bus *events.Bus) *Messages {
-	return &Messages{db: db, bus: bus}
+// New creates a Messages instance. The db function returns the work
+// database manager, opening it on demand if needed.
+func New(db func() *qwr.Manager, bus *events.Bus) *Messages {
+	return &Messages{dbFn: db, bus: bus}
 }
 
-// ensure creates the messages and message_acks tables if they do not exist.
+// ensure opens the work database and creates the message tables if needed.
 func (m *Messages) ensure() error {
 	m.once.Do(func() {
-		_, m.err = m.db.Query(schema).Write()
+		m.db = m.dbFn()
+		if m.db == nil {
+			m.err = fmt.Errorf("work database not available")
+			return
+		}
+		_, m.err = m.db.Query(Schema).Write()
 	})
 	return m.err
 }

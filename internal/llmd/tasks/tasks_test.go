@@ -34,9 +34,10 @@ func setup(t *testing.T) *Tasks {
 	bus := events.New()
 	docs := documents.New(db, bus)
 	ents := entities.New(db)
-	aud := audit.New(db)
+	dbFn := func() *qwr.Manager { return db }
+	aud := audit.New(dbFn)
 
-	return New(db, docs, ents, aud, bus)
+	return New(dbFn, docs, ents, aud, bus)
 }
 
 func TestAdd(t *testing.T) {

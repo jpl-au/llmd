@@ -152,7 +152,11 @@ func (s *Store) entityActivity(ctx context.Context, limit int) []ActivityEvent {
 }
 
 // taskActivity fetches recent task events from the audit history table.
+// Returns nil when work.db is not open (no tasks exist).
 func (s *Store) taskActivity(ctx context.Context, limit int) []ActivityEvent {
+	if s.work == nil {
+		return nil
+	}
 	events, err := s.Audit.Query(ctx, "", limit)
 	if err != nil {
 		return nil

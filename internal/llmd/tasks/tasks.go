@@ -22,7 +22,8 @@ import (
 	"github.com/jpl-au/qwr"
 )
 
-const schema = `
+// Schema is the DDL for the tasks table and its indices.
+const Schema = `
 CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT NOT NULL UNIQUE,
@@ -66,9 +67,10 @@ var (
 )
 
 // Tasks provides task CRUD, board column management, and audit logging.
-// The tasks table and board entity are created lazily on first use via
-// sync.Once, so stores that never use tasks pay no schema cost.
+// The tasks table is created on first use when the work database is
+// opened, so stores that never use tasks pay no schema cost.
 type Tasks struct {
+	dbFn     func() *qwr.Manager
 	db       *qwr.Manager
 	docs     *documents.Documents
 	entities *entities.Entities
@@ -78,17 +80,21 @@ type Tasks struct {
 	err      error
 }
 
-// New creates a Tasks instance with its dependencies. The tasks table
-// is not created until the first operation that requires it (Add, Read,
-// List, etc.), triggered by the ensure() call in each method.
-func New(db *qwr.Manager, docs *documents.Documents, ents *entities.Entities, audit *audit.Log, bus *events.Bus) *Tasks {
-	return &Tasks{db: db, docs: docs, entities: ents, audit: audit, bus: bus}
+// New creates a Tasks instance with its dependencies. The db function
+// returns the work database manager, opening it on demand if needed.
+func New(db func() *qwr.Manager, docs *documents.Documents, ents *entities.Entities, audit *audit.Log, bus *events.Bus) *Tasks {
+	return &Tasks{dbFn: db, docs: docs, entities: ents, audit: audit, bus: bus}
 }
 
-// ensure creates the tasks table if it does not exist.
+// ensure opens the work database and creates the tasks table if needed.
 func (t *Tasks) ensure() error {
 	t.once.Do(func() {
-		_, t.err = t.db.Query(schema).Write()
+		t.db = t.dbFn()
+		if t.db == nil {
+			t.err = fmt.Errorf("work database not available")
+			return
+		}
+		_, t.err = t.db.Query(Schema).Write()
 		if t.err != nil {
 			return
 		}

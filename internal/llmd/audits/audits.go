@@ -11,13 +11,15 @@ package audits
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/qwr"
 )
 
-const schema = `
+// Schema is the DDL for the audits table and its indices.
+const Schema = `
 CREATE TABLE IF NOT EXISTS audits (
     id          TEXT PRIMARY KEY,
     target      TEXT     NOT NULL,
@@ -48,23 +50,30 @@ var (
 )
 
 // Audits provides audit CRUD and thread status queries. The audits
-// table is created lazily on first use via sync.Once.
+// table is created when the work database is first opened.
 type Audits struct {
+	dbFn func() *qwr.Manager
 	db   *qwr.Manager
 	bus  *events.Bus
 	once sync.Once
 	err  error
 }
 
-// New creates an Audits instance.
-func New(db *qwr.Manager, bus *events.Bus) *Audits {
-	return &Audits{db: db, bus: bus}
+// New creates an Audits instance. The db function returns the work
+// database manager, opening it on demand if needed.
+func New(db func() *qwr.Manager, bus *events.Bus) *Audits {
+	return &Audits{dbFn: db, bus: bus}
 }
 
-// ensure creates the audits table if it does not exist.
+// ensure opens the work database and creates the audits table if needed.
 func (a *Audits) ensure() error {
 	a.once.Do(func() {
-		_, a.err = a.db.Query(schema).Write()
+		a.db = a.dbFn()
+		if a.db == nil {
+			a.err = fmt.Errorf("work database not available")
+			return
+		}
+		_, a.err = a.db.Query(Schema).Write()
 	})
 	return a.err
 }

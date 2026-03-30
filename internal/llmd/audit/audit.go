@@ -18,7 +18,8 @@ import (
 	"github.com/jpl-au/qwr"
 )
 
-const schema = `
+// Schema is the DDL for the history table used by the audit log.
+const Schema = `
 CREATE TABLE IF NOT EXISTS history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp INTEGER NOT NULL,
@@ -36,21 +37,28 @@ CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
 
 // Log provides audit logging operations.
 type Log struct {
+	dbFn func() *qwr.Manager
 	db   *qwr.Manager
 	once sync.Once
 	err  error
 }
 
-// New creates a new Log instance.
-func New(db *qwr.Manager) *Log {
-	return &Log{db: db}
+// New creates a new Log instance. The db function returns the work
+// database manager, opening it on demand if needed.
+func New(db func() *qwr.Manager) *Log {
+	return &Log{dbFn: db}
 }
 
 // Ensure creates the history table if it does not exist. It is
 // idempotent and safe to call from multiple goroutines.
 func (l *Log) Ensure() error {
 	l.once.Do(func() {
-		_, l.err = l.db.Query(schema).Write()
+		l.db = l.dbFn()
+		if l.db == nil {
+			l.err = fmt.Errorf("work database not available")
+			return
+		}
+		_, l.err = l.db.Query(Schema).Write()
 	})
 	return l.err
 }

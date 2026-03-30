@@ -24,7 +24,7 @@ func openTestDB(t *testing.T) *qwr.Manager {
 
 func TestSendAndPending(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db, nil)
+	store := New(func() *qwr.Manager { return db }, nil)
 	ctx := context.Background()
 
 	// Send a broadcast message.
@@ -55,7 +55,7 @@ func TestSendAndPending(t *testing.T) {
 
 func TestDirectedMessage(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db, nil)
+	store := New(func() *qwr.Manager { return db }, nil)
 	ctx := context.Background()
 
 	// Send directed to claude.
@@ -90,7 +90,7 @@ func TestDirectedMessage(t *testing.T) {
 
 func TestAckOrdering(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db, nil)
+	store := New(func() *qwr.Manager { return db }, nil)
 	ctx := context.Background()
 
 	// Send two messages.
@@ -125,7 +125,7 @@ func TestAckOrdering(t *testing.T) {
 
 func TestDeduplication(t *testing.T) {
 	db := openTestDB(t)
-	store := New(db, nil)
+	store := New(func() *qwr.Manager { return db }, nil)
 	ctx := context.Background()
 
 	// Send with a source_key.

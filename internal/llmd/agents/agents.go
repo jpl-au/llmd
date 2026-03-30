@@ -26,6 +26,7 @@ package agents
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"sync"
 
@@ -33,7 +34,8 @@ import (
 	"github.com/jpl-au/qwr"
 )
 
-const schema = `
+// Schema is the DDL for the agent_activity table and its indices.
+const Schema = `
 CREATE TABLE IF NOT EXISTS agent_activity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT NOT NULL UNIQUE,
@@ -66,8 +68,9 @@ var (
 
 // Agents provides agent configuration and run tracking. Config,
 // prompts, and settings are plain files under dir. Run tracking
-// uses the SQLite database.
+// uses the work database.
 type Agents struct {
+	dbFn func() *qwr.Manager
 	db   *qwr.Manager
 	dir  string // .llmd/agents/
 	bus  *events.Bus
@@ -75,10 +78,11 @@ type Agents struct {
 	err  error
 }
 
-// New creates an Agents instance. dir is the base directory for
-// agent files (typically .llmd/agents/).
-func New(db *qwr.Manager, dir string, bus *events.Bus) *Agents {
-	return &Agents{db: db, dir: dir, bus: bus}
+// New creates an Agents instance. The db function returns the work
+// database manager, opening it on demand if needed. dir is the base
+// directory for agent files (typically .llmd/agents/).
+func New(db func() *qwr.Manager, dir string, bus *events.Bus) *Agents {
+	return &Agents{dbFn: db, dir: dir, bus: bus}
 }
 
 // ConfigPath returns the filesystem path for an agent's config.
@@ -91,10 +95,15 @@ func PromptPath(name, role string) string {
 	return filepath.Join(".llmd", "agents", name, role+".md")
 }
 
-// ensure creates the agent_activity table if it does not exist.
+// ensure opens the work database and creates the agent_activity table if needed.
 func (a *Agents) ensure() error {
 	a.once.Do(func() {
-		_, a.err = a.db.Query(schema).Write()
+		a.db = a.dbFn()
+		if a.db == nil {
+			a.err = fmt.Errorf("work database not available")
+			return
+		}
+		_, a.err = a.db.Query(Schema).Write()
 	})
 	return a.err
 }
