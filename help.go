@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/jpl-au/llmd/internal/host"
@@ -32,8 +31,7 @@ var helpGroups = []commandGroup{
 }
 
 // printHelp displays grouped top-level usage. Each command shows only
-// the first line of its description. "Plugin Commands:" lists yaegi
-// plugins (only shown if any are loaded).
+// the first line of its description.
 func printHelp(h *host.Host) {
 	fmt.Print(`llmd - a document store for LLMs and humans
 
@@ -46,7 +44,7 @@ Global Flags:
   --help              Show help
 
 `)
-	cmds := h.ExtCommands()
+	cmds := h.Commands()
 	for _, g := range helpGroups {
 		fmt.Printf("%s:\n", g.label)
 		for _, name := range g.names {
@@ -55,24 +53,6 @@ Global Flags:
 				continue
 			}
 			desc := c.Desc
-			if i := strings.IndexByte(desc, '\n'); i >= 0 {
-				desc = desc[:i]
-			}
-			fmt.Printf("  %-12s%s\n", name, desc)
-		}
-		fmt.Println()
-	}
-
-	pcmds := h.PluginCommands()
-	if len(pcmds) > 0 {
-		fmt.Println("Plugin Commands:")
-		names := make([]string, 0, len(pcmds))
-		for name := range pcmds {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			desc := pcmds[name].Desc
 			if i := strings.IndexByte(desc, '\n'); i >= 0 {
 				desc = desc[:i]
 			}

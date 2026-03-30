@@ -64,9 +64,9 @@ var (
 )
 
 // Plugin is the interface that command providers implement. The host
-// discovers plugins at startup (compiled extensions via init(), dynamic
-// plugins via Yaegi), calls Commands() to build its command table, and
-// dispatches execution to Exec().
+// discovers plugins at startup (compiled extensions via init()), calls
+// Commands() to build its command table, and dispatches execution to
+// Exec().
 //
 // Plugins receive raw args and parse flags themselves - the host does
 // not interpret command arguments. See doc.go for a full example.
@@ -180,9 +180,6 @@ var Dispatch func(ctx context.Context, cmd string, args []string, author string,
 
 // AllCommands returns all registered commands. Set by the host at startup.
 var AllCommands func() map[string]*Command
-
-// PluginNames returns the names of loaded yaegi plugins. Set by the host.
-var PluginNames func() []string
 
 // SubscribeEvents registers a callback that receives all store events.
 // The callback is called synchronously on the emitting goroutine and

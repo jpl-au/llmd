@@ -10,7 +10,6 @@ require (
 	github.com/jpl-au/http-client v0.1.0
 	github.com/jpl-au/qwr v0.3.2
 	github.com/modelcontextprotocol/go-sdk v1.4.1
-	github.com/traefik/yaegi v0.16.2-0.20260123130804-bdb988490e02
 	github.com/yuin/goldmark v1.8.2
 	github.com/zeebo/xxh3 v1.1.0
 	golang.org/x/crypto v0.49.0
