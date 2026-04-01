@@ -232,9 +232,13 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
-	// Resume the previous session's context when the task opts in,
-	// avoiding a cold start where the agent has no memory of its
-	// prior work on this task.
+	// When a task has the "resume" flag, try to pick up the previous
+	// agent's conversation context instead of starting cold. This is
+	// valuable when an auditor rejects work and the original agent
+	// needs to fix it, because the agent already understands what it
+	// did and why. The fallback chain is: resume flag set + previous
+	// run exists + that run has a session ID + platform supports
+	// resume. If any link breaks, we assemble a fresh prompt below.
 	var cmdArgs []string
 	resumed := false
 	if hasFlag(t.Flags, "resume") {
@@ -410,8 +414,11 @@ func (a *agentAPI) Complete(taskKey string, exitCode int) error {
 		slog.Debug("extracting agent stats", "task", taskKey, "error", err)
 	}
 
-	// Emit agent telemetry with the raw LLM response when the
-	// build includes telemetry support.
+	// Capture the raw JSON response for diagnostic telemetry. This
+	// preserves the full LLM output (token counts, model info, cost,
+	// session ID, and any tool-specific fields) so it can be analysed
+	// later without re-running the agent. Only emitted when the
+	// binary is compiled with the telemetry build tag.
 	if rawJSON, jsonErr := assets.LastJSON(logPath); jsonErr == nil && rawJSON != "" {
 		telemetry.EmitAgent(telemetry.AgentEntry{
 			RunKey:  r.Key,

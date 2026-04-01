@@ -10,9 +10,12 @@ import (
 	pkgevents "github.com/jpl-au/llmd/pkg/events"
 )
 
-// Run is the materialised view of an agent execution, joining the
-// immutable run identity from agent_runs with the latest state from
-// agent_events.
+// Run is the materialised view of an agent execution. It does not
+// map directly to a single table row; instead it is assembled by
+// joining the immutable identity from agent_runs with the latest
+// terminal event (if any) from agent_events. Status and PID are
+// derived at query time rather than stored, because the underlying
+// tables are insert-only and never mutated after creation.
 type Run struct {
 	Key          string
 	TaskKey      string
@@ -32,7 +35,10 @@ type Run struct {
 	StoppedAt    int64
 }
 
-// RecordOpts holds values for creating a new agent run record.
+// RecordOpts captures the spawn-time identity of an agent run. These
+// values are written once to agent_runs and never change. PID is
+// recorded here because it is only meaningful at spawn time; once the
+// process exits, the PID is no longer valid.
 type RecordOpts struct {
 	TaskKey  string
 	Agent    string
@@ -107,7 +113,11 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	return r, nil
 }
 
-// CompleteOpts holds values for completing an agent run.
+// CompleteOpts carries the stats extracted from the agent's output
+// after it exits. These are written to a terminal event row in
+// agent_events. SessionID is captured here so that future spawns
+// can resume the agent's conversation context if the task opts in
+// via the "resume" flag.
 type CompleteOpts struct {
 	ExitCode     int
 	MonetaryCost *float64
@@ -117,8 +127,11 @@ type CompleteOpts struct {
 	SessionID    string
 }
 
-// Complete inserts a completion or failure event for the task's
-// current run and emits the appropriate bus event.
+// Complete records the outcome of an agent run by inserting a
+// terminal event ("completed" or "failed") into agent_events. This
+// is an insert, not an update, because the agent tables follow an
+// append-only pattern. The run's status is derived from this event
+// at query time by the LEFT JOIN in runQuery.
 func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts) error {
 	r, err := a.RunByTask(ctx, taskKey)
 	if err != nil {
@@ -185,8 +198,10 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 	return nil
 }
 
-// MarkStopped inserts a "stopped" event for the task's current run
-// and emits an AgentStopped bus event.
+// MarkStopped records that a running agent was manually terminated
+// by inserting a "stopped" event. Unlike Complete, no stats are
+// captured because the agent did not finish normally and its output
+// may be incomplete or absent.
 func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run, error) {
 	r, err := a.RunByTask(ctx, taskKey)
 	if err != nil {
@@ -224,8 +239,12 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 	return r, nil
 }
 
-// runQuery is the base SELECT that materialises a Run by joining
-// agent_runs with the latest terminal event from agent_events.
+// runQuery is the base SELECT shared by RunByTask and List. It uses
+// a LEFT JOIN so that running agents (which have no terminal event
+// yet) still appear in results with NULL event columns. The join
+// filters to only terminal events (completed, failed, stopped) and
+// ignores the initial "spawned" event, because status is derived
+// from which terminal event exists, not from the spawned row.
 const runQuery = `
 	SELECT
 		r.key, r.task_key, r.agent, r.branch, r.worktree,
@@ -237,7 +256,10 @@ const runQuery = `
 		AND e.event IN ('completed', 'failed', 'stopped')
 `
 
-// RunByTask returns the most recent run for a task.
+// RunByTask returns the most recent run for a task, ordered by row
+// ID rather than timestamp. Row ID ordering is necessary because
+// Windows has coarse millisecond clock resolution, and two runs
+// created in quick succession can share the same started_at value.
 func (a *Agents) RunByTask(ctx context.Context, taskKey string) (*Run, error) {
 	if err := a.ensure(); err != nil {
 		return nil, err
@@ -253,7 +275,9 @@ func (a *Agents) RunByTask(ctx context.Context, taskKey string) (*Run, error) {
 	return scanRun(row)
 }
 
-// ListOpts filters agent run queries.
+// ListOpts filters agent run queries. Status is filtered in Go
+// after materialisation rather than in SQL, because status is
+// derived from the joined terminal event, not stored as a column.
 type ListOpts struct {
 	Status  string
 	TaskKey string
@@ -278,8 +302,9 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 		args = append(args, opts.Agent)
 	}
 
-	// Status filtering is applied after materialisation since status
-	// is derived from the presence/type of a terminal event.
+	// Status cannot be filtered in SQL because it is not a stored
+	// column; it is derived from the joined terminal event in
+	// applyNullable. Filter in Go after scanning instead.
 	query += ` ORDER BY r.id DESC`
 
 	rows, err := a.db.Query(query, args...).WithContext(ctx).Read()
@@ -302,7 +327,10 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 	return runs, rows.Err()
 }
 
-// scanRun reads a single materialised Run from a sql.Row.
+// scanRun reads a single materialised Run from a sql.Row. This is
+// the single-row variant used by RunByTask. The column order must
+// match runQuery exactly: run identity columns first, then event
+// columns from the LEFT JOIN.
 func scanRun(row *sql.Row) (*Run, error) {
 	var r Run
 	var branch, worktree sql.NullString
@@ -328,7 +356,9 @@ func scanRun(row *sql.Row) (*Run, error) {
 	return &r, nil
 }
 
-// scanRunRow reads a single materialised Run from sql.Rows (used by List).
+// scanRunRow is the multi-row variant of scanRun, taking sql.Rows
+// instead of sql.Row. Needed because sql.Row and sql.Rows have
+// different Scan signatures despite identical column handling.
 func scanRunRow(rows *sql.Rows) (*Run, error) {
 	var r Run
 	var branch, worktree sql.NullString
@@ -350,8 +380,13 @@ func scanRunRow(rows *sql.Rows) (*Run, error) {
 	return &r, nil
 }
 
-// applyNullable populates a Run's optional fields and derives status
-// from the terminal event.
+// applyNullable translates SQL nullable columns into Go values and
+// derives the run's status from the terminal event. When no terminal
+// event exists (all event columns are NULL from the LEFT JOIN), the
+// run is still active: status is set to "running" and ExitCode
+// defaults to -1. When a terminal event is present, PID is zeroed
+// because the process is no longer alive and the recorded PID should
+// not be used for signal delivery.
 func applyNullable(r *Run, branch, worktree, event sql.NullString, exitCode sql.NullInt64, cost sql.NullFloat64, inTok, outTok sql.NullInt64, model, sessionID sql.NullString, stoppedAt sql.NullInt64) {
 	if branch.Valid {
 		r.Branch = branch.String
@@ -360,8 +395,8 @@ func applyNullable(r *Run, branch, worktree, event sql.NullString, exitCode sql.
 		r.Worktree = worktree.String
 	}
 
-	// Derive status from the terminal event. No terminal event means
-	// the run is still active.
+	// No terminal event in the LEFT JOIN means the agent process has
+	// not reported an outcome yet, so the run is still active.
 	r.ExitCode = -1
 	r.Status = "running"
 	if event.Valid {

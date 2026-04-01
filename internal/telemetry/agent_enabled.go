@@ -13,8 +13,12 @@ import (
 const agentTelemetryFile = "agent-telemetry.md"
 
 // EmitAgent appends a region-delimited markdown block containing the
-// raw LLM response to .llmd/agent-telemetry.md. Each block is
-// self-contained with metadata and a fenced JSON payload.
+// raw LLM response to .llmd/agent-telemetry.md. Each block includes
+// the run key, task key, agent name, and timestamp so entries can be
+// correlated back to agent_events rows. The file is opened and closed
+// per call rather than held open for the process lifetime, because
+// agent completions are infrequent and the file may be read by other
+// processes between writes.
 func EmitAgent(e AgentEntry) {
 	if e.RawJSON == "" {
 		return

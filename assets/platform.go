@@ -36,8 +36,12 @@ type Platform interface {
 	// Returns nil when no stats are available.
 	Stats(logPath string) (*RunStats, error)
 
-	// ResumeArgs returns CLI arguments for resuming a previous session.
-	// Returns nil when the platform does not support session resumption.
+	// ResumeArgs returns CLI arguments that restore the agent's prior
+	// conversation context, so it can continue work without rebuilding
+	// its understanding of the task from scratch. For example, Claude
+	// Code uses "--resume <session-id>". Returns nil when the platform
+	// has no session resumption mechanism, in which case Spawn falls
+	// back to a fresh prompt.
 	ResumeArgs(sessionID string) []string
 }
 
