@@ -35,6 +35,10 @@ type Platform interface {
 	// Stats extracts execution metrics from the agent's output log.
 	// Returns nil when no stats are available.
 	Stats(logPath string) (*RunStats, error)
+
+	// ResumeArgs returns CLI arguments for resuming a previous session.
+	// Returns nil when the platform does not support session resumption.
+	ResumeArgs(sessionID string) []string
 }
 
 // Platform returns the Platform for the named agent. Unknown agents
@@ -59,6 +63,10 @@ func (claude) SettingsPath() string {
 
 func (claude) BudgetArgs(budget float64) []string {
 	return []string{fmt.Sprintf("--max-budget-usd=%.2f", budget)}
+}
+
+func (claude) ResumeArgs(sessionID string) []string {
+	return []string{"--resume", sessionID}
 }
 
 // Stats reads the agent log and extracts metrics from Claude Code's
@@ -109,6 +117,7 @@ type gemini struct{}
 
 func (gemini) SettingsPath() string        { return "" }
 func (gemini) BudgetArgs(float64) []string { return nil }
+func (gemini) ResumeArgs(string) []string  { return nil }
 
 // Stats reads the agent log and extracts metrics from Gemini CLI's
 // JSON output (--output-format json).
@@ -159,6 +168,7 @@ type generic struct{}
 
 func (generic) SettingsPath() string            { return "" }
 func (generic) BudgetArgs(float64) []string     { return nil }
+func (generic) ResumeArgs(string) []string      { return nil }
 func (generic) Stats(string) (*RunStats, error) { return nil, nil }
 
 // LastJSON scans a file and returns the last line that starts with

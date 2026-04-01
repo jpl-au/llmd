@@ -232,26 +232,43 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
-	// Build the context prompt.
-	prompt := opts.Prompt
-	if prompt == "" {
-		prompt = a.store.Agents.BuildPrompt(a.ctx, cfg, agents.PromptData{
-			Key:        t.Key,
-			Title:      t.Title,
-			Branch:     branch,
-			AssignedTo: t.AssignedTo,
-			Agent:      agent,
-			URL:        llmdURL,
-			SpecPath:   t.Path,
-			OnSuccess:  opts.OnSuccess,
-			OnFailure:  opts.OnFailure,
-		})
+	// Resume the previous session's context when the task opts in,
+	// avoiding a cold start where the agent has no memory of its
+	// prior work on this task.
+	var cmdArgs []string
+	resumed := false
+	if hasFlag(t.Flags, "resume") {
+		if prev, prevErr := a.store.Agents.RunByTask(a.ctx, taskKey); prevErr == nil {
+			if prev.SessionID != "" {
+				if resumeArgs := plat.ResumeArgs(prev.SessionID); resumeArgs != nil {
+					cmdArgs = resumeArgs
+					resumed = true
+					slog.Debug("resuming previous session", "task", taskKey, "session", prev.SessionID)
+				}
+			}
+		}
 	}
 
-	// Build command args, replacing {{.Prompt}} placeholder.
-	cmdArgs := make([]string, len(cfg.Args))
-	for i, arg := range cfg.Args {
-		cmdArgs[i] = strings.ReplaceAll(arg, "{{.Prompt}}", prompt)
+	if !resumed {
+		prompt := opts.Prompt
+		if prompt == "" {
+			prompt = a.store.Agents.BuildPrompt(a.ctx, cfg, agents.PromptData{
+				Key:        t.Key,
+				Title:      t.Title,
+				Branch:     branch,
+				AssignedTo: t.AssignedTo,
+				Agent:      agent,
+				URL:        llmdURL,
+				SpecPath:   t.Path,
+				OnSuccess:  opts.OnSuccess,
+				OnFailure:  opts.OnFailure,
+			})
+		}
+
+		cmdArgs = make([]string, len(cfg.Args))
+		for i, arg := range cfg.Args {
+			cmdArgs[i] = strings.ReplaceAll(arg, "{{.Prompt}}", prompt)
+		}
 	}
 
 	// Apply budget.
@@ -452,6 +469,15 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 	}
 
 	return nil
+}
+
+func hasFlag(flags, flag string) bool {
+	for f := range strings.SplitSeq(flags, ",") {
+		if strings.TrimSpace(f) == flag {
+			return true
+		}
+	}
+	return false
 }
 
 // writeSettings writes agent runtime settings into the worktree at

@@ -205,11 +205,37 @@ same worktree and branch. The worktree is only cleaned up when
 llmd detects the agent platform and handles differences
 automatically:
 
-| Platform | Budget flags | Cost extraction | Settings location |
-|----------|-------------|-----------------|-------------------|
-| Claude Code | `--max-budget-usd` | JSON output (`total_cost_usd`) | `.claude/settings.json` |
-| Gemini CLI | - | Token counts from JSON | - |
-| Generic | - | - | - |
+| Platform | Budget flags | Cost extraction | Session resume | Settings location |
+|----------|-------------|-----------------|----------------|-------------------|
+| Claude Code | `--max-budget-usd` | JSON output (`total_cost_usd`) | `--resume <id>` | `.claude/settings.json` |
+| Gemini CLI | - | Token counts from JSON | - | - |
+| Generic | - | - | - | - |
+
+## Session resumption
+
+When an agent completes a run, its session ID is captured from the
+tool's JSON output and stored in the completion event. This allows
+subsequent spawns to resume the agent's conversation context instead
+of starting fresh.
+
+To enable resume for a task, set the `resume` flag:
+
+```bash
+llmd task set <task-key> --flag resume
+```
+
+When the task is next spawned (manually or via pipeline), llmd checks
+for a previous session ID. If one exists and the platform supports
+resume, the agent is started with resume arguments (e.g.
+`claude --resume <session-id>`) instead of a fresh prompt. This is
+useful when an audit finds issues and the original agent needs to
+fix its own work with full context of what it already did.
+
+To disable resume and force a fresh spawn:
+
+```bash
+llmd task set <task-key> --unflag resume
+```
 
 ## Examples
 
