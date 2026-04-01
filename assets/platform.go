@@ -16,6 +16,7 @@ type RunStats struct {
 	InputTokens  *int
 	OutputTokens *int
 	Model        string
+	SessionID    string
 }
 
 // Platform describes platform-specific behaviour for an agent tool
@@ -63,7 +64,7 @@ func (claude) BudgetArgs(budget float64) []string {
 // Stats reads the agent log and extracts metrics from Claude Code's
 // JSON output (--output-format json).
 func (claude) Stats(logPath string) (*RunStats, error) {
-	data, err := lastJSON(logPath)
+	data, err := LastJSON(logPath)
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +74,7 @@ func (claude) Stats(logPath string) (*RunStats, error) {
 
 	var output struct {
 		TotalCost *float64 `json:"total_cost_usd"`
+		SessionID string   `json:"session_id"`
 		Usage     struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
@@ -86,6 +88,7 @@ func (claude) Stats(logPath string) (*RunStats, error) {
 
 	stats := &RunStats{
 		MonetaryCost: output.TotalCost,
+		SessionID:    output.SessionID,
 	}
 	if output.Usage.InputTokens > 0 {
 		stats.InputTokens = &output.Usage.InputTokens
@@ -110,7 +113,7 @@ func (gemini) BudgetArgs(float64) []string { return nil }
 // Stats reads the agent log and extracts metrics from Gemini CLI's
 // JSON output (--output-format json).
 func (gemini) Stats(logPath string) (*RunStats, error) {
-	data, err := lastJSON(logPath)
+	data, err := LastJSON(logPath)
 	if err != nil {
 		return nil, err
 	}
@@ -158,9 +161,9 @@ func (generic) SettingsPath() string            { return "" }
 func (generic) BudgetArgs(float64) []string     { return nil }
 func (generic) Stats(string) (*RunStats, error) { return nil, nil }
 
-// lastJSON scans a file and returns the last line that starts with
+// LastJSON scans a file and returns the last line that starts with
 // '{'. Agent tools write their JSON result as the final output line.
-func lastJSON(path string) (string, error) {
+func LastJSON(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("opening agent log: %w", err)

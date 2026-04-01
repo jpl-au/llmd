@@ -18,6 +18,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/internal/llmd/rules"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
+	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -64,6 +65,7 @@ func runToSDK(r *agents.Run) *sdk.AgentRun {
 		InputTokens:  r.InputTokens,
 		OutputTokens: r.OutputTokens,
 		Model:        r.Model,
+		SessionID:    r.SessionID,
 		Author:       r.Author,
 		StartedAt:    r.StartedAt,
 		StoppedAt:    r.StoppedAt,
@@ -391,12 +393,24 @@ func (a *agentAPI) Complete(taskKey string, exitCode int) error {
 		slog.Debug("extracting agent stats", "task", taskKey, "error", err)
 	}
 
+	// Emit agent telemetry with the raw LLM response when the
+	// build includes telemetry support.
+	if rawJSON, jsonErr := assets.LastJSON(logPath); jsonErr == nil && rawJSON != "" {
+		telemetry.EmitAgent(telemetry.AgentEntry{
+			RunKey:  r.Key,
+			TaskKey: taskKey,
+			Agent:   r.Agent,
+			RawJSON: rawJSON,
+		})
+	}
+
 	opts := agents.CompleteOpts{ExitCode: exitCode}
 	if stats != nil {
 		opts.MonetaryCost = stats.MonetaryCost
 		opts.InputTokens = stats.InputTokens
 		opts.OutputTokens = stats.OutputTokens
 		opts.Model = stats.Model
+		opts.SessionID = stats.SessionID
 	}
 
 	return agentErr(a.store.Agents.Complete(a.ctx, taskKey, opts))

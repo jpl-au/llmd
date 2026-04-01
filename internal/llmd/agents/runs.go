@@ -10,7 +10,9 @@ import (
 	pkgevents "github.com/jpl-au/llmd/pkg/events"
 )
 
-// Run is the internal representation of an agent execution.
+// Run is the materialised view of an agent execution, joining the
+// immutable run identity from agent_runs with the latest state from
+// agent_events.
 type Run struct {
 	Key          string
 	TaskKey      string
@@ -24,6 +26,7 @@ type Run struct {
 	InputTokens  *int
 	OutputTokens *int
 	Model        string
+	SessionID    string
 	Author       string
 	StartedAt    int64
 	StoppedAt    int64
@@ -39,8 +42,9 @@ type RecordOpts struct {
 	Author   string
 }
 
-// Record inserts a new agent run and emits an AgentSpawned event.
-// Returns ErrRunning if the task already has a running agent.
+// Record inserts a new agent run and a "spawned" event, then emits
+// an AgentSpawned event. Returns ErrRunning if the task already has
+// a running agent.
 func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	if err := a.ensure(); err != nil {
 		return nil, err
@@ -58,11 +62,19 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	now := time.Now().UnixMilli()
 
 	_, err = a.db.Query(`
-		INSERT INTO agent_activity (key, task_key, agent, branch, worktree, status, pid, exit_code, author, started_at)
-		VALUES (?, ?, ?, ?, ?, 'running', ?, -1, ?, ?)
+		INSERT INTO agent_runs (key, task_key, agent, branch, worktree, pid, author, started_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`, k, opts.TaskKey, opts.Agent, opts.Branch, opts.Worktree, opts.PID, opts.Author, now).Write()
 	if err != nil {
 		return nil, fmt.Errorf("inserting agent run: %w", err)
+	}
+
+	_, err = a.db.Query(`
+		INSERT INTO agent_events (run_key, event, created_at)
+		VALUES (?, 'spawned', ?)
+	`, k, now).Write()
+	if err != nil {
+		return nil, fmt.Errorf("inserting spawned event: %w", err)
 	}
 
 	r := &Run{
@@ -102,10 +114,11 @@ type CompleteOpts struct {
 	InputTokens  *int
 	OutputTokens *int
 	Model        string
+	SessionID    string
 }
 
-// Complete marks a run as completed or failed based on exit code and
-// emits the appropriate event. Cost is recorded when available.
+// Complete inserts a completion or failure event for the task's
+// current run and emits the appropriate bus event.
 func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts) error {
 	r, err := a.RunByTask(ctx, taskKey)
 	if err != nil {
@@ -116,10 +129,10 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 	}
 
 	now := time.Now().UnixMilli()
-	status := "completed"
+	event := "completed"
 	evtType := pkgevents.AgentCompleted
 	if opts.ExitCode != 0 {
-		status = "failed"
+		event = "failed"
 		evtType = pkgevents.AgentFailed
 	}
 
@@ -138,14 +151,17 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 	if opts.Model != "" {
 		model = sql.NullString{String: opts.Model, Valid: true}
 	}
+	var sessionID sql.NullString
+	if opts.SessionID != "" {
+		sessionID = sql.NullString{String: opts.SessionID, Valid: true}
+	}
 
 	_, err = a.db.Query(`
-		UPDATE agent_activity
-		SET status = ?, exit_code = ?, monetary_cost = ?, input_tokens = ?, output_tokens = ?, model = ?, pid = 0, stopped_at = ?
-		WHERE key = ?
-	`, status, opts.ExitCode, costVal, inTok, outTok, model, now, r.Key).Write()
+		INSERT INTO agent_events (run_key, event, exit_code, monetary_cost, input_tokens, output_tokens, model, session_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, r.Key, event, opts.ExitCode, costVal, inTok, outTok, model, sessionID, now).Write()
 	if err != nil {
-		return fmt.Errorf("completing agent run: %w", err)
+		return fmt.Errorf("inserting completion event: %w", err)
 	}
 
 	metadata := map[string]any{
@@ -169,7 +185,8 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 	return nil
 }
 
-// MarkStopped marks a running agent as stopped and emits an event.
+// MarkStopped inserts a "stopped" event for the task's current run
+// and emits an AgentStopped bus event.
 func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run, error) {
 	r, err := a.RunByTask(ctx, taskKey)
 	if err != nil {
@@ -181,11 +198,11 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 
 	now := time.Now().UnixMilli()
 	_, err = a.db.Query(`
-		UPDATE agent_activity SET status = 'stopped', pid = 0, stopped_at = ?
-		WHERE key = ?
-	`, now, r.Key).Write()
+		INSERT INTO agent_events (run_key, event, created_at)
+		VALUES (?, 'stopped', ?)
+	`, r.Key, now).Write()
 	if err != nil {
-		return nil, fmt.Errorf("stopping agent run: %w", err)
+		return nil, fmt.Errorf("inserting stopped event: %w", err)
 	}
 
 	r.Status = "stopped"
@@ -207,16 +224,27 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 	return r, nil
 }
 
+// runQuery is the base SELECT that materialises a Run by joining
+// agent_runs with the latest terminal event from agent_events.
+const runQuery = `
+	SELECT
+		r.key, r.task_key, r.agent, r.branch, r.worktree,
+		r.pid, r.author, r.started_at,
+		e.event, e.exit_code, e.monetary_cost, e.input_tokens,
+		e.output_tokens, e.model, e.session_id, e.created_at
+	FROM agent_runs r
+	LEFT JOIN agent_events e ON e.run_key = r.key
+		AND e.event IN ('completed', 'failed', 'stopped')
+`
+
 // RunByTask returns the most recent run for a task.
 func (a *Agents) RunByTask(ctx context.Context, taskKey string) (*Run, error) {
 	if err := a.ensure(); err != nil {
 		return nil, err
 	}
-	row, err := a.db.Query(`
-		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, monetary_cost, input_tokens, output_tokens, model, author, started_at, stopped_at
-		FROM agent_activity
-		WHERE task_key = ?
-		ORDER BY started_at DESC
+	row, err := a.db.Query(runQuery+`
+		WHERE r.task_key = ?
+		ORDER BY r.started_at DESC
 		LIMIT 1
 	`, taskKey).WithContext(ctx).ReadRow()
 	if err != nil {
@@ -238,26 +266,21 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 		return nil, err
 	}
 
-	query := `
-		SELECT key, task_key, agent, branch, worktree, status, pid, exit_code, monetary_cost, input_tokens, output_tokens, model, author, started_at, stopped_at
-		FROM agent_activity WHERE 1=1
-	`
+	query := runQuery + ` WHERE 1=1`
 	var args []any
 
-	if opts.Status != "" {
-		query += ` AND status = ?`
-		args = append(args, opts.Status)
-	}
 	if opts.TaskKey != "" {
-		query += ` AND task_key = ?`
+		query += ` AND r.task_key = ?`
 		args = append(args, opts.TaskKey)
 	}
 	if opts.Agent != "" {
-		query += ` AND agent = ?`
+		query += ` AND r.agent = ?`
 		args = append(args, opts.Agent)
 	}
 
-	query += ` ORDER BY started_at DESC`
+	// Status filtering is applied after materialisation since status
+	// is derived from the presence/type of a terminal event.
+	query += ` ORDER BY r.started_at DESC`
 
 	rows, err := a.db.Query(query, args...).WithContext(ctx).Read()
 	if err != nil {
@@ -267,56 +290,32 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 
 	var runs []*Run
 	for rows.Next() {
-		var r Run
-		var branch, worktree, model sql.NullString
-		var cost sql.NullFloat64
-		var inTok, outTok, stoppedAt sql.NullInt64
-		if err := rows.Scan(
-			&r.Key, &r.TaskKey, &r.Agent, &branch, &worktree,
-			&r.Status, &r.PID, &r.ExitCode, &cost, &inTok, &outTok, &model, &r.Author,
-			&r.StartedAt, &stoppedAt,
-		); err != nil {
+		r, err := scanRunRow(rows)
+		if err != nil {
 			return nil, err
 		}
-		if branch.Valid {
-			r.Branch = branch.String
+		if opts.Status != "" && r.Status != opts.Status {
+			continue
 		}
-		if worktree.Valid {
-			r.Worktree = worktree.String
-		}
-		if cost.Valid {
-			r.MonetaryCost = &cost.Float64
-		}
-		if inTok.Valid {
-			v := int(inTok.Int64)
-			r.InputTokens = &v
-		}
-		if outTok.Valid {
-			v := int(outTok.Int64)
-			r.OutputTokens = &v
-		}
-		if model.Valid {
-			r.Model = model.String
-		}
-		if stoppedAt.Valid {
-			r.StoppedAt = stoppedAt.Int64
-		}
-		runs = append(runs, &r)
+		runs = append(runs, r)
 	}
 	return runs, rows.Err()
 }
 
-// scanRun reads a single run from a database row.
+// scanRun reads a single materialised Run from a sql.Row.
 func scanRun(row *sql.Row) (*Run, error) {
 	var r Run
-	var branch, worktree, model sql.NullString
+	var branch, worktree sql.NullString
+	var event sql.NullString
+	var exitCode sql.NullInt64
 	var cost sql.NullFloat64
 	var inTok, outTok, stoppedAt sql.NullInt64
+	var model, sessionID sql.NullString
 
 	err := row.Scan(
 		&r.Key, &r.TaskKey, &r.Agent, &branch, &worktree,
-		&r.Status, &r.PID, &r.ExitCode, &cost, &inTok, &outTok, &model, &r.Author,
-		&r.StartedAt, &stoppedAt,
+		&r.PID, &r.Author, &r.StartedAt,
+		&event, &exitCode, &cost, &inTok, &outTok, &model, &sessionID, &stoppedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, ErrRunNotFound
@@ -325,11 +324,60 @@ func scanRun(row *sql.Row) (*Run, error) {
 		return nil, err
 	}
 
+	applyNullable(&r, branch, worktree, event, exitCode, cost, inTok, outTok, model, sessionID, stoppedAt)
+	return &r, nil
+}
+
+// scanRunRow reads a single materialised Run from sql.Rows (used by List).
+func scanRunRow(rows *sql.Rows) (*Run, error) {
+	var r Run
+	var branch, worktree sql.NullString
+	var event sql.NullString
+	var exitCode sql.NullInt64
+	var cost sql.NullFloat64
+	var inTok, outTok, stoppedAt sql.NullInt64
+	var model, sessionID sql.NullString
+
+	if err := rows.Scan(
+		&r.Key, &r.TaskKey, &r.Agent, &branch, &worktree,
+		&r.PID, &r.Author, &r.StartedAt,
+		&event, &exitCode, &cost, &inTok, &outTok, &model, &sessionID, &stoppedAt,
+	); err != nil {
+		return nil, err
+	}
+
+	applyNullable(&r, branch, worktree, event, exitCode, cost, inTok, outTok, model, sessionID, stoppedAt)
+	return &r, nil
+}
+
+// applyNullable populates a Run's optional fields and derives status
+// from the terminal event.
+func applyNullable(r *Run, branch, worktree, event sql.NullString, exitCode sql.NullInt64, cost sql.NullFloat64, inTok, outTok sql.NullInt64, model, sessionID sql.NullString, stoppedAt sql.NullInt64) {
 	if branch.Valid {
 		r.Branch = branch.String
 	}
 	if worktree.Valid {
 		r.Worktree = worktree.String
+	}
+
+	// Derive status from the terminal event. No terminal event means
+	// the run is still active.
+	r.ExitCode = -1
+	r.Status = "running"
+	if event.Valid {
+		switch event.String {
+		case "completed":
+			r.Status = "completed"
+		case "failed":
+			r.Status = "failed"
+		case "stopped":
+			r.Status = "stopped"
+		}
+		r.PID = 0
+	}
+
+	if exitCode.Valid {
+		r.ExitCode = int(exitCode.Int64)
 	}
 	if cost.Valid {
 		r.MonetaryCost = &cost.Float64
@@ -345,8 +393,10 @@ func scanRun(row *sql.Row) (*Run, error) {
 	if model.Valid {
 		r.Model = model.String
 	}
+	if sessionID.Valid {
+		r.SessionID = sessionID.String
+	}
 	if stoppedAt.Valid {
 		r.StoppedAt = stoppedAt.Int64
 	}
-	return &r, nil
 }

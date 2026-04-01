@@ -21,6 +21,7 @@ and cleans up after itself.
 | `smoke_http.sh` | HTTP API: GET/POST routes, content round-trips, JSON output, error codes |
 | `smoke_telemetry.sh` | Telemetry and observability |
 | `smoke_webhooks.sh` | Webhook delivery: event broadcast, auth headers, payload verification |
+| `smoke_agent.sh` | Agent registration, configuration, prompt templates, run tracking, filters |
 
 ## Supporting tools
 

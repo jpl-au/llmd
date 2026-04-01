@@ -119,6 +119,11 @@ type AgentRun struct {
 	// agent does not report it.
 	Model string `json:"model,omitempty"`
 
+	// SessionID is the tool's conversation session identifier.
+	// Used to resume the agent's context on subsequent spawns.
+	// Empty when the tool does not report it.
+	SessionID string `json:"session_id,omitempty"`
+
 	// Author is who initiated the spawn.
 	Author string `json:"author"`
 

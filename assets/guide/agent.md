@@ -94,7 +94,7 @@ Both do the same thing:
 4. Assemble the context prompt from the task's spec and templates
 5. Write a run config (`.llmd-run.json`) to the worktree
 6. Start `llmd agent run` as a detached process
-7. Record the run in the agent_activity table
+7. Record the run in the agent_runs table
 
 The `agent run` process then starts the actual agent (claude, gemini,
 etc.), waits for it to finish, records completion stats, captures
@@ -149,13 +149,17 @@ If the HTTP server is running, the `-http` variant is tried first
 
 ## Run tracking
 
-Every agent spawn is recorded in the `agent_activity` table with:
+Every agent spawn is recorded across two insert-only tables:
 
-- Monetary cost (when reported by the agent)
-- Input and output token counts
-- Model name
-- Exit code, start/stop timestamps
-- Git branch and worktree path
+**`agent_runs`** holds the immutable identity created at spawn time:
+- Agent name, git branch, and worktree path
+- Author and start timestamp
+
+**`agent_events`** holds lifecycle transitions (spawned, completed,
+failed, stopped). Terminal events carry:
+- Exit code and timestamps
+- Monetary cost, input/output token counts, model name
+- Session ID (for resuming the agent's conversation context)
 
 ```bash
 # List all runs

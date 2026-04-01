@@ -34,30 +34,43 @@ import (
 	"github.com/jpl-au/qwr"
 )
 
-// Schema is the DDL for the agent_activity table and its indices.
+// Schema is the DDL for the agent tables.
+//
+// agent_runs is an immutable record created at spawn time. One row per
+// run, holding identity and configuration.
+//
+// agent_events is an append-only lifecycle log. Each row is a state
+// transition (spawned, completed, failed, stopped). Terminal events
+// carry execution stats.
 const Schema = `
-CREATE TABLE IF NOT EXISTS agent_activity (
+CREATE TABLE IF NOT EXISTS agent_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT NOT NULL UNIQUE,
     task_key TEXT NOT NULL,
     agent TEXT NOT NULL,
     branch TEXT,
     worktree TEXT,
-    status TEXT NOT NULL,
     pid INTEGER NOT NULL DEFAULT 0,
-    exit_code INTEGER NOT NULL DEFAULT -1,
+    author TEXT NOT NULL,
+    started_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_key TEXT NOT NULL REFERENCES agent_runs(key),
+    event TEXT NOT NULL,
+    exit_code INTEGER,
     monetary_cost REAL,
     input_tokens INTEGER,
     output_tokens INTEGER,
     model TEXT,
-    author TEXT NOT NULL,
-    started_at INTEGER NOT NULL,
-    stopped_at INTEGER
+    session_id TEXT,
+    created_at INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_agent_activity_key ON agent_activity(key);
-CREATE INDEX IF NOT EXISTS idx_agent_activity_task ON agent_activity(task_key);
-CREATE INDEX IF NOT EXISTS idx_agent_activity_status ON agent_activity(status);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_key ON agent_runs(key);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_task ON agent_runs(task_key);
+CREATE INDEX IF NOT EXISTS idx_agent_events_run ON agent_events(run_key);
 `
 
 var (
@@ -95,7 +108,7 @@ func PromptPath(name, role string) string {
 	return filepath.Join(".llmd", "agents", name, role+".md")
 }
 
-// ensure opens the work database and creates the agent_activity table if needed.
+// ensure opens the work database and creates the agent tables if needed.
 func (a *Agents) ensure() error {
 	a.once.Do(func() {
 		a.db = a.dbFn()
@@ -109,10 +122,17 @@ func (a *Agents) ensure() error {
 }
 
 // hasRunning checks whether a task already has a running agent.
+// A run is considered running when it has a "spawned" event but no
+// terminal event (completed, failed, stopped).
 func (a *Agents) hasRunning(ctx context.Context, taskKey string) (bool, error) {
 	row, err := a.db.Query(`
-		SELECT COUNT(*) FROM agent_activity
-		WHERE task_key = ? AND status = 'running'
+		SELECT COUNT(*) FROM agent_runs r
+		WHERE r.task_key = ?
+		AND NOT EXISTS (
+			SELECT 1 FROM agent_events e
+			WHERE e.run_key = r.key
+			AND e.event IN ('completed', 'failed', 'stopped')
+		)
 	`, taskKey).WithContext(ctx).ReadRow()
 	if err != nil {
 		return false, err
