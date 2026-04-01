@@ -244,7 +244,7 @@ func (a *Agents) RunByTask(ctx context.Context, taskKey string) (*Run, error) {
 	}
 	row, err := a.db.Query(runQuery+`
 		WHERE r.task_key = ?
-		ORDER BY r.started_at DESC
+		ORDER BY r.id DESC
 		LIMIT 1
 	`, taskKey).WithContext(ctx).ReadRow()
 	if err != nil {
@@ -280,7 +280,7 @@ func (a *Agents) List(ctx context.Context, opts ListOpts) ([]*Run, error) {
 
 	// Status filtering is applied after materialisation since status
 	// is derived from the presence/type of a terminal event.
-	query += ` ORDER BY r.started_at DESC`
+	query += ` ORDER BY r.id DESC`
 
 	rows, err := a.db.Query(query, args...).WithContext(ctx).Read()
 	if err != nil {
