@@ -16,6 +16,7 @@ import (
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
+	"github.com/jpl-au/llmd/internal/llmd/audits"
 	"github.com/jpl-au/llmd/internal/llmd/rules"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	"github.com/jpl-au/llmd/internal/telemetry"
@@ -242,12 +243,20 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// by the same agent (a gemini session ID is meaningless to claude),
 	// must have produced a session ID, and the platform must support
 	// resume. If any condition fails, we fall through to a fresh prompt.
+	//
+	// When resuming, the agent still needs direction about what to
+	// fix. We build a lightweight prompt from audit entries created
+	// since the previous run started (these are typically the
+	// auditor's rejection feedback). This prompt is passed alongside
+	// the session resume so the agent gets its old context plus the
+	// new instructions.
 	var cmdArgs []string
 	resumed := false
 	if opts.Resume || hasFlag(t.Flags, "resume") {
 		if prev, prevErr := a.store.Agents.RunByTask(a.ctx, taskKey); prevErr == nil {
 			if prev.Agent == agent && prev.SessionID != "" {
-				if resumeArgs := plat.ResumeArgs(prev.SessionID); resumeArgs != nil {
+				resumePrompt := a.buildResumePrompt(taskKey, prev.StartedAt)
+				if resumeArgs := plat.ResumeArgs(prev.SessionID, resumePrompt); resumeArgs != nil {
 					cmdArgs = resumeArgs
 					resumed = true
 					slog.Debug("resuming previous session", "task", taskKey, "session", prev.SessionID)
@@ -479,6 +488,38 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 	}
 
 	return nil
+}
+
+// buildResumePrompt assembles a lightweight prompt for a resumed
+// session from audit entries created since the previous run started.
+// These entries are typically the auditor's rejection feedback
+// explaining what needs fixing. The resumed agent already has the
+// full task context from its previous session, so this prompt
+// focuses only on what changed since then. Returns a generic
+// instruction if no audit feedback is found, because the agent
+// still needs a prompt to trigger non-interactive execution.
+func (a *agentAPI) buildResumePrompt(taskKey string, sinceMS int64) string {
+	audits, err := a.store.Audits.List(a.ctx, audits.ListOptions{
+		Target:  taskKey,
+		SinceMS: sinceMS,
+	})
+	if err != nil {
+		slog.Debug("reading audits for resume prompt", "task", taskKey, "error", err)
+	}
+
+	if len(audits) == 0 {
+		return fmt.Sprintf("Resume work on task %s. Review any recent feedback and address outstanding issues.", taskKey)
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Your previous work on task %s was reviewed. Address the following feedback:\n\n", taskKey)
+	for _, aud := range audits {
+		if aud.Content == "" {
+			continue
+		}
+		fmt.Fprintf(&b, "--- %s (%s):\n%s\n\n", aud.Author, aud.Status, aud.Content)
+	}
+	return b.String()
 }
 
 func hasFlag(flags, flag string) bool {

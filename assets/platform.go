@@ -37,12 +37,14 @@ type Platform interface {
 	Stats(logPath string) (*RunStats, error)
 
 	// ResumeArgs returns CLI arguments that restore the agent's prior
-	// conversation context, so it can continue work without rebuilding
-	// its understanding of the task from scratch. For example, Claude
-	// Code uses "--resume <session-id>". Returns nil when the platform
+	// conversation context and deliver a new prompt into that session.
+	// The prompt typically contains audit feedback explaining what
+	// needs fixing. Each platform decides how to combine session
+	// resumption with a new prompt (e.g. Claude Code uses
+	// "--resume <id> -p <prompt>"). Returns nil when the platform
 	// has no session resumption mechanism, in which case Spawn falls
-	// back to a fresh prompt.
-	ResumeArgs(sessionID string) []string
+	// back to a fresh prompt with the full context.
+	ResumeArgs(sessionID, prompt string) []string
 }
 
 // Platform returns the Platform for the named agent. Unknown agents
@@ -69,8 +71,8 @@ func (claude) BudgetArgs(budget float64) []string {
 	return []string{fmt.Sprintf("--max-budget-usd=%.2f", budget)}
 }
 
-func (claude) ResumeArgs(sessionID string) []string {
-	return []string{"--resume", sessionID}
+func (claude) ResumeArgs(sessionID, prompt string) []string {
+	return []string{"--resume", sessionID, "-p", prompt}
 }
 
 // Stats reads the agent log and extracts metrics from Claude Code's
@@ -119,9 +121,9 @@ func (claude) Stats(logPath string) (*RunStats, error) {
 // gemini is the Platform for Gemini CLI.
 type gemini struct{}
 
-func (gemini) SettingsPath() string        { return "" }
-func (gemini) BudgetArgs(float64) []string { return nil }
-func (gemini) ResumeArgs(string) []string  { return nil }
+func (gemini) SettingsPath() string               { return "" }
+func (gemini) BudgetArgs(float64) []string        { return nil }
+func (gemini) ResumeArgs(string, string) []string { return nil }
 
 // Stats reads the agent log and extracts metrics from Gemini CLI's
 // JSON output (--output-format json).
@@ -170,10 +172,10 @@ func (gemini) Stats(logPath string) (*RunStats, error) {
 // generic is the no-op Platform for unknown agents.
 type generic struct{}
 
-func (generic) SettingsPath() string            { return "" }
-func (generic) BudgetArgs(float64) []string     { return nil }
-func (generic) ResumeArgs(string) []string      { return nil }
-func (generic) Stats(string) (*RunStats, error) { return nil, nil }
+func (generic) SettingsPath() string               { return "" }
+func (generic) BudgetArgs(float64) []string        { return nil }
+func (generic) ResumeArgs(string, string) []string { return nil }
+func (generic) Stats(string) (*RunStats, error)    { return nil, nil }
 
 // LastJSON scans a file and returns the last line that starts with
 // '{'. Agent tools write their JSON result as the final output line.
