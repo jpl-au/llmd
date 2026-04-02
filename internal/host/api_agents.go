@@ -232,18 +232,21 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
-	// When a task has the "resume" flag, try to pick up the previous
-	// agent's conversation context instead of starting cold. This is
-	// valuable when an auditor rejects work and the original agent
-	// needs to fix it, because the agent already understands what it
-	// did and why. The fallback chain is: resume flag set + previous
-	// run exists + that run has a session ID + platform supports
-	// resume. If any link breaks, we assemble a fresh prompt below.
+	// Resume is requested either explicitly via SpawnOpts (set by the
+	// pipeline handler from the column rule, or by CLI --resume) or
+	// persistently via the task's "resume" flag. Either source being
+	// true triggers an attempt to pick up the previous agent's
+	// conversation context, avoiding a cold start where the agent
+	// has no memory of its prior work. The attempt is guarded by
+	// several conditions: the previous run must exist, must have been
+	// by the same agent (a gemini session ID is meaningless to claude),
+	// must have produced a session ID, and the platform must support
+	// resume. If any condition fails, we fall through to a fresh prompt.
 	var cmdArgs []string
 	resumed := false
-	if hasFlag(t.Flags, "resume") {
+	if opts.Resume || hasFlag(t.Flags, "resume") {
 		if prev, prevErr := a.store.Agents.RunByTask(a.ctx, taskKey); prevErr == nil {
-			if prev.SessionID != "" {
+			if prev.Agent == agent && prev.SessionID != "" {
 				if resumeArgs := plat.ResumeArgs(prev.SessionID); resumeArgs != nil {
 					cmdArgs = resumeArgs
 					resumed = true

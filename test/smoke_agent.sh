@@ -95,6 +95,22 @@ _smoke_agent() {
         log_pass "agent rm: agent no longer listed"
     fi
 
+    # --- rule set --resume ---
+    $llmd rule set code --agent claude-code --role developer --resume --success test --failure blocked >/dev/null 2>&1
+    out=$($llmd --json rule list 2>&1)
+    if echo "$out" | grep -q '"resume": *true'; then
+        log_pass "rule set --resume persists in YAML"
+    else
+        log_fail "rule set --resume persists in YAML: got '$out'"
+    fi
+
+    out=$($llmd rule list 2>&1)
+    if echo "$out" | grep -q "resume"; then
+        log_pass "rule list shows resume in display"
+    else
+        log_fail "rule list shows resume in display: got '$out'"
+    fi
+
     # --- agent runs --json includes session_id field ---
     # Create a task so we can simulate a run lifecycle via internal commands.
     echo "# Smoke task" | $llmd --author "smoke" task add "Smoke task" >/dev/null 2>&1

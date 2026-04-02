@@ -50,6 +50,7 @@ func (h *pipelineHandler) HandleEvent(ctx context.Context, e pkgevents.Event) er
 
 	_, err = h.agent.Spawn(e.Key, cr.Agent, e.Author, sdk.SpawnOpts{
 		Role:      cr.Role,
+		Resume:    cr.Resume,
 		OnSuccess: cr.Success,
 		OnFailure: cr.Failure,
 	})

@@ -27,6 +27,7 @@ func (r *ruleAPI) Show() (map[string]sdk.ColumnRule, error) {
 			Role:    cr.Role,
 			Success: cr.Success,
 			Failure: cr.Failure,
+			Resume:  cr.Resume,
 		}
 	}
 	return out, nil
@@ -42,6 +43,7 @@ func (r *ruleAPI) Set(column string, rule sdk.ColumnRule) error {
 		Role:    rule.Role,
 		Success: rule.Success,
 		Failure: rule.Failure,
+		Resume:  rule.Resume,
 	}
 	return rules.Save(r.dir, "default", rs)
 }

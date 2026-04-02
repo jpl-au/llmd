@@ -17,7 +17,7 @@ llmd rule unset <column>           Remove agent (keep transitions)
 
 ## How rules work
 
-A rule has four fields:
+A rule has five fields:
 
 | Field | Description |
 |-------|-------------|
@@ -25,6 +25,7 @@ A rule has four fields:
 | `failure` | Column to move to when the agent exits with an error |
 | `agent` | Agent to auto-spawn when a task enters this column (optional) |
 | `role` | Role for the agent: developer, tester, or auditor (optional) |
+| `resume` | Resume the previous agent's session context (optional, default false) |
 
 Columns without an `agent` field are **manual** - a human (or an
 explicit `--assign` flag) triggers the work. The transitions still
@@ -116,6 +117,44 @@ column has an agent configured, the agent is automatically
 re-spawned with the audit feedback in context. This creates a
 natural review loop until the work is approved.
 
+### Resuming context across review loops
+
+By default, a re-spawned agent starts with a fresh prompt and no
+memory of its previous work. Set `resume: true` on the column rule
+to let the agent pick up its previous conversation context:
+
+```bash
+llmd rule set code --agent claude-code --role developer --resume
+```
+
+Or in YAML:
+
+```yaml
+code:
+  agent: claude-code
+  role: developer
+  resume: true
+  success: test
+  failure: blocked
+```
+
+When a task loops back to this column and the previous run was by
+the same agent, the agent is resumed with its full session history
+instead of starting cold. This is valuable because the agent already
+understands the codebase context, what it implemented, and why. The
+audit feedback is provided as a new message in the existing
+conversation rather than needing to be re-contextualised from
+scratch.
+
+Resume is best-effort: if the previous run was by a different agent,
+produced no session ID, or the platform does not support session
+resumption, a fresh prompt is assembled automatically.
+
+Resume can also be set per-task via the task flag (`llmd task set
+<key> --flag resume`) which applies regardless of the column rule.
+The task flag and the column rule compose: either being true triggers
+a resume attempt.
+
 ## Manual columns
 
 Columns without a rule (or without an agent in their rule) are
@@ -147,6 +186,7 @@ task move.
 | `--role <role>` | Agent role: developer, tester, or auditor |
 | `--success <column>` | Column to move to on success |
 | `--failure <column>` | Column to move to on failure |
+| `--resume` | Resume previous session when auto-spawning |
 
 When using `rule set`, only the flags you provide are updated. Existing
 values are preserved. This lets you change just the agent without

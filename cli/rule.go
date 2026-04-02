@@ -28,6 +28,7 @@ See "llmd guide rule" for full documentation.`, Usage: "rule <subcommand> [optio
 		{Name: "role", Type: "string", Desc: "Agent role (developer, tester, auditor)"},
 		{Name: "success", Type: "string", Desc: "Column on success"},
 		{Name: "failure", Type: "string", Desc: "Column on failure"},
+		{Name: "resume", Type: "bool", Desc: "Resume previous session when auto-spawning"},
 	},
 }
 
@@ -69,6 +70,7 @@ var ruleSetFlags = []sdk.Flag{
 	{Name: "role", Type: "string"},
 	{Name: "success", Type: "string"},
 	{Name: "failure", Type: "string"},
+	{Name: "resume", Type: "bool", Desc: "Resume previous session when auto-spawning"},
 }
 
 func ruleSet(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -100,6 +102,9 @@ func ruleSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 	if v := flags.String("failure"); v != "" {
 		rule.Failure = v
+	}
+	if flags.Bool("resume") {
+		rule.Resume = true
 	}
 
 	if err := ctx.Rules.Set(column, rule); err != nil {

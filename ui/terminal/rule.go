@@ -22,7 +22,11 @@ var (
 func RenderRule(v ui.RuleView) string {
 	header := ruleColumn.Render(v.Column)
 	if !v.Manual {
-		header += " " + ruleAgent.Render(fmt.Sprintf("[%s, %s]", v.Agent, v.Role))
+		label := fmt.Sprintf("[%s, %s]", v.Agent, v.Role)
+		if v.Resume {
+			label = fmt.Sprintf("[%s, %s, resume]", v.Agent, v.Role)
+		}
+		header += " " + ruleAgent.Render(label)
 	} else {
 		header += " " + ruleDim.Render("[manual]")
 	}

@@ -24,4 +24,14 @@ type ColumnRule struct {
 	Role    string `json:"role,omitempty" yaml:"role,omitempty"`
 	Success string `json:"success" yaml:"success"`
 	Failure string `json:"failure" yaml:"failure"`
+
+	// Resume instructs the pipeline to resume the previous agent's
+	// conversation context when auto-spawning into this column. This
+	// is most useful on columns that receive tasks looping back from
+	// a failed review, so the agent can fix its own work with full
+	// memory of what it already did. Resume is best-effort: if the
+	// previous run has no session ID, or was by a different agent,
+	// or the platform does not support resume, a fresh prompt is
+	// assembled instead.
+	Resume bool `json:"resume,omitempty" yaml:"resume,omitempty"`
 }

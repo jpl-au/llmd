@@ -13,6 +13,7 @@ type RuleView struct {
 	Role    string
 	Success string
 	Failure string
+	Resume  bool
 	Manual  bool
 }
 
@@ -24,6 +25,7 @@ func NewRuleView(column string, r sdk.ColumnRule) RuleView {
 		Role:    r.Role,
 		Success: r.Success,
 		Failure: r.Failure,
+		Resume:  r.Resume,
 		Manual:  r.Agent == "",
 	}
 }

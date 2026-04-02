@@ -166,6 +166,13 @@ type SpawnOpts struct {
 	// OnFailure is the column to move to on non-zero exit. When
 	// empty, the task is not moved.
 	OnFailure string
+
+	// Resume requests that this spawn resume the previous agent's
+	// conversation context rather than starting with a fresh prompt.
+	// This is best-effort: if the previous run has no session ID,
+	// was by a different agent, or the platform does not support
+	// session resumption, a fresh prompt is assembled instead.
+	Resume bool
 }
 
 // RunListOpts filters agent run queries.

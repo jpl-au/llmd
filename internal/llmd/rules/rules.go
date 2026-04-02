@@ -25,6 +25,7 @@ type ColumnRule struct {
 	Role    string `yaml:"role,omitempty"`
 	Success string `yaml:"success"`
 	Failure string `yaml:"failure"`
+	Resume  bool   `yaml:"resume,omitempty"`
 }
 
 // RuleSet maps column names to their rules.
