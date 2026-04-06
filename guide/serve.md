@@ -72,6 +72,28 @@ Commands that don't make sense over HTTP are excluded: `mcp`, `serve`,
 | `POST /audit/rm/<id>`      | Soft-delete an audit                |
 | `POST /audit/restore/<id>` | Recover a deleted audit             |
 
+### Hook endpoint (POST)
+
+| Route         | Description                                      |
+|---------------|--------------------------------------------------|
+| `POST /hook`  | Receive agent lifecycle events from hook systems  |
+
+The hook endpoint accepts platform-specific JSON payloads from agent
+hook systems (Claude Code HTTP hooks, Gemini adapters, etc.). The
+`Author` header identifies the agent. The server detects the platform,
+parses the native payload, and routes the normalised event to queue,
+task, or audit operations.
+
+Generate hook configurations with `llmd hook init <platform>`.
+
+```bash
+# Claude Code HTTP hook
+curl -X POST http://localhost:5563/hook \
+  -H "Author: claude-code" \
+  -H "Content-Type: application/json" \
+  -d '{"hook_event_name": "TaskCompleted", "session_id": "abc123"}'
+```
+
 ## Headers
 
 | Header   | Description                                              |

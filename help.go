@@ -24,7 +24,7 @@ var helpGroups = []commandGroup{
 	{"Writing", []string{"write", "edit", "sed", "rm", "mv", "restore", "revert"}},
 	{"History", []string{"history", "diff"}},
 	{"Tags & Links", []string{"tag", "link", "unlink"}},
-	{"Tasks", []string{"task", "agent", "status", "review"}},
+	{"Tasks", []string{"task", "agent", "hook", "status", "review"}},
 	{"Bulk", []string{"import", "export", "mirror"}},
 	{"Admin", []string{"init", "config", "vacuum", "version", "mcp", "serve", "extensions"}},
 	{"Help", []string{"guide"}},
