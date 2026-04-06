@@ -4,6 +4,7 @@ package cli
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/jpl-au/llmd/sdk"
 	"github.com/jpl-au/llmd/ui"
@@ -85,7 +86,10 @@ func ruleSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	column := positional[0]
 
 	// Load existing rule to preserve values not being set.
-	existing, _ := ctx.Rules.Show()
+	existing, err := ctx.Rules.Show()
+	if err != nil {
+		slog.Debug("loading existing rules", "error", err)
+	}
 	rule := sdk.ColumnRule{}
 	if existing != nil {
 		rule = existing[column]
@@ -125,7 +129,10 @@ func ruleUnset(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("rule unset: %w", err)
 	}
 
-	rs, _ := ctx.Rules.Show()
+	rs, err := ctx.Rules.Show()
+	if err != nil {
+		return nil, fmt.Errorf("rule unset: %w", err)
+	}
 	rule := rs[column]
 
 	view := ui.NewRuleView(column, rule)

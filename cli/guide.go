@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/glamour"
-	"github.com/jpl-au/llmd/assets"
+	"github.com/jpl-au/llmd/guide"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -40,9 +40,9 @@ func guideCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		topic = positional[0]
 	}
 
-	content, err := assets.Guide.Get(topic)
+	content, err := guide.Get(topic)
 	if err != nil {
-		topics, listErr := assets.Guide.List()
+		topics, listErr := guide.List()
 		if listErr != nil {
 			return nil, fmt.Errorf("guide: %w: %s", sdk.ErrNotFound, topic)
 		}

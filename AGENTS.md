@@ -507,7 +507,7 @@ is set or when no text representation exists.
 defaulting to `localhost:5563`. No flags or environment variables.
 
 **Skipped commands:** `mcp`, `serve`, `init`, `config`, `version`,
-`guide`, `llm` are not exposed over HTTP - they are admin or local-only.
+`guide` are not exposed over HTTP - they are admin or local-only.
 
 The server uses `github.com/jpl-au/chain` as the HTTP mux, which wraps
 Go 1.22's enhanced `net/http` routing with middleware support.

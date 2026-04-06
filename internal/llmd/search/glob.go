@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"log/slog"
 	"path"
 	"strings"
 )
@@ -62,8 +63,13 @@ func matchGlob(pattern, p string) bool {
 		return matchDoublestar(pattern, p)
 	}
 
-	// Use path.Match - store paths always use forward slashes.
-	matched, _ := path.Match(pattern, p)
+	// Pattern is pre-validated by validateGlob, so Match should not
+	// return an error here.
+	matched, err := path.Match(pattern, p)
+	if err != nil {
+		slog.Debug("unexpected glob match error", "pattern", pattern, "path", p, "error", err)
+		return false
+	}
 	return matched
 }
 
@@ -82,39 +88,49 @@ func validateGlob(pattern string) error {
 func matchDoublestar(pattern, p string) bool {
 	parts := strings.Split(pattern, "**")
 	if len(parts) != 2 {
-		// Multiple ** not supported, fall back to simple match
-		matched, _ := path.Match(pattern, p)
+		// Multiple ** not supported, fall back to simple match.
+		matched, err := path.Match(pattern, p)
+		if err != nil {
+			slog.Debug("doublestar fallback match error", "pattern", pattern, "error", err)
+			return false
+		}
 		return matched
 	}
 
 	prefix, suffix := parts[0], parts[1]
 
-	// Check prefix
 	if prefix != "" && !strings.HasPrefix(p, prefix) {
 		return false
 	}
 
-	// Check suffix
-	if suffix != "" {
-		suffix = strings.TrimPrefix(suffix, "/")
-		remaining := strings.TrimPrefix(p, prefix)
-
-		// Try matching suffix at each path segment
-		segments := strings.Split(remaining, "/")
-		for i := range segments {
-			candidate := strings.Join(segments[i:], "/")
-			if matched, _ := path.Match(suffix, candidate); matched {
-				return true
-			}
-			// Also try matching just the filename part
-			if i == len(segments)-1 {
-				if matched, _ := path.Match(suffix, segments[i]); matched {
-					return true
-				}
-			}
-		}
-		return false
+	if suffix == "" {
+		return true
 	}
 
-	return true
+	suffix = strings.TrimPrefix(suffix, "/")
+	remaining := strings.TrimPrefix(p, prefix)
+
+	segments := strings.Split(remaining, "/")
+	for i := range segments {
+		candidate := strings.Join(segments[i:], "/")
+		matched, err := path.Match(suffix, candidate)
+		if err != nil {
+			slog.Debug("doublestar suffix match error", "suffix", suffix, "error", err)
+			return false
+		}
+		if matched {
+			return true
+		}
+		if i == len(segments)-1 {
+			matched, err = path.Match(suffix, segments[i])
+			if err != nil {
+				slog.Debug("doublestar filename match error", "suffix", suffix, "error", err)
+				return false
+			}
+			if matched {
+				return true
+			}
+		}
+	}
+	return false
 }

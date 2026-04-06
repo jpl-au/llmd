@@ -1,7 +1,8 @@
 # llmd guide
 
-llmd is a versioned document store. Documents are plain text, addressed by
-path, with automatic versioning and full-text search.
+llmd is a versioned document store with task boards and agent orchestration.
+Documents are plain text, addressed by path, with automatic versioning and
+full-text search.
 
 ## Quick start
 
@@ -106,7 +107,6 @@ Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
 | `version` | Show version information        | `version`           |
 | `plugins` | List loaded plugins             | `plugins`           |
 | `guide`   | Built-in documentation          | `guide [topic]`     |
-| `llm`     | Quick reference for LLMs        | `llm`               |
 
 ## Global flags
 
@@ -116,5 +116,5 @@ Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
 
 ## More help
 
-- `llmd guide <topic>` - detailed help on a topic (workflow, llm, install)
+- `llmd guide <topic>` - detailed help on a topic (workflow, task, agent, install, ...)
 - `llmd <command> --help` - usage for a specific command

@@ -4,6 +4,7 @@ package cli
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -39,7 +40,10 @@ var (
 
 // formatBoard renders the board view grouped by column.
 func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task) string {
-	specs, _ := ctx.Tasks.CheckSpecs(tasks)
+	specs, err := ctx.Tasks.CheckSpecs(tasks)
+	if err != nil {
+		slog.Debug("checking task specs for board", "error", err)
+	}
 
 	byStatus := make(map[string][]*sdk.Task)
 	for _, t := range tasks {
@@ -74,7 +78,10 @@ func formatTaskTable(ctx sdk.Context, tasks []*sdk.Task) string {
 	if len(tasks) == 0 {
 		return emptyCol.Render("no tasks")
 	}
-	specs, _ := ctx.Tasks.CheckSpecs(tasks)
+	specs, err := ctx.Tasks.CheckSpecs(tasks)
+	if err != nil {
+		slog.Debug("checking task specs for table", "error", err)
+	}
 	return taskTable(tasks, specs)
 }
 

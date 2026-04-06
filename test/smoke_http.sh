@@ -120,14 +120,6 @@ _smoke_http() {
         log_fail "GET /guide unknown topic returns 404: got $code"
     fi
 
-    # --- GET /llm ---
-    out=$(curl -sf "$base/llm" 2>&1)
-    if echo "$out" | grep -q "llmd"; then
-        log_pass "GET /llm returns agent reference"
-    else
-        log_fail "GET /llm returns agent reference: got '$out'"
-    fi
-
     # --- POST /rm ---
     out=$(curl -sf -X POST "$base/rm/docs/http-test" \
         -H "Author: http-smoke" 2>&1)

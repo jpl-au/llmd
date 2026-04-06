@@ -25,7 +25,7 @@ commands are `GET`, mutation commands are `POST`. The URL pattern is:
 ```
 
 Commands that don't make sense over HTTP are excluded: `mcp`, `serve`,
-`init`, `config`, `version`, `plugins`, `guide`, and `llm`.
+`init`, `config`, `version`, `plugins`, and `guide`.
 
 ## Route reference
 

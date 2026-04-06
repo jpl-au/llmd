@@ -317,11 +317,17 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// recording completion, and moving the task.
 	llmdPath, err := os.Executable()
 	if err != nil {
-		llmdPath, _ = exec.LookPath("llmd")
+		llmdPath, err = exec.LookPath("llmd")
+		if err != nil {
+			return nil, fmt.Errorf("finding llmd binary: %w", err)
+		}
 	}
 
 	cmd := exec.Command(llmdPath, "--author", agent, "agent", "run", taskKey, "--worktree", absWorktree)
-	cmd.Dir, _ = filepath.Abs(".")
+	cmd.Dir, err = filepath.Abs(".")
+	if err != nil {
+		return nil, fmt.Errorf("resolving working directory: %w", err)
+	}
 	cmd.Env = os.Environ()
 	detach(cmd)
 
@@ -357,7 +363,10 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// the column exists. Pipeline-driven boards may not have an
 	// in-progress column - the task stays in the pipeline step column.
 	if cfg.Role != "auditor" {
-		cols, _ := a.store.Tasks.Columns(a.ctx)
+		cols, colErr := a.store.Tasks.Columns(a.ctx)
+		if colErr != nil {
+			slog.Debug("loading columns after spawn", "error", colErr)
+		}
 		if slices.Contains(cols, "in-progress") {
 			if err := a.store.Tasks.Move(a.ctx, taskKey, "in-progress", author); err != nil {
 				slog.Warn("moving task to in-progress after spawn", "key", taskKey, "error", err)

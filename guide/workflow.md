@@ -19,7 +19,7 @@ llmd config --global author "Alice"
 ```
 
 AI agents must not use `config author` - pass `--author` on every
-mutation command instead (see `guide llm`).
+mutation command instead (see `guide`).
 
 ## Document path conventions
 

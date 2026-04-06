@@ -27,13 +27,15 @@ var helpGroups = []commandGroup{
 	{"Tasks", []string{"task", "agent", "status", "review"}},
 	{"Bulk", []string{"import", "export", "mirror"}},
 	{"Admin", []string{"init", "config", "vacuum", "version", "mcp", "serve", "extensions"}},
-	{"Help", []string{"guide", "llm"}},
+	{"Help", []string{"guide"}},
 }
 
 // printHelp displays grouped top-level usage. Each command shows only
 // the first line of its description.
 func printHelp(h *host.Host) {
-	fmt.Print(`llmd - a document store for LLMs and humans
+	fmt.Print(`llmd - a versioned document store with task boards and agent orchestration
+
+AI agents: run "llmd guide" to get started.
 
 Usage:
   llmd <command> [flags] [args...]

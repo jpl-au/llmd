@@ -29,14 +29,13 @@ accessible even without llmd: just use SQLite3's command line interface.
 
 ### llmd teaches itself to your agents
 
-Get your agent to run `llmd llm` for a quick command reference - agents
-should hopefully naturally gravitate to this. For deeper dives, `llmd guide`
-provides full documentation with examples and workflows.
+`llmd guide` provides full documentation with examples and workflows.
+AI agents are prompted to start there.
 
 ```bash
-llmd llm                # Quick command reference (agents start here)
 llmd guide              # Full guide with all commands
 llmd guide edit         # Learn search/replace and line-range editing
+llmd guide claude-code  # Claude Code integration patterns
 ```
 
 ## Install
@@ -70,13 +69,13 @@ Tasks:      task, status, review
 Audits:     audit (add, reply, list, show, resolve, rm, restore, status)
 Bulk:       import, export, mirror
 Admin:      init, config, vacuum, version, mcp, serve, plugins
-Help:       guide, llm
+Help:       guide
 ```
 
 Run `llmd <command> --help` for usage, or `llmd guide <topic>` for
 detailed documentation on any command. See `llmd guide mcp` for MCP
-integration, `llmd guide serve` for the HTTP API, and `llmd guide llm`
-for AI agent integration patterns.
+integration, `llmd guide serve` for the HTTP API, and
+`llmd guide claude-code` for Claude Code integration patterns.
 
 ## MCP Server
 

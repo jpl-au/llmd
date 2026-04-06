@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/jpl-au/llmd/app"
@@ -160,10 +161,18 @@ func responseText(r sdk.Response) string {
 		if v.Text != "" {
 			return v.Text
 		}
-		b, _ := json.Marshal(v.Data)
+		b, err := json.Marshal(v.Data)
+		if err != nil {
+			slog.Debug("marshalling result data", "error", err)
+			return "ok"
+		}
 		return string(b)
 	case sdk.Data:
-		b, _ := json.Marshal(v.V)
+		b, err := json.Marshal(v.V)
+		if err != nil {
+			slog.Debug("marshalling data response", "error", err)
+			return "ok"
+		}
 		return string(b)
 	default:
 		return "ok"

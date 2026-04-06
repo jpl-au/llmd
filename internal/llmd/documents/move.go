@@ -16,9 +16,11 @@ func (d *Documents) Move(ctx context.Context, src, dst string, opts MoveOptions)
 	}
 
 	// Check destination doesn't exist
-	if ok, err := d.Exists(ctx, dst); err != nil {
+	ok, err := d.Exists(ctx, dst)
+	if err != nil {
 		return err
-	} else if ok {
+	}
+	if ok {
 		return fmt.Errorf("destination already exists: %s", dst)
 	}
 

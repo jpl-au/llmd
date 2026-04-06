@@ -1,12 +1,8 @@
-// Package assets provides embedded resources that ship with the llmd
-// binary. Agent profiles, runtime settings, prompt templates, and
-// guide pages are all accessible through two entry points:
+// Package assets provides embedded agent resources that ship with
+// the llmd binary. Agent profiles, runtime settings, and prompt
+// templates are accessible through [Agent].
 //
-//   - assets.Agent  - agent configurations, settings, and templates
-//   - assets.Guide  - built-in documentation pages
-//
-// Files live under assets/ in the repository root, organised by
-// concern:
+// Files live under assets/ in the repository root:
 //
 //	assets/
 //	  agents/
@@ -14,28 +10,22 @@
 //	    gemini/         config.json
 //	    aider/          config.json
 //	    default/        developer.md, auditor.md, ...
-//	  guide/
-//	    agent.md, audit.md, task.md, ...
 package assets
 
 import (
 	"embed"
 	"encoding/json"
 	"log/slog"
-	"runtime"
 	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
 )
 
-//go:embed agents/*/* guide/*.md
+//go:embed agents/*/*
 var files embed.FS
 
 // Agent provides access to embedded agent defaults.
 var Agent = &agentAssets{}
-
-// Guide provides access to embedded documentation pages.
-var Guide = &guideAssets{}
 
 // profiles, settings, and templates are populated once at init.
 var (
@@ -146,41 +136,4 @@ func (*agentAssets) Templates() map[string]string {
 		}
 	}
 	return out
-}
-
-// guideAssets provides access to embedded documentation pages.
-type guideAssets struct{}
-
-// Get returns the content of a guide page by name. An empty name
-// returns the default overview page. The special name "install"
-// resolves to platform-specific instructions based on runtime.GOOS.
-func (*guideAssets) Get(name string) (string, error) {
-	if name == "" {
-		name = "guide"
-	}
-	if name == "install" {
-		name = "install-" + runtime.GOOS
-	}
-	data, err := files.ReadFile("guide/" + name + ".md")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-// List returns available guide topic names (without the .md suffix).
-// The index page (guide.md) is excluded since it is the default.
-func (*guideAssets) List() ([]string, error) {
-	entries, err := files.ReadDir("guide")
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, e := range entries {
-		name := e.Name()
-		if name != "guide.md" {
-			names = append(names, name[:len(name)-3])
-		}
-	}
-	return names, nil
 }

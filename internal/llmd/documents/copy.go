@@ -15,9 +15,11 @@ func (d *Documents) Copy(ctx context.Context, src, dst string, opts CopyOptions)
 	}
 
 	// Check destination doesn't exist
-	if ok, err := d.Exists(ctx, dst); err != nil {
+	ok, err := d.Exists(ctx, dst)
+	if err != nil {
 		return nil, err
-	} else if ok {
+	}
+	if ok {
 		return nil, fmt.Errorf("destination already exists: %s", dst)
 	}
 
