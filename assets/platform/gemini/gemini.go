@@ -13,8 +13,13 @@ import (
 // P implements platform.Platform for Gemini CLI.
 type P struct{}
 
-func (P) SettingsPath() string               { return "" }
-func (P) BudgetArgs(float64) []string        { return nil }
+// SettingsPath returns empty; Gemini has no runtime settings file.
+func (P) SettingsPath() string { return "" }
+
+// BudgetArgs returns nil; Gemini has no budget mechanism.
+func (P) BudgetArgs(float64) []string { return nil }
+
+// ResumeArgs returns nil; Gemini has no session resume mechanism.
 func (P) ResumeArgs(string, string) []string { return nil }
 
 // Stats extracts metrics from Gemini CLI's JSON output.

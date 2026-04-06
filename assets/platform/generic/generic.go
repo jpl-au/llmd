@@ -13,9 +13,16 @@ import (
 // P implements platform.Platform for unknown agents.
 type P struct{}
 
-func (P) SettingsPath() string                     { return "" }
-func (P) BudgetArgs(float64) []string              { return nil }
-func (P) ResumeArgs(string, string) []string       { return nil }
+// SettingsPath returns empty; unknown platforms have no settings file.
+func (P) SettingsPath() string { return "" }
+
+// BudgetArgs returns nil; unknown platforms have no budget mechanism.
+func (P) BudgetArgs(float64) []string { return nil }
+
+// ResumeArgs returns nil; unknown platforms have no resume mechanism.
+func (P) ResumeArgs(string, string) []string { return nil }
+
+// Stats returns nil; unknown platforms have no stats extraction.
 func (P) Stats(string) (*platform.RunStats, error) { return nil, nil }
 
 // ParseHook does a best-effort parse of an unknown platform's hook

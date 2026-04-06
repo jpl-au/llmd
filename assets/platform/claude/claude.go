@@ -13,14 +13,17 @@ import (
 // P implements platform.Platform for Claude Code.
 type P struct{}
 
+// SettingsPath returns the path for Claude Code runtime settings.
 func (P) SettingsPath() string {
 	return ".claude/settings.json"
 }
 
+// BudgetArgs returns the --max-budget-usd flag for cost control.
 func (P) BudgetArgs(budget float64) []string {
 	return []string{fmt.Sprintf("--max-budget-usd=%.2f", budget)}
 }
 
+// ResumeArgs returns --resume and -p flags to restore a prior session.
 func (P) ResumeArgs(id, prompt string) []string {
 	return []string{"--resume", id, "-p", prompt}
 }

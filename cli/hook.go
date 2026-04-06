@@ -27,6 +27,7 @@ section into .claude/settings.json. For Gemini, add to your hook
 config. For generic agents, save as a wrapper script.`, Usage: "hook init <platform>",
 }
 
+// hookCmd dispatches hook subcommands.
 func hookCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("hook: %w: subcommand required (init)", sdk.ErrMissingArg)
@@ -42,6 +43,7 @@ func hookCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 var platforms = []string{"claude", "gemini", "generic"}
 
+// hookInit generates a hook configuration for the named platform.
 func hookInit(_ sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("hook init: %w: platform required (%s)",
