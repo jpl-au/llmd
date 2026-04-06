@@ -144,6 +144,29 @@ The pipeline runs autonomously through column rules. Scheduled triggers
 handle the operational housekeeping. In-session loops provide visibility
 when you need it.
 
+## Hooks
+
+Claude Code supports HTTP hooks that POST lifecycle events to an
+endpoint. When the llmd HTTP server is running, hooks can POST
+directly to the `/hook` endpoint for real-time integration.
+
+Generate the hook configuration:
+
+```bash
+llmd hook init claude
+```
+
+This outputs a settings.json snippet with HTTP hooks for session
+start, session end, task completion, and tool use. Merge it into
+your `.claude/settings.json`.
+
+The hook endpoint parses Claude Code's native payload format and
+routes events to the appropriate SDK operations: session start
+returns pending queue messages, task completion finishes the task
+and sends a notification, and tool use events are logged as audits.
+
+See `guide serve` for the full `/hook` endpoint reference.
+
 ## Tips
 
 - Use `--json` on any tool for structured output that scheduled agents
