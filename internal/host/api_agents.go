@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/jpl-au/llmd/assets"
+	"github.com/jpl-au/llmd/assets/platform"
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
@@ -440,7 +441,7 @@ func (a *agentAPI) Complete(taskKey string, exitCode int) error {
 	// session ID, and any tool-specific fields) so it can be analysed
 	// later without re-running the agent. Only emitted when the
 	// binary is compiled with the telemetry build tag.
-	if rawJSON, jsonErr := assets.LastJSON(logPath); jsonErr == nil && rawJSON != "" {
+	if rawJSON, jsonErr := platform.LastJSON(logPath); jsonErr == nil && rawJSON != "" {
 		telemetry.EmitAgent(telemetry.AgentEntry{
 			RunKey:  r.Key,
 			TaskKey: taskKey,
@@ -542,7 +543,7 @@ func hasFlag(flags, flag string) bool {
 
 // writeSettings writes agent runtime settings into the worktree at
 // the path determined by the platform.
-func (a *agentAPI) writeSettings(worktree string, plat assets.Platform, content string) {
+func (a *agentAPI) writeSettings(worktree string, plat platform.Platform, content string) {
 	rel := plat.SettingsPath()
 	if rel == "" {
 		return

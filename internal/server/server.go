@@ -50,6 +50,7 @@ func New(cfg config.Config, subscribe func(func(events.Event))) *Server {
 		sse:    newSSEHub(),
 	}
 	s.mux.Use(s.log)
+	s.mux.HandleFunc("POST /hook", s.hookHandler())
 	s.register()
 
 	if subscribe != nil {
