@@ -4,10 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/text"
 )
 
 // sections implements ModeSections: returns markdown sections containing matches.
@@ -98,54 +94,45 @@ func extractSections(content, query string) []Match {
 	return matches
 }
 
-// parseMarkdown parses content using goldmark and extracts sections.
-// Each heading (h1-h6) starts a new section that continues until the
-// next heading or end of document. If the document has no headings,
-// returns a single section containing the entire content.
+// parseMarkdown splits content into sections at markdown heading
+// boundaries. Each line starting with one or more '#' characters
+// followed by a space begins a new section. Content before the first
+// heading is returned as a preamble section with an empty header.
 func parseMarkdown(content string) []section {
-	source := []byte(content)
-	doc := goldmark.DefaultParser().Parse(text.NewReader(source))
-
-	var sections []section
-	var headings []struct {
-		title string
-		start int
-	}
-
 	lines := strings.Split(content, "\n")
-	lineOffsets := make([]int, len(lines)+1)
-	offset := 0
-	for i, line := range lines {
-		lineOffsets[i] = offset
-		offset += len(line) + 1
-	}
-	lineOffsets[len(lines)] = len(content)
 
-	// Collect all headings
-	if err := ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
-		if !entering {
-			return ast.WalkContinue, nil
+	type heading struct {
+		title string
+		line  int // 1-indexed
+	}
+
+	var headings []heading
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "#") {
+			continue
 		}
-		if h, ok := n.(*ast.Heading); ok {
-			var title strings.Builder
-			for c := h.FirstChild(); c != nil; c = c.NextSibling() {
-				if t, ok := c.(*ast.Text); ok {
-					title.Write(t.Segment.Value(source))
-				}
+		// Strip leading '#' characters and require a space after them
+		// to avoid matching lines like "#hashtag".
+		hashes := 0
+		for _, c := range trimmed {
+			if c == '#' {
+				hashes++
+			} else {
+				break
 			}
-			line := lineFromOffset(lineOffsets, int(h.Lines().At(0).Start))
-			headings = append(headings, struct {
-				title string
-				start int
-			}{title.String(), line})
 		}
-		return ast.WalkContinue, nil
-	}); err != nil {
-		return nil
+		rest := trimmed[hashes:]
+		if len(rest) == 0 || rest[0] != ' ' {
+			continue
+		}
+		headings = append(headings, heading{
+			title: strings.TrimSpace(rest),
+			line:  i + 1,
+		})
 	}
 
 	if len(headings) == 0 {
-		// No headings: treat entire doc as one section
 		return []section{{
 			header:    "",
 			startLine: 1,
@@ -154,54 +141,43 @@ func parseMarkdown(content string) []section {
 		}}
 	}
 
-	// Build sections from headings
-	for i, h := range headings {
-		endLine := len(lines)
-		if i+1 < len(headings) {
-			endLine = headings[i+1].start - 1
-		}
+	var sections []section
 
-		startIdx := 0
-		endIdx := len(content)
-		if h.start > 1 && h.start-1 < len(lineOffsets) {
-			startIdx = lineOffsets[h.start-1]
-		}
-		if endLine < len(lineOffsets) {
-			endIdx = lineOffsets[endLine]
-		}
-
+	// Preamble before the first heading.
+	if headings[0].line > 1 {
+		end := headings[0].line - 1
 		sections = append(sections, section{
-			header:    h.title,
-			startLine: h.start,
-			endLine:   endLine,
-			text:      content[startIdx:endIdx],
+			header:    "",
+			startLine: 1,
+			endLine:   end,
+			text:      joinLines(lines, 0, end),
 		})
 	}
 
-	// If there's content before the first heading, add it as a section
-	if headings[0].start > 1 {
-		endIdx := lineOffsets[headings[0].start-1]
-		preamble := section{
-			header:    "",
-			startLine: 1,
-			endLine:   headings[0].start - 1,
-			text:      content[:endIdx],
+	// Build sections from headings.
+	for i, h := range headings {
+		endLine := len(lines)
+		if i+1 < len(headings) {
+			endLine = headings[i+1].line - 1
 		}
-		sections = append([]section{preamble}, sections...)
+		sections = append(sections, section{
+			header:    h.title,
+			startLine: h.line,
+			endLine:   endLine,
+			text:      joinLines(lines, h.line-1, endLine),
+		})
 	}
 
 	return sections
 }
 
-// lineFromOffset converts a byte offset to a 1-indexed line number.
-// The offsets slice maps line indices to their starting byte positions.
-func lineFromOffset(offsets []int, offset int) int {
-	for i, o := range offsets {
-		if o > offset {
-			return i
-		}
+// joinLines rejoins a slice of lines from start (0-indexed, inclusive)
+// to end (1-indexed line number, inclusive) back into a string.
+func joinLines(lines []string, start, end int) string {
+	if end > len(lines) {
+		end = len(lines)
 	}
-	return len(offsets)
+	return strings.Join(lines[start:end], "\n")
 }
 
 // containsTerms returns true if text contains at least one of the terms.

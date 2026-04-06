@@ -80,28 +80,11 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 			old := tsk.DependsOn
 			newDep := *opts.DependsOn
 			if newDep != "" {
-				// Validate target exists.
 				if _, err := t.Read(ctx, newDep); err != nil {
 					return nil, fmt.Errorf("dependency target: %w", err)
 				}
-				// Cycle detection: walk from newDep's chain. If we
-				// encounter key, setting this dependency would create
-				// a cycle.
-				if newDep == key {
-					return nil, ErrCycle
-				}
-				current := newDep
-				seen := map[string]bool{key: true}
-				for current != "" {
-					if seen[current] {
-						return nil, ErrCycle
-					}
-					seen[current] = true
-					dep, err := t.Read(ctx, current)
-					if err != nil {
-						return nil, fmt.Errorf("walking dependency chain: %w", err)
-					}
-					current = dep.DependsOn
+				if err := t.detectCycle(ctx, key, newDep); err != nil {
+					return nil, err
 				}
 			}
 			_, err := tx.ExecContext(ctx, `UPDATE tasks SET depends_on = ? WHERE key = ? AND deleted_at IS NULL`, nullStr(newDep), key)
@@ -149,5 +132,27 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		}
 	}
 
+	return nil
+}
+
+// detectCycle walks the dependency chain from dep and returns ErrCycle
+// if it leads back to key.
+func (t *Tasks) detectCycle(ctx context.Context, key, dep string) error {
+	if dep == key {
+		return ErrCycle
+	}
+	seen := map[string]bool{key: true}
+	current := dep
+	for current != "" {
+		if seen[current] {
+			return ErrCycle
+		}
+		seen[current] = true
+		tsk, err := t.Read(ctx, current)
+		if err != nil {
+			return fmt.Errorf("walking dependency chain: %w", err)
+		}
+		current = tsk.DependsOn
+	}
 	return nil
 }

@@ -143,26 +143,3 @@ keyword again here.`
 		t.Errorf("second match Section = %q", matches[1].Section)
 	}
 }
-
-func TestLineFromOffset(t *testing.T) {
-	// Simulating "a\nb\nc" which has offsets [0, 2, 4, 6]
-	offsets := []int{0, 2, 4, 6}
-
-	tests := []struct {
-		offset int
-		want   int
-	}{
-		{0, 1},  // start of line 1
-		{1, 1},  // within line 1
-		{2, 2},  // start of line 2
-		{4, 3},  // start of line 3
-		{10, 4}, // past end
-	}
-
-	for _, tt := range tests {
-		got := lineFromOffset(offsets, tt.offset)
-		if got != tt.want {
-			t.Errorf("lineFromOffset(offsets, %d) = %d, want %d", tt.offset, got, tt.want)
-		}
-	}
-}
