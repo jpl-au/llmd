@@ -113,6 +113,56 @@ _smoke_cli() {
         log_fail "diff shows changes: got '$out'"
     fi
 
+    # --- key-based access ---
+    # ls should show key alongside path.
+    key=$($llmd ls 2>&1 | grep "docs/greeting" | awk '{print $1}')
+    if [ -n "$key" ] && [ ${#key} -eq 9 ]; then
+        log_pass "ls shows document key"
+    else
+        log_fail "ls shows document key: got '$key'"
+    fi
+
+    # cat by key
+    out=$($llmd cat "$key" 2>&1)
+    if [ -n "$out" ]; then
+        log_pass "cat by key"
+    else
+        log_fail "cat by key: got empty output"
+    fi
+
+    # cat by key:version
+    out=$($llmd cat "$key:1" 2>&1)
+    if [ -n "$out" ]; then
+        log_pass "cat by key:version"
+    else
+        log_fail "cat by key:version: got '$out'"
+    fi
+
+    # history by key
+    out=$($llmd history "$key" 2>&1)
+    if echo "$out" | grep -q "VER"; then
+        log_pass "history by key"
+    else
+        log_fail "history by key: got '$out'"
+    fi
+
+    # diff by key:version
+    out=$($llmd diff "$key:1" "$key:2" 2>&1)
+    if echo "$out" | grep -q "@@"; then
+        log_pass "diff by key:version"
+    else
+        log_fail "diff by key:version: got '$out'"
+    fi
+
+    # tag by key
+    $llmd --author "smoke" tag "$key" smoke-key-tag >/dev/null 2>&1
+    out=$($llmd tag "$key" 2>&1)
+    if echo "$out" | grep -q "smoke-key-tag"; then
+        log_pass "tag add + list by key"
+    else
+        log_fail "tag add + list by key: got '$out'"
+    fi
+
     # --- tasks ---
     echo -e "# Test task\n\nThis is the spec body." | \
         $llmd --author "smoke" task add "Test task" >/dev/null 2>&1
