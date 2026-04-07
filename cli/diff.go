@@ -23,7 +23,14 @@ var diffSpec = sdk.Command{
 
 With one path, diffs the latest version against the previous. With
 two paths (optionally using :version suffix), compares them directly.
-Output is coloured in a terminal.`, Usage: "diff <source> [target]", MCP: true, Flags: []sdk.Flag{
+Paths and document keys are interchangeable. Output is coloured in
+a terminal.
+
+Examples:
+  llmd diff notes/meeting              Latest vs previous version
+  llmd diff notes/meeting:2 notes/meeting:5   Version 2 vs 5
+  llmd diff abc123def:2 abc123def:5    Same, using the document key
+  llmd diff notes/a notes/b            Two different documents`, Usage: "diff <source> [target]", MCP: true, Flags: []sdk.Flag{
 		{Name: "C", Type: "int", Desc: "Lines of context"},
 		{Name: "stat", Type: "bool", Desc: "Show stats only"},
 	},

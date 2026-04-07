@@ -76,6 +76,7 @@ type DocumentStore interface {
 // that). Returned by List. CreatedAt is a Unix timestamp. Deleted is
 // true for soft-deleted documents (only visible with ListOpts.Deleted).
 type Doc struct {
+	Key       string
 	Path      string
 	Version   int
 	Author    string

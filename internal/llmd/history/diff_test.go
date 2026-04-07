@@ -17,12 +17,11 @@ func TestDiff(t *testing.T) {
 		t.Fatalf("Write(second version): %v", err)
 	}
 
-	// Get keys for specific versions
+	// Key is stable across versions, so use key:version to diff.
 	versions, _ := s.History.List(ctx, "docs/readme")
-	v1Key := versions[1].Key // older version
-	v2Key := versions[0].Key // newer version
+	key := versions[0].Key
 
-	result, err := s.History.Diff(ctx, v1Key, v2Key)
+	result, err := s.History.Diff(ctx, key+":1", key+":2")
 	if err != nil {
 		t.Fatalf("Diff() error = %v", err)
 	}

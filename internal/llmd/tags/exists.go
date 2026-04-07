@@ -11,8 +11,7 @@ func (t *Tags) Exists(ctx context.Context, value, name string) (bool, error) {
 		return false, err
 	}
 
-	// Resolve to get actual document path
-	doc, err := t.docs.Resolve(ctx, value)
+	relation, err := t.resolvePath(ctx, value)
 	if err != nil {
 		return false, err
 	}
@@ -24,7 +23,7 @@ func (t *Tags) Exists(ctx context.Context, value, name string) (bool, error) {
 			WHERE namespace = ? AND relation = ? AND json_extract(value, '$.tag') = ?
 			  AND deleted_at IS NULL
 		)
-	`, namespace, doc.Path, name).WithContext(ctx).ReadRow()
+	`, namespace, relation, name).WithContext(ctx).ReadRow()
 	if err != nil {
 		return false, err
 	}

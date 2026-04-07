@@ -53,15 +53,38 @@ func (d *Documents) Read(ctx context.Context, path string, opts ...ReadOptions) 
 	return doc, err
 }
 
-// ReadByKey retrieves a document by its unique key.
-func (d *Documents) ReadByKey(ctx context.Context, key string) (*document.Document, error) {
-	query := `
-		SELECT id, key, namespace, path, content, version, hash,
-		       author, message, source, mime, meta, created_at, deleted_at
-		FROM content
-		WHERE key = ?
-	`
-	row, err := d.db.Query(query, key).WithContext(ctx).ReadRow()
+// ReadByKey retrieves a document by its stable key. Without a version
+// option the latest version is returned; with a version the specific
+// version is returned.
+func (d *Documents) ReadByKey(ctx context.Context, key string, opts ...ReadOptions) (*document.Document, error) {
+	var opt ReadOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
+	var query string
+	var args []any
+
+	if opt.Version != nil {
+		query = `
+			SELECT id, key, namespace, path, content, version, hash,
+			       author, message, source, mime, meta, created_at, deleted_at
+			FROM content
+			WHERE key = ? AND version = ?
+		`
+		args = []any{key, *opt.Version}
+	} else {
+		query = `
+			SELECT id, key, namespace, path, content, version, hash,
+			       author, message, source, mime, meta, created_at, deleted_at
+			FROM content
+			WHERE key = ?
+			ORDER BY version DESC LIMIT 1
+		`
+		args = []any{key}
+	}
+
+	row, err := d.db.Query(query, args...).WithContext(ctx).ReadRow()
 	if err != nil {
 		return nil, fmt.Errorf("querying document: %w", err)
 	}

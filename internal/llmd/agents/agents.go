@@ -45,7 +45,7 @@ import (
 const Schema = `
 CREATE TABLE IF NOT EXISTS agent_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT NOT NULL UNIQUE,
+    key TEXT NOT NULL,
     task_key TEXT NOT NULL,
     agent TEXT NOT NULL,
     branch TEXT,
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS agent_runs (
 
 CREATE TABLE IF NOT EXISTS agent_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_key TEXT NOT NULL REFERENCES agent_runs(key),
+    run_key TEXT NOT NULL,
     event TEXT NOT NULL,
     exit_code INTEGER,
     monetary_cost REAL,

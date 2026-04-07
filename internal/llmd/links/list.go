@@ -17,12 +17,10 @@ func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link
 		opt = opts[0]
 	}
 
-	// Resolve document
-	doc, err := l.docs.Resolve(ctx, value)
+	relation, err := l.resolvePath(ctx, value)
 	if err != nil {
 		return nil, err
 	}
-	relation := doc.Path
 
 	// Default to Outgoing if not specified
 	dir := opt.Direction

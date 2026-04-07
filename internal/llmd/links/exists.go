@@ -15,12 +15,11 @@ func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (b
 		opt = opts[0]
 	}
 
-	// Resolve both documents
-	fromDoc, err := l.docs.Resolve(ctx, from)
+	fromPath, err := l.resolvePath(ctx, from)
 	if err != nil {
 		return false, fmt.Errorf("resolving from: %w", err)
 	}
-	toDoc, err := l.docs.Resolve(ctx, to)
+	toPath, err := l.resolvePath(ctx, to)
 	if err != nil {
 		return false, fmt.Errorf("resolving to: %w", err)
 	}
@@ -36,7 +35,7 @@ func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (b
 				  AND json_extract(value, '$.label') = ?
 				  AND deleted_at IS NULL
 			)
-		`, namespace, fromDoc.Path, toDoc.Path, opt.Label).WithContext(ctx).ReadRow()
+		`, namespace, fromPath, toPath, opt.Label).WithContext(ctx).ReadRow()
 	} else {
 		row, err = l.db.Query(`
 			SELECT EXISTS(
@@ -45,7 +44,7 @@ func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (b
 				  AND json_extract(value, '$.to') = ?
 				  AND deleted_at IS NULL
 			)
-		`, namespace, fromDoc.Path, toDoc.Path).WithContext(ctx).ReadRow()
+		`, namespace, fromPath, toPath).WithContext(ctx).ReadRow()
 	}
 	if err != nil {
 		return false, err

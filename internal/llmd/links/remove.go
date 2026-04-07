@@ -15,18 +15,14 @@ import (
 // If opts.Label is empty, removes all links from→to.
 // from and to can be document paths or keys.
 func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error {
-	// Resolve both documents
-	fromDoc, err := l.docs.Resolve(ctx, from)
+	relation, err := l.resolvePath(ctx, from)
 	if err != nil {
 		return fmt.Errorf("resolving from: %w", err)
 	}
-	toDoc, err := l.docs.Resolve(ctx, to)
+	toPath, err := l.resolvePath(ctx, to)
 	if err != nil {
 		return fmt.Errorf("resolving to: %w", err)
 	}
-
-	relation := fromDoc.Path
-	toPath := toDoc.Path
 
 	// Find matching links
 	rows, err := l.db.Query(`

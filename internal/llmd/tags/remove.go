@@ -18,12 +18,10 @@ func (t *Tags) Remove(ctx context.Context, value, name string, opts Options) err
 		return err
 	}
 
-	// Resolve to get actual document path
-	doc, err := t.docs.Resolve(ctx, value)
+	relation, err := t.resolvePath(ctx, value)
 	if err != nil {
 		return err
 	}
-	relation := doc.Path
 
 	now := time.Now().UnixMilli()
 

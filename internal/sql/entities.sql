@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS entities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT NOT NULL UNIQUE,
+    key TEXT NOT NULL,
     namespace TEXT NOT NULL,
     relation TEXT,
     value TEXT NOT NULL,

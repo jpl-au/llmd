@@ -24,7 +24,7 @@ import (
 const Schema = `
 CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT NOT NULL UNIQUE,
+    key TEXT NOT NULL,
     title TEXT NOT NULL,
     status TEXT NOT NULL,
     priority INTEGER NOT NULL DEFAULT 0,

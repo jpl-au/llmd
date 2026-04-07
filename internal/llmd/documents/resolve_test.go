@@ -102,6 +102,49 @@ func TestResolve_FilesystemPriority(t *testing.T) {
 	}
 }
 
+func TestResolve_ByKeyVersion(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	v1, err := s.Documents.Write(ctx, "docs/readme", "v1 content", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write v1: %v", err)
+	}
+	v2, err := s.Documents.Write(ctx, "docs/readme", "v2 content", testWriteOpts())
+	if err != nil {
+		t.Fatalf("Write v2: %v", err)
+	}
+
+	// Key must be stable across versions.
+	if v1.Key != v2.Key {
+		t.Fatalf("Key changed between versions: v1=%q v2=%q", v1.Key, v2.Key)
+	}
+
+	// key:1 should return version 1 of the document.
+	doc, err := s.Documents.Resolve(ctx, v1.Key+":1")
+	if err != nil {
+		t.Fatalf("Resolve(key:1) error = %v", err)
+	}
+	if doc.Content != "v1 content" {
+		t.Errorf("Content = %q, want %q", doc.Content, "v1 content")
+	}
+	if doc.Version != 1 {
+		t.Errorf("Version = %d, want 1", doc.Version)
+	}
+
+	// key:2 should return version 2.
+	doc, err = s.Documents.Resolve(ctx, v1.Key+":2")
+	if err != nil {
+		t.Fatalf("Resolve(key:2) error = %v", err)
+	}
+	if doc.Content != "v2 content" {
+		t.Errorf("Content = %q, want %q", doc.Content, "v2 content")
+	}
+	if doc.Version != 2 {
+		t.Errorf("Version = %d, want 2", doc.Version)
+	}
+}
+
 func TestResolve_NotFound(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

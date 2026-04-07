@@ -87,8 +87,16 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 		return nil, fmt.Errorf("marshaling meta: %w", err)
 	}
 
-	// Generate key and insert
-	k := key.Generate()
+	// Reuse the document's existing key, or generate one for new documents.
+	var k string
+	err = tx.QueryRowContext(ctx, `
+		SELECT key FROM content
+		WHERE namespace = ? AND path = ?
+		LIMIT 1
+	`, namespace, path).Scan(&k)
+	if err != nil {
+		k = key.Generate()
+	}
 
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO content (

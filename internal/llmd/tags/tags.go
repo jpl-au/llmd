@@ -9,10 +9,12 @@
 package tags
 
 import (
+	"context"
 	"errors"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/events"
+	"github.com/jpl-au/llmd/internal/llmd/resolve"
 	"github.com/jpl-au/qwr"
 )
 
@@ -34,4 +36,10 @@ type Tags struct {
 // New creates a new Tags instance.
 func New(db *qwr.Manager, docs *documents.Documents, bus *events.Bus) *Tags {
 	return &Tags{db: db, docs: docs, bus: bus}
+}
+
+// resolvePath translates a document identifier (path or key) to a path.
+func (t *Tags) resolvePath(ctx context.Context, value string) (string, error) {
+	r := resolve.Identifier(ctx, value, t.docs.KeyToPath)
+	return r.Path, nil
 }

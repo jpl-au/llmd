@@ -79,6 +79,7 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 	data := make([]map[string]any, len(docs))
 	for i, d := range docs {
 		data[i] = map[string]any{
+			"key":        d.Key,
 			"path":       d.Path,
 			"version":    d.Version,
 			"author":     d.Author,
@@ -95,11 +96,11 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case long:
 		text = formatTable(docs)
 	default:
-		paths := make([]string, len(docs))
+		lines := make([]string, len(docs))
 		for i, d := range docs {
-			paths[i] = d.Path
+			lines[i] = d.Key + " " + d.Path
 		}
-		text = strings.Join(paths, "\n")
+		text = strings.Join(lines, "\n")
 	}
 
 	return sdk.Result{Text: text, Data: data}, nil
@@ -111,7 +112,7 @@ func formatTable(docs []sdk.Doc) string {
 		return ""
 	}
 
-	t := newTable("VER", "AUTHOR", "DATE", "PATH")
+	t := newTable("KEY", "VER", "AUTHOR", "DATE", "PATH")
 
 	for _, d := range docs {
 		date := time.UnixMilli(d.CreatedAt).Format("2006-01-02")
@@ -119,7 +120,7 @@ func formatTable(docs []sdk.Doc) string {
 		if d.Deleted {
 			path = d.Path + " (deleted)"
 		}
-		t.Row(fmt.Sprintf("%d", d.Version), d.Author, date, path)
+		t.Row(d.Key, fmt.Sprintf("%d", d.Version), d.Author, date, path)
 	}
 
 	return t.String()

@@ -110,7 +110,7 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 // directories within the root, and writes the file. Respects the
 // Overwrite option to avoid clobbering existing files.
 func (b *Bulk) exportOne(ctx context.Context, src string, root *os.Root, rel string, opts ExportOptions) error {
-	doc, err := b.docs.Read(ctx, src, documents.ReadOptions{Version: opts.Version})
+	doc, err := b.docs.Resolve(ctx, src)
 	if err != nil {
 		return err
 	}

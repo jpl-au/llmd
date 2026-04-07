@@ -24,12 +24,10 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 		return nil, err
 	}
 
-	// Resolve to get actual document path
-	doc, err := t.docs.Resolve(ctx, value)
+	relation, err := t.resolvePath(ctx, value)
 	if err != nil {
 		return nil, err
 	}
-	relation := doc.Path
 
 	// Check if tag already exists (latest non-deleted)
 	existing, err := t.find(ctx, relation, name)

@@ -180,8 +180,7 @@ func TestExport_SpecificVersion(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "readme.md")
 
-	v := 1
-	_, err := s.Bulk.Export(ctx, "readme", dest, bulk.ExportOptions{Version: &v})
+	_, err := s.Bulk.Export(ctx, "readme:1", dest, bulk.ExportOptions{})
 	if err != nil {
 		t.Fatalf("Export() error = %v", err)
 	}

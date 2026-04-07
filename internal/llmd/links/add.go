@@ -15,18 +15,14 @@ import (
 // Add creates a link between two documents.
 // from and to can be document paths or keys.
 func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.Link, error) {
-	// Resolve both documents
-	fromDoc, err := l.docs.Resolve(ctx, from)
+	relation, err := l.resolvePath(ctx, from)
 	if err != nil {
 		return nil, fmt.Errorf("resolving from: %w", err)
 	}
-	toDoc, err := l.docs.Resolve(ctx, to)
+	toPath, err := l.resolvePath(ctx, to)
 	if err != nil {
 		return nil, fmt.Errorf("resolving to: %w", err)
 	}
-
-	relation := fromDoc.Path // FROM document becomes the relation
-	toPath := toDoc.Path
 
 	// Check for self-link
 	if relation == toPath {

@@ -10,6 +10,7 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/history"
+	"github.com/jpl-au/llmd/internal/llmd/resolve"
 	"github.com/jpl-au/llmd/internal/llmd/search"
 	docpath "github.com/jpl-au/llmd/internal/path"
 	"github.com/jpl-au/llmd/internal/validate"
@@ -50,21 +51,36 @@ func newDocumentAPI(store *llmd.Store, lim validate.Limits, ctx context.Context)
 	return &documentAPI{ctx: ctx, store: store, lim: lim}
 }
 
+// resolveDoc translates an identifier (path, key, or either with
+// :version suffix) to a normalised path and optional version. The
+// version parameter from flags takes precedence when non-zero.
+func (a *documentAPI) resolveDoc(identifier string, flagVersion int) (string, *int, error) {
+	r := resolve.Identifier(a.ctx, identifier, a.store.Documents.KeyToPath)
+	path, err := docpath.Normalise(r.Path)
+	if err != nil {
+		return "", nil, err
+	}
+	if flagVersion > 0 {
+		return path, &flagVersion, nil
+	}
+	return path, r.Version, nil
+}
+
 // Read returns document content. Version 0 means latest (nil pointer
 // in internal options); a positive version reads that specific version.
 func (a *documentAPI) Read(path string, version int) ([]byte, error) {
-	path, err := docpath.Normalise(path)
+	p, v, err := a.resolveDoc(path, version)
 	if err != nil {
 		return nil, err
 	}
-	if err := validate.Path(path, a.lim); err != nil {
+	if err := validate.Path(p, a.lim); err != nil {
 		return nil, err
 	}
 	var opts documents.ReadOptions
-	if version > 0 {
-		opts.Version = &version
+	if v != nil {
+		opts.Version = v
 	}
-	doc, err := a.store.Documents.Read(a.ctx, path, opts)
+	doc, err := a.store.Documents.Read(a.ctx, p, opts)
 	if err != nil {
 		return nil, docErr(err)
 	}
@@ -74,10 +90,11 @@ func (a *documentAPI) Read(path string, version int) ([]byte, error) {
 // Write creates or updates a document, recording a new version.
 // The author and message are recorded in the version history.
 func (a *documentAPI) Write(path string, content []byte, author, msg string) error {
-	path, err := docpath.Normalise(path)
+	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return err
 	}
+	path = p
 	if err := errors.Join(
 		validate.Path(path, a.lim),
 		validate.Content(content, a.lim),
@@ -100,10 +117,11 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 // Delete soft-deletes a document. The document can be recovered via
 // Restore until a Vacuum permanently removes it.
 func (a *documentAPI) Delete(path, author string) error {
-	path, err := docpath.Normalise(path)
+	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return err
 	}
+	path = p
 	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
@@ -115,10 +133,11 @@ func (a *documentAPI) Delete(path, author string) error {
 // Restore recovers a soft-deleted document, clearing its deleted_at
 // timestamp so it reappears in normal listings.
 func (a *documentAPI) Restore(path, author string) error {
-	path, err := docpath.Normalise(path)
+	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return err
 	}
+	path = p
 	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
@@ -131,12 +150,13 @@ func (a *documentAPI) Restore(path, author string) error {
 // Tags and links follow the document to the new path.
 func (a *documentAPI) Move(from, to, author string) error {
 	var errs []error
-	from, err := docpath.Normalise(from)
+	f, _, err := a.resolveDoc(from, 0)
 	if err != nil {
 		errs = append(errs, err)
-	} else if err := validate.Path(from, a.lim); err != nil {
+	} else if err := validate.Path(f, a.lim); err != nil {
 		errs = append(errs, err)
 	}
+	from = f
 	to, err = docpath.Normalise(to)
 	if err != nil {
 		errs = append(errs, err)
@@ -178,6 +198,7 @@ func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) 
 	docs := make([]sdk.Doc, len(infos))
 	for i, info := range infos {
 		docs[i] = sdk.Doc{
+			Key:       info.Key,
 			Path:      info.Path,
 			Version:   info.Version,
 			Author:    info.Author,
@@ -198,10 +219,11 @@ func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) 
 
 // Exists reports whether a non-deleted document exists at the given path.
 func (a *documentAPI) Exists(path string) (bool, error) {
-	path, err := docpath.Normalise(path)
+	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return false, err
 	}
+	path = p
 	if err := validate.Path(path, a.lim); err != nil {
 		return false, err
 	}
@@ -211,10 +233,11 @@ func (a *documentAPI) Exists(path string) (bool, error) {
 // Edit performs a search-and-replace within a document, creating a new
 // version with the substitution applied.
 func (a *documentAPI) Edit(path, old, new, author, msg string) error {
-	path, err := docpath.Normalise(path)
+	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return err
 	}
+	path = p
 	if err := errors.Join(
 		validate.Path(path, a.lim),
 		validate.Text(old, "old text"),
@@ -289,10 +312,11 @@ func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, erro
 // History returns version history for a document, newest first.
 // Converts internal Info structs to SDK Version structs.
 func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
-	path, err := docpath.Normalise(path)
+	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return nil, err
 	}
+	path = p
 	if err := validate.Path(path, a.lim); err != nil {
 		return nil, err
 	}
@@ -337,9 +361,13 @@ func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 // Revert creates a new version with the content from a previous version.
 // The old version is preserved - revert is non-destructive.
 func (a *documentAPI) Revert(path string, version int, author, msg string) error {
-	path, err := docpath.Normalise(path)
+	p, v, err := a.resolveDoc(path, version)
 	if err != nil {
 		return err
+	}
+	path = p
+	if v != nil {
+		version = *v
 	}
 	if err := validate.Path(path, a.lim); err != nil {
 		return err

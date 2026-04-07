@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS content (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT NOT NULL UNIQUE,
+    key TEXT NOT NULL,
     namespace TEXT NOT NULL,
     path TEXT NOT NULL,
     content TEXT NOT NULL,

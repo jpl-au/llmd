@@ -63,8 +63,8 @@ func TestWrite_Versioning(t *testing.T) {
 		t.Errorf("doc3.Version = %d, want 3", doc3.Version)
 	}
 
-	if doc1.Key == doc2.Key || doc2.Key == doc3.Key {
-		t.Error("versions should have unique keys")
+	if doc1.Key != doc2.Key || doc2.Key != doc3.Key {
+		t.Errorf("key must be stable across versions: v1=%q v2=%q v3=%q", doc1.Key, doc2.Key, doc3.Key)
 	}
 }
 
