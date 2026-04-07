@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/resolve"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
 	"github.com/jpl-au/llmd/internal/validate"
 	"github.com/jpl-au/llmd/sdk"
@@ -48,6 +49,7 @@ func newTagAPI(store *llmd.Store, lim validate.Limits, ctx context.Context) *tag
 // Add attaches a tag to a document. Creates the tag entity if it does
 // not already exist; no-ops if the tag is already present.
 func (a *tagAPI) Add(path, name, author string) error {
+	path, _, _ = resolve.Identifier(a.ctx, path, a.store.Documents.KeyToPath)
 	if err := errors.Join(
 		validate.Path(path, a.lim),
 		validate.Text(name, "tag name"),
@@ -62,6 +64,7 @@ func (a *tagAPI) Add(path, name, author string) error {
 
 // Remove detaches a tag from a document via soft-delete.
 func (a *tagAPI) Remove(path, name, author string) error {
+	path, _, _ = resolve.Identifier(a.ctx, path, a.store.Documents.KeyToPath)
 	if err := validate.Text(name, "tag name"); err != nil {
 		return err
 	}
@@ -73,6 +76,7 @@ func (a *tagAPI) Remove(path, name, author string) error {
 // List returns all tags attached to a document. Converts internal tag
 // entities to SDK Tag structs.
 func (a *tagAPI) List(path string) ([]sdk.Tag, error) {
+	path, _, _ = resolve.Identifier(a.ctx, path, a.store.Documents.KeyToPath)
 	tt, err := a.store.Tags.List(a.ctx, path)
 	if err != nil {
 		return nil, err

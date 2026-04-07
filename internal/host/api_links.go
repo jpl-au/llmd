@@ -7,6 +7,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/links"
+	"github.com/jpl-au/llmd/internal/llmd/resolve"
 	"github.com/jpl-au/llmd/internal/validate"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -46,6 +47,8 @@ func newLinkAPI(store *llmd.Store, lim validate.Limits, ctx context.Context) *li
 // Add creates a directed link from one document to another with an
 // optional label. Stamps a CLI origin for provenance tracking.
 func (a *linkAPI) Add(from, to, label, author string) error {
+	from, _, _ = resolve.Identifier(a.ctx, from, a.store.Documents.KeyToPath)
+	to, _, _ = resolve.Identifier(a.ctx, to, a.store.Documents.KeyToPath)
 	if err := errors.Join(
 		validate.Path(from, a.lim),
 		validate.Path(to, a.lim),
@@ -62,6 +65,8 @@ func (a *linkAPI) Add(from, to, label, author string) error {
 
 // Remove deletes the link between two documents.
 func (a *linkAPI) Remove(from, to, author string) error {
+	from, _, _ = resolve.Identifier(a.ctx, from, a.store.Documents.KeyToPath)
+	to, _, _ = resolve.Identifier(a.ctx, to, a.store.Documents.KeyToPath)
 	return linkErr(a.store.Links.Remove(a.ctx, from, to, links.Options{
 		Origin: origin(author),
 	}))
@@ -72,6 +77,7 @@ func (a *linkAPI) Remove(from, to, author string) error {
 // "both" for all links. Converts the string direction to the internal
 // Direction type before querying.
 func (a *linkAPI) List(path, dir string) ([]sdk.Link, error) {
+	path, _, _ = resolve.Identifier(a.ctx, path, a.store.Documents.KeyToPath)
 	var d links.Direction
 	switch dir {
 	case "in":
