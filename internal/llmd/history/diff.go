@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/aymanbagabas/go-udiff"
+	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/internal/llmd/resolve"
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
@@ -31,12 +33,12 @@ func (h *History) Diff(ctx context.Context, a, b string, opts ...DiffOptions) (*
 		opt = opts[0]
 	}
 
-	docA, err := h.docs.Resolve(ctx, a)
+	docA, err := h.readIdentifier(ctx, a)
 	if err != nil {
 		return nil, fmt.Errorf("resolving %s: %w", a, err)
 	}
 
-	docB, err := h.docs.Resolve(ctx, b)
+	docB, err := h.readIdentifier(ctx, b)
 	if err != nil {
 		return nil, fmt.Errorf("resolving %s: %w", b, err)
 	}
@@ -94,4 +96,15 @@ func computeStats(edits []udiff.Edit, original string) DiffStats {
 		stats.Added += added
 	}
 	return stats
+}
+
+// readIdentifier resolves an identifier (path, key, or either with
+// :version suffix) and reads the document from the store.
+func (h *History) readIdentifier(ctx context.Context, value string) (*document.Document, error) {
+	path, version, _ := resolve.Identifier(ctx, value, h.docs.KeyToPath)
+	var opts documents.ReadOptions
+	if version != nil {
+		opts.Version = version
+	}
+	return h.docs.Read(ctx, path, opts)
 }

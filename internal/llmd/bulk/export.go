@@ -9,6 +9,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/line"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/internal/llmd/resolve"
 )
 
 // ExportResult contains the results of an export operation.
@@ -110,7 +111,12 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 // directories within the root, and writes the file. Respects the
 // Overwrite option to avoid clobbering existing files.
 func (b *Bulk) exportOne(ctx context.Context, src string, root *os.Root, rel string, opts ExportOptions) error {
-	doc, err := b.docs.Resolve(ctx, src)
+	path, version, _ := resolve.Identifier(ctx, src, b.docs.KeyToPath)
+	var readOpts documents.ReadOptions
+	if version != nil {
+		readOpts.Version = version
+	}
+	doc, err := b.docs.Read(ctx, path, readOpts)
 	if err != nil {
 		return err
 	}
