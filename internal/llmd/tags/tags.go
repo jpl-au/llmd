@@ -40,6 +40,6 @@ func New(db *qwr.Manager, docs *documents.Documents, bus *events.Bus) *Tags {
 
 // resolvePath translates a document identifier (path or key) to a path.
 func (t *Tags) resolvePath(ctx context.Context, value string) (string, error) {
-	r := resolve.Identifier(ctx, value, t.docs.KeyToPath)
-	return r.Path, nil
+	path, _, _ := resolve.Identifier(ctx, value, t.docs.KeyToPath)
+	return path, nil
 }

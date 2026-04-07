@@ -15,24 +15,24 @@ import (
 // shared resolve package; this method adds the document-specific
 // filesystem fallback for when the identifier points to a local file.
 func (d *Documents) Resolve(ctx context.Context, value string) (*document.Document, error) {
-	r := resolve.Identifier(ctx, value, d.KeyToPath)
+	path, version, byKey := resolve.Identifier(ctx, value, d.KeyToPath)
 
 	// Filesystem takes priority when no version is specified and the
 	// identifier was not resolved via key lookup.
-	if r.Version == nil && !r.ByKey {
-		if fsDoc, err := d.readFilesystem(r.Path); err == nil {
+	if version == nil && !byKey {
+		if fsDoc, err := d.readFilesystem(path); err == nil {
 			return fsDoc, nil
 		}
 	}
 
 	// Read from the store using the resolved path.
 	var opts ReadOptions
-	if r.Version != nil {
-		opts.Version = r.Version
+	if version != nil {
+		opts.Version = version
 	}
-	doc, err := d.Read(ctx, r.Path, opts)
+	doc, err := d.Read(ctx, path, opts)
 	if doc != nil {
-		if r.ByKey {
+		if byKey {
 			doc.Resolved = document.ResolvedKey
 		}
 		return doc, err

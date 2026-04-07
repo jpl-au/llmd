@@ -17,28 +17,21 @@ import (
 // implementation backed by a query on its table's key column.
 type KeyToPath func(ctx context.Context, k string) (string, error)
 
-// Result holds the resolved path and optional version.
-type Result struct {
-	Path    string // Resolved path (translated from key if applicable)
-	Version *int   // Version from :N suffix, nil if absent
-	ByKey   bool   // True when the identifier was resolved via key lookup
-}
-
 // Identifier resolves a value that may be a path, a key, or either
 // with a :version suffix. When the base value is a valid 9-character
 // key the lookup function is called to translate it to a path. If
 // lookup is nil or returns an error the value is returned as-is,
 // allowing it to fall through to path-based resolution.
-func Identifier(ctx context.Context, value string, lookup KeyToPath) Result {
-	base, version := ParseVersion(value)
+func Identifier(ctx context.Context, value string, lookup KeyToPath) (path string, version *int, byKey bool) {
+	path, version = ParseVersion(value)
 
-	if key.Validate(base) == nil && lookup != nil {
-		if path, err := lookup(ctx, base); err == nil {
-			return Result{Path: path, Version: version, ByKey: true}
+	if key.Validate(path) == nil && lookup != nil {
+		if resolved, err := lookup(ctx, path); err == nil {
+			return resolved, version, true
 		}
 	}
 
-	return Result{Path: base, Version: version}
+	return path, version, false
 }
 
 // ParseVersion splits "value:N" into the base value and an optional

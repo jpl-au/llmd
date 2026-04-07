@@ -55,15 +55,15 @@ func newDocumentAPI(store *llmd.Store, lim validate.Limits, ctx context.Context)
 // :version suffix) to a normalised path and optional version. The
 // version parameter from flags takes precedence when non-zero.
 func (a *documentAPI) resolveDoc(identifier string, flagVersion int) (string, *int, error) {
-	r := resolve.Identifier(a.ctx, identifier, a.store.Documents.KeyToPath)
-	path, err := docpath.Normalise(r.Path)
+	p, v, _ := resolve.Identifier(a.ctx, identifier, a.store.Documents.KeyToPath)
+	p, err := docpath.Normalise(p)
 	if err != nil {
 		return "", nil, err
 	}
 	if flagVersion > 0 {
-		return path, &flagVersion, nil
+		return p, &flagVersion, nil
 	}
-	return path, r.Version, nil
+	return p, v, nil
 }
 
 // Read returns document content. Version 0 means latest (nil pointer
