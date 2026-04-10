@@ -4,22 +4,31 @@ import "time"
 
 // DocumentStore is the document storage interface. It covers reading,
 // writing, searching, history, and bulk operations on documents.
+//
+// Mutation methods take an options struct rather than positional
+// author/message arguments. This keeps the contract stable as new
+// options are added (e.g. EditOpts.ReplaceAll). Each opts struct
+// requires Author; everything else is optional.
 type DocumentStore interface {
 	// Read returns document content. Version 0 means latest;
 	// a positive version reads that specific historical version.
 	Read(path string, version int) ([]byte, error)
 
 	// Write creates or updates a document, recording a new version.
-	Write(path string, content []byte, author, msg string) error
+	// See WriteOpts for the available options.
+	Write(path string, content []byte, opts WriteOpts) error
 
-	// Delete soft-deletes a document (recoverable via Restore until Vacuum).
-	Delete(path, author string) error
+	// Delete soft-deletes a document (recoverable via Restore until
+	// Vacuum). See DeleteOpts for the available options.
+	Delete(path string, opts DeleteOpts) error
 
-	// Restore recovers a soft-deleted document.
-	Restore(path, author string) error
+	// Restore recovers a soft-deleted document. See RestoreOpts for
+	// the available options.
+	Restore(path string, opts RestoreOpts) error
 
-	// Move renames a document, preserving version history.
-	Move(from, to, author string) error
+	// Move renames a document, preserving version history. See
+	// MoveOpts for the available options.
+	Move(from, to string, opts MoveOpts) error
 
 	// List returns documents matching the path prefix. Use ListOpts
 	// to include deleted documents or change sort order.
@@ -29,8 +38,11 @@ type DocumentStore interface {
 	Exists(path string) (bool, error)
 
 	// Edit performs a search-and-replace within a document, creating a
-	// new version with the substitution applied.
-	Edit(path, old, new, author, msg string) error
+	// new version with the substitution applied. By default the search
+	// string must occur exactly once; set EditOpts.ReplaceAll to allow
+	// (and require) multiple matches. See EditOpts for the full set of
+	// options.
+	Edit(path, old, new string, opts EditOpts) error
 
 	// Glob returns paths matching a shell-style glob pattern
 	// (e.g. "notes/*.md", "**/*.txt").
@@ -51,9 +63,10 @@ type DocumentStore interface {
 	// Returns the unified diff text, lines added, and lines removed.
 	Diff(a, b string, ctx int) (string, int, int, error)
 
-	// Revert creates a new version with the content from a previous version.
-	// The old version is not modified - revert is non-destructive.
-	Revert(path string, version int, author, msg string) error
+	// Revert creates a new version with the content from a previous
+	// version. The old version is not modified - revert is
+	// non-destructive. See RevertOpts for the available options.
+	Revert(path string, version int, opts RevertOpts) error
 
 	// Vacuum permanently deletes all soft-deleted data and reclaims
 	// disk space. This operation cannot be undone.
@@ -83,6 +96,50 @@ type Doc struct {
 	Message   string
 	CreatedAt int64
 	Deleted   bool
+}
+
+// WriteOpts configures a Write operation. Author is required; Message
+// is an optional version message (equivalent to a git commit message).
+type WriteOpts struct {
+	Author  string
+	Message string
+}
+
+// DeleteOpts configures a Delete operation. Author is required.
+// Delete is recorded against the document's history but does not
+// persist a message.
+type DeleteOpts struct {
+	Author string
+}
+
+// RestoreOpts configures a Restore operation. Author is required.
+type RestoreOpts struct {
+	Author string
+}
+
+// MoveOpts configures a Move operation. Author is required.
+type MoveOpts struct {
+	Author string
+}
+
+// RevertOpts configures a Revert operation. Author is required;
+// Message is an optional version message describing the revert.
+type RevertOpts struct {
+	Author  string
+	Message string
+}
+
+// EditOpts configures an Edit operation.
+//
+// Author is required (Edit creates a new version, and every version
+// records who made it). Message is an optional version message,
+// equivalent to a git commit message. ReplaceAll opts into substituting
+// every occurrence of the search string instead of requiring exactly
+// one match.
+type EditOpts struct {
+	Author     string
+	Message    string
+	ReplaceAll bool
 }
 
 // ListOpts configures List behaviour.

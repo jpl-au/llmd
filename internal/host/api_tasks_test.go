@@ -192,7 +192,7 @@ func TestTasksAddWithPath(t *testing.T) {
 	testHost(t)
 
 	// Create an existing document first
-	if err := sdk.Documents.Write("specs/auth", []byte("# Auth Spec"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("specs/auth", []byte("# Auth Spec"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 

@@ -62,3 +62,64 @@ func TestEdit_NoMatch(t *testing.T) {
 		t.Errorf("Edit() error = %v, want ErrNoMatch", err)
 	}
 }
+
+func TestEdit_NotUnique(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if _, err := s.Documents.Write(ctx, "docs/readme", "foo bar foo", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	_, err := s.Documents.Edit(ctx, "docs/readme", "foo", "qux", testEditOpts())
+	if !errors.Is(err, documents.ErrNotUnique) {
+		t.Errorf("Edit() error = %v, want ErrNotUnique", err)
+	}
+
+	// The document must not have been touched: the failed edit should
+	// not produce a new version.
+	doc, err := s.Documents.Read(ctx, "docs/readme")
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if doc.Version != 1 {
+		t.Errorf("Version = %d, want 1 (no version should be created on failed edit)", doc.Version)
+	}
+	if doc.Content != "foo bar foo" {
+		t.Errorf("Content = %q, want unchanged", doc.Content)
+	}
+}
+
+func TestEdit_NoOp(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if _, err := s.Documents.Write(ctx, "docs/readme", "hello", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	_, err := s.Documents.Edit(ctx, "docs/readme", "hello", "hello", testEditOpts())
+	if !errors.Is(err, documents.ErrNoOp) {
+		t.Errorf("Edit() error = %v, want ErrNoOp", err)
+	}
+}
+
+// TestEdit_DisambiguatedByContext shows the documented escape hatch:
+// when the bare search string is ambiguous, the agent should expand it
+// with surrounding context until exactly one match remains.
+func TestEdit_DisambiguatedByContext(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	if _, err := s.Documents.Write(ctx, "docs/readme", "foo bar foo baz", testWriteOpts()); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	doc, err := s.Documents.Edit(ctx, "docs/readme", "foo baz", "qux baz", testEditOpts())
+	if err != nil {
+		t.Fatalf("Edit: %v", err)
+	}
+	if doc.Content != "foo bar qux baz" {
+		t.Errorf("Content = %q, want %q", doc.Content, "foo bar qux baz")
+	}
+}

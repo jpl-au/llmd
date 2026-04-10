@@ -17,7 +17,7 @@ func testHost(t *testing.T) {
 func TestDocumentsWriteRead(t *testing.T) {
 	testHost(t)
 
-	err := sdk.Documents.Write("notes/hello", []byte("# Hello"), "alice", "first")
+	err := sdk.Documents.Write("notes/hello", []byte("# Hello"), sdk.WriteOpts{Author: "alice", Message: "first"})
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}
@@ -34,10 +34,10 @@ func TestDocumentsWriteRead(t *testing.T) {
 func TestDocumentsReadVersion(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("v1"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("v1"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write v1: %v", err)
 	}
-	if err := sdk.Documents.Write("doc", []byte("v2"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("v2"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write v2: %v", err)
 	}
 
@@ -69,7 +69,7 @@ func TestDocumentsExists(t *testing.T) {
 		t.Error("Exists returned true for missing document")
 	}
 
-	if err := sdk.Documents.Write("yes", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("yes", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 	ok, err = sdk.Documents.Exists("yes")
@@ -84,11 +84,11 @@ func TestDocumentsExists(t *testing.T) {
 func TestDocumentsDeleteRestore(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("content"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("content"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
-	if err := sdk.Documents.Delete("doc", "alice"); err != nil {
+	if err := sdk.Documents.Delete("doc", sdk.DeleteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
@@ -97,7 +97,7 @@ func TestDocumentsDeleteRestore(t *testing.T) {
 		t.Error("document still exists after Delete")
 	}
 
-	if err := sdk.Documents.Restore("doc", "alice"); err != nil {
+	if err := sdk.Documents.Restore("doc", sdk.RestoreOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
 
@@ -110,11 +110,11 @@ func TestDocumentsDeleteRestore(t *testing.T) {
 func TestDocumentsMove(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("old", []byte("moved"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("old", []byte("moved"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
-	if err := sdk.Documents.Move("old", "new", "alice"); err != nil {
+	if err := sdk.Documents.Move("old", "new", sdk.MoveOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 
@@ -135,13 +135,13 @@ func TestDocumentsMove(t *testing.T) {
 func TestDocumentsList(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("a/one", []byte("1"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("a/one", []byte("1"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write a/one: %v", err)
 	}
-	if err := sdk.Documents.Write("a/two", []byte("2"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("a/two", []byte("2"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write a/two: %v", err)
 	}
-	if err := sdk.Documents.Write("b/three", []byte("3"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("b/three", []byte("3"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write b/three: %v", err)
 	}
 
@@ -166,10 +166,10 @@ func TestDocumentsList(t *testing.T) {
 func TestDocumentsListReverse(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("a", []byte("1"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("a", []byte("1"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write a: %v", err)
 	}
-	if err := sdk.Documents.Write("b", []byte("2"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("b", []byte("2"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write b: %v", err)
 	}
 
@@ -185,13 +185,13 @@ func TestDocumentsListReverse(t *testing.T) {
 func TestDocumentsListDeleted(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("keep", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("keep", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write keep: %v", err)
 	}
-	if err := sdk.Documents.Write("gone", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("gone", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write gone: %v", err)
 	}
-	if err := sdk.Documents.Delete("gone", "alice"); err != nil {
+	if err := sdk.Documents.Delete("gone", sdk.DeleteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
@@ -209,11 +209,11 @@ func TestDocumentsListDeleted(t *testing.T) {
 func TestDocumentsEdit(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("hello world"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("hello world"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
-	if err := sdk.Documents.Edit("doc", "world", "Go", "alice", "fix"); err != nil {
+	if err := sdk.Documents.Edit("doc", "world", "Go", sdk.EditOpts{Author: "alice", Message: "fix"}); err != nil {
 		t.Fatalf("Edit: %v", err)
 	}
 
@@ -226,10 +226,10 @@ func TestDocumentsEdit(t *testing.T) {
 func TestDocumentsHistory(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("v1"), "alice", "first"); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("v1"), sdk.WriteOpts{Author: "alice", Message: "first"}); err != nil {
 		t.Fatalf("Write v1: %v", err)
 	}
-	if err := sdk.Documents.Write("doc", []byte("v2"), "bob", "second"); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("v2"), sdk.WriteOpts{Author: "bob", Message: "second"}); err != nil {
 		t.Fatalf("Write v2: %v", err)
 	}
 
@@ -252,13 +252,13 @@ func TestDocumentsHistory(t *testing.T) {
 func TestDocumentsHistoryLimit(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("v1"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("v1"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write v1: %v", err)
 	}
-	if err := sdk.Documents.Write("doc", []byte("v2"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("v2"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write v2: %v", err)
 	}
-	if err := sdk.Documents.Write("doc", []byte("v3"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("v3"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write v3: %v", err)
 	}
 
@@ -271,10 +271,10 @@ func TestDocumentsHistoryLimit(t *testing.T) {
 func TestDocumentsDiff(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("line1\nline2\n"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("line1\nline2\n"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write v1: %v", err)
 	}
-	if err := sdk.Documents.Write("doc", []byte("line1\nchanged\n"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("line1\nchanged\n"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write v2: %v", err)
 	}
 
@@ -293,14 +293,14 @@ func TestDocumentsDiff(t *testing.T) {
 func TestDocumentsRevert(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("original"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("original"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write original: %v", err)
 	}
-	if err := sdk.Documents.Write("doc", []byte("changed"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("changed"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write changed: %v", err)
 	}
 
-	if err := sdk.Documents.Revert("doc", 1, "alice", "revert"); err != nil {
+	if err := sdk.Documents.Revert("doc", 1, sdk.RevertOpts{Author: "alice", Message: "revert"}); err != nil {
 		t.Fatalf("Revert: %v", err)
 	}
 
@@ -313,13 +313,13 @@ func TestDocumentsRevert(t *testing.T) {
 func TestDocumentsGlob(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("notes/a.md", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("notes/a.md", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write notes/a.md: %v", err)
 	}
-	if err := sdk.Documents.Write("notes/b.md", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("notes/b.md", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write notes/b.md: %v", err)
 	}
-	if err := sdk.Documents.Write("other/c.md", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("other/c.md", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write other/c.md: %v", err)
 	}
 
@@ -335,10 +335,10 @@ func TestDocumentsGlob(t *testing.T) {
 func TestDocumentsGrep(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc1", []byte("the quick brown fox"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc1", []byte("the quick brown fox"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc1: %v", err)
 	}
-	if err := sdk.Documents.Write("doc2", []byte("lazy dog"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc2", []byte("lazy dog"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc2: %v", err)
 	}
 
@@ -357,10 +357,10 @@ func TestDocumentsGrep(t *testing.T) {
 func TestDocumentsGrepPathFilter(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("a/doc", []byte("needle"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("a/doc", []byte("needle"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write a/doc: %v", err)
 	}
-	if err := sdk.Documents.Write("b/doc", []byte("needle"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("b/doc", []byte("needle"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write b/doc: %v", err)
 	}
 
@@ -373,10 +373,10 @@ func TestDocumentsGrepPathFilter(t *testing.T) {
 func TestDocumentsVacuum(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
-	if err := sdk.Documents.Delete("doc", "alice"); err != nil {
+	if err := sdk.Documents.Delete("doc", sdk.DeleteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
@@ -413,7 +413,7 @@ func TestDocumentsReadNotFound(t *testing.T) {
 func TestDocumentsDeleteNotFound(t *testing.T) {
 	testHost(t)
 
-	err := sdk.Documents.Delete("nonexistent", "alice")
+	err := sdk.Documents.Delete("nonexistent", sdk.DeleteOpts{Author: "alice"})
 	if !errors.Is(err, sdk.ErrNotFound) {
 		t.Errorf("Delete error = %v, want sdk.ErrNotFound", err)
 	}
@@ -422,7 +422,7 @@ func TestDocumentsDeleteNotFound(t *testing.T) {
 func TestDocumentsMoveNotFound(t *testing.T) {
 	testHost(t)
 
-	err := sdk.Documents.Move("nonexistent", "dest", "alice")
+	err := sdk.Documents.Move("nonexistent", "dest", sdk.MoveOpts{Author: "alice"})
 	if !errors.Is(err, sdk.ErrNotFound) {
 		t.Errorf("Move error = %v, want sdk.ErrNotFound", err)
 	}
@@ -431,7 +431,7 @@ func TestDocumentsMoveNotFound(t *testing.T) {
 func TestDocumentsEditNotFound(t *testing.T) {
 	testHost(t)
 
-	err := sdk.Documents.Edit("nonexistent", "old", "new", "alice", "")
+	err := sdk.Documents.Edit("nonexistent", "old", "new", sdk.EditOpts{Author: "alice"})
 	if !errors.Is(err, sdk.ErrNotFound) {
 		t.Errorf("Edit error = %v, want sdk.ErrNotFound", err)
 	}
@@ -449,20 +449,69 @@ func TestDocumentsHistoryNotFound(t *testing.T) {
 func TestDocumentsEditPatternNotFound(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("hello world"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("hello world"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
-	err := sdk.Documents.Edit("doc", "xyz", "abc", "alice", "")
-	if err == nil {
-		t.Error("Edit returned nil error when pattern not found")
+	err := sdk.Documents.Edit("doc", "xyz", "abc", sdk.EditOpts{Author: "alice"})
+	if !errors.Is(err, sdk.ErrNoMatch) {
+		t.Errorf("Edit error = %v, want sdk.ErrNoMatch", err)
+	}
+}
+
+func TestDocumentsEditNotUnique(t *testing.T) {
+	testHost(t)
+
+	if err := sdk.Documents.Write("doc", []byte("foo bar foo"), sdk.WriteOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Write doc: %v", err)
+	}
+
+	err := sdk.Documents.Edit("doc", "foo", "qux", sdk.EditOpts{Author: "alice"})
+	if !errors.Is(err, sdk.ErrNotUnique) {
+		t.Errorf("Edit error = %v, want sdk.ErrNotUnique", err)
+	}
+
+	// Document should be unchanged.
+	content, _ := sdk.Documents.Read("doc", 0)
+	if string(content) != "foo bar foo" {
+		t.Errorf("content = %q, want %q (no edit should have applied)", content, "foo bar foo")
+	}
+}
+
+func TestDocumentsEditReplaceAll(t *testing.T) {
+	testHost(t)
+
+	if err := sdk.Documents.Write("doc", []byte("foo bar foo baz foo"), sdk.WriteOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Write doc: %v", err)
+	}
+
+	if err := sdk.Documents.Edit("doc", "foo", "qux", sdk.EditOpts{Author: "alice", ReplaceAll: true}); err != nil {
+		t.Fatalf("Edit: %v", err)
+	}
+
+	content, _ := sdk.Documents.Read("doc", 0)
+	if string(content) != "qux bar qux baz qux" {
+		t.Errorf("content = %q, want %q", content, "qux bar qux baz qux")
+	}
+}
+
+func TestDocumentsEditNoOp(t *testing.T) {
+	testHost(t)
+
+	if err := sdk.Documents.Write("doc", []byte("hello"), sdk.WriteOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Write doc: %v", err)
+	}
+
+	err := sdk.Documents.Edit("doc", "hello", "hello", sdk.EditOpts{Author: "alice"})
+	if !errors.Is(err, sdk.ErrNoOp) {
+		t.Errorf("Edit error = %v, want sdk.ErrNoOp", err)
 	}
 }
 
 func TestDocumentsWriteEmpty(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("empty", []byte(""), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("empty", []byte(""), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write empty: %v", err)
 	}
 
@@ -478,10 +527,10 @@ func TestDocumentsWriteEmpty(t *testing.T) {
 func TestDocumentsWriteOverwrite(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("first"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("first"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write first: %v", err)
 	}
-	if err := sdk.Documents.Write("doc", []byte("second"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("second"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write second: %v", err)
 	}
 
@@ -500,7 +549,7 @@ func TestDocumentsWriteOverwrite(t *testing.T) {
 func TestDocumentsGlobNoMatch(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("notes/a.md", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("notes/a.md", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write notes/a.md: %v", err)
 	}
 
@@ -516,7 +565,7 @@ func TestDocumentsGlobNoMatch(t *testing.T) {
 func TestDocumentsGrepNoMatch(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("hello world"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("hello world"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
@@ -532,7 +581,7 @@ func TestDocumentsGrepNoMatch(t *testing.T) {
 func TestDocumentsGrepLines(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("line one\nline two\nline three"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("line one\nline two\nline three"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
@@ -551,7 +600,7 @@ func TestDocumentsGrepLines(t *testing.T) {
 func TestDocumentsGrepLinesContext(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("aaa\nbbb\nccc\nddd\neee"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("aaa\nbbb\nccc\nddd\neee"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
@@ -574,7 +623,7 @@ func TestDocumentsGrepSections(t *testing.T) {
 	testHost(t)
 
 	content := "# Intro\n\nNothing here.\n\n# Details\n\nThe needle is here.\n"
-	if err := sdk.Documents.Write("doc", []byte(content), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte(content), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
@@ -593,7 +642,7 @@ func TestDocumentsGrepSections(t *testing.T) {
 func TestDocumentsDiffSameVersion(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("same"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("same"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write doc: %v", err)
 	}
 
@@ -697,10 +746,10 @@ func TestDocumentsImportWithPrefix(t *testing.T) {
 func TestDocumentsExport(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("notes/one", []byte("first"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("notes/one", []byte("first"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write notes/one: %v", err)
 	}
-	if err := sdk.Documents.Write("notes/two", []byte("second"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("notes/two", []byte("second"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write notes/two: %v", err)
 	}
 
@@ -727,7 +776,7 @@ func TestDocumentsExport(t *testing.T) {
 func TestDocumentsExportSkipsExisting(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("exp/doc", []byte("store content"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("exp/doc", []byte("store content"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write exp/doc: %v", err)
 	}
 
@@ -755,7 +804,7 @@ func TestDocumentsExportSkipsExisting(t *testing.T) {
 func TestDocumentsExportOverwrite(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("exp/doc", []byte("new content"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("exp/doc", []byte("new content"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write exp/doc: %v", err)
 	}
 

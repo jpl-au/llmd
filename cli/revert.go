@@ -47,7 +47,10 @@ func revert(ctx sdk.Context, args []string) (sdk.Response, error) {
 		message = fmt.Sprintf("Reverted to version %d", version)
 	}
 
-	if err := ctx.Documents.Revert(path, version, ctx.Author, message); err != nil {
+	if err := ctx.Documents.Revert(path, version, sdk.RevertOpts{
+		Author:  ctx.Author,
+		Message: message,
+	}); err != nil {
 		return nil, fmt.Errorf("revert: %w", err)
 	}
 

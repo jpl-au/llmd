@@ -44,6 +44,19 @@ var (
 
 	// ErrNotReady means a task's dependencies are not satisfied.
 	ErrNotReady = errors.New("task dependencies not satisfied")
+
+	// ErrNoMatch means an edit's search string was not found in the
+	// target document.
+	ErrNoMatch = errors.New("no match found")
+
+	// ErrNotUnique means an edit's search string matched more than one
+	// place in the target document. The caller must either disambiguate
+	// with more context or opt into ReplaceAll.
+	ErrNotUnique = errors.New("search string is not unique")
+
+	// ErrNoOp means an edit's old and new strings were identical, so the
+	// operation would have produced no change.
+	ErrNoOp = errors.New("old and new are identical")
 )
 
 // Domain stores. Each domain has its own focused interface with

@@ -21,7 +21,7 @@ func TestActivitiesRecentEmpty(t *testing.T) {
 func TestActivitiesRecentDocuments(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("doc", []byte("hello"), "alice", "first"); err != nil {
+	if err := sdk.Documents.Write("doc", []byte("hello"), sdk.WriteOpts{Author: "alice", Message: "first"}); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 
@@ -73,13 +73,13 @@ func TestActivitiesRecentTasks(t *testing.T) {
 func TestActivitiesRecentLimit(t *testing.T) {
 	testHost(t)
 
-	if err := sdk.Documents.Write("a", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("a", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write a: %v", err)
 	}
-	if err := sdk.Documents.Write("b", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("b", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write b: %v", err)
 	}
-	if err := sdk.Documents.Write("c", []byte("x"), "alice", ""); err != nil {
+	if err := sdk.Documents.Write("c", []byte("x"), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write c: %v", err)
 	}
 

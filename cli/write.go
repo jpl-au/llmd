@@ -29,9 +29,11 @@ func write(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	path := positional[0]
-	message := flags.String("message")
 
-	if err := ctx.Documents.Write(path, ctx.Stdin, ctx.Author, message); err != nil {
+	if err := ctx.Documents.Write(path, ctx.Stdin, sdk.WriteOpts{
+		Author:  ctx.Author,
+		Message: flags.String("message"),
+	}); err != nil {
 		return nil, fmt.Errorf("write: %w", err)
 	}
 

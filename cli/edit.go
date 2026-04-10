@@ -16,10 +16,13 @@ import (
 var editSpec = sdk.Command{
 	Name: "edit", Desc: `Search and replace text within a document
 
-Replaces the first occurrence of <old> with <new>, creating a new
-version with the change applied. Use sed for pattern-based
-substitution instead of literal strings.`, Usage: "edit <path> <old> <new>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
+Replaces <old> with <new>, creating a new version with the change
+applied. By default <old> must occur exactly once in the document - if
+it appears multiple times, expand the search string with surrounding
+context to disambiguate, or pass --all to substitute every occurrence.
+Use sed for pattern-based substitution instead of literal strings.`, Usage: "edit [--all] [--message <msg>] <path> <old> <new>", MCP: true, NeedsAuthor: true, Flags: []sdk.Flag{
 		{Name: "message", Type: "string", Desc: "Version message"},
+		{Name: "all", Type: "bool", Desc: "Replace all occurrences instead of requiring a unique match"},
 	},
 }
 
@@ -33,9 +36,12 @@ func edit(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	path, old, new := positional[0], positional[1], positional[2]
-	message := flags.String("message")
 
-	if err := ctx.Documents.Edit(path, old, new, ctx.Author, message); err != nil {
+	if err := ctx.Documents.Edit(path, old, new, sdk.EditOpts{
+		Author:     ctx.Author,
+		Message:    flags.String("message"),
+		ReplaceAll: flags.Bool("all"),
+	}); err != nil {
 		return nil, fmt.Errorf("edit: %w", err)
 	}
 

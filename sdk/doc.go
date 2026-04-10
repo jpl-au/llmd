@@ -41,7 +41,7 @@
 //	    return nil, err
 //	}
 //
-//	err = sdk.Documents.Write("notes/new.md", []byte("# New"), ctx.Author, "initial")
+//	err = sdk.Documents.Write("notes/new.md", []byte("# New"), sdk.WriteOpts{Author: ctx.Author, Message: "initial"})
 //
 //	err = sdk.Tags.Add("notes/todo.md", "important", ctx.Author)
 //

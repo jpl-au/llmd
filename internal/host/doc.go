@@ -34,7 +34,7 @@
 //
 //	// In an extension command:
 //	content, _ := sdk.Documents.Read("path/to/doc.md", 0)
-//	sdk.Documents.Write("path/to/doc.md", content, author, message)
+//	sdk.Documents.Write("path/to/doc.md", content, sdk.WriteOpts{Author: author, Message: message})
 //	sdk.Tags.Add("path/to/doc.md", "important", author)
 //
 // # Adding Extensions

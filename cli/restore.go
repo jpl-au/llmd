@@ -23,7 +23,7 @@ func restore(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("restore: %w", sdk.ErrMissingArg)
 	}
 
-	if err := ctx.Documents.Restore(args[0], ctx.Author); err != nil {
+	if err := ctx.Documents.Restore(args[0], sdk.RestoreOpts{Author: ctx.Author}); err != nil {
 		return nil, fmt.Errorf("restore: %w", err)
 	}
 

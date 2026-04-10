@@ -19,7 +19,9 @@ import (
 
 // docErr translates internal document and history errors to SDK sentinel
 // errors. Both packages define their own ErrNotFound; both map to
-// sdk.ErrNotFound. All other errors pass through unchanged.
+// sdk.ErrNotFound. Edit-specific errors (no match, not unique, no-op)
+// map to their SDK counterparts so consumers can branch on stable
+// sentinels. All other errors pass through unchanged.
 func docErr(err error) error {
 	if err == nil {
 		return nil
@@ -29,6 +31,12 @@ func docErr(err error) error {
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, history.ErrNotFound):
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+	case errors.Is(err, documents.ErrNoMatch):
+		return fmt.Errorf("%w: %w", sdk.ErrNoMatch, err)
+	case errors.Is(err, documents.ErrNotUnique):
+		return fmt.Errorf("%w: %w", sdk.ErrNotUnique, err)
+	case errors.Is(err, documents.ErrNoOp):
+		return fmt.Errorf("%w: %w", sdk.ErrNoOp, err)
 	default:
 		return err
 	}
@@ -88,8 +96,8 @@ func (a *documentAPI) Read(path string, version int) ([]byte, error) {
 }
 
 // Write creates or updates a document, recording a new version.
-// The author and message are recorded in the version history.
-func (a *documentAPI) Write(path string, content []byte, author, msg string) error {
+// The author and message in opts are recorded in the version history.
+func (a *documentAPI) Write(path string, content []byte, opts sdk.WriteOpts) error {
 	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return err
@@ -106,8 +114,8 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 	s := strings.ReplaceAll(string(content), "\r\n", "\n")
 	s = strings.ReplaceAll(s, "\r", "\n")
 
-	o := origin(author)
-	o.Message = msg
+	o := origin(opts.Author)
+	o.Message = opts.Message
 	_, err = a.store.Documents.Write(a.ctx, path, s, documents.WriteOptions{
 		Origin: o,
 	})
@@ -116,7 +124,7 @@ func (a *documentAPI) Write(path string, content []byte, author, msg string) err
 
 // Delete soft-deletes a document. The document can be recovered via
 // Restore until a Vacuum permanently removes it.
-func (a *documentAPI) Delete(path, author string) error {
+func (a *documentAPI) Delete(path string, opts sdk.DeleteOpts) error {
 	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return err
@@ -126,13 +134,13 @@ func (a *documentAPI) Delete(path, author string) error {
 		return err
 	}
 	return docErr(a.store.Documents.Delete(a.ctx, path, documents.DeleteOptions{
-		Origin: origin(author),
+		Origin: origin(opts.Author),
 	}))
 }
 
 // Restore recovers a soft-deleted document, clearing its deleted_at
 // timestamp so it reappears in normal listings.
-func (a *documentAPI) Restore(path, author string) error {
+func (a *documentAPI) Restore(path string, opts sdk.RestoreOpts) error {
 	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return err
@@ -142,13 +150,13 @@ func (a *documentAPI) Restore(path, author string) error {
 		return err
 	}
 	return docErr(a.store.Documents.Restore(a.ctx, path, documents.RestoreOptions{
-		Origin: origin(author),
+		Origin: origin(opts.Author),
 	}))
 }
 
 // Move renames a document, preserving its full version history.
 // Tags and links follow the document to the new path.
-func (a *documentAPI) Move(from, to, author string) error {
+func (a *documentAPI) Move(from, to string, opts sdk.MoveOpts) error {
 	var errs []error
 	f, _, err := a.resolveDoc(from, 0)
 	if err != nil {
@@ -167,7 +175,7 @@ func (a *documentAPI) Move(from, to, author string) error {
 		return err
 	}
 	return docErr(a.store.Documents.Move(a.ctx, from, to, documents.MoveOptions{
-		Origin: origin(author),
+		Origin: origin(opts.Author),
 	}))
 }
 
@@ -231,8 +239,10 @@ func (a *documentAPI) Exists(path string) (bool, error) {
 }
 
 // Edit performs a search-and-replace within a document, creating a new
-// version with the substitution applied.
-func (a *documentAPI) Edit(path, old, new, author, msg string) error {
+// version with the substitution applied. The search string must match
+// exactly once unless opts.ReplaceAll is set. See [sdk.EditOpts] and
+// [documents.Documents.Edit] for the full semantics.
+func (a *documentAPI) Edit(path, old, new string, opts sdk.EditOpts) error {
 	p, _, err := a.resolveDoc(path, 0)
 	if err != nil {
 		return err
@@ -245,10 +255,11 @@ func (a *documentAPI) Edit(path, old, new, author, msg string) error {
 	); err != nil {
 		return err
 	}
-	o := origin(author)
-	o.Message = msg
+	o := origin(opts.Author)
+	o.Message = opts.Message
 	_, err = a.store.Documents.Edit(a.ctx, path, old, new, documents.EditOptions{
-		Origin: o,
+		Origin:     o,
+		ReplaceAll: opts.ReplaceAll,
 	})
 	return docErr(err)
 }
@@ -360,7 +371,7 @@ func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 
 // Revert creates a new version with the content from a previous version.
 // The old version is preserved - revert is non-destructive.
-func (a *documentAPI) Revert(path string, version int, author, msg string) error {
+func (a *documentAPI) Revert(path string, version int, opts sdk.RevertOpts) error {
 	p, v, err := a.resolveDoc(path, version)
 	if err != nil {
 		return err
@@ -372,8 +383,8 @@ func (a *documentAPI) Revert(path string, version int, author, msg string) error
 	if err := validate.Path(path, a.lim); err != nil {
 		return err
 	}
-	o := origin(author)
-	o.Message = msg
+	o := origin(opts.Author)
+	o.Message = opts.Message
 	_, err = a.store.History.Revert(a.ctx, path, version, history.RevertOptions{
 		Origin: o,
 	})
