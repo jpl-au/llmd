@@ -5,8 +5,15 @@ Match document paths using shell-style glob patterns.
 ## Usage
 
 ```
-llmd glob <pattern>
+llmd glob [flags] <pattern>
 ```
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `--limit N` | Maximum paths to return (default 500) |
+| `--all` | Return every match, no limit |
 
 ## Examples
 
@@ -30,3 +37,5 @@ llmd glob '**/*-draft'
 - `**` matches across path segments (zero or more levels).
 - `?` matches exactly one character.
 - Output is one path per line.
+- Defaults to 500 matches so patterns like `**/*` on large stores
+  stay bounded. Use `--all` or `--limit` to change the cap.

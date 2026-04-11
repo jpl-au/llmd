@@ -21,7 +21,7 @@ to the caller's identity.
 | `ls [--limit N]` | Pending messages, oldest first |
 | `peek` | Next unacknowledged message with payload |
 | `ack <key>` | Acknowledge oldest pending message |
-| `history [--since 5m]` | All messages including acknowledged |
+| `history [-n N | --all]` | Recent messages including acknowledged |
 
 `ls` and `list` are aliases.
 
@@ -74,12 +74,23 @@ process front to back, no skipping.
 ### View history
 
 ```bash
-# Everything
+# Most recent 20 messages (default cap)
 llmd --author claude-code queue history
+
+# Last 5 only
+llmd --author claude-code queue history -n 5
 
 # Last hour only
 llmd --author claude-code queue history --since 1h
+
+# Every message, no cap
+llmd --author claude-code queue history --all
 ```
+
+A busy queue accumulates thousands of messages over time. `queue
+history` defaults to the 20 most recent so an agent pulling "recent
+activity" doesn't drown in old traffic. Use `-n` for a different cap
+or `--all` for the full log.
 
 ## How it works
 

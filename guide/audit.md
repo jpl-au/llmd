@@ -100,11 +100,21 @@ llmd audit list --status needs-work
 llmd audit list --since 1h
 ```
 
-### Show a full thread
+### Show a thread
 
 ```bash
+# Default: root message + the 9 most recent replies (up to 10 total)
 llmd audit show 0mmsfn7h1
+
+# Full thread, no cap
+llmd audit show --all 0mmsfn7h1
 ```
+
+Long audit threads are common on multi-round reviews. The default
+shows the root message plus the most recent replies so agents see
+both "what was being reviewed" and "what's the current state" without
+having every middle message dumped into their context. Use `--all`
+to see the full thread.
 
 ### Delete and restore
 

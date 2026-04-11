@@ -341,6 +341,17 @@ MD
         log_fail "task add + list: got '$out'"
     fi
 
+    # --- diff --all vs default cap ---
+    # diff on a doc with a handful of lines should not truncate.
+    # (Can't easily generate a 500+ line diff in a smoke test, so
+    # the default-no-truncate case is the one we pin here.)
+    out=$($llmd diff docs/greeting 2>&1)
+    if echo "$out" | grep -q "truncated"; then
+        log_fail "small diff unexpectedly truncated: got '$out'"
+    else
+        log_pass "small diff is not truncated"
+    fi
+
     # --- audits: add + rm + restore ---
     out=$($llmd --author "smoke" audit add docs/greeting "Needs review." 2>&1)
     audit_id=$(echo "$out" | sed -n 's/Created audit \([a-z0-9]*\).*/\1/p')

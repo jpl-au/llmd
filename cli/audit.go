@@ -217,19 +217,60 @@ func auditList(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Result{Text: b.String(), Data: audits}, nil
 }
 
-// auditShow displays a full audit thread.
+// defaultAuditThreadLimit caps audit show output. A long audit
+// conversation would otherwise dump the entire thread into an agent's
+// context window; the most recent 10 messages plus the root give
+// enough context for the common "what's the state of this audit?"
+// case. --all overrides.
+const defaultAuditThreadLimit = 10
+
+var auditShowFlags = []sdk.Flag{
+	{Name: "all", Type: "bool", Desc: "Show the full thread, no limit"},
+}
+
+// auditShow displays an audit thread. By default it returns the
+// root message plus the most recent messages (up to
+// defaultAuditThreadLimit total) so agents on long threads still see
+// the original request and the current state without the middle.
+// --all returns the whole thread.
 func auditShow(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) == 0 {
+	flags, positional, err := sdk.ParseArgs(auditShowFlags, args)
+	if err != nil {
+		return nil, fmt.Errorf("audit show: %w", err)
+	}
+	if len(positional) == 0 {
 		return nil, fmt.Errorf("audit show: %w: audit ID", sdk.ErrMissingArg)
 	}
 
-	thread, err := ctx.Audits.Thread(args[0])
+	thread, err := ctx.Audits.Thread(positional[0])
 	if err != nil {
 		return nil, fmt.Errorf("audit show: %w", err)
 	}
 
+	// Bound the thread for display and for the structured Data field
+	// both - otherwise an agent reading via --json would get the full
+	// thread back anyway. --all opts out of the cap.
+	fullLen := len(thread)
+	hiddenCount := 0
+	if !flags.Bool("all") && fullLen > defaultAuditThreadLimit {
+		// Keep root + last (limit - 1) messages. The root is usually
+		// the original request being reviewed, which sets context;
+		// the tail is the current state of the conversation.
+		trimmed := make([]sdk.Audit, 0, defaultAuditThreadLimit)
+		trimmed = append(trimmed, thread[0])
+		trimmed = append(trimmed, thread[fullLen-(defaultAuditThreadLimit-1):]...)
+		hiddenCount = fullLen - defaultAuditThreadLimit
+		thread = trimmed
+	}
+
 	var b strings.Builder
 	for i, a := range thread {
+		// Insert a gap notice between the root and the tail when we
+		// elided middle messages, so the reader knows something was
+		// dropped.
+		if i == 1 && hiddenCount > 0 {
+			fmt.Fprintf(&b, "\n  ... %d messages hidden (use --all to show full thread)\n\n", hiddenCount)
+		}
 		ts := time.UnixMilli(a.CreatedAt).Format("2006-01-02 15:04")
 		prefix := ""
 		if i > 0 {

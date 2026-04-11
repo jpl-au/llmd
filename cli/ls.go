@@ -20,17 +20,30 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// defaultListLimit caps ls/find/glob output. A large store can have
+// thousands of documents, and an agent calling any of these tools
+// without a filter should not get them all dumped into its context.
+// 500 is generous enough for typical stores and bounded enough to
+// stay under ~10k tokens.
+const defaultListLimit = 500
+
 var lsSpec = sdk.Command{
 	Name: "ls", Desc: `List documents in the store
 
 Shows all documents, or those under a given <path>. Without flags,
 prints one document path per line. Use -l for detailed output with
-version, author, and date. Use --tree for a directory hierarchy.`, Usage: "ls [path]", MCP: true, Flags: []sdk.Flag{
+version, author, and date. Use --tree for a directory hierarchy.
+
+Defaults to the first 500 matching documents so an agent on a large
+store doesn't get the full catalogue dumped. Pass --limit N for a
+different cap or --all to disable it.`, Usage: "ls [flags] [path]", MCP: true, Flags: []sdk.Flag{
 		{Name: "l", Type: "bool", Desc: "Long format with details"},
 		{Name: "a", Type: "bool", Desc: "Include deleted documents"},
 		{Name: "r", Type: "bool", Desc: "Reverse sort order"},
 		{Name: "t", Type: "bool", Desc: "Sort by time (newest first)"},
 		{Name: "tree", Type: "bool", Desc: "Render as directory tree"},
+		{Name: "limit", Type: "int", Desc: "Maximum documents to return (default 500)"},
+		{Name: "all", Type: "bool", Desc: "Show every document, no limit"},
 		{Name: "since", Type: "string", Desc: "Show documents updated after (e.g. 5m, 1h, RFC 3339)"},
 	},
 }
@@ -68,6 +81,17 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Resolve the cap: --all beats --limit beats the default.
+	limit := flags.Int("limit")
+	if flags.Bool("all") {
+		limit = 0
+	} else if limit == 0 {
+		limit = defaultListLimit
+	}
+	if limit > 0 && len(docs) > limit {
+		docs = docs[:limit]
 	}
 
 	if len(docs) == 0 {

@@ -819,6 +819,233 @@ func TestHistoryDefaults(t *testing.T) {
 	})
 }
 
+// TestDiffTruncation exercises the default line cap on diff. A huge
+// rewrite diff would otherwise dump thousands of lines into an
+// agent's context. The default cap is 500 lines with a footer
+// pointing at --all for the full diff.
+func TestDiffTruncation(t *testing.T) {
+	testHost(t)
+
+	// Build a version-1 doc with 1000 lines, then replace every one
+	// of them in version 2 so the diff is ~2000 lines (every line
+	// removed and re-added).
+	var v1, v2 []string
+	for i := 1; i <= 1000; i++ {
+		v1 = append(v1, fmt.Sprintf("old line %d", i))
+		v2 = append(v2, fmt.Sprintf("new line %d", i))
+	}
+	dispatch(t, "write", []string{"big/doc"}, "alice", []byte(strings.Join(v1, "\n")))
+	dispatch(t, "write", []string{"big/doc"}, "alice", []byte(strings.Join(v2, "\n")))
+
+	t.Run("default caps at 500 lines with footer", func(t *testing.T) {
+		r := dispatch(t, "diff", []string{"big/doc"}, "", nil)
+		out := text(r)
+		// Footer explicitly mentions truncation and --all.
+		if !strings.Contains(out, "truncated") {
+			t.Errorf("expected truncation footer, got %d bytes: %.200q", len(out), out)
+		}
+		if !strings.Contains(out, "--all") {
+			t.Errorf("footer should mention --all: %.200q", out)
+		}
+		// Line count must not exceed cap + a few lines for the
+		// footer.
+		lineCount := strings.Count(out, "\n")
+		if lineCount > 510 {
+			t.Errorf("diff exceeded cap: got %d lines, want <= ~510", lineCount)
+		}
+	})
+
+	t.Run("--all returns the full diff", func(t *testing.T) {
+		r := dispatch(t, "diff", []string{"--all", "big/doc"}, "", nil)
+		out := text(r)
+		if strings.Contains(out, "truncated") {
+			t.Errorf("--all should not truncate: %.200q", out)
+		}
+		lineCount := strings.Count(out, "\n")
+		if lineCount < 1000 {
+			t.Errorf("--all diff too short: got %d lines", lineCount)
+		}
+	})
+
+	t.Run("small diff is unchanged", func(t *testing.T) {
+		dispatch(t, "write", []string{"small/doc"}, "alice", []byte("v1"))
+		dispatch(t, "write", []string{"small/doc"}, "alice", []byte("v2"))
+		r := dispatch(t, "diff", []string{"small/doc"}, "", nil)
+		out := text(r)
+		if strings.Contains(out, "truncated") {
+			t.Errorf("small diff should not be truncated: %s", out)
+		}
+	})
+}
+
+// TestQueueHistoryDefault verifies the default cap on queue history
+// so an agent pulling recent activity off a busy queue doesn't drown
+// in thousands of old messages.
+func TestQueueHistoryDefault(t *testing.T) {
+	testHost(t)
+
+	// Send 30 messages as alice so she's the consumer in history.
+	for i := 1; i <= 30; i++ {
+		dispatch(t, "queue", []string{"send", fmt.Sprintf("msg %d", i)}, "alice", nil)
+	}
+
+	t.Run("defaults to last 20 messages", func(t *testing.T) {
+		r := dispatch(t, "queue", []string{"history"}, "alice", nil)
+		res := r.(sdk.Result)
+		msgs := res.Data.([]sdk.Message)
+		if len(msgs) != 20 {
+			t.Errorf("default queue history returned %d messages, want 20", len(msgs))
+		}
+	})
+
+	t.Run("-n overrides the default", func(t *testing.T) {
+		r := dispatch(t, "queue", []string{"history", "-n", "5"}, "alice", nil)
+		res := r.(sdk.Result)
+		msgs := res.Data.([]sdk.Message)
+		if len(msgs) != 5 {
+			t.Errorf("-n 5 returned %d messages, want 5", len(msgs))
+		}
+	})
+
+	t.Run("--all returns every message", func(t *testing.T) {
+		r := dispatch(t, "queue", []string{"history", "--all"}, "alice", nil)
+		res := r.(sdk.Result)
+		msgs := res.Data.([]sdk.Message)
+		if len(msgs) != 30 {
+			t.Errorf("--all returned %d messages, want 30", len(msgs))
+		}
+	})
+}
+
+// TestAuditShowTruncation exercises the cap on audit show. Long
+// audit threads are common on code review cycles and would otherwise
+// dump every back-and-forth into an agent's context. Default caps
+// at 10 (root + last 9) with --all for the full thread.
+func TestAuditShowTruncation(t *testing.T) {
+	testHost(t)
+
+	// Seed a document and create an audit on it.
+	dispatch(t, "write", []string{"reviewed/doc"}, "alice", []byte("original content"))
+	r := dispatch(t, "audit", []string{"add", "reviewed/doc", "Please review this."}, "alice", nil)
+	rootID := r.(sdk.Result).Data.(*sdk.Audit).ID
+
+	// Add 15 replies so the thread has 16 messages total.
+	for i := 1; i <= 15; i++ {
+		dispatch(t, "audit",
+			[]string{"reply", rootID, fmt.Sprintf("reply %d", i)},
+			"alice", nil)
+	}
+
+	t.Run("default shows root plus last 9 with gap notice", func(t *testing.T) {
+		r := dispatch(t, "audit", []string{"show", rootID}, "alice", nil)
+		res := r.(sdk.Result)
+		thread := res.Data.([]sdk.Audit)
+		if len(thread) != 10 {
+			t.Errorf("default audit show returned %d messages, want 10", len(thread))
+		}
+
+		out := res.Text
+		if !strings.Contains(out, "hidden") {
+			t.Errorf("expected gap notice about hidden messages: %s", out)
+		}
+		if !strings.Contains(out, "Please review this.") {
+			t.Errorf("root message should still be visible: %s", out)
+		}
+		// The last reply must be present - this is the "current
+		// state" view the user actually wants.
+		if !strings.Contains(out, "reply 15") {
+			t.Errorf("latest reply missing: %s", out)
+		}
+	})
+
+	t.Run("--all shows the full thread", func(t *testing.T) {
+		r := dispatch(t, "audit", []string{"show", "--all", rootID}, "alice", nil)
+		res := r.(sdk.Result)
+		thread := res.Data.([]sdk.Audit)
+		if len(thread) != 16 {
+			t.Errorf("--all returned %d messages, want 16", len(thread))
+		}
+		if strings.Contains(res.Text, "hidden") {
+			t.Errorf("--all should not show gap notice: %s", res.Text)
+		}
+	})
+
+	t.Run("short threads are unchanged", func(t *testing.T) {
+		dispatch(t, "write", []string{"short/doc"}, "alice", []byte("short"))
+		r := dispatch(t, "audit", []string{"add", "short/doc", "Quick check."}, "alice", nil)
+		shortID := r.(sdk.Result).Data.(*sdk.Audit).ID
+		dispatch(t, "audit", []string{"reply", shortID, "Looks fine."}, "alice", nil)
+
+		r = dispatch(t, "audit", []string{"show", shortID}, "alice", nil)
+		res := r.(sdk.Result)
+		if strings.Contains(res.Text, "hidden") {
+			t.Errorf("short thread should not show gap notice: %s", res.Text)
+		}
+	})
+}
+
+// TestListCapping verifies the default 500-item cap on ls, find,
+// and glob. A large store should not dump the full catalogue into an
+// agent's context just because someone asked "what's in here?".
+func TestListCapping(t *testing.T) {
+	testHost(t)
+
+	// Seed 600 documents so the default cap visibly kicks in.
+	for i := 1; i <= 600; i++ {
+		dispatch(t, "write",
+			[]string{fmt.Sprintf("bulk/doc-%04d", i)},
+			"alice", []byte("x"))
+	}
+
+	t.Run("ls caps at default 500", func(t *testing.T) {
+		r := dispatch(t, "ls", []string{"bulk/"}, "", nil)
+		out := text(r)
+		count := strings.Count(out, "\n") + 1
+		if count > 500 {
+			t.Errorf("ls returned %d rows, want <= 500", count)
+		}
+		if count < 500 {
+			t.Errorf("ls returned %d rows, want 500", count)
+		}
+	})
+
+	t.Run("ls --all returns every document", func(t *testing.T) {
+		r := dispatch(t, "ls", []string{"--all", "bulk/"}, "", nil)
+		out := text(r)
+		count := strings.Count(out, "\n") + 1
+		if count != 600 {
+			t.Errorf("ls --all returned %d rows, want 600", count)
+		}
+	})
+
+	t.Run("ls --limit overrides the default", func(t *testing.T) {
+		r := dispatch(t, "ls", []string{"--limit", "25", "bulk/"}, "", nil)
+		out := text(r)
+		count := strings.Count(out, "\n") + 1
+		if count != 25 {
+			t.Errorf("ls --limit 25 returned %d rows, want 25", count)
+		}
+	})
+
+	t.Run("glob caps at default 500", func(t *testing.T) {
+		r := dispatch(t, "glob", []string{"bulk/*"}, "", nil)
+		res := r.(sdk.Result)
+		paths := res.Data.([]string)
+		if len(paths) != 500 {
+			t.Errorf("glob returned %d paths, want 500", len(paths))
+		}
+	})
+
+	t.Run("glob --all returns every match", func(t *testing.T) {
+		r := dispatch(t, "glob", []string{"--all", "bulk/*"}, "", nil)
+		res := r.(sdk.Result)
+		paths := res.Data.([]string)
+		if len(paths) != 600 {
+			t.Errorf("glob --all returned %d paths, want 600", len(paths))
+		}
+	})
+}
+
 func TestErrorPaths(t *testing.T) {
 	testHost(t)
 

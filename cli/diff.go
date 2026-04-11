@@ -18,6 +18,13 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// defaultDiffMaxLines caps diff output for the AI-first common case.
+// A huge rewrite diff can easily produce thousands of lines, which
+// blows an agent's context window for little marginal value - the
+// first few hundred lines plus the stat line are enough to understand
+// what changed. --all overrides.
+const defaultDiffMaxLines = 500
+
 var diffSpec = sdk.Command{
 	Name: "diff", Desc: `Compare document versions or two documents
 
@@ -26,13 +33,18 @@ two paths (optionally using :version suffix), compares them directly.
 Paths and document keys are interchangeable. Output is coloured in
 a terminal.
 
+Diffs over 500 lines are truncated with a summary footer so agents
+do not burn context on large rewrites. Pass --all to see the whole
+diff, or --stat to see just the +/- counts.
+
 Examples:
   llmd diff notes/meeting              Latest vs previous version
   llmd diff notes/meeting:2 notes/meeting:5   Version 2 vs 5
   llmd diff abc123def:2 abc123def:5    Same, using the document key
-  llmd diff notes/a notes/b            Two different documents`, Usage: "diff <source> [target]", MCP: true, Flags: []sdk.Flag{
+  llmd diff notes/a notes/b            Two different documents`, Usage: "diff [flags] <source> [target]", MCP: true, Flags: []sdk.Flag{
 		{Name: "C", Type: "int", Desc: "Lines of context"},
 		{Name: "stat", Type: "bool", Desc: "Show stats only"},
+		{Name: "all", Type: "bool", Desc: "Show full diff, no line cap"},
 	},
 }
 
@@ -44,6 +56,7 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 	contextLines := flags.Int("C")
 	statOnly := flags.Bool("stat")
+	showAll := flags.Bool("all")
 
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("diff: %w", sdk.ErrMissingArg)
@@ -78,11 +91,33 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Text("No differences"), nil
 	}
 
+	// Cap by default so huge diffs don't blow agent context windows.
+	// The footer tells the reader exactly how much was dropped and
+	// how to see the rest.
+	if !showAll {
+		if capped, total := truncateDiff(diffText, defaultDiffMaxLines); capped != diffText {
+			diffText = fmt.Sprintf("%s\n... %d more lines truncated (use --all to show full diff, +%d -%d total)",
+				capped, total-defaultDiffMaxLines, added, removed)
+		}
+	}
+
 	if isTTY() {
 		diffText = colourDiff(diffText)
 	}
 
 	return sdk.Text(diffText), nil
+}
+
+// truncateDiff returns the first max lines of a diff along with the
+// total line count. If the diff is at or under the cap, the original
+// text is returned unchanged and the caller can compare identity to
+// detect the no-op case.
+func truncateDiff(text string, max int) (string, int) {
+	lines := strings.Split(text, "\n")
+	if len(lines) <= max {
+		return text, len(lines)
+	}
+	return strings.Join(lines[:max], "\n"), len(lines)
 }
 
 // colourDiff applies terminal colours to unified diff output.

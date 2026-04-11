@@ -17,6 +17,8 @@ llmd ls [flags] [<path>]
 | `-t` | Sort by time, newest first |
 | `-r` | Reverse sort order |
 | `--tree` | Render paths as a directory hierarchy |
+| `--limit N` | Maximum documents to return (default 500) |
+| `--all` | Return every document, no limit |
 | `--since` | Only show documents updated after a time (e.g. `5m`, `1h`, RFC 3339) |
 
 Short flags can be combined: `-lat` is equivalent to `-l -a -t`.
@@ -64,3 +66,6 @@ llmd ls --since "2026-03-16T04:00:00Z"
 - Without `-l` or `--tree`, output is one path per line.
 - `--tree` renders a styled directory hierarchy (falls back to flat paths when piped).
 - The path argument filters to documents whose path starts with the given string.
+- Defaults to the first 500 matching documents so an agent on a large
+  store doesn't get the full catalogue dumped. Use `--all` or
+  `--limit` to change the cap.

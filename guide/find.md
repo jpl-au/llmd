@@ -5,8 +5,15 @@ Full-text search returning matching paths only.
 ## Usage
 
 ```
-llmd find <query> [<path>]
+llmd find [flags] <query> [<path>]
 ```
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `--limit N` | Maximum paths to return (default 500) |
+| `--all` | Return every match, no limit |
 
 ## Examples
 
@@ -31,3 +38,5 @@ llmd find database notes/
 
 - Uses the same FTS5 syntax as `llmd grep`. See `llmd guide grep` for query details.
 - Output is one path per line, suitable for piping.
+- Defaults to 500 matches so queries on large stores stay bounded.
+  Use `--all` or `--limit` to change the cap.

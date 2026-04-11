@@ -15,6 +15,7 @@ llmd diff [flags] <path:version> [<path:version>]
 |------|-------------|
 | `-C N` | Number of context lines (both `-C3` and `-C 3` work) |
 | `--stat` | Show change counts only |
+| `--all` | Show full diff without the 500-line truncation cap |
 
 ## Examples
 
@@ -42,3 +43,6 @@ llmd diff --stat notes/meeting
 - Use `path:version` syntax to pin a specific version (e.g. `docs/readme:3`).
 - Output is coloured in a terminal (green for additions, red for removals,
   cyan for hunk headers). Piped output is plain unified diff.
+- Diffs over 500 lines are truncated with a summary footer so agents
+  don't burn context on huge rewrites. Use `--all` for the full diff,
+  or `--stat` when you only need the +/- counts.

@@ -145,8 +145,17 @@ func queueAck(ctx sdk.Context, args []string) (sdk.Response, error) {
 	return sdk.Text(fmt.Sprintf("Acknowledged %s", args[0])), nil
 }
 
+// defaultQueueHistoryLimit caps queue history output. Long-running
+// queues accumulate thousands of messages; an agent calling history
+// without a filter should not get them all dumped into its context.
+// The most recent 20 is a reasonable window for "what's been
+// happening lately?"; --all overrides.
+const defaultQueueHistoryLimit = 20
+
 var queueHistoryFlags = []sdk.Flag{
 	{Name: "since", Type: "string"},
+	{Name: "n", Type: "int", Desc: "Maximum messages to show (default 20)"},
+	{Name: "all", Type: "bool", Desc: "Show every message, no limit"},
 }
 
 func queueHistory(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -175,6 +184,19 @@ func queueHistory(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	if len(msgs) == 0 {
 		return sdk.Result{Text: "No messages.", Data: msgs}, nil
+	}
+
+	// Resolve the cap: --all beats -n beats the default.
+	limit := flags.Int("n")
+	if flags.Bool("all") {
+		limit = 0
+	} else if limit == 0 {
+		limit = defaultQueueHistoryLimit
+	}
+	if limit > 0 && len(msgs) > limit {
+		// Keep the most recent N. The slice is oldest-first, so the
+		// tail is most recent.
+		msgs = msgs[len(msgs)-limit:]
 	}
 
 	var b strings.Builder
