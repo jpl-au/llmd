@@ -54,8 +54,9 @@ llmd edit docs/proposal "TBD" "Q3 2026" --message "Confirmed timeline"
 Check what changed and when:
 
 ```
-llmd history docs/proposal              # full version log
+llmd history docs/proposal              # last 10 versions
 llmd history -n5 docs/proposal          # last 5 versions
+llmd history --all docs/proposal        # every version
 llmd diff docs/proposal                 # diff against previous version
 llmd diff docs/proposal:1 docs/proposal:3  # diff between specific versions
 llmd cat --version 2 docs/proposal      # read an old version
