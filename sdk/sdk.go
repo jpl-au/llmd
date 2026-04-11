@@ -146,21 +146,53 @@ type Context struct {
 }
 
 // Response is the marker interface for command return values. It uses
-// a marker method instead of a concrete type so the three result types
-// (Text, Data, Result) remain distinct at the type-switch level - the
-// host switches on the concrete type to decide output format.
+// a marker method instead of a concrete type so the four result types
+// (Text, Markdown, Data, Result) remain distinct at the type-switch
+// level - the host switches on the concrete type to decide output
+// format.
 //
-// Choose between the three implementations:
-//   - [Text]: plain text, displayed as-is (most commands)
-//   - [Data]: structured data, always JSON-encoded (machine-only output)
-//   - [Result]: both text and data (text for terminals, data for --json)
+// Choose between the four implementations:
+//   - [Text]: plain text or already-styled terminal output (tables,
+//     status lines), displayed as-is. The host never re-renders Text.
+//   - [Markdown]: markdown source. The host renders it via glamour for
+//     interactive terminals and emits it raw for pipes, MCP, HTTP and
+//     other consumers that will reprocess the content.
+//   - [Data]: structured data, always JSON-encoded (machine-only output).
+//   - [Result]: both already-formatted text and structured data, for
+//     commands whose human form is not markdown (e.g. tables for "ls").
+//
+// Rule of thumb: if your text output is markdown that came from a
+// document or that you generated as markdown, use Markdown so users
+// get a rendered view. If your text output is a lipgloss-styled table
+// or status display, use Text or Result so the host leaves it alone.
 type Response interface{ Response() }
 
-// Text is plain text output, displayed as-is to the terminal.
-// Use for simple messages like "Deleted notes/todo.md".
+// Text is plain text output, displayed as-is to the terminal. The
+// host does not re-render or transform it. Use for simple messages
+// ("Deleted notes/todo.md") and for already-styled terminal output
+// (lipgloss tables, status displays) that must not be touched.
 type Text string
 
 func (Text) Response() {}
+
+// Markdown carries markdown source content for human display, paired
+// with optional structured data for machine consumption. The host
+// renders the Text field via glamour for interactive terminals and
+// returns it raw for pipes, --json, MCP, HTTP, hook payloads, and any
+// other consumer that will reprocess the content. When --json is set
+// (or the consumer asks for JSON), Data is encoded instead.
+//
+// Use Markdown when a command's primary output is markdown content
+// from documents (cat, guide, future preview/head/tail commands) so
+// the rendering decision happens once at the host boundary instead
+// of in every command. Data is optional - leave it nil for commands
+// that have no structured representation.
+type Markdown struct {
+	Text string
+	Data any
+}
+
+func (Markdown) Response() {}
 
 // Data is structured output that is always JSON-encoded regardless of
 // --json flag. Use when the output is only meaningful as structured data
@@ -173,6 +205,10 @@ func (Data) Response() {}
 // displays Text for terminal output and Data when --json is set. Use
 // when both humans and machines consume the output (e.g. "ls" shows a
 // table for humans but returns document metadata as JSON for scripts).
+//
+// Result.Text is treated as already-formatted output and is never
+// re-rendered. For markdown content that should be rendered for humans,
+// use [Markdown] instead.
 type Result struct {
 	Text string
 	Data any

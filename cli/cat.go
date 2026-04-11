@@ -6,8 +6,13 @@ package cli
 // which is the default). Multiple paths are concatenated with newlines,
 // matching the Unix cat convention.
 //
-// Line numbering (-n) pads numbers to the width of the highest line
-// number so columns stay aligned.
+// The joined output is returned as sdk.Markdown so the host renders
+// it through glamour for interactive terminals and emits raw markdown
+// source for pipes, --json, MCP, HTTP and any other consumer. Cat
+// itself does no rendering - that lives in one place at the host
+// boundary so every markdown-emitting command behaves consistently.
+// Use -n to number lines, which produces a sdk.Result instead since
+// numbered output is no longer pure markdown.
 
 import (
 	"fmt"
@@ -21,9 +26,11 @@ var catSpec = sdk.Command{
 	Name: "cat", Desc: `Read and display one or more documents
 
 Prints document content to stdout. Multiple paths are concatenated
-with newlines, like Unix cat.`, Usage: "cat [options] <path>...", MCP: true, Flags: []sdk.Flag{
+with newlines, like Unix cat. On an interactive terminal the output
+is rendered as markdown; pipes, redirects and --json see the raw
+source.`, Usage: "cat [options] <path>...", MCP: true, Flags: []sdk.Flag{
 		{Name: "version", Type: "int", Desc: "Read specific version"},
-		{Name: "n", Type: "bool", Desc: "Number output lines"},
+		{Name: "n", Type: "bool", Desc: "Number output lines (disables markdown rendering)"},
 	},
 }
 
@@ -54,7 +61,13 @@ func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	output := strings.Join(results, "\n")
-	return sdk.Result{Text: output, Data: output}, nil
+
+	// Numbered output is no longer pure markdown - the line-number
+	// prefix would confuse glamour - so it ships as Result instead.
+	if numberLines {
+		return sdk.Result{Text: output, Data: output}, nil
+	}
+	return sdk.Markdown{Text: output, Data: output}, nil
 }
 
 // addLineNumbers prepends "N  " to each line, where N is right-padded

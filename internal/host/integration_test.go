@@ -44,6 +44,8 @@ func text(r sdk.Response) string {
 	switch v := r.(type) {
 	case sdk.Text:
 		return string(v)
+	case sdk.Markdown:
+		return v.Text
 	case sdk.Result:
 		return v.Text
 	default:
@@ -435,6 +437,241 @@ func TestMixedCommandAuthor(t *testing.T) {
 	if err == nil {
 		t.Error("task add without author: expected error")
 	}
+}
+
+// TestGrepModes exercises grep through every mode the CLI exposes.
+//
+// llmd is an AI-first tool: agents are the primary user of grep, and
+// the default behaviour must return bounded chunks of content (not
+// whole documents) so an agent searching a long spec gets back just
+// the relevant section without blowing its context window. These
+// tests pin that contract.
+func TestGrepModes(t *testing.T) {
+	testHost(t)
+
+	// A doc with several distinct sections so we can verify that the
+	// default mode returns only the matching section, not the whole
+	// document.
+	dispatch(t, "write", []string{"api/spec"}, "alice", []byte(`# API Specification
+
+## Overview
+
+This document describes the v2 API surface.
+
+## Authentication
+
+We use OAuth2 with PKCE. Tokens expire after one hour.
+
+## Errors
+
+All endpoints return RFC 7807 problem+json.
+`))
+
+	// A short single-section doc to confirm grep still finds it.
+	dispatch(t, "write", []string{"notes/auth"}, "alice", []byte(`# Auth notes
+
+OAuth2 is the way.
+`))
+
+	t.Run("default mode returns sections", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"OAuth2"}, "", nil)
+
+		// Default grep must return sdk.Markdown so the host renders
+		// it for human terminals and emits raw markdown for agents.
+		md, ok := r.(sdk.Markdown)
+		if !ok {
+			t.Fatalf("default grep returned %T, want sdk.Markdown", r)
+		}
+
+		// The text output must contain the matching sections from
+		// both documents but NOT the unrelated "Errors" section
+		// from api/spec - that's the whole point of section-bounded
+		// output.
+		if !strings.Contains(md.Text, "## Authentication") {
+			t.Errorf("missing matching section: %s", md.Text)
+		}
+		if !strings.Contains(md.Text, "OAuth2 with PKCE") {
+			t.Errorf("missing section content: %s", md.Text)
+		}
+		if strings.Contains(md.Text, "RFC 7807") {
+			t.Errorf("section bounding broken - leaked unrelated section: %s", md.Text)
+		}
+		if strings.Contains(md.Text, "## Overview") {
+			t.Errorf("section bounding broken - leaked unrelated section: %s", md.Text)
+		}
+
+		// The structured Data field must always carry typed
+		// GrepHit values for agents reading via --json or MCP.
+		hits, ok := md.Data.([]sdk.GrepHit)
+		if !ok {
+			t.Fatalf("Data field = %T, want []sdk.GrepHit", md.Data)
+		}
+		if len(hits) == 0 {
+			t.Fatal("Data has no hits")
+		}
+		// Section heading must be populated in section mode so the
+		// agent knows which heading the match came from.
+		foundAuth := false
+		for _, h := range hits {
+			if h.Section == "Authentication" {
+				foundAuth = true
+				break
+			}
+		}
+		if !foundAuth {
+			t.Errorf("no hit had Section=Authentication; got %+v", hits)
+		}
+	})
+
+	t.Run("text format is path-header then content", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"OAuth2"}, "", nil)
+		md := r.(sdk.Markdown)
+
+		// Each hit must lead with "path:" on its own line, then
+		// the content underneath. This is the AI-first contract:
+		// path is visually distinct from match content so neither
+		// the agent nor the human has to guess where one ends and
+		// the other begins.
+		lines := strings.Split(md.Text, "\n")
+		if len(lines) < 2 {
+			t.Fatalf("output too short: %q", md.Text)
+		}
+		if !strings.HasSuffix(lines[0], ":") {
+			t.Errorf("first line should be \"path:\", got %q", lines[0])
+		}
+	})
+
+	t.Run("explicit --sections matches default", func(t *testing.T) {
+		def := dispatch(t, "grep", []string{"OAuth2"}, "", nil)
+		exp := dispatch(t, "grep", []string{"--sections", "OAuth2"}, "", nil)
+		if def.(sdk.Markdown).Text != exp.(sdk.Markdown).Text {
+			t.Errorf("--sections must equal the default mode")
+		}
+	})
+
+	t.Run("--lines returns line snippets", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"--lines", "OAuth2"}, "", nil)
+		md, ok := r.(sdk.Markdown)
+		if !ok {
+			t.Fatalf("--lines returned %T, want sdk.Markdown", r)
+		}
+		// In lines mode each Match has Line set to the matching
+		// line number, not 0 like sections.
+		hits := md.Data.([]sdk.GrepHit)
+		if len(hits) == 0 {
+			t.Fatal("no hits")
+		}
+		// Lines mode should return individual lines, so the section
+		// heading "## Authentication" must NOT be part of the
+		// matched text (it's a different line from "OAuth2 with...")
+		for _, h := range hits {
+			if strings.Contains(h.Text, "RFC 7807") {
+				t.Errorf("lines mode leaked unrelated content: %q", h.Text)
+			}
+		}
+	})
+
+	t.Run("--lines -n prefixes line numbers", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"--lines", "-n", "OAuth2"}, "", nil)
+		md := r.(sdk.Markdown)
+		// -n with --lines should produce "N: text" lines under the
+		// "path:" header. Verify by checking that at least one
+		// content line starts with a digit followed by ":".
+		out := md.Text
+		hasNumberedLine := false
+		for _, line := range strings.Split(out, "\n") {
+			if len(line) >= 3 && line[0] >= '0' && line[0] <= '9' {
+				if idx := strings.Index(line, ":"); idx > 0 && idx < 5 {
+					hasNumberedLine = true
+					break
+				}
+			}
+		}
+		if !hasNumberedLine {
+			t.Errorf("expected numbered line in output: %q", out)
+		}
+	})
+
+	t.Run("--full returns whole documents", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"--full", "OAuth2"}, "", nil)
+		md, ok := r.(sdk.Markdown)
+		if !ok {
+			t.Fatalf("--full returned %T, want sdk.Markdown", r)
+		}
+		// Full mode must include the unrelated sections from api/spec
+		// because it returns the whole document, unlike --sections.
+		if !strings.Contains(md.Text, "RFC 7807") {
+			t.Errorf("--full should include unrelated sections; got %q", md.Text)
+		}
+		if !strings.Contains(md.Text, "Overview") {
+			t.Errorf("--full should include unrelated sections; got %q", md.Text)
+		}
+	})
+
+	t.Run("-l returns paths only as Result", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"-l", "OAuth2"}, "", nil)
+		// -l is a machine-friendly mode (xargs target), it must
+		// stay as plain Result so the host never glamour-renders it.
+		res, ok := r.(sdk.Result)
+		if !ok {
+			t.Fatalf("-l returned %T, want sdk.Result", r)
+		}
+		paths := strings.Split(res.Text, "\n")
+		seen := make(map[string]bool)
+		for _, p := range paths {
+			seen[p] = true
+		}
+		if !seen["api/spec"] || !seen["notes/auth"] {
+			t.Errorf("-l missing expected paths: %v", seen)
+		}
+		// No content should leak into -l output.
+		if strings.Contains(res.Text, "OAuth2") {
+			t.Errorf("-l leaked content: %s", res.Text)
+		}
+	})
+
+	t.Run("-c returns counts as Result", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"-c", "OAuth2"}, "", nil)
+		res, ok := r.(sdk.Result)
+		if !ok {
+			t.Fatalf("-c returned %T, want sdk.Result", r)
+		}
+		// Each line should be "path:N".
+		for _, line := range strings.Split(res.Text, "\n") {
+			if !strings.Contains(line, ":") {
+				t.Errorf("-c line missing colon: %q", line)
+			}
+		}
+	})
+
+	t.Run("no matches returns empty Markdown with empty Data", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"definitelynotthere"}, "", nil)
+		md, ok := r.(sdk.Markdown)
+		if !ok {
+			t.Fatalf("no-match returned %T, want sdk.Markdown", r)
+		}
+		if md.Text != "" {
+			t.Errorf("no-match should have empty Text, got %q", md.Text)
+		}
+		hits := md.Data.([]sdk.GrepHit)
+		if len(hits) != 0 {
+			t.Errorf("no-match Data should be empty slice, got %d hits", len(hits))
+		}
+	})
+
+	t.Run("path prefix filter narrows results", func(t *testing.T) {
+		r := dispatch(t, "grep", []string{"OAuth2", "api/"}, "", nil)
+		md := r.(sdk.Markdown)
+		hits := md.Data.([]sdk.GrepHit)
+		for _, h := range hits {
+			if !strings.HasPrefix(h.Path, "api/") {
+				t.Errorf("path filter leaked %s", h.Path)
+			}
+		}
+		if len(hits) == 0 {
+			t.Error("path filter dropped all results")
+		}
+	})
 }
 
 func TestErrorPaths(t *testing.T) {

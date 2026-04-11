@@ -1,7 +1,11 @@
 // guide.go provides built-in documentation for humans and LLMs.
 //
-// Terminal output is rendered through glamour for readability.
-// Piped output and --raw give raw markdown, suitable for LLMs and scripts.
+// Guide content is markdown; the host's renderer turns it into a
+// glamour-rendered view for interactive terminals and emits raw
+// markdown for pipes, --json, MCP, and HTTP. The command itself does
+// no rendering - that decision lives once at the host boundary, so
+// guide stays in sync with cat and any other markdown-emitting
+// command automatically.
 //
 // Usage:
 //
@@ -14,7 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/glamour"
 	"github.com/jpl-au/llmd/guide"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -24,17 +27,14 @@ var guideSpec = sdk.Command{
 
 Without a topic, shows the overview with all available commands.
 Topics include any command name as well as workflow, install, and
-other guides. Use --raw for unrendered markdown.`, Usage: "guide [--raw] [topic]", MCP: true, Flags: []sdk.Flag{
-		{Name: "raw", Type: "bool", Desc: "Output raw markdown without rendering"},
-	},
+other guides. Pipe the output or use --json to get raw markdown.`, Usage: "guide [topic]", MCP: true,
 }
 
 func guideCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	flags, positional, err := sdk.ParseArgs(guideSpec.Flags, args)
+	_, positional, err := sdk.ParseArgs(guideSpec.Flags, args)
 	if err != nil {
 		return nil, fmt.Errorf("guide: %w", err)
 	}
-	raw := flags.Bool("raw")
 	var topic string
 	if len(positional) > 0 {
 		topic = positional[0]
@@ -50,12 +50,5 @@ func guideCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 			sdk.ErrNotFound, topic, strings.Join(topics, ", "))
 	}
 
-	if !raw && isTTY() {
-		rendered, err := glamour.Render(content, "dark")
-		if err == nil {
-			return sdk.Text(rendered), nil
-		}
-	}
-
-	return sdk.Text(content), nil
+	return sdk.Markdown{Text: content}, nil
 }

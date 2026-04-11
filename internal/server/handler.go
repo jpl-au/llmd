@@ -121,7 +121,9 @@ func buildArgs(cmd string, r *http.Request, path string) []string {
 // writeResponse writes the sdk.Response to the HTTP response. When the
 // Output header is "json", structured data is always returned. Otherwise
 // text responses are returned as plain text and structured responses as
-// JSON.
+// JSON. Markdown responses are returned as raw markdown source over
+// HTTP - the server does not render to terminal escape codes; that
+// decision belongs to the consumer.
 func writeResponse(w http.ResponseWriter, r *http.Request, resp sdk.Response) {
 	wantJSON := strings.EqualFold(r.Header.Get("Output"), "json")
 
@@ -135,6 +137,20 @@ func writeResponse(w http.ResponseWriter, r *http.Request, resp sdk.Response) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := io.WriteString(w, string(v)); err != nil {
 			slog.Warn("writing text response", "error", err)
+		}
+
+	case sdk.Markdown:
+		// Markdown is returned raw over HTTP. Clients that want a
+		// rendered view do their own rendering; clients that want
+		// structured data can ask for JSON.
+		if wantJSON || v.Text == "" {
+			writeJSON(w, http.StatusOK, v.Data)
+			return
+		}
+		w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		if _, err := io.WriteString(w, v.Text); err != nil {
+			slog.Warn("writing markdown response", "error", err)
 		}
 
 	case sdk.Result:

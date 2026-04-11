@@ -294,6 +294,16 @@ func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, erro
 		Context: opts.Context,
 	}
 
+	// FTS5 treats a lot of punctuation as syntax (#, -, :, etc.) and
+	// silently tokenises some characters to nothing, so a literal
+	// search for "#" or "foo-bar" either errors or returns no hits.
+	// Quote the query as a phrase by default so literal searches just
+	// work, and only leave it alone when it clearly contains
+	// deliberate FTS5 syntax (boolean operators, prefix *, or the
+	// user has already added their own quotes).
+	if needsFTS5Quoting(query) {
+		query = quoteForFTS5(query)
+	}
 	results, err := a.store.Search.FullText(a.ctx, query, searchOpts)
 	if err != nil {
 		return nil, err
@@ -465,4 +475,41 @@ func (a *documentAPI) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.Expo
 		Exported: r.Exported,
 		Skipped:  r.Skipped,
 	}, nil
+}
+
+// quoteForFTS5 wraps a query in double quotes so FTS5 treats it as a
+// literal phrase. Embedded double quotes are escaped by doubling them,
+// per the FTS5 string syntax. The 99% case for grep is "find this
+// string", so most queries pass through this on their way to the
+// search engine.
+func quoteForFTS5(query string) string {
+	return `"` + strings.ReplaceAll(query, `"`, `""`) + `"`
+}
+
+// needsFTS5Quoting reports whether a query should be wrapped as a
+// literal phrase before going to FTS5. The default answer is yes -
+// users want literal searches and FTS5's punctuation handling is a
+// footgun. The exceptions are queries that clearly use FTS5 syntax
+// deliberately:
+//
+//   - Contains a double quote: the user is managing quoting themselves
+//     (e.g. `"exact phrase" OR baz`).
+//   - Contains a prefix wildcard `*` outside a quoted phrase.
+//   - Contains a boolean operator as a standalone token: ` AND `, ` OR `,
+//     ` NOT `, or `NEAR(`. The surrounding spaces and parenthesis avoid
+//     matching English words like "AUTHOR" or "north".
+//
+// Anything else - punctuation-only queries, hyphenated terms, phrases
+// with colons - is quoted so FTS5 treats it literally.
+func needsFTS5Quoting(query string) bool {
+	if strings.ContainsAny(query, `"*`) {
+		return false
+	}
+	if strings.Contains(query, " AND ") ||
+		strings.Contains(query, " OR ") ||
+		strings.Contains(query, " NOT ") ||
+		strings.Contains(query, "NEAR(") {
+		return false
+	}
+	return true
 }

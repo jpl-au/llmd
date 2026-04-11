@@ -44,11 +44,120 @@ _smoke_cli() {
     fi
 
     # --- grep ---
+    # Basic match - default mode returns matching markdown sections,
+    # not full documents, so an agent searching a long doc gets back
+    # bounded chunks instead of the whole file.
     out=$($llmd grep "Updated" 2>&1)
     if echo "$out" | grep -q "docs/hello"; then
         log_pass "grep finds content"
     else
         log_fail "grep finds content: got '$out'"
+    fi
+
+    # Path on its own line followed by a colon, content underneath -
+    # the AI-first output contract that grep promises.
+    if echo "$out" | grep -q '^docs/hello:$'; then
+        log_pass "grep formats path on its own line"
+    else
+        log_fail "grep formats path on its own line: got '$out'"
+    fi
+
+    # Section bounding: write a multi-section doc and verify the
+    # default mode returns only the matching section, never the
+    # unrelated ones.
+    cat <<'MD' | $llmd --author "smoke" write specs/api >/dev/null 2>&1
+# API Spec
+
+## Overview
+
+This is the overview section.
+
+## Authentication
+
+OAuth2 with PKCE.
+
+## Errors
+
+RFC 7807 problem+json.
+MD
+    out=$($llmd grep "OAuth2" 2>&1)
+    if echo "$out" | grep -q "## Authentication"; then
+        log_pass "grep default returns matching section"
+    else
+        log_fail "grep default returns matching section: got '$out'"
+    fi
+    if echo "$out" | grep -q "RFC 7807"; then
+        log_fail "grep section bounding leaked unrelated section"
+    else
+        log_pass "grep section bounding excludes unrelated sections"
+    fi
+    if echo "$out" | grep -q "## Overview"; then
+        log_fail "grep section bounding leaked Overview section"
+    else
+        log_pass "grep section bounding excludes Overview"
+    fi
+
+    # --lines mode: line snippets instead of sections.
+    out=$($llmd grep --lines "OAuth2" 2>&1)
+    if echo "$out" | grep -q "OAuth2"; then
+        log_pass "grep --lines returns line snippets"
+    else
+        log_fail "grep --lines returns line snippets: got '$out'"
+    fi
+
+    # --full mode: whole document content per match (opt-in).
+    out=$($llmd grep --full "OAuth2" 2>&1)
+    if echo "$out" | grep -q "RFC 7807"; then
+        log_pass "grep --full returns whole document"
+    else
+        log_fail "grep --full returns whole document: got '$out'"
+    fi
+
+    # -l (paths only): plain path list, no content leaked.
+    out=$($llmd grep -l "OAuth2" 2>&1)
+    if echo "$out" | grep -q "specs/api"; then
+        log_pass "grep -l returns paths"
+    else
+        log_fail "grep -l returns paths: got '$out'"
+    fi
+    if echo "$out" | grep -q "OAuth2"; then
+        log_fail "grep -l leaked content into path list"
+    else
+        log_pass "grep -l excludes content"
+    fi
+
+    # -c (counts): one path:N line per matching document.
+    out=$($llmd grep -c "OAuth2" 2>&1)
+    if echo "$out" | grep -qE 'specs/api:[0-9]+'; then
+        log_pass "grep -c returns path:count format"
+    else
+        log_fail "grep -c returns path:count format: got '$out'"
+    fi
+
+    # JSON output is always the structured GrepHit array regardless
+    # of which mode is in play - that's what agents read via --json
+    # or MCP.
+    out=$($llmd --json grep "OAuth2" 2>&1)
+    if echo "$out" | grep -q '"Path"' && echo "$out" | grep -q '"Section"'; then
+        log_pass "grep --json returns structured GrepHit"
+    else
+        log_fail "grep --json returns structured GrepHit: got '$out'"
+    fi
+
+    # Literal punctuation: hyphenated terms must work as searches
+    # without the user having to escape FTS5 syntax. The host bridge
+    # auto-quotes the query as a phrase so FTS5 tokenises it
+    # consistently with the indexed document.
+    cat <<'MD' | $llmd --author "smoke" write notes/hyphen >/dev/null 2>&1
+# Notes
+
+foo-bar baz
+MD
+    out=$($llmd grep "foo-bar" 2>&1)
+    if echo "$out" | grep -q "notes/hyphen"; then
+        log_pass "grep handles hyphenated literal terms"
+    else
+        log_fail "grep handles hyphenated literal terms: got '$out'"
     fi
 
     # --- sed ---

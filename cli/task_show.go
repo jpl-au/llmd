@@ -9,10 +9,12 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// taskShow displays a single task's metadata and spec body. Renders a
-// markdown document with a metadata table (ID, status, priority,
-// assignee, branch, flags, spec path) followed by the spec document
-// content if it exists.
+// taskShow displays a single task's metadata and spec body. Builds a
+// markdown document with a heading, a metadata table (ID, status,
+// priority, assignee, branch, flags, spec path) and the spec document
+// body if it exists, then ships it as sdk.Markdown so the host renders
+// it via glamour for interactive terminals and emits raw markdown for
+// pipes, --json, MCP and HTTP.
 func taskShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("task show: %w: id", sdk.ErrMissingArg)
@@ -63,5 +65,5 @@ func taskShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 		b.Write(body)
 	}
 
-	return sdk.Result{Text: b.String(), Data: t}, nil
+	return sdk.Markdown{Text: b.String(), Data: t}, nil
 }

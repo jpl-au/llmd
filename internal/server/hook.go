@@ -175,11 +175,22 @@ func (s *Server) routeHook(r *http.Request, author string, event *platform.HookE
 }
 
 // responseText extracts plain text from an sdk.Response for inclusion
-// in hook response payloads.
+// in hook response payloads. Markdown responses are emitted raw -
+// hooks feed downstream tooling that wants the source, not terminal
+// escape codes.
 func responseText(r sdk.Response) string {
 	switch v := r.(type) {
 	case sdk.Text:
 		return string(v)
+	case sdk.Markdown:
+		if v.Text != "" {
+			return v.Text
+		}
+		b, err := json.Marshal(v.Data)
+		if err != nil {
+			return ""
+		}
+		return string(b)
 	case sdk.Result:
 		if v.Text != "" {
 			return v.Text

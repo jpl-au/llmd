@@ -153,10 +153,23 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 
 // responseText converts an sdk.Response to plain text for MCP TextContent.
 // For Result types with both Text and Data, we prefer Text (human-readable).
+// Markdown responses always emit raw markdown source - the agent on the
+// other end of an MCP call wants the unrendered content it can reprocess,
+// never glamour escape codes.
 func responseText(r sdk.Response) string {
 	switch v := r.(type) {
 	case sdk.Text:
 		return string(v)
+	case sdk.Markdown:
+		if v.Text != "" {
+			return v.Text
+		}
+		b, err := json.Marshal(v.Data)
+		if err != nil {
+			slog.Debug("marshalling markdown data", "error", err)
+			return "ok"
+		}
+		return string(b)
 	case sdk.Result:
 		if v.Text != "" {
 			return v.Text

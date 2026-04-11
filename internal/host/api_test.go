@@ -354,6 +354,73 @@ func TestDocumentsGrep(t *testing.T) {
 	}
 }
 
+func TestDocumentsGrepLiteralPunctuation(t *testing.T) {
+	// Terms that contain words alongside punctuation - hyphens,
+	// colons, etc. - must work as literal searches without the user
+	// having to escape FTS5 syntax. The host bridge wraps these as
+	// phrase queries so they tokenise to their constituent words and
+	// match.
+	//
+	// Note: pure-punctuation searches like "#", "-", "##" cannot be
+	// matched by the underlying FTS5 unicode61 tokeniser because it
+	// strips punctuation from the index entirely. Supporting those
+	// would require switching the FTS table to a trigram tokeniser.
+	cases := []struct {
+		name    string
+		content string
+		query   string
+	}{
+		{"hyphen-word", "foo-bar baz", "foo-bar"},
+		{"colon-phrase", "Authentication: OAuth2 setup", "Authentication: OAuth2"},
+		{"phrase-with-space", "the quick brown fox", "quick brown"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			testHost(t)
+			if err := sdk.Documents.Write("doc", []byte(tc.content), sdk.WriteOpts{Author: "alice"}); err != nil {
+				t.Fatalf("Write: %v", err)
+			}
+			hits, err := sdk.Documents.Grep(tc.query, sdk.GrepOpts{})
+			if err != nil {
+				t.Fatalf("Grep(%q): %v", tc.query, err)
+			}
+			if len(hits) == 0 {
+				t.Errorf("Grep(%q) returned no hits, want at least 1", tc.query)
+			}
+		})
+	}
+}
+
+func TestDocumentsGrepKeepsFTS5Operators(t *testing.T) {
+	// Power users with valid FTS5 syntax must not be silently
+	// re-quoted. "foo OR bar" is a valid FTS5 query and should hit
+	// documents containing either word.
+	testHost(t)
+	if err := sdk.Documents.Write("a", []byte("foo only"), sdk.WriteOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Write a: %v", err)
+	}
+	if err := sdk.Documents.Write("b", []byte("bar only"), sdk.WriteOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Write b: %v", err)
+	}
+	if err := sdk.Documents.Write("c", []byte("baz only"), sdk.WriteOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Write c: %v", err)
+	}
+	hits, err := sdk.Documents.Grep("foo OR bar", sdk.GrepOpts{})
+	if err != nil {
+		t.Fatalf("Grep: %v", err)
+	}
+	paths := make(map[string]bool)
+	for _, h := range hits {
+		paths[h.Path] = true
+	}
+	if !paths["a"] || !paths["b"] {
+		t.Errorf("got paths %v, want both a and b", paths)
+	}
+	if paths["c"] {
+		t.Errorf("got path c in results, want only a and b")
+	}
+}
+
 func TestDocumentsGrepPathFilter(t *testing.T) {
 	testHost(t)
 
