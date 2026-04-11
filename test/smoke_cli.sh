@@ -26,6 +26,44 @@ _smoke_cli() {
         log_fail "write + cat round-trip: got '$out'"
     fi
 
+    # --- cat --offset / --limit (AI-first line slicing) ---
+    # Agents use grep to find a match, then cat with offset/limit to
+    # fetch just the surrounding lines without loading the whole doc.
+    cat <<'MD' | $llmd --author "smoke" write long/doc >/dev/null 2>&1
+line 1
+line 2
+line 3
+line 4
+line 5
+line 6
+line 7
+line 8
+line 9
+line 10
+MD
+    out=$($llmd cat --limit 3 long/doc 2>&1)
+    if echo "$out" | grep -q "line 1" && ! echo "$out" | grep -q "line 4"; then
+        log_pass "cat --limit caps output from top"
+    else
+        log_fail "cat --limit caps output from top: got '$out'"
+    fi
+
+    out=$($llmd cat --offset 5 --limit 2 long/doc 2>&1)
+    if echo "$out" | grep -q "line 5" && echo "$out" | grep -q "line 6" && \
+       ! echo "$out" | grep -q "line 4" && ! echo "$out" | grep -q "line 7"; then
+        log_pass "cat --offset --limit returns a window"
+    else
+        log_fail "cat --offset --limit returns a window: got '$out'"
+    fi
+
+    # -n with offset keeps line numbers stable against the source.
+    out=$($llmd cat --offset 5 --limit 2 -n long/doc 2>&1)
+    if echo "$out" | grep -q "5  line 5"; then
+        log_pass "cat -n with offset uses source line numbers"
+    else
+        log_fail "cat -n with offset uses source line numbers: got '$out'"
+    fi
+
     # --- version history ---
     echo "# Updated" | $llmd --author "smoke" write docs/hello >/dev/null 2>&1
     out=$($llmd history docs/hello --json 2>&1)
@@ -33,6 +71,27 @@ _smoke_cli() {
         log_pass "history returns version data"
     else
         log_fail "history returns version data: got '$out'"
+    fi
+
+    # Default limit: bulk-write 15 versions and verify history
+    # caps at 10 without -n / --all.
+    for i in $(seq 1 15); do
+        echo "revision $i" | $llmd --author "smoke" write churn/doc >/dev/null 2>&1
+    done
+    out=$($llmd history churn/doc --json 2>&1)
+    count=$(echo "$out" | grep -c '"Number"')
+    if [ "$count" -eq 10 ]; then
+        log_pass "history defaults to 10 versions"
+    else
+        log_fail "history defaults to 10 versions: got $count"
+    fi
+
+    out=$($llmd history --all churn/doc --json 2>&1)
+    count=$(echo "$out" | grep -c '"Number"')
+    if [ "$count" -eq 15 ]; then
+        log_pass "history --all returns every version"
+    else
+        log_fail "history --all returns every version: got $count"
     fi
 
     # --- ls ---

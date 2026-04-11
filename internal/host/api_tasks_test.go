@@ -152,7 +152,7 @@ func TestTasksAddWithBody(t *testing.T) {
 		t.Error("spec document does not exist")
 	}
 
-	content, _ := sdk.Documents.Read(task.Path, 0)
+	content, _ := sdk.Documents.Read(task.Path, sdk.ReadOpts{})
 	if string(content) != string(body) {
 		t.Errorf("spec content = %q, want %q", content, body)
 	}

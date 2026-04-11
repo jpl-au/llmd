@@ -10,9 +10,9 @@ import "time"
 // options are added (e.g. EditOpts.ReplaceAll). Each opts struct
 // requires Author; everything else is optional.
 type DocumentStore interface {
-	// Read returns document content. Version 0 means latest;
-	// a positive version reads that specific historical version.
-	Read(path string, version int) ([]byte, error)
+	// Read returns document content. See ReadOpts for the available
+	// options (version selection, line-based slicing).
+	Read(path string, opts ReadOpts) ([]byte, error)
 
 	// Write creates or updates a document, recording a new version.
 	// See WriteOpts for the available options.
@@ -96,6 +96,24 @@ type Doc struct {
 	Message   string
 	CreatedAt int64
 	Deleted   bool
+}
+
+// ReadOpts configures a Read operation.
+//
+// Version selects a specific historical version. Zero means the
+// latest (non-deleted) version.
+//
+// Offset and Limit provide line-based slicing - essential for AI
+// consumers that need to fetch a specific slice of a long document
+// without burning context on the rest of the file. Offset is the
+// 1-indexed line number to start from (0 means line 1). Limit caps
+// the number of lines returned (0 means no cap). Line counting
+// matches what a human sees in an editor: lines separated by '\n',
+// inclusive on the start line.
+type ReadOpts struct {
+	Version int
+	Offset  int
+	Limit   int
 }
 
 // WriteOpts configures a Write operation. Author is required; Message

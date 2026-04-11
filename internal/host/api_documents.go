@@ -74,25 +74,75 @@ func (a *documentAPI) resolveDoc(identifier string, flagVersion int) (string, *i
 	return p, v, nil
 }
 
-// Read returns document content. Version 0 means latest (nil pointer
-// in internal options); a positive version reads that specific version.
-func (a *documentAPI) Read(path string, version int) ([]byte, error) {
-	p, v, err := a.resolveDoc(path, version)
+// Read returns document content. Version 0 means latest; a positive
+// version reads that historical version. Offset and Limit provide
+// line-based slicing: Offset is the 1-indexed start line (0 = line 1),
+// Limit caps the number of lines (0 = no cap). Slicing happens after
+// the full document is read from the store - cheap for the typical
+// case, and the whole-document read path stays as the single source
+// of truth for content.
+func (a *documentAPI) Read(path string, opts sdk.ReadOpts) ([]byte, error) {
+	p, v, err := a.resolveDoc(path, opts.Version)
 	if err != nil {
 		return nil, err
 	}
 	if err := validate.Path(p, a.lim); err != nil {
 		return nil, err
 	}
-	var opts documents.ReadOptions
+	var ropts documents.ReadOptions
 	if v != nil {
-		opts.Version = v
+		ropts.Version = v
 	}
-	doc, err := a.store.Documents.Read(a.ctx, p, opts)
+	doc, err := a.store.Documents.Read(a.ctx, p, ropts)
 	if err != nil {
 		return nil, docErr(err)
 	}
-	return []byte(doc.Content), nil
+
+	// Apply line-based slicing if the caller asked for it. Neither
+	// offset nor limit set returns the whole content unchanged.
+	if opts.Offset <= 0 && opts.Limit <= 0 {
+		return []byte(doc.Content), nil
+	}
+	return []byte(sliceLines(doc.Content, opts.Offset, opts.Limit)), nil
+}
+
+// sliceLines returns a line range from content. offset is 1-indexed
+// (0 is treated as 1); limit is the max number of lines to return
+// (0 means no cap). Out-of-range offsets return an empty string. A
+// trailing newline is preserved if the source had one, matching how
+// a user expects "give me lines 10-20" to behave.
+func sliceLines(content string, offset, limit int) string {
+	if content == "" {
+		return ""
+	}
+	lines := strings.Split(content, "\n")
+	// Strings.Split on trailing "\n" produces an empty final element;
+	// track whether we had a trailing newline so we can re-add it to
+	// the sliced result.
+	trailingNewline := false
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+		trailingNewline = true
+	}
+
+	start := offset - 1
+	if start < 0 {
+		start = 0
+	}
+	if start >= len(lines) {
+		return ""
+	}
+
+	end := len(lines)
+	if limit > 0 && start+limit < end {
+		end = start + limit
+	}
+
+	result := strings.Join(lines[start:end], "\n")
+	if trailingNewline && end == len(lines) {
+		result += "\n"
+	}
+	return result
 }
 
 // Write creates or updates a document, recording a new version.
@@ -441,7 +491,7 @@ func (a *documentAPI) Preview(path string, n int) (string, error) {
 	if path == "" || n <= 0 {
 		return "", nil
 	}
-	body, err := a.Read(path, 0)
+	body, err := a.Read(path, sdk.ReadOpts{})
 	if err != nil {
 		return "", err
 	}

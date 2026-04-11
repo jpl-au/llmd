@@ -36,7 +36,7 @@
 //
 // Commands access the store through domain globals:
 //
-//	content, err := sdk.Documents.Read("notes/todo.md", 0)  // 0 = latest version
+//	content, err := sdk.Documents.Read("notes/todo.md", sdk.ReadOpts{})  // latest
 //	if err != nil {
 //	    return nil, err
 //	}

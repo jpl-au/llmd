@@ -33,7 +33,7 @@
 // extensions to access the store without direct dependencies:
 //
 //	// In an extension command:
-//	content, _ := sdk.Documents.Read("path/to/doc.md", 0)
+//	content, _ := sdk.Documents.Read("path/to/doc.md", sdk.ReadOpts{})
 //	sdk.Documents.Write("path/to/doc.md", content, sdk.WriteOpts{Author: author, Message: message})
 //	sdk.Tags.Add("path/to/doc.md", "important", author)
 //

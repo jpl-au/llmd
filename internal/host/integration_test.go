@@ -11,6 +11,7 @@ package host
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -670,6 +671,150 @@ OAuth2 is the way.
 		}
 		if len(hits) == 0 {
 			t.Error("path filter dropped all results")
+		}
+	})
+}
+
+// TestCatSlicing exercises cat's --offset and --limit flags, the
+// read half of the AI-first grep+read workflow. Agents must be able
+// to fetch a bounded slice of a long document without pulling the
+// whole file into their context window.
+func TestCatSlicing(t *testing.T) {
+	testHost(t)
+
+	// A 20-line document so we can exercise offset/limit without
+	// edge-case interactions.
+	var lines []string
+	for i := 1; i <= 20; i++ {
+		lines = append(lines, fmt.Sprintf("line %d", i))
+	}
+	dispatch(t, "write", []string{"long/doc"}, "alice", []byte(strings.Join(lines, "\n")))
+
+	t.Run("no flags returns whole document", func(t *testing.T) {
+		r := dispatch(t, "cat", []string{"long/doc"}, "", nil)
+		out := text(r)
+		if !strings.Contains(out, "line 1") || !strings.Contains(out, "line 20") {
+			t.Errorf("whole doc missing boundary lines: %q", out)
+		}
+	})
+
+	t.Run("--limit caps from the top", func(t *testing.T) {
+		r := dispatch(t, "cat", []string{"--limit", "5", "long/doc"}, "", nil)
+		out := text(r)
+		if !strings.Contains(out, "line 1") {
+			t.Errorf("missing first line: %q", out)
+		}
+		if !strings.Contains(out, "line 5") {
+			t.Errorf("missing fifth line: %q", out)
+		}
+		if strings.Contains(out, "line 6") {
+			t.Errorf("limit leaked beyond 5 lines: %q", out)
+		}
+	})
+
+	t.Run("--offset skips leading lines", func(t *testing.T) {
+		r := dispatch(t, "cat", []string{"--offset", "10", "long/doc"}, "", nil)
+		out := text(r)
+		if strings.Contains(out, "line 9") {
+			t.Errorf("offset leaked line 9: %q", out)
+		}
+		if !strings.Contains(out, "line 10") {
+			t.Errorf("missing offset start line: %q", out)
+		}
+		if !strings.Contains(out, "line 20") {
+			t.Errorf("missing last line: %q", out)
+		}
+	})
+
+	t.Run("--offset with --limit returns a window", func(t *testing.T) {
+		r := dispatch(t, "cat", []string{"--offset", "8", "--limit", "3", "long/doc"}, "", nil)
+		out := text(r)
+		for _, want := range []string{"line 8", "line 9", "line 10"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("missing %q in window: %q", want, out)
+			}
+		}
+		for _, leak := range []string{"line 7", "line 11"} {
+			if strings.Contains(out, leak) {
+				t.Errorf("window leaked %q: %q", leak, out)
+			}
+		}
+	})
+
+	t.Run("offset past end returns empty", func(t *testing.T) {
+		r := dispatch(t, "cat", []string{"--offset", "9999", "long/doc"}, "", nil)
+		// Empty content sliced through markdown still returns the
+		// type with empty Text.
+		md, ok := r.(sdk.Markdown)
+		if !ok {
+			t.Fatalf("expected sdk.Markdown, got %T", r)
+		}
+		if md.Text != "" {
+			t.Errorf("expected empty slice, got %q", md.Text)
+		}
+	})
+
+	t.Run("-n numbers match source line numbers when sliced", func(t *testing.T) {
+		r := dispatch(t, "cat", []string{"--offset", "10", "--limit", "3", "-n", "long/doc"}, "", nil)
+		out := text(r)
+		// Line numbers should be 10, 11, 12 - matching the source,
+		// not 1, 2, 3 as they would if numbering restarted.
+		if !strings.Contains(out, "10  line 10") {
+			t.Errorf("expected stable line numbers: %q", out)
+		}
+		if strings.Contains(out, " 1  line 10") {
+			t.Errorf("line numbers restarted inside slice: %q", out)
+		}
+	})
+}
+
+// TestHistoryDefaults verifies the AI-first default limit on history.
+// A heavily edited document would otherwise dump hundreds of rows into
+// an agent's context; the default of 10 keeps it bounded, and --all
+// is available for the rare case someone actually wants every version.
+func TestHistoryDefaults(t *testing.T) {
+	testHost(t)
+
+	// Produce 15 versions of the same document so we can see the
+	// default limit kick in and --all override it.
+	for i := 1; i <= 15; i++ {
+		content := fmt.Sprintf("version %d", i)
+		dispatch(t, "write", []string{"churn/doc"}, "alice", []byte(content))
+	}
+
+	t.Run("default caps at 10 versions", func(t *testing.T) {
+		r := dispatch(t, "history", []string{"churn/doc"}, "", nil)
+		// The Data field carries the raw []sdk.Version regardless
+		// of whether --json was set, so the test reads it directly
+		// instead of parsing the lipgloss table text form.
+		res, ok := r.(sdk.Result)
+		if !ok {
+			t.Fatalf("history returned %T, want sdk.Result", r)
+		}
+		versions, ok := res.Data.([]sdk.Version)
+		if !ok {
+			t.Fatalf("Data field = %T, want []sdk.Version", res.Data)
+		}
+		if len(versions) != 10 {
+			t.Errorf("default history returned %d versions, want 10", len(versions))
+		}
+	})
+
+	t.Run("-n overrides the default", func(t *testing.T) {
+		r := dispatch(t, "history", []string{"-n", "3", "churn/doc"}, "", nil)
+		res := r.(sdk.Result)
+		versions := res.Data.([]sdk.Version)
+		if len(versions) != 3 {
+			t.Errorf("-n 3 returned %d versions, want 3", len(versions))
+		}
+	})
+
+	t.Run("--all returns every version", func(t *testing.T) {
+		r := dispatch(t, "history", []string{"--all", "churn/doc"}, "", nil)
+		res := r.(sdk.Result)
+		versions := res.Data.([]sdk.Version)
+		if len(versions) != 15 {
+			t.Errorf("--all returned %d versions, want 15", len(versions))
 		}
 	})
 }

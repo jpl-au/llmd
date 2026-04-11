@@ -22,7 +22,7 @@ func TestDocumentsWriteRead(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 
-	content, err := sdk.Documents.Read("notes/hello", 0)
+	content, err := sdk.Documents.Read("notes/hello", sdk.ReadOpts{})
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestDocumentsReadVersion(t *testing.T) {
 		t.Fatalf("Write v2: %v", err)
 	}
 
-	content, err := sdk.Documents.Read("doc", 1)
+	content, err := sdk.Documents.Read("doc", sdk.ReadOpts{Version: 1})
 	if err != nil {
 		t.Fatalf("Read v1: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestDocumentsReadVersion(t *testing.T) {
 		t.Errorf("Read v1 = %q, want %q", content, "v1")
 	}
 
-	content, err = sdk.Documents.Read("doc", 0)
+	content, err = sdk.Documents.Read("doc", sdk.ReadOpts{})
 	if err != nil {
 		t.Fatalf("Read latest: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestDocumentsMove(t *testing.T) {
 		t.Error("old path still exists after Move")
 	}
 
-	content, err := sdk.Documents.Read("new", 0)
+	content, err := sdk.Documents.Read("new", sdk.ReadOpts{})
 	if err != nil {
 		t.Fatalf("Read new: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestDocumentsEdit(t *testing.T) {
 		t.Fatalf("Edit: %v", err)
 	}
 
-	content, _ := sdk.Documents.Read("doc", 0)
+	content, _ := sdk.Documents.Read("doc", sdk.ReadOpts{})
 	if string(content) != "hello Go" {
 		t.Errorf("content = %q, want %q", content, "hello Go")
 	}
@@ -304,7 +304,7 @@ func TestDocumentsRevert(t *testing.T) {
 		t.Fatalf("Revert: %v", err)
 	}
 
-	content, _ := sdk.Documents.Read("doc", 0)
+	content, _ := sdk.Documents.Read("doc", sdk.ReadOpts{})
 	if string(content) != "original" {
 		t.Errorf("content = %q, want %q", content, "original")
 	}
@@ -471,7 +471,7 @@ func TestDocumentsVacuumEmpty(t *testing.T) {
 func TestDocumentsReadNotFound(t *testing.T) {
 	testHost(t)
 
-	_, err := sdk.Documents.Read("nonexistent", 0)
+	_, err := sdk.Documents.Read("nonexistent", sdk.ReadOpts{})
 	if !errors.Is(err, sdk.ErrNotFound) {
 		t.Errorf("Read error = %v, want sdk.ErrNotFound", err)
 	}
@@ -539,7 +539,7 @@ func TestDocumentsEditNotUnique(t *testing.T) {
 	}
 
 	// Document should be unchanged.
-	content, _ := sdk.Documents.Read("doc", 0)
+	content, _ := sdk.Documents.Read("doc", sdk.ReadOpts{})
 	if string(content) != "foo bar foo" {
 		t.Errorf("content = %q, want %q (no edit should have applied)", content, "foo bar foo")
 	}
@@ -556,7 +556,7 @@ func TestDocumentsEditReplaceAll(t *testing.T) {
 		t.Fatalf("Edit: %v", err)
 	}
 
-	content, _ := sdk.Documents.Read("doc", 0)
+	content, _ := sdk.Documents.Read("doc", sdk.ReadOpts{})
 	if string(content) != "qux bar qux baz qux" {
 		t.Errorf("content = %q, want %q", content, "qux bar qux baz qux")
 	}
@@ -582,7 +582,7 @@ func TestDocumentsWriteEmpty(t *testing.T) {
 		t.Fatalf("Write empty: %v", err)
 	}
 
-	content, err := sdk.Documents.Read("empty", 0)
+	content, err := sdk.Documents.Read("empty", sdk.ReadOpts{})
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
@@ -601,7 +601,7 @@ func TestDocumentsWriteOverwrite(t *testing.T) {
 		t.Fatalf("Write second: %v", err)
 	}
 
-	content, _ := sdk.Documents.Read("doc", 0)
+	content, _ := sdk.Documents.Read("doc", sdk.ReadOpts{})
 	if string(content) != "second" {
 		t.Errorf("content = %q, want %q", content, "second")
 	}
@@ -755,7 +755,7 @@ func TestDocumentsImportExport(t *testing.T) {
 	}
 
 	// Import strips the .md extension, so documents are stored as "one" and "two"
-	content, err := sdk.Documents.Read("one", 0)
+	content, err := sdk.Documents.Read("one", sdk.ReadOpts{})
 	if err != nil {
 		t.Fatalf("Read imported: %v", err)
 	}

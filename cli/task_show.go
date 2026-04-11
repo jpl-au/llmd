@@ -26,7 +26,7 @@ func taskShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	// Read the document body
-	body, err := ctx.Documents.Read(t.Path, 0)
+	body, err := ctx.Documents.Read(t.Path, sdk.ReadOpts{})
 	if err != nil {
 		body = nil
 	}
