@@ -26,13 +26,13 @@ llmd tag -f <name>
 llmd tag
 
 # List tags on a document
-llmd tag notes/meeting
+llmd tag plan
 
 # Add a tag to a document
-llmd tag notes/meeting important
+llmd tag plan important
 
 # Remove a tag from a document
-llmd tag -d notes/meeting important
+llmd tag -d plan important
 
 # Find all documents with a tag
 llmd tag -f important

@@ -18,13 +18,13 @@ llmd revert <path> <version> [--message "text"]
 
 ```bash
 # Revert to version 2
-llmd revert notes/draft 2
+llmd revert draft 2
 
 # Version prefix "v" is accepted
-llmd revert notes/draft v2
+llmd revert draft v2
 
 # Revert with a custom message
-llmd revert docs/api 1 --message "Roll back breaking change"
+llmd revert api 1 --message "Roll back breaking change"
 ```
 
 ## Notes

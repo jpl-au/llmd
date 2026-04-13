@@ -12,10 +12,10 @@ llmd restore <path>
 
 ```bash
 # Delete a document
-llmd rm notes/ideas
+llmd rm ideas
 
 # Changed your mind - bring it back
-llmd restore notes/ideas
+llmd restore ideas
 ```
 
 ## Notes

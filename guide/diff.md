@@ -21,26 +21,26 @@ llmd diff [flags] <path:version> [<path:version>]
 
 ```bash
 # Compare latest to previous version
-llmd diff notes/meeting
+llmd diff plan
 
 # Compare two specific versions of the same document
-llmd diff notes/meeting:2 notes/meeting:5
+llmd diff plan:2 plan:5
 
 # Compare two different documents
-llmd diff notes/monday notes/tuesday
+llmd diff monday tuesday
 
 # Show 5 lines of context
-llmd diff -C5 notes/meeting
+llmd diff -C5 plan
 
 # Counts only
-llmd diff --stat notes/meeting
+llmd diff --stat plan
 ```
 
 ## Notes
 
 - With one path: compares the latest version to the previous version.
 - With two paths: compares them directly.
-- Use `path:version` syntax to pin a specific version (e.g. `docs/readme:3`).
+- Use `path:version` syntax to pin a specific version (e.g. `readme:3`).
 - Output is coloured in a terminal (green for additions, red for removals,
   cyan for hunk headers). Piped output is plain unified diff.
 - Diffs over 500 lines are truncated with a summary footer so agents

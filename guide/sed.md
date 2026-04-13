@@ -23,16 +23,16 @@ llmd sed [-i] 's/old/new/[g]' <path>
 
 ```bash
 # Basic substitution - old must be unique in the doc
-llmd sed 's/foo/bar/' notes/draft
+llmd sed 's/foo/bar/' draft
 
 # Global substitution - replace every occurrence
-llmd sed 's/foo/bar/g' notes/draft
+llmd sed 's/foo/bar/g' draft
 
 # Alternate delimiter (useful when replacing paths)
-llmd sed 's|/usr/local|/opt|' config/paths
+llmd sed 's|/usr/local|/opt|' config
 
 # With -i (same behaviour, for muscle memory)
-llmd sed -i 's/colour/color/g' docs/readme
+llmd sed -i 's/colour/color/g' readme
 ```
 
 ## Notes

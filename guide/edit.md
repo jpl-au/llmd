@@ -25,16 +25,16 @@ llmd edit [flags] <path> <old> <new>
 
 ```bash
 # Unique match - just works
-llmd edit notes/todo "buy milk" "buy oat milk"
+llmd edit todo "buy milk" "buy oat milk"
 
 # Ambiguous match - expand with context to disambiguate
-llmd edit docs/config "port: 8080" "port: 9090"
+llmd edit config "port: 8080" "port: 9090"
 
 # Substitute every occurrence
-llmd edit --all docs/readme "WIP" "Released"
+llmd edit --all readme "WIP" "Released"
 
 # With a version message
-llmd edit docs/readme "WIP" "Released" --message "Mark as released"
+llmd edit readme "WIP" "Released" --message "Mark as released"
 ```
 
 ## Errors

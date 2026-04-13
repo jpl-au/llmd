@@ -12,10 +12,10 @@ llmd rm <path>
 
 ```bash
 # Delete a document
-llmd rm notes/old-draft
+llmd rm old-draft
 
 # Restore it later if needed
-llmd restore notes/old-draft
+llmd restore old-draft
 
 # Permanently purge all soft-deleted documents
 llmd vacuum

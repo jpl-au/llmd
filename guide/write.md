@@ -18,18 +18,18 @@ llmd write <path> [--message "text"]
 
 ```bash
 # Pipe content in
-echo "Hello, world" | llmd write greetings/hello
+echo "Hello, world" | llmd write hello
 
 # Use a heredoc
-llmd write notes/standup <<'EOF'
+llmd write standup <<'EOF'
 - Finished auth module
 - Starting API tests
 EOF
 
 # Redirect from a file
-llmd write docs/readme < README.md
+llmd write readme < README.md
 
-# Write with a commit message
+# Paths can have hierarchy when grouping related documents
 echo "v2 draft" | llmd write docs/proposal --message "Revised introduction"
 ```
 

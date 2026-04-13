@@ -12,10 +12,10 @@ llmd mv <source> <destination>
 
 ```bash
 # Rename a document
-llmd mv notes/draft notes/final
+llmd mv draft final
 
-# Move to a different directory
-llmd mv inbox/task projects/backend/task
+# Move into a hierarchy
+llmd mv notes projects/website/notes
 ```
 
 ## Notes

@@ -23,18 +23,25 @@ mutation command instead (see `guide`).
 
 ## Document path conventions
 
-Paths use forward slashes and no leading slash. Use them like a
-filesystem hierarchy:
+Paths use forward slashes and no leading slash. A path can be a
+single word or a hierarchy - there is no requirement to use a prefix:
 
 ```
+readme
+todo
+plan
+notes/standup
 projects/website/spec
-projects/website/notes
 meetings/2026-02-24
-journal/today
 ```
+
+Single-segment paths like `readme`, `todo`, and `plan` are perfectly
+valid and often the right choice for standalone documents. Only add
+hierarchy when grouping genuinely related documents together.
 
 Good conventions:
-- Group related documents under a shared prefix
+- Use the shortest path that makes sense - `todo` beats `docs/todo`
+- Group related documents under a shared prefix when there are several
 - Use dates for journals, meeting notes, and logs
 - Keep paths short and descriptive
 
@@ -44,9 +51,9 @@ Every `write` and `edit` creates a new version automatically. Use
 `--message` to annotate why a change was made:
 
 ```
-echo "First draft" | llmd write docs/proposal
-echo "Revised draft" | llmd write docs/proposal --message "Added budget section"
-llmd edit docs/proposal "TBD" "Q3 2026" --message "Confirmed timeline"
+echo "First draft" | llmd write proposal
+echo "Revised draft" | llmd write proposal --message "Added budget section"
+llmd edit proposal "TBD" "Q3 2026" --message "Confirmed timeline"
 ```
 
 ## Reviewing changes
@@ -54,12 +61,12 @@ llmd edit docs/proposal "TBD" "Q3 2026" --message "Confirmed timeline"
 Check what changed and when:
 
 ```
-llmd history docs/proposal              # last 10 versions
-llmd history -n5 docs/proposal          # last 5 versions
-llmd history --all docs/proposal        # every version
-llmd diff docs/proposal                 # diff against previous version
-llmd diff docs/proposal:1 docs/proposal:3  # diff between specific versions
-llmd cat --version 2 docs/proposal      # read an old version
+llmd history proposal              # last 10 versions
+llmd history -n5 proposal          # last 5 versions
+llmd history --all proposal        # every version
+llmd diff proposal                 # diff against previous version
+llmd diff proposal:1 proposal:3   # diff between specific versions
+llmd cat --version 2 proposal      # read an old version
 ```
 
 ## Using tags for workflow state
@@ -67,9 +74,9 @@ llmd cat --version 2 docs/proposal      # read an old version
 Tags are lightweight labels. Use them to track document state:
 
 ```
-llmd tag docs/proposal draft
-llmd tag docs/proposal review
-llmd tag -d docs/proposal draft         # remove the draft tag
+llmd tag proposal draft
+llmd tag proposal review
+llmd tag -d proposal draft              # remove the draft tag
 llmd tag -f review                      # find all docs tagged "review"
 ```
 
@@ -78,8 +85,8 @@ llmd tag -f review                      # find all docs tagged "review"
 Create directed links between documents:
 
 ```
-llmd link meetings/2026-02-24 projects/website/spec
-llmd link --label "blocked-by" tasks/auth tasks/db-migration
+llmd link meeting spec
+llmd link --label "blocked-by" auth db-migration
 ```
 
 ## Search

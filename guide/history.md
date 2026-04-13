@@ -24,13 +24,13 @@ llmd history [flags] <path>
 
 ```bash
 # Recent 10 versions (default)
-llmd history notes/meeting
+llmd history plan
 
 # Last 3 versions
-llmd history -n3 notes/meeting
+llmd history -n3 plan
 
 # Every version
-llmd history --all notes/meeting
+llmd history --all plan
 
 # JSON output
 llmd history --json notes/meeting

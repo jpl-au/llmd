@@ -21,19 +21,19 @@ llmd link <path>
 
 ```bash
 # Create a link from one document to another
-llmd link notes/meeting notes/action-items
+llmd link meeting action-items
 
 # Create a labelled link
-llmd link --label "follow-up" notes/meeting notes/action-items
+llmd link --label "follow-up" meeting action-items
 
 # List outgoing links from a document
-llmd link notes/meeting
+llmd link meeting
 
 # List incoming links to a document
-llmd link --in notes/action-items
+llmd link --in action-items
 
 # List links in both directions
-llmd link --both notes/meeting
+llmd link --both meeting
 ```
 
 ## Notes

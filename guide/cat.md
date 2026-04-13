@@ -28,27 +28,27 @@ llmd cat [flags] <path> [<path>...]
 
 ```bash
 # Read a whole document
-llmd cat notes/meeting
+llmd cat readme
 
 # Read a 20-line window starting at line 100 (the AI-first
 # common case after a grep match)
-llmd cat --offset 100 --limit 20 api/spec
+llmd cat --offset 100 --limit 20 spec
 
 # Read just the first 10 lines
-llmd cat --limit 10 api/spec
+llmd cat --limit 10 spec
 
 # Skip the first 50 lines and read the rest
-llmd cat --offset 50 api/spec
+llmd cat --offset 50 spec
 
 # Read with line numbers; when combined with --offset the numbers
 # stay aligned with the source document, not restarting from 1
-llmd cat --offset 100 --limit 20 -n api/spec
+llmd cat --offset 100 --limit 20 -n spec
 
 # Read a specific version
 llmd cat --version 2 notes/meeting
 
 # Read multiple documents (concatenated)
-llmd cat notes/monday notes/tuesday notes/wednesday
+llmd cat monday tuesday wednesday
 ```
 
 ## Output
