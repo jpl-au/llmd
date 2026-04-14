@@ -106,11 +106,7 @@ func graphTimeline(ctx sdk.Context) (sdk.Response, error) {
 	if !isTTY() {
 		lines := make([]string, len(events))
 		for i, e := range events {
-			msg := e.Message
-			if e.Version == 1 {
-				msg = "created"
-			}
-			lines[i] = fmt.Sprintf("%s v%d %s", e.Path, e.Version, msg)
+			lines[i] = fmt.Sprintf("%s (v%d)", e.Path, e.Version)
 		}
 		return sdk.Result{Text: strings.Join(lines, "\n"), Data: data}, nil
 	}
@@ -151,12 +147,8 @@ func graphLineage(ctx sdk.Context, path string) (sdk.Response, error) {
 	if !isTTY() {
 		lines := make([]string, len(versions))
 		for i, v := range versions {
-			msg := v.Message
-			if v.Number == 1 {
-				msg = "created"
-			}
 			ts := time.UnixMilli(v.CreatedAt).Format("02 Jan 2006 15:04")
-			lines[i] = fmt.Sprintf("v%d %s %s %s", v.Number, ts, v.Author, msg)
+			lines[i] = fmt.Sprintf("(v%d) %s %s", v.Number, ts, v.Author)
 		}
 		return sdk.Result{Text: strings.Join(lines, "\n"), Data: data}, nil
 	}
@@ -165,14 +157,10 @@ func graphLineage(ctx sdk.Context, path string) (sdk.Response, error) {
 		EnumeratorStyle(treeEnum)
 
 	for _, v := range versions {
-		msg := fmt.Sprintf("%q", v.Message)
-		if v.Number == 1 {
-			msg = `"created"`
-		}
 		ts := time.UnixMilli(v.CreatedAt).Format("02 Jan 2006 15:04")
-		label := fmt.Sprintf("%s  %s  %s  %s",
-			graphVersion.Render(fmt.Sprintf("v%d", v.Number)),
-			ts, v.Author, msg)
+		label := fmt.Sprintf("%s  %s  %s",
+			graphVersion.Render(fmt.Sprintf("(v%d)", v.Number)),
+			ts, v.Author)
 		t.Child(label)
 	}
 
@@ -213,24 +201,9 @@ func clusterBursts(events []graphEvent) []int {
 // renderBurstTree builds a lipgloss tree where each burst's events are
 // siblings and successive bursts nest deeper.
 func renderBurstTree(bursts []int, events []graphEvent) string {
-	// Find max path length for column alignment.
-	maxPath := 0
-	for _, e := range events {
-		if len(e.Path) > maxPath {
-			maxPath = len(e.Path)
-		}
-	}
-
-	// Format an event line with aligned columns.
+	// Format an event line.
 	formatEvent := func(e graphEvent) string {
-		msg := e.Message
-		if e.Version == 1 {
-			msg = "created"
-		}
-		return fmt.Sprintf("%s  %s  %s",
-			graphPath.Render(fmt.Sprintf("%-*s", maxPath, e.Path)),
-			graphVersion.Render(fmt.Sprintf("v%d", e.Version)),
-			msg)
+		return graphPath.Render(e.Path) + " " + graphVersion.Render(fmt.Sprintf("(v%d)", e.Version))
 	}
 
 	// Build nested tree from innermost burst outward. The last burst
