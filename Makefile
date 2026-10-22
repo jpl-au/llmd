@@ -18,7 +18,7 @@ LDFLAGS := -s -w \
 	-X $(MODULE)/app.Commit=$(COMMIT) \
 	-X $(MODULE)/app.Built=$(BUILT)
 
-.PHONY: build build-telemetry test tidy lint clean
+.PHONY: build build-telemetry test tidy lint tools clean
 
 # Standard build — no telemetry.
 build:
@@ -45,6 +45,12 @@ tidy:
 # Static analysis. Configuration lives in .golangci.yml.
 lint:
 	golangci-lint run ./...
+
+# Install the tools that tidy and lint need. CI installs the same
+# golangci-lint version.
+tools:
+	go install golang.org/x/tools/cmd/goimports@latest
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 
 # Remove build artifacts.
 clean:

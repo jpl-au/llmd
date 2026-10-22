@@ -128,9 +128,11 @@ verbose := flags.Bool("n")
 
 ### Author enforcement on mixed commands
 
-Commands that are purely mutating (write, edit, rm, mv, restore, revert, sed,
-unlink, import) declare `NeedsAuthor: true` on the `sdk.Command`. The host
-rejects these before dispatch if no author is set.
+Commands that only change the store (write, edit, rm, mv, restore, revert,
+sed, unlink, import, vacuum) declare `NeedsAuthor: true` on the
+`sdk.Command`. The host rejects these before dispatch if no author is set.
+The same flag makes them POST routes over HTTP, so no change to the store
+can be made with a GET request.
 
 Mixed commands (tag, link, task) support both reads and writes. They do NOT
 set `NeedsAuthor` - instead, their handlers check `ctx.Author == ""` on

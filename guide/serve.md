@@ -25,7 +25,7 @@ commands are `GET`, mutation commands are `POST`. The URL pattern is:
 ```
 
 Commands that don't make sense over HTTP are excluded: `mcp`, `serve`,
-`init`, `config`, `version`, `plugins`, and `guide`.
+`init`, `config`, `version`, and `extensions`.
 
 ## Route reference
 
@@ -62,6 +62,7 @@ Commands that don't make sense over HTTP are excluded: `mcp`, `serve`,
 | `POST /restore/<path>`      | Recover a deleted document          |
 | `POST /revert/<path>`       | Roll back to a previous version     |
 | `POST /import`              | Import .md files from a directory   |
+| `POST /vacuum`              | Purge deleted documents             |
 | `POST /link/<from>`         | Create a link                       |
 | `POST /unlink/<from>`       | Remove a link                       |
 | `POST /tag/<path>`          | Add a tag                           |

@@ -29,6 +29,9 @@ llmd vacuum
 
 ## Notes
 
+- Vacuum needs an author, like every other command that changes the
+  store. Pass `--author`, or set one with `llmd config author`.
+- Over HTTP, vacuum is a POST request.
 - Permanently deletes documents that were soft-deleted with `llmd rm`,
   including their full version history. They can no longer be restored.
 - A soft-deleted document keeps its tags and links so that `llmd restore`

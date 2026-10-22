@@ -14,6 +14,7 @@ Removes documents deleted with rm, along with their version history,
 and the tags and links left orphaned by that removal. This cannot be
 undone, so preview first with --dry-run, and consider --older-than to
 keep recent deletions restorable.`, Usage: "vacuum [--dry-run] [--older-than <age>]",
+	NeedsAuthor: true,
 	Flags: []sdk.Flag{
 		{Name: "dry-run", Short: "n", Type: "bool", Desc: "Show what would be purged without changing anything"},
 		{Name: "older-than", Type: "string", Desc: "Only purge items deleted more than this long ago (e.g. 30d, 12h) or before an RFC 3339 time"},

@@ -68,7 +68,7 @@ Tags:       tag, link, unlink
 Tasks:      task, status, review
 Audits:     audit (add, reply, list, show, resolve, rm, restore, status)
 Bulk:       import, export, mirror
-Admin:      init, config, vacuum, version, mcp, serve, plugins
+Admin:      init, config, vacuum, version, mcp, serve, extensions
 Help:       guide
 ```
 
@@ -109,12 +109,16 @@ author attribution.
 | Library | Description | Licence |
 |---------|-------------|---------|
 | [modernc.org/sqlite](https://modernc.org/sqlite) | Pure Go SQLite | BSD 3-Clause |
+| [qwr](https://github.com/jpl-au/qwr) | Serialised writes and pooled reads for SQLite | MIT |
+| [chain](https://github.com/jpl-au/chain) | HTTP routing | MIT |
+| [http-client](https://github.com/jpl-au/http-client) | Webhook delivery | MIT |
 | [go-sdk](https://github.com/modelcontextprotocol/go-sdk) | MCP protocol | MIT |
-| [yaegi](https://github.com/traefik/yaegi) | Go interpreter (plugins) | Apache 2.0 |
-| [glamour](https://github.com/charmbracelet/glamour) | Terminal markdown rendering | MIT |
+| [glamour v2](https://charm.land/glamour/v2) | Terminal markdown rendering | MIT |
 | [lipgloss v2](https://charm.land/lipgloss/v2) | Terminal styling and tree rendering | MIT |
 | [go-udiff](https://github.com/aymanbagabas/go-udiff) | Unified diff | MIT |
 | [xxh3](https://github.com/zeebo/xxh3) | Content hashing | BSD 2-Clause |
+| [x/crypto](https://pkg.go.dev/golang.org/x/crypto) | BLAKE2b hashing | BSD 3-Clause |
+| [yaml.v3](https://gopkg.in/yaml.v3) | Configuration files | MIT and Apache 2.0 |
 
 ## Licence
 

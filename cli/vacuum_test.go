@@ -55,6 +55,14 @@ func TestVacuum(t *testing.T) {
 		wantAnyErr  bool
 	}{
 		{
+			// Vacuum changes the store, so the host requires an author
+			// before dispatch, like write or rm.
+			name:    "requires an author",
+			author:  "",
+			args:    nil,
+			wantErr: sdk.ErrMissingArg,
+		},
+		{
 			name:       "nothing to vacuum",
 			author:     "alice",
 			args:       nil,
@@ -175,16 +183,6 @@ func TestVacuum(t *testing.T) {
 			author:  "alice",
 			args:    []string{"--bogus"},
 			wantErr: sdk.ErrInvalidArg,
-		},
-		{
-			// vacuum is not attributed to an author; it runs without one.
-			name:       "without author",
-			author:     "",
-			seed:       deleteAC,
-			args:       nil,
-			wantText:   []string{"Vacuumed 2 documents"},
-			wantPaths:  []string{"a", "c"},
-			wantPurged: []string{"a", "c"},
 		},
 	}
 
