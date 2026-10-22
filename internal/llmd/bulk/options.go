@@ -9,7 +9,6 @@ type ImportOptions struct {
 	Flatten bool   // Flatten directory structure
 	Hidden  bool   // Include hidden files/directories
 	DryRun  bool   // Show what would be imported without importing
-	Force   bool   // Import even if content is unchanged
 }
 
 // ExportOptions configures an export operation.

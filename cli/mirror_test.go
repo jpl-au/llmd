@@ -88,11 +88,18 @@ func TestMirror(t *testing.T) {
 			wantNoFile: []string{"other/x.md"},
 		},
 		{
-			name:      "pull with prefix and no subcommand",
-			author:    "alice",
-			args:      []string{"docs/"},
-			wantText:  "Pulled to .llmd/llmd/ (wrote 2)",
-			wantFiles: map[string]string{"docs/a.md": "# A\n"},
+			// A bare word is not treated as a prefix: a typo in the
+			// subcommand must not pull or push anything.
+			name:    "prefix without a subcommand is rejected",
+			author:  "alice",
+			args:    []string{"docs/"},
+			wantErr: sdk.ErrInvalidArg,
+		},
+		{
+			name:    "unknown subcommand",
+			author:  "alice",
+			args:    []string{"sync"},
+			wantErr: sdk.ErrInvalidArg,
 		},
 		{
 			name:     "pull without author",

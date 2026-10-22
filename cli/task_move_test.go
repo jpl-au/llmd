@@ -411,6 +411,7 @@ func TestTaskRestore(t *testing.T) {
 	tests := []struct {
 		name        string
 		noAuthor    bool
+		live        bool // do not delete the seeded task first
 		seedColumn  string
 		args        []string
 		wantText    []string
@@ -418,6 +419,7 @@ func TestTaskRestore(t *testing.T) {
 		wantErrText string
 	}{
 		{name: "restores to the original column", seedColumn: "in-progress", args: []string{"restore", "{key}"}, wantText: []string{`Restored task {key} "Alpha"`}},
+		{name: "live task is not found", live: true, args: []string{"restore", "{key}"}, wantErr: sdk.ErrNotFound},
 		{name: "restores a backlog task", args: []string{"restore", "{key}"}, wantText: []string{`Restored task {key} "Alpha"`}},
 		{name: "missing task", args: []string{"restore", "nope"}, wantErr: sdk.ErrNotFound},
 		{name: "no id", args: []string{"restore"}, wantErr: sdk.ErrMissingArg},
@@ -432,7 +434,9 @@ func TestTaskRestore(t *testing.T) {
 				addArgs = []string{"--column", tt.seedColumn}
 			}
 			seed := taskSeed(t, c, "Alpha", taskBody("Alpha"), addArgs...)
-			run(t, c, "task", nil, "rm", seed.Key)
+			if !tt.live {
+				run(t, c, "task", nil, "rm", seed.Key)
+			}
 			if tt.noAuthor {
 				c.Author = ""
 			}
@@ -440,7 +444,11 @@ func TestTaskRestore(t *testing.T) {
 			args := taskExpand(tt.args, vars)
 
 			if taskExpectErr(t, c, "task", args, tt.wantErr, tt.wantErrText) {
-				if _, err := c.Tasks.Read(seed.Key); !errors.Is(err, sdk.ErrNotFound) {
+				_, err := c.Tasks.Read(seed.Key)
+				if tt.live && err != nil {
+					t.Errorf("Read after rejected restore of a live task error = %v, want the task unchanged", err)
+				}
+				if !tt.live && !errors.Is(err, sdk.ErrNotFound) {
 					t.Errorf("Read after failed restore error = %v, want still deleted", err)
 				}
 				return

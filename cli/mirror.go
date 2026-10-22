@@ -28,17 +28,17 @@ integration and AI agent access (e.g. @ mentions in Claude Code).`, Usage: "mirr
 }
 
 func mirror(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) > 0 {
-		switch args[0] {
-		case "pull":
-			return mirrorPull(ctx, args[1:])
-		case "push":
-			return mirrorPush(ctx, args[1:])
-		}
+	if len(args) == 0 {
+		return mirrorPull(ctx, nil) // pull everything is the default
 	}
-
-	// No subcommand - pull is the default.
-	return mirrorPull(ctx, args)
+	switch args[0] {
+	case "pull":
+		return mirrorPull(ctx, args[1:])
+	case "push":
+		return mirrorPush(ctx, args[1:])
+	default:
+		return nil, fmt.Errorf("mirror: %w: unknown subcommand %q (pull or push)", sdk.ErrInvalidArg, args[0])
+	}
 }
 
 func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {

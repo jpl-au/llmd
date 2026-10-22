@@ -487,7 +487,6 @@ func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult
 		Origin: origin("import"),
 		Prefix: opts.Prefix,
 		DryRun: opts.DryRun,
-		Force:  opts.Force,
 	})
 	if err != nil {
 		return nil, err

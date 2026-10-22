@@ -10,8 +10,11 @@ editing the wrong place. Append the trailing `g` flag
 ## Usage
 
 ```
-llmd sed [-i] 's/old/new/[g]' <path>
+llmd sed [-i] 's/old/new/[g]' <path>...
 ```
+
+With several paths, the substitution is applied to each document in
+turn and stops at the first one that fails.
 
 ## Flags
 

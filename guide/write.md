@@ -35,6 +35,8 @@ echo "v2 draft" | llmd write docs/proposal --message "Revised introduction"
 
 ## Notes
 
+- Empty input is an error. A document always has content.
+
 - If the document already exists, a new version is created.
 - If the document does not exist, it is created at version 1.
 - Author is set via `llmd config author "name"` for interactive use,

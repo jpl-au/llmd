@@ -37,7 +37,7 @@ func metaImportTree(t *testing.T) string {
 }
 
 // TestImport covers importing a directory and a single file, the
-// --prefix, --dry-run and --force flags, the skipped/updated
+// --prefix and --dry-run flags, the skipped/updated
 // classification on re-import, and the error cases. Each case runs
 // against a fresh store; seed runs before the command under test.
 func TestImport(t *testing.T) {
@@ -142,16 +142,6 @@ func TestImport(t *testing.T) {
 			wantText: []string{"updated a"},
 		},
 		{
-			name:   "force re-imports unchanged files",
-			author: "alice",
-			seed: func(t *testing.T, c sdk.Context, dir string) {
-				run(t, c, "import", nil, dir)
-			},
-			args:       func(dir string) []string { return []string{"--force", dir} },
-			wantText:   []string{"updated a", "updated sub/b"},
-			wantAbsent: []string{"skipped"},
-		},
-		{
 			name:    "missing directory argument",
 			author:  "alice",
 			args:    func(string) []string { return nil },
@@ -240,9 +230,8 @@ func TestImport(t *testing.T) {
 }
 
 // TestImportContent checks that imported content round-trips through
-// cat, that a changed file produces a new version, and that a forced
-// re-import of identical content is reported as updated even though
-// the store deduplicates it and keeps the version number.
+// cat, that a changed file produces a new version, and that importing
+// identical content again is reported as skipped and keeps the version.
 func TestImportContent(t *testing.T) {
 	c := newCLI(t, "alice")
 	dir := metaImportTree(t)
@@ -270,10 +259,10 @@ func TestImportContent(t *testing.T) {
 		t.Errorf("version of a after changed re-import = %d, want 2", v)
 	}
 
-	if got := text(run(t, c, "import", nil, "--force", dir)); !strings.Contains(got, "updated a") {
-		t.Errorf("import --force = %q, want updated a", got)
+	if got := text(run(t, c, "import", nil, dir)); !strings.Contains(got, "skipped 2 unchanged") {
+		t.Errorf("import of identical content = %q, want skipped 2 unchanged", got)
 	}
 	if v := version("a"); v != 2 {
-		t.Errorf("version of a after forced identical re-import = %d, want 2 (identical content is deduplicated)", v)
+		t.Errorf("version of a after identical re-import = %d, want 2", v)
 	}
 }

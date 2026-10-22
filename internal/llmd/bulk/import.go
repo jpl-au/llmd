@@ -183,7 +183,7 @@ func (b *Bulk) importFile(ctx context.Context, root *os.Root, rel, base string, 
 		return "", 0, err
 	}
 
-	if exists && !opts.Force {
+	if exists {
 		doc, err := b.docs.Read(ctx, storePath)
 		if err != nil {
 			return "", 0, err

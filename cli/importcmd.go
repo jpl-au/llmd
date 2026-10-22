@@ -21,10 +21,9 @@ var importSpec = sdk.Command{
 
 Reads .md files from <dir> and creates documents in the store. File
 paths relative to the directory become document paths. Unchanged
-files are skipped unless --force is used.`, Usage: "import [options] <dir>", NeedsAuthor: true, Flags: []sdk.Flag{
+files are skipped: identical content never creates a new version.`, Usage: "import [options] <dir>", NeedsAuthor: true, Flags: []sdk.Flag{
 		{Name: "prefix", Type: "string", Desc: "Target path prefix for imported documents"},
 		{Name: "dry-run", Type: "bool", Desc: "Preview without importing"},
-		{Name: "force", Type: "bool", Desc: "Import even if unchanged"},
 	},
 }
 
@@ -44,7 +43,6 @@ func importCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	opts := sdk.ImportOpts{
 		Prefix: flags.String("prefix"),
 		DryRun: flags.Bool("dry-run"),
-		Force:  flags.Bool("force"),
 	}
 
 	result, err := ctx.Documents.Import(dir, opts)

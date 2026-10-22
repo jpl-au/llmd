@@ -144,15 +144,12 @@ func TestImport(t *testing.T) {
 }
 
 // TestImport_Reimport covers importing the same directory twice: an
-// unchanged file is skipped, a modified file produces a new version,
-// and Force bypasses bulk's skip check (Documents.Write still
-// deduplicates identical content, so the version does not advance).
+// unchanged file is skipped and a modified file produces a new version.
 func TestImport_Reimport(t *testing.T) {
 	tests := []struct {
 		name        string
 		initial     string
 		modified    string // rewrites readme.md before the second import; empty leaves it unchanged
-		force       bool
 		wantCreated int
 		wantUpdated int
 		wantSkipped int
@@ -173,14 +170,6 @@ func TestImport_Reimport(t *testing.T) {
 			wantUpdated: 1,
 			wantContent: "version 2",
 			wantVersion: 2,
-		},
-		{
-			name:        "force bypasses skip",
-			initial:     "content",
-			force:       true,
-			wantUpdated: 1,
-			wantContent: "content",
-			wantVersion: 1,
 		},
 	}
 
@@ -204,10 +193,7 @@ func TestImport_Reimport(t *testing.T) {
 			if tt.modified != "" {
 				writeFiles(t, dir, map[string]string{"readme.md": tt.modified})
 			}
-			opts := testImportOpts()
-			opts.Force = tt.force
-
-			second, err := s.Bulk.Import(ctx, dir, opts)
+			second, err := s.Bulk.Import(ctx, dir, testImportOpts())
 			if err != nil {
 				t.Fatalf("second Import() error = %v", err)
 			}

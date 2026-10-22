@@ -2,7 +2,7 @@
 //
 // Usage:
 //
-//	llmd sed 's/old/new/' <path>
+//	llmd sed 's/old/new/' <path>...
 //	llmd sed -i 's/old/new/' <path>    In-place (same as without -i)
 //
 // Only s/old/new/ substitution is supported. The delimiter after 's'
@@ -12,6 +12,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -22,11 +23,13 @@ var sedSpec = sdk.Command{
 Only the s (substitute) command is supported. The delimiter can be
 any character, which is useful when replacing paths. By default the
 search pattern must occur exactly once in the document; append the
-trailing 'g' flag (e.g. s/old/new/g) to substitute every occurrence.`, Usage: "sed [-i] 's/old/new/[g]' <path>", MCP: true, NeedsAuthor: true,
+trailing 'g' flag (e.g. s/old/new/g) to substitute every occurrence.
+With several paths, the substitution is applied to each in turn.`, Usage: "sed [-i] 's/old/new/[g]' <path>...", MCP: true, NeedsAuthor: true,
 }
 
 func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var expr, path string
+	var expr string
+	var paths []string
 
 	for _, arg := range args {
 		if arg == "-i" {
@@ -35,11 +38,11 @@ func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if expr == "" {
 			expr = arg
 		} else {
-			path = arg
+			paths = append(paths, arg)
 		}
 	}
 
-	if expr == "" || path == "" {
+	if expr == "" || len(paths) == 0 {
 		return nil, fmt.Errorf("sed: %w", sdk.ErrMissingArg)
 	}
 
@@ -48,14 +51,18 @@ func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("sed: %w", err)
 	}
 
-	if err := ctx.Documents.Edit(path, old, new, sdk.EditOpts{
-		Author:     ctx.Author,
-		ReplaceAll: global,
-	}); err != nil {
-		return nil, fmt.Errorf("sed: %w", err)
+	lines := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if err := ctx.Documents.Edit(path, old, new, sdk.EditOpts{
+			Author:     ctx.Author,
+			ReplaceAll: global,
+		}); err != nil {
+			return nil, fmt.Errorf("sed: %s: %w", path, err)
+		}
+		lines = append(lines, "Edited "+path)
 	}
 
-	return sdk.Text(fmt.Sprintf("Edited %s", path)), nil
+	return sdk.Text(strings.Join(lines, "\n")), nil
 }
 
 // parseSed extracts old, new, and the global flag from a sed

@@ -140,13 +140,10 @@ func TestWrite(t *testing.T) {
 			wantContent: "one\ntwo\nthree",
 		},
 		{
-			name:         "empty stdin writes an empty document",
-			args:         []string{"docs/empty"},
-			stdin:        "",
-			wantText:     "Wrote docs/empty",
-			wantPath:     "docs/empty",
-			wantContent:  "",
-			wantVersions: 1,
+			name:    "empty stdin is rejected",
+			args:    []string{"docs/empty"},
+			stdin:   "",
+			wantErr: sdk.ErrMissingArg,
 		},
 		{
 			name:         "by key updates the existing document",

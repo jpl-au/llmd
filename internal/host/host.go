@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"slices"
+	"sync"
 
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/config"
@@ -29,6 +30,7 @@ import (
 // dependencies and without package-level state. Host implements
 // [sdk.Runtime] and hands itself to commands on the same context.
 type Host struct {
+	mu         sync.RWMutex // guards store, which attach may set once
 	store      *llmd.Store
 	lim        validate.Limits
 	limSet     bool
@@ -84,19 +86,64 @@ func Open(dbPath string, opts ...Option) (*Host, error) {
 
 // Close closes the underlying store. Safe to call on a storeless host.
 func (h *Host) Close() error {
-	if h.store != nil {
-		return h.store.Close()
+	if store := h.current(); store != nil {
+		return store.Close()
 	}
 	return nil
+}
+
+// current returns the attached store, or nil.
+func (h *Host) current() *llmd.Store {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.store
+}
+
+// attach gives a storeless host a store and wires the store's event
+// bus to the pipeline handler and to extension event handlers. It
+// happens at most once; a host that already has a store closes the
+// new one and keeps its own. This is how a streaming server started
+// before "init" picks the store up afterwards.
+func (h *Host) attach(store *llmd.Store) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.store != nil {
+		if err := store.Close(); err != nil {
+			slog.Warn("closing duplicate store", "err", err)
+		}
+		return
+	}
+	h.store = store
+
+	// Pipeline handler: auto-spawn agents when tasks enter columns
+	// with pipeline configuration.
+	store.Bus().Subscribe(&pipelineHandler{
+		dir:   store.Dir(),
+		agent: newAgentAPI(store, h.git, context.Background()),
+	})
+
+	// Wire extension event handlers to the internal bus so extensions
+	// can react to document changes.
+	var handlers []extension.EventHandler
+	for _, ext := range extension.All() {
+		if eh, ok := ext.(extension.EventHandler); ok {
+			handlers = append(handlers, eh)
+		}
+	}
+	if len(handlers) > 0 {
+		ctx := extension.NewContext(store, store.DB(), nil)
+		store.Bus().Subscribe(&eventBridge{handlers: handlers, ctx: ctx})
+	}
 }
 
 // Dir returns the project directory that holds the .llmd store, or ""
 // for a storeless host.
 func (h *Host) Dir() string {
-	if h.store == nil {
+	store := h.current()
+	if store == nil {
 		return ""
 	}
-	return filepath.Dir(h.store.Dir())
+	return filepath.Dir(store.Dir())
 }
 
 // Dispatch implements [sdk.Runtime] by executing a command through
@@ -109,10 +156,11 @@ func (h *Host) Dispatch(ctx context.Context, cmd string, args []string, author s
 // store event synchronously on the emitting goroutine. A no-op when
 // the host has no store.
 func (h *Host) Subscribe(fn func(pkgevents.Event)) {
-	if h.store == nil {
+	store := h.current()
+	if store == nil {
 		return
 	}
-	h.store.Bus().Subscribe(&callbackHandler{fn: fn})
+	store.Bus().Subscribe(&callbackHandler{fn: fn})
 }
 
 // Init implements [sdk.Runtime]. It creates a new store at dbPath (or
@@ -147,18 +195,18 @@ func (h *Host) Context(ctx context.Context, author string) sdk.Context {
 		Runtime: h,
 		Git:     h.git,
 	}
-	if h.store != nil {
-		sctx.Documents = newDocumentAPI(h.store, h.lim, ctx)
-		sctx.Tasks = newTaskAPI(h.store, h.lim, h.git, ctx)
-		sctx.Links = newLinkAPI(h.store, h.lim, ctx)
-		sctx.Tags = newTagAPI(h.store, h.lim, ctx)
-		sctx.Audits = newAuditAPI(h.store, ctx)
-		sctx.Queue = newQueueAPI(h.store, ctx)
-		sctx.Activities = newActivityAPI(h.store, ctx)
-		sctx.Mirror = newMirrorAPI(h.store, ctx)
-		sctx.Agents = newAgentAPI(h.store, h.git, ctx)
-		sctx.Rules = newRuleAPI(h.store.Dir())
-		sctx.Hooks = newHookAPI(h.store, h.lim, h.git, ctx)
+	if store := h.current(); store != nil {
+		sctx.Documents = newDocumentAPI(store, h.lim, ctx)
+		sctx.Tasks = newTaskAPI(store, h.lim, h.git, ctx)
+		sctx.Links = newLinkAPI(store, h.lim, ctx)
+		sctx.Tags = newTagAPI(store, h.lim, ctx)
+		sctx.Audits = newAuditAPI(store, ctx)
+		sctx.Queue = newQueueAPI(store, ctx)
+		sctx.Activities = newActivityAPI(store, ctx)
+		sctx.Mirror = newMirrorAPI(store, ctx)
+		sctx.Agents = newAgentAPI(store, h.git, ctx)
+		sctx.Rules = newRuleAPI(store.Dir())
+		sctx.Hooks = newHookAPI(store, h.lim, h.git, ctx)
 	}
 	return sctx
 }
@@ -204,7 +252,7 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 	// other command fails. The store is wired into a fresh host for
 	// this call so the receiver is never a half-built host.
 	target := h
-	if h.store == nil {
+	if h.current() == nil {
 		store, err := llmd.Open(opts.DB)
 		switch {
 		case err == nil:
@@ -290,7 +338,6 @@ func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
 // bus events to extension EventHandlers and the pipeline handler.
 func setup(store *llmd.Store, opts ...Option) *Host {
 	h := &Host{
-		store:    store,
 		commands: make(map[string]*cmdEntry),
 		opts:     opts,
 	}
@@ -315,30 +362,9 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 		h.addExtension(ext)
 	}
 
-	// Pipeline handler: auto-spawn agents when tasks enter columns
-	// with pipeline configuration.
 	if store != nil {
-		store.Bus().Subscribe(&pipelineHandler{
-			dir:   store.Dir(),
-			agent: newAgentAPI(store, h.git, context.Background()),
-		})
+		h.attach(store)
 	}
-
-	// Wire extension event handlers to the internal bus so extensions
-	// can react to document changes.
-	if store != nil {
-		var handlers []extension.EventHandler
-		for _, ext := range extension.All() {
-			if eh, ok := ext.(extension.EventHandler); ok {
-				handlers = append(handlers, eh)
-			}
-		}
-		if len(handlers) > 0 {
-			ctx := extension.NewContext(store, store.DB(), nil)
-			store.Bus().Subscribe(&eventBridge{handlers: handlers, ctx: ctx})
-		}
-	}
-
 	return h
 }
 
@@ -368,7 +394,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 	// rather than a nil pointer panic. This happens when a streaming
 	// server (mcp, serve) started without a .llmd directory and a
 	// tool call arrives.
-	if h.store == nil && !h.storeless(cmd) && !entry.cmd.Streams {
+	if h.current() == nil && !h.storeless(cmd) && !entry.cmd.Streams {
 		return nil, fmt.Errorf("store not initialised - run llmd init")
 	}
 
@@ -380,9 +406,9 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 
 	// After a storeless command succeeds (e.g. init), try to open the
 	// store so subsequent calls on this host have a working connection.
-	if err == nil && h.store == nil {
+	if err == nil && h.current() == nil {
 		if store, serr := llmd.Open(dbPath); serr == nil {
-			*h = *setup(store, h.opts...)
+			h.attach(store)
 			telemetry.Emit(telemetry.Entry{
 				Source:  "cli",
 				Event:   "connect",

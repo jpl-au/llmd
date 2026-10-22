@@ -29,6 +29,9 @@ func write(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	path := positional[0]
+	if len(ctx.Stdin) == 0 {
+		return nil, fmt.Errorf("write: %w: content on stdin", sdk.ErrMissingArg)
+	}
 
 	if err := ctx.Documents.Write(path, ctx.Stdin, sdk.WriteOpts{
 		Author:  ctx.Author,

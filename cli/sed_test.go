@@ -31,6 +31,15 @@ func TestSed(t *testing.T) {
 			wantVersions: 2,
 		},
 		{
+			// Several paths are edited in turn; a failure stops the
+			// run but leaves the documents already edited.
+			name:         "several paths stop at the first failure",
+			args:         []string{"s/foo one/bar one/", "docs/a", "docs/missing"},
+			wantErr:      sdk.ErrNotFound,
+			wantContent:  "# Notes\n\nbar one\nfoo two\n/usr/local/bin\n",
+			wantVersions: 2,
+		},
+		{
 			name:         "-i is accepted and ignored",
 			args:         []string{"-i", "s/foo one/bar one/", "docs/a"},
 			wantText:     "Edited docs/a",

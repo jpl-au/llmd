@@ -7,7 +7,9 @@ under `.llmd/<dbname>/` (e.g. `.llmd/llmd/` for the default store,
 ## Usage
 
 ```
-llmd mirror [pull|push] [<path>]
+llmd mirror                  Pull every document (the default)
+llmd mirror pull [<path>]    Pull documents, optionally under a path
+llmd mirror push [<path>]    Push edits back, optionally under a path
 ```
 
 ## Subcommands

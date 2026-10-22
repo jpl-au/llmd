@@ -267,7 +267,6 @@ type VacuumOpts struct {
 type ImportOpts struct {
 	Prefix string // Target path prefix in store
 	DryRun bool   // Show what would change without importing
-	Force  bool   // Import even if content is unchanged
 }
 
 // ImportResult contains the results of a bulk import.

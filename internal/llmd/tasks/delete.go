@@ -69,11 +69,16 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 	}
 
 	_, err = t.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
-		_, err := tx.ExecContext(ctx, `
+		res, err := tx.ExecContext(ctx, `
 			UPDATE tasks SET deleted_at = NULL WHERE key = ? AND deleted_at IS NOT NULL
 		`, key)
 		if err != nil {
 			return nil, fmt.Errorf("restoring task: %w", err)
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return nil, fmt.Errorf("restoring task: %w", err)
+		} else if n == 0 {
+			return nil, fmt.Errorf("%w: task %s is not deleted", ErrNotFound, key)
 		}
 		recordTx(ctx, tx, author, "restored", key, "", tsk.Status)
 		return nil, nil
