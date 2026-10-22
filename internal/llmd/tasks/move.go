@@ -41,7 +41,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 	// contains real content beyond the title heading. This enforces
 	// that every active task has a written spec describing the work.
 	if tsk.Status == "backlog" && status != "backlog" {
-		specced, err := t.hasSpec(ctx, tsk.Path)
+		specced, err := t.HasSpec(ctx, tsk.Path)
 		if err != nil {
 			return err
 		}
@@ -155,12 +155,12 @@ func (t *Tasks) repositionTx(ctx context.Context, tx *sql.Tx, key, status string
 	return nil
 }
 
-// hasSpec checks whether a task's document has real content beyond
+// HasSpec checks whether a task's document has real content beyond
 // the title heading. A document that is missing, empty, or contains
 // only a single "# Title" line does not count - the spec must
 // describe the work (context, acceptance criteria, etc.) before the
 // task can leave the backlog.
-func (t *Tasks) hasSpec(ctx context.Context, path string) (bool, error) {
+func (t *Tasks) HasSpec(ctx context.Context, path string) (bool, error) {
 	doc, err := t.docs.Read(ctx, path)
 	if err != nil {
 		if errors.Is(err, documents.ErrNotFound) || errors.Is(err, documents.ErrDeleted) {

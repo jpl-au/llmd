@@ -110,9 +110,8 @@ type AuditOpts struct {
 	// Status sets the status on this entry. Default: "pending".
 	Status string
 
-	// Version pins to a specific document version. Zero means the
-	// store captures the current version at time of write. Ignored
-	// for task targets.
+	// Version pins the audit to a specific document version. Zero
+	// means no version is pinned. Ignored for task targets.
 	Version int
 }
 

@@ -116,8 +116,14 @@ func TestTasksStartBranch(t *testing.T) {
 				if !errors.Is(err, tt.wantErr) {
 					t.Fatalf("StartBranch(%+v) error = %v, want %v", tt.opts, err, tt.wantErr)
 				}
-				if st := readTask(t, c, task.Key).Status; st != "backlog" {
-					t.Errorf("status after failed StartBranch = %q, want backlog", st)
+				stored := readTask(t, c, task.Key)
+				if stored.Status != "backlog" || stored.Branch != task.Branch {
+					t.Errorf("task after failed StartBranch = status %q branch %q, want backlog and branch %q unchanged", stored.Status, stored.Branch, task.Branch)
+				}
+				if tt.git {
+					if current := runGit(t, h.Dir(), "branch", "--show-current"); current != "main" {
+						t.Errorf("git branch after failed StartBranch = %q, want main", current)
+					}
 				}
 				return
 			case err != nil:

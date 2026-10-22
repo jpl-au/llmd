@@ -272,6 +272,22 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 	if name == "" {
 		name = "task/" + branchSlug(t.Title)
 	}
+	col := opts.Column
+	if col == "" {
+		col = "in-progress"
+	}
+
+	// The move below refuses to take an unspecced task out of the
+	// backlog. Check that first, so a refusal leaves no branch behind.
+	if t.Status == "backlog" && col != "backlog" {
+		specced, err := a.store.Tasks.HasSpec(a.ctx, t.Path)
+		if err != nil {
+			return nil, taskErr(err)
+		}
+		if !specced {
+			return nil, taskErr(tasks.ErrNoSpec)
+		}
+	}
 
 	if err := a.git.CheckoutNew(name); err != nil {
 		return nil, err
@@ -283,10 +299,6 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 		return nil, err
 	}
 
-	col := opts.Column
-	if col == "" {
-		col = "in-progress"
-	}
 	if err := taskErr(a.store.Tasks.Move(a.ctx, key, col, author)); err != nil {
 		return nil, err
 	}
