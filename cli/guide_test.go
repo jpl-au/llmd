@@ -47,7 +47,7 @@ func TestGuide(t *testing.T) {
 		{
 			name:     "install resolves to the platform guide",
 			args:     []string{"install"},
-			wantText: []string{"# ", runtime.GOOS},
+			wantText: []string{"# Installing llmd on " + platformName()},
 		},
 		{
 			name:       "unknown topic",
@@ -120,5 +120,17 @@ func TestGuideCoversCommands(t *testing.T) {
 		if !strings.HasPrefix(got, "# llmd "+cmd) {
 			t.Errorf("guide %s = %.40q, want to start with %q", cmd, got, "# llmd "+cmd)
 		}
+	}
+}
+
+// platformName is how the install guides name the current platform.
+func platformName() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "macOS"
+	case "windows":
+		return "Windows"
+	default:
+		return "Linux"
 	}
 }

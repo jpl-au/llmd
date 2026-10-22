@@ -55,7 +55,15 @@ func run(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// A storeless command that succeeds (init) attaches the store it
+	// created to this host so the host is usable afterwards. Close it
+	// on the way out so the process never exits with a store open.
 	h := host.New()
+	defer func() {
+		if err := h.Close(); err != nil {
+			slog.Warn("closing store", "err", err)
+		}
+	}()
 
 	if g.Cmd == "" {
 		printHelp(h)
