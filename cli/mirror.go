@@ -14,6 +14,7 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -67,7 +68,7 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Text("Nothing to mirror"), nil
 	}
 
-	return sdk.Text(fmt.Sprintf("Pulled to %s/ (%s)", dir, strings.Join(parts, ", "))), nil
+	return sdk.Text(fmt.Sprintf("Pulled to %s%c (%s)", dir, filepath.Separator, strings.Join(parts, ", "))), nil
 }
 
 func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -102,5 +103,5 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Text("Nothing to push"), nil
 	}
 
-	return sdk.Text(fmt.Sprintf("Pushed from %s/ (%s)", dir, strings.Join(parts, ", "))), nil
+	return sdk.Text(fmt.Sprintf("Pushed from %s%c (%s)", dir, filepath.Separator, strings.Join(parts, ", "))), nil
 }

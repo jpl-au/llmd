@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/line"
+
 	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -243,7 +245,7 @@ func TestExport(t *testing.T) {
 			resp := run(t, c, "export", nil, args...)
 			got := text(resp)
 			for _, want := range tt.wantText {
-				if !strings.Contains(got, expand(want)) {
+				if !strings.Contains(filepath.ToSlash(got), filepath.ToSlash(expand(want))) {
 					t.Errorf("export %v = %q, want to contain %q", args, got, expand(want))
 				}
 			}
@@ -260,7 +262,8 @@ func TestExport(t *testing.T) {
 				tt.wantData(t, dir, r)
 			}
 			for rel, want := range tt.wantFiles {
-				if got := metaReadFile(t, filepath.Join(dir, rel)); got != want {
+				// Export writes the platform's line endings.
+				if got, want := metaReadFile(t, filepath.Join(dir, rel)), line.Native(want); got != want {
 					t.Errorf("after export %v, %s = %q, want %q", args, rel, got, want)
 				}
 			}
@@ -289,7 +292,7 @@ func TestExportByKey(t *testing.T) {
 	if got != want {
 		t.Errorf("export %s = %q, want %q", docs[0].Key, got, want)
 	}
-	if content := metaReadFile(t, filepath.Join(dir, docs[0].Key+".md")); content != "# A\n" {
-		t.Errorf("exported content = %q, want %q", content, "# A\n")
+	if content, want := metaReadFile(t, filepath.Join(dir, docs[0].Key+".md")), line.Native("# A\n"); content != want {
+		t.Errorf("exported content = %q, want %q", content, want)
 	}
 }

@@ -57,7 +57,10 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 		}
 
 		rel := relFS(doc.Path)
-		keep[rel] = true
+		// The stale pass walks an fs.FS, whose paths always use
+		// slashes, so the keep set must too or every mirrored file
+		// under a directory is removed on Windows.
+		keep[filepath.ToSlash(rel)] = true
 
 		// Skip if file already has identical content.
 		existing, err := root.ReadFile(rel)

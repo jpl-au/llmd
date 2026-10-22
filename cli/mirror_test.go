@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -195,8 +196,8 @@ func TestMirror(t *testing.T) {
 			if _, ok := resp.(sdk.Text); !ok {
 				t.Errorf("mirror %v response type = %T, want sdk.Text", tt.args, resp)
 			}
-			if got := text(resp); got != tt.wantText {
-				t.Errorf("mirror %v = %q, want %q", tt.args, got, tt.wantText)
+			if got, want := text(resp), nativeMirrorText(tt.wantText); got != want {
+				t.Errorf("mirror %v = %q, want %q", tt.args, got, want)
 			}
 			for rel, want := range tt.wantFiles {
 				if got := metaReadFile(t, filepath.Join(dir, metaMirrorDir, rel)); got != want {
@@ -247,7 +248,13 @@ func TestMirrorPrefixPullKeepsOtherFiles(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, metaMirrorDir, "other", "x.md")); err != nil {
 		t.Fatalf("other/x.md after prefix pull: %v (output %q)", err, got)
 	}
-	if got != "Pulled to .llmd/llmd/ (unchanged 1)" {
+	if got != nativeMirrorText("Pulled to .llmd/llmd/ (unchanged 1)") {
 		t.Errorf("mirror pull docs/ = %q, want %q", got, "Pulled to .llmd/llmd/ (unchanged 1)")
 	}
+}
+
+// nativeMirrorText rewrites the mirror directory in an expected message
+// with the platform's separators, which is how the command prints it.
+func nativeMirrorText(want string) string {
+	return strings.ReplaceAll(want, metaMirrorDir+"/", filepath.FromSlash(metaMirrorDir)+string(filepath.Separator))
 }

@@ -133,8 +133,8 @@ func TestInit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("init --db %q: %v", db, err)
 			}
-			if got := text(resp); got != expand(tt.wantText) {
-				t.Errorf("init --db %q = %q, want %q", db, got, expand(tt.wantText))
+			if got, want := text(resp), filepath.FromSlash(expand(tt.wantText)); got != want {
+				t.Errorf("init --db %q = %q, want %q", db, got, want)
 			}
 			if _, err := os.Stat(filepath.Join(dir, tt.wantDB)); err != nil {
 				t.Errorf("after init --db %q, store file: %v", db, err)
