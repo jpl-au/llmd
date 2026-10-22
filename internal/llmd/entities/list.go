@@ -22,7 +22,7 @@ func (e *Entities) List(ctx context.Context, namespace string, opts ListOptions)
 		args = append(args, opts.Relation)
 	}
 
-	query += ` ORDER BY created_at DESC`
+	query += ` ORDER BY created_at DESC, id DESC`
 
 	if opts.Limit > 0 {
 		query += ` LIMIT ?`

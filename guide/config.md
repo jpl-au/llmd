@@ -85,7 +85,7 @@ The default `.llmd/.gitignore` created by `llmd init`:
 
 ```
 *
-!*.db
+!llmd.db
 !.gitignore
 ```
 

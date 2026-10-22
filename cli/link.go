@@ -24,6 +24,7 @@ With one path, lists outgoing links from that document. Use --in
 to see incoming links instead.`, Usage: "link [options] <from> [to]", MCP: true, Flags: []sdk.Flag{
 		{Name: "label", Type: "string", Desc: "Link label"},
 		{Name: "in", Type: "bool", Desc: "Show incoming links"},
+		{Name: "both", Type: "bool", Desc: "Show incoming and outgoing links"},
 	},
 }
 
@@ -34,7 +35,10 @@ func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 	label := flags.String("label")
 	var dir string
-	if flags.Bool("in") {
+	switch {
+	case flags.Bool("both"):
+		dir = "both"
+	case flags.Bool("in"):
 		dir = "in"
 	}
 
@@ -61,7 +65,7 @@ func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// Checked here, not via NeedsAuthor - reads don't need an author.
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("link: author required for mutations")
+		return nil, fmt.Errorf("link: %w: author required for mutations", sdk.ErrMissingArg)
 	}
 	from, to := positional[0], positional[1]
 	if err := ctx.Links.Add(from, to, label, ctx.Author); err != nil {

@@ -45,11 +45,11 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	switch sub {
 	case "add", "reply", "resolve", "rm", "restore":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("audit %s: author required for mutations", sub)
+			return nil, fmt.Errorf("audit %s: %w: author required for mutations", sub, sdk.ErrMissingArg)
 		}
 	case "status":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("audit status: author required")
+			return nil, fmt.Errorf("audit status: %w: author required", sdk.ErrMissingArg)
 		}
 	}
 
@@ -71,7 +71,7 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "status":
 		return auditStatus(ctx, args)
 	default:
-		return nil, fmt.Errorf("audit: unknown subcommand: %s", sub)
+		return nil, fmt.Errorf("audit: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
 	}
 }
 

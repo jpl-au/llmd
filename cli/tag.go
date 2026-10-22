@@ -78,7 +78,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// Checked here, not via NeedsAuthor - reads don't need an author.
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("tag: author required for mutations")
+		return nil, fmt.Errorf("tag: %w: author required for mutations", sdk.ErrMissingArg)
 	}
 
 	// llmd tag -d <path> <name> - remove

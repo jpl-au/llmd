@@ -20,7 +20,11 @@ llmd mcp
 - Communicates over stdin/stdout using the MCP protocol.
 - Exposes llmd commands as MCP tools.
 - Tool names match command names, except: `grep` becomes `llmd_grep`,
-  `find` becomes `llmd_find`, `glob` becomes `llmd_glob`.
+  `find` becomes `llmd_find`, `glob` becomes `llmd_glob`, `init` becomes
+  `llmd_init`.
+- `args`, `content` and `author` are all optional. Read-only tools need
+  no author; mutations without one fall back to the author the server
+  was started with.
 
 ## Tool input schema
 

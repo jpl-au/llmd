@@ -22,8 +22,8 @@ path, version, author, and date.
 
 **Task board** - task counts per column at a glance.
 
-**Recent activity** - the latest task events from the audit log, showing
-what changed and when.
+**Recent activity** - the latest changes across the store: document
+writes, tags, links and task events, showing what changed and when.
 
 ## Examples
 

@@ -37,7 +37,7 @@ func hookCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "init":
 		return hookInit(ctx, args[1:])
 	default:
-		return nil, fmt.Errorf("hook: unknown subcommand: %s", args[0])
+		return nil, fmt.Errorf("hook: %w: unknown subcommand %q", sdk.ErrInvalidArg, args[0])
 	}
 }
 

@@ -44,6 +44,9 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 
 	if strings.HasSuffix(path, "/") {
 		// Prefix export - root is the destination directory.
+		if err := os.MkdirAll(dest, 0755); err != nil {
+			return nil, fmt.Errorf("creating directory %s: %w", dest, err)
+		}
 		root, err := os.OpenRoot(dest)
 		if err != nil {
 			return nil, fmt.Errorf("opening root %s: %w", dest, err)

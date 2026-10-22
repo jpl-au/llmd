@@ -113,7 +113,7 @@ func Seed(dir string) error {
 		return err
 	}
 
-	return config.GitAllow("rules/")
+	return config.GitAllowIn(dir, "rules/")
 }
 
 // Sync updates the default rule file to match the current board

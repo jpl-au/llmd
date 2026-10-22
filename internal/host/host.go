@@ -106,8 +106,8 @@ func (h *Host) Init(dbPath string) (string, error) {
 		return "", fmt.Errorf("closing store: %w", err)
 	}
 
-	// Create default .llmd/.gitignore for new stores.
-	if err := config.InitGitignore(); err != nil {
+	// Create the default whitelist .gitignore beside the new database.
+	if err := config.InitGitignoreIn(filepath.Dir(path)); err != nil {
 		return "", fmt.Errorf("creating gitignore: %w", err)
 	}
 

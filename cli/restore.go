@@ -19,6 +19,10 @@ full version history.`, Usage: "restore <path>", MCP: true, NeedsAuthor: true,
 }
 
 func restore(ctx sdk.Context, args []string) (sdk.Response, error) {
+	_, args, err := sdk.ParseArgs(restoreSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("restore: %w", err)
+	}
 	if len(args) == 0 {
 		return nil, fmt.Errorf("restore: %w", sdk.ErrMissingArg)
 	}

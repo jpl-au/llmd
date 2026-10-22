@@ -129,6 +129,11 @@ func graphLineage(ctx sdk.Context, path string) (sdk.Response, error) {
 		return sdk.Result{Text: "No history found", Data: []sdk.Version{}}, nil
 	}
 
+	// The argument may be a key; report the resolved path.
+	if versions[0].Path != "" {
+		path = versions[0].Path
+	}
+
 	// Reverse to oldest-first for chronological display.
 	for i, j := 0, len(versions)-1; i < j; i, j = i+1, j-1 {
 		versions[i], versions[j] = versions[j], versions[i]

@@ -17,6 +17,10 @@ must exist and the destination path must not.`, Usage: "mv <from> <to>", MCP: tr
 }
 
 func mv(ctx sdk.Context, args []string) (sdk.Response, error) {
+	_, args, err := sdk.ParseArgs(mvSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("mv: %w", err)
+	}
 	if len(args) < 2 {
 		return nil, fmt.Errorf("mv: %w", sdk.ErrMissingArg)
 	}

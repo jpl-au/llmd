@@ -32,7 +32,7 @@ func queueCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("queue: %w", sdk.ErrMissingArg)
 	}
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("queue %s: author required", args[0])
+		return nil, fmt.Errorf("queue %s: %w: author required", args[0], sdk.ErrMissingArg)
 	}
 
 	sub := args[0]
@@ -50,7 +50,7 @@ func queueCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "history":
 		return queueHistory(ctx, args)
 	default:
-		return nil, fmt.Errorf("queue: unknown subcommand: %s", sub)
+		return nil, fmt.Errorf("queue: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
 	}
 }
 

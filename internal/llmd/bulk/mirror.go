@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
@@ -76,7 +77,9 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 		result.Wrote++
 	}
 
-	removed, err := cleanStale(root, keep)
+	// Only the subtree the prefix covers is pruned: a prefix pull must
+	// not remove mirrored files of live documents outside it.
+	removed, err := cleanStale(root, keep, strings.TrimSuffix(prefix, "/"))
 	result.Removed = removed
 	if err != nil {
 		return nil, fmt.Errorf("removing stale files: %w", err)
@@ -84,14 +87,23 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 	return result, nil
 }
 
-// cleanStale removes files under root that are not in the keep set,
-// then removes any directories left empty. Returns the number of files
+// cleanStale removes files under root/scope that are not in the keep
+// set, then removes any directories left empty. scope is a directory
+// relative to root ("" for the whole tree). Returns the number of files
 // removed and the first error met while walking or removing a file.
-func cleanStale(root *os.Root, keep map[string]bool) (int, error) {
+func cleanStale(root *os.Root, keep map[string]bool, scope string) (int, error) {
 	var removed int
 
+	start := "."
+	if scope != "" {
+		start = scope
+		if _, err := fs.Stat(root.FS(), start); err != nil {
+			return 0, nil // nothing mirrored under the prefix yet
+		}
+	}
+
 	// First pass: remove stale files.
-	err := fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(root.FS(), start, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -114,7 +126,7 @@ func cleanStale(root *os.Root, keep map[string]bool) (int, error) {
 	// that still has contents, which is exactly the signal to keep it,
 	// and a directory removed mid-walk surfaces as a walk error for its
 	// (already gone) children, so both outcomes are deliberately ignored.
-	_ = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+	_ = fs.WalkDir(root.FS(), start, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || !d.IsDir() || p == "." {
 			return nil
 		}

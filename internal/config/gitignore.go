@@ -32,26 +32,46 @@ const defaultGitignore = `# Ignore everything by default
 !.gitignore
 `
 
-// gitignorePath returns the path to the local .llmd/.gitignore.
-func gitignorePath() string {
-	return filepath.Join(".llmd", ".gitignore")
+// StoreDir is the store directory the working-directory variants of
+// these helpers operate on.
+const StoreDir = ".llmd"
+
+// gitignorePath returns the path of the .gitignore inside a store
+// directory.
+func gitignorePath(dir string) string {
+	return filepath.Join(dir, ".gitignore")
 }
 
-// InitGitignore creates .llmd/.gitignore with sensible defaults.
-// No-op if the file already exists - preserves user edits on
-// subsequent init calls.
+// InitGitignore creates .llmd/.gitignore in the working directory with
+// sensible defaults. See InitGitignoreIn.
 func InitGitignore() error {
-	path := gitignorePath()
+	return InitGitignoreIn(StoreDir)
+}
+
+// InitGitignoreIn creates <dir>/.gitignore with sensible defaults,
+// creating dir if needed. No-op if the file already exists, which
+// preserves user edits on subsequent init calls.
+func InitGitignoreIn(dir string) error {
+	path := gitignorePath(dir)
 	if _, err := os.Stat(path); err == nil {
 		return nil
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
 	}
 	return os.WriteFile(path, []byte(defaultGitignore), 0644)
 }
 
 // GitRules returns all non-comment, non-blank lines from
-// .llmd/.gitignore. Returns nil (not error) if the file does not exist.
+// .llmd/.gitignore in the working directory. See GitRulesIn.
 func GitRules() ([]string, error) {
-	f, err := os.Open(gitignorePath())
+	return GitRulesIn(StoreDir)
+}
+
+// GitRulesIn returns all non-comment, non-blank lines from
+// <dir>/.gitignore. Returns nil (not error) if the file does not exist.
+func GitRulesIn(dir string) ([]string, error) {
+	f, err := os.Open(gitignorePath(dir))
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
@@ -72,10 +92,16 @@ func GitRules() ([]string, error) {
 	return patterns, sc.Err()
 }
 
-// GitAllow adds a whitelist entry to .llmd/.gitignore so the pattern
+// GitAllow adds a whitelist entry to .llmd/.gitignore in the working
+// directory. See GitAllowIn.
+func GitAllow(pattern string) error {
+	return GitAllowIn(StoreDir, pattern)
+}
+
+// GitAllowIn adds a whitelist entry to <dir>/.gitignore so the pattern
 // is committed. The ! prefix is added automatically - callers pass
 // the bare pattern (e.g. "reports/" not "!reports/").
-func GitAllow(pattern string) error {
+func GitAllowIn(dir, pattern string) error {
 	pattern = strings.TrimSpace(pattern)
 	if pattern == "" {
 		return fmt.Errorf("empty pattern")
@@ -83,7 +109,7 @@ func GitAllow(pattern string) error {
 
 	entry := "!" + pattern
 
-	rules, err := GitRules()
+	rules, err := GitRulesIn(dir)
 	if err != nil {
 		return err
 	}
@@ -91,20 +117,26 @@ func GitAllow(pattern string) error {
 		return nil
 	}
 
-	return appendLine(entry)
+	return appendLine(dir, entry)
 }
 
-// GitDeny removes a whitelist entry from .llmd/.gitignore so the
-// pattern is no longer committed. The ! prefix is added automatically.
+// GitDeny removes a whitelist entry from .llmd/.gitignore in the
+// working directory. See GitDenyIn.
 func GitDeny(pattern string) error {
+	return GitDenyIn(StoreDir, pattern)
+}
+
+// GitDenyIn removes a whitelist entry from <dir>/.gitignore so the
+// pattern is no longer committed. The ! prefix is added automatically.
+func GitDenyIn(dir, pattern string) error {
 	pattern = strings.TrimSpace(pattern)
 	entry := "!" + pattern
-	return removeLine(entry)
+	return removeLine(dir, entry)
 }
 
-// appendLine adds a line to the gitignore file.
-func appendLine(line string) error {
-	path := gitignorePath()
+// appendLine adds a line to the gitignore file in dir.
+func appendLine(dir, line string) error {
+	path := gitignorePath(dir)
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -119,9 +151,9 @@ func appendLine(line string) error {
 	return f.Close()
 }
 
-// removeLine removes a line from the gitignore file.
-func removeLine(line string) error {
-	path := gitignorePath()
+// removeLine removes a line from the gitignore file in dir.
+func removeLine(dir, line string) error {
+	path := gitignorePath(dir)
 
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {

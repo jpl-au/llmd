@@ -22,7 +22,7 @@ func (d *Documents) Move(ctx context.Context, src, dst string, opts MoveOptions)
 		return err
 	}
 	if ok {
-		return fmt.Errorf("destination already exists: %s", dst)
+		return fmt.Errorf("%w: %s", ErrExists, dst)
 	}
 
 	// Get the latest version info before moving (for the event)

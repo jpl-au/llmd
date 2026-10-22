@@ -57,7 +57,7 @@ func (a *Audits) List(ctx context.Context, opts ListOptions) ([]Audit, error) {
 		args = append(args, opts.SinceMS)
 	}
 
-	query.WriteString(" ORDER BY created_at DESC")
+	query.WriteString(" ORDER BY created_at DESC, id DESC")
 
 	rows, err := a.db.Query(query.String(), args...).WithContext(ctx).Read()
 	if err != nil {
@@ -115,7 +115,7 @@ func (a *Audits) listByEffectiveStatus(ctx context.Context, opts ListOptions) ([
 		args = append(args, opts.Status)
 	}
 
-	query.WriteString(" ORDER BY top.created_at DESC")
+	query.WriteString(" ORDER BY top.created_at DESC, top.id DESC")
 
 	rows, err := a.db.Query(query.String(), args...).WithContext(ctx).Read()
 	if err != nil {

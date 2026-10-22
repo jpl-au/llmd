@@ -19,6 +19,10 @@ purge all deleted documents.`, Usage: "rm <path>", MCP: true, NeedsAuthor: true,
 }
 
 func rm(ctx sdk.Context, args []string) (sdk.Response, error) {
+	_, args, err := sdk.ParseArgs(rmSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("rm: %w", err)
+	}
 	if len(args) == 0 {
 		return nil, fmt.Errorf("rm: %w", sdk.ErrMissingArg)
 	}

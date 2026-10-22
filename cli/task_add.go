@@ -40,7 +40,7 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task add: %w: title", sdk.ErrMissingArg)
 	}
 	if file != "" && opts.Path != "" {
-		return nil, fmt.Errorf("task add: --file and --path are mutually exclusive")
+		return nil, fmt.Errorf("task add: %w: --file and --path are mutually exclusive", sdk.ErrInvalidArg)
 	}
 
 	// --file reads content from the filesystem

@@ -93,7 +93,7 @@ Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
 |----------|------------------------------------|------------------------------|
 | `import` | Import .md files from a directory  | `import [--prefix p] <dir>`  |
 | `export` | Export documents to the filesystem | `export <path> [dir]`        |
-| `mirror` | One-way snapshot to .llmd/mirror/  | `mirror [path]`              |
+| `mirror` | One-way snapshot to .llmd/<db>/    | `mirror [pull|push] [path]`  |
 
 ### Admin
 
@@ -105,7 +105,7 @@ Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
 | `mcp`     | Start MCP server (stdio)        | `mcp`               |
 | `serve`   | Start HTTP API server           | `serve`             |
 | `version` | Show version information        | `version`           |
-| `plugins` | List loaded plugins             | `plugins`           |
+| `extensions` | List loaded extensions       | `extensions`        |
 | `guide`   | Built-in documentation          | `guide [topic]`     |
 
 ## Global flags

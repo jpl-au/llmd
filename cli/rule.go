@@ -49,7 +49,7 @@ func ruleCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "unset":
 		return ruleUnset(ctx, args)
 	default:
-		return nil, fmt.Errorf("rule: unknown subcommand: %s", sub)
+		return nil, fmt.Errorf("rule: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
 	}
 }
 

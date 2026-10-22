@@ -17,6 +17,9 @@ will not overwrite existing data. Use --db to specify a custom path.`, Usage: "i
 // initCmd creates a new llmd store. Uses ctx.DBPath if set,
 // otherwise defaults to .llmd/llmd.db.
 func initCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
+	if _, _, err := sdk.ParseArgs(initSpec.Flags, args); err != nil {
+		return nil, fmt.Errorf("init: %w", err)
+	}
 	path, err := ctx.Runtime.Init(ctx.DBPath)
 	if err != nil {
 		return nil, err

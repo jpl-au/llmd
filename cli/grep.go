@@ -91,9 +91,13 @@ func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 		Context: flags.Int("C"),
 	}
 	// -l only needs paths back from the index; ask for the cheapest
-	// shape so we don't pull document content we'll throw away.
-	if filesOnly || countOnly {
+	// shape so we don't pull document content we'll throw away. -c
+	// needs one hit per matching line to count, like Unix grep -c.
+	if filesOnly {
 		opts.Mode = sdk.GrepPaths
+	}
+	if countOnly {
+		opts.Mode = sdk.GrepLines
 	}
 
 	results, err := ctx.Documents.Grep(pattern, opts)
@@ -109,12 +113,16 @@ func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 	// Plain Result, Unix-grep shape, no glamour rendering.
 	if countOnly {
 		counts := make(map[string]int)
+		var order []string
 		for _, r := range results {
+			if counts[r.Path] == 0 {
+				order = append(order, r.Path)
+			}
 			counts[r.Path]++
 		}
 		var out strings.Builder
-		for path, count := range counts {
-			fmt.Fprintf(&out, "%s:%d\n", path, count)
+		for _, path := range order {
+			fmt.Fprintf(&out, "%s:%d\n", path, counts[path])
 		}
 		return sdk.Result{Text: strings.TrimSuffix(out.String(), "\n"), Data: results}, nil
 	}

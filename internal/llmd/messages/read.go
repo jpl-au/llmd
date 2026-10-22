@@ -24,7 +24,7 @@ func (m *Messages) Pending(ctx context.Context, consumer string, limit int) ([]m
 			SELECT 1 FROM message_acks a
 			WHERE a.message_key = messages.key AND a.author = ?
 		)
-		ORDER BY created_at
+		ORDER BY created_at, id
 	`
 	args := []any{consumer, consumer}
 
@@ -84,7 +84,7 @@ func (m *Messages) History(ctx context.Context, consumer string, since int64) ([
 		args = append(args, since)
 	}
 
-	query += ` ORDER BY created_at`
+	query += ` ORDER BY created_at, id`
 
 	rows, err := m.db.Query(query, args...).WithContext(ctx).Read()
 	if err != nil {

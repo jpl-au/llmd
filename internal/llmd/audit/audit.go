@@ -90,7 +90,7 @@ func (l *Log) Query(ctx context.Context, subject string, limit int) ([]Event, er
 		args = append(args, subject)
 	}
 
-	query += " ORDER BY timestamp DESC"
+	query += " ORDER BY timestamp DESC, id DESC"
 
 	if limit > 0 {
 		query += " LIMIT ?"

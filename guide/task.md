@@ -21,9 +21,15 @@ llmd task column rm <name>           Remove empty column
 llmd task column mv <name> --after   Reorder column
 llmd task link <id> <path>           Link task to document
 llmd task links <id>                 List linked documents
+llmd task log <id>                   Show a task's change history
+llmd task chain <id>                 Show a task's dependency chain
+llmd task ready <id>                 Report whether dependencies are done
 llmd task start <id>                 Start task (record branch + in-progress)
+llmd task branch <id>                Create a git branch and start the task
+llmd task finish [id]                Move to done with a git summary
 llmd task diff <id>                  Show git diff for task's branch
 llmd task files <id>                 List files changed on task's branch
+llmd task commits <id>               List commits on task's branch
 ```
 
 ## Add flags
@@ -35,6 +41,7 @@ llmd task files <id>                 List files changed on task's branch
 | `--assign <name>` | Assign to someone |
 | `--path <path>` | Use an existing store document as the spec |
 | `--file <file>` | Read spec content from a file on disk |
+| `--depends-on <id>` | Block this task until another task is done |
 
 The task body can come from stdin, a file, or an existing document:
 
@@ -90,6 +97,7 @@ If a task has no document at all, write one with
 | `--flag <name>` | Set a flag (blocked, hold) |
 | `--unflag <name>` | Remove a flag |
 | `--branch <name>` | Set git branch manually |
+| `--depends-on <id>` | Set or clear (empty value) the task this one depends on |
 
 ## List flags
 
@@ -227,5 +235,5 @@ collaboration patterns.
   flagged task stays in its current column.
 - All state changes are recorded in the history table for observability.
 - The board view shows styled terminal tables grouped by column.
-- Default columns: backlog, up-next, in-progress, review, done.
+- Default columns: backlog, up-next, in-progress, review, approval, done, blocked.
   Customise with `task column add`, `task column rm`, `task column mv`.

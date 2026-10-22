@@ -72,7 +72,7 @@ func taskMvColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 	name := positional[0]
 	after := flags.String("after")
 	if after == "" {
-		return nil, fmt.Errorf("task column mv: --after is required")
+		return nil, fmt.Errorf("task column mv: %w: --after is required", sdk.ErrMissingArg)
 	}
 
 	if err := ctx.Tasks.MoveColumn(name, after, ctx.Author); err != nil {

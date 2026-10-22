@@ -150,8 +150,10 @@ llmd audit status
 `audit status` shows threads that need your attention:
 
 - The thread is assigned to you (effective assignee), AND
-- The effective status is `pending` or `needs-work`, AND
-- The last message is not from you
+- The effective status is `pending` or `needs-work`
+
+Replying to a thread that stays assigned to you keeps it in your inbox;
+reassign it with `--assign` or resolve it to clear it.
 
 Status values are free-form strings. Common conventions:
 `pending`, `approved`, `needs-work`, `rejected`, `info`.

@@ -239,6 +239,7 @@ type GrepHit struct {
 // Version is a single entry in a document's version history.
 // Number is the 1-indexed version number. CreatedAt is a Unix timestamp.
 type Version struct {
+	Path      string // document path, resolved when history was requested by key
 	Number    int
 	Author    string
 	Message   string
@@ -274,6 +275,7 @@ type ImportResult struct {
 	Created []string
 	Updated []string
 	Skipped []string
+	Errors  []string // "path: reason" for files that could not be imported
 }
 
 // ExportOpts configures a bulk export operation.

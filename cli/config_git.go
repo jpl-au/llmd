@@ -30,7 +30,7 @@ func configGit(args []string) (sdk.Response, error) {
 	case "deny":
 		return configGitDeny(args[1:])
 	default:
-		return nil, fmt.Errorf("config git: unknown subcommand %q", args[0])
+		return nil, fmt.Errorf("config git: %w: unknown subcommand %q", sdk.ErrInvalidArg, args[0])
 	}
 }
 

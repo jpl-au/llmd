@@ -67,7 +67,7 @@ func (a *Audits) Status(ctx context.Context, author string, sinceMS int64) (*Sta
 		args = append(args, sinceMS)
 	}
 
-	query.WriteString(" ORDER BY top.created_at DESC")
+	query.WriteString(" ORDER BY top.created_at DESC, top.id DESC")
 
 	rows, err := a.db.Query(query.String(), args...).WithContext(ctx).Read()
 	if err != nil {

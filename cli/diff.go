@@ -67,8 +67,11 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case 1:
 		// Single path: compare current version to its predecessor.
 		versions, err := ctx.Documents.History(paths[0], 2)
-		if err != nil || len(versions) < 2 {
-			return nil, fmt.Errorf("diff: no previous version for %s", paths[0])
+		if err != nil {
+			return nil, fmt.Errorf("diff: %w", err)
+		}
+		if len(versions) < 2 {
+			return nil, fmt.Errorf("diff: %w: no previous version for %s", sdk.ErrNotFound, paths[0])
 		}
 		source = paths[0] + ":" + strconv.Itoa(versions[1].Number)
 		target = paths[0]

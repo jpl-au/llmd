@@ -22,7 +22,7 @@ func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if errors.Is(err, sdk.ErrNoSpec) {
 			tsk, rerr := ctx.Tasks.Read(args[0])
 			if rerr == nil {
-				return nil, fmt.Errorf("task move: spec required - tasks cannot leave the backlog until their document has content beyond the title heading.\n\nWrite the spec:\n  llmd write %s\n\nOr link an existing document:\n  llmd task link %s <path>", tsk.Path, args[0])
+				return nil, fmt.Errorf("task move: spec required - tasks cannot leave the backlog until their document has content beyond the title heading (%w).\n\nWrite the spec:\n  llmd write %s\n\nOr link an existing document:\n  llmd task link %s <path>", sdk.ErrNoSpec, tsk.Path, args[0])
 			}
 		}
 		return nil, fmt.Errorf("task move: %w", err)

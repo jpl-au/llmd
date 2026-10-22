@@ -17,7 +17,7 @@ func (t *Tags) List(ctx context.Context, value string, opts ...Options) ([]tag.T
 		SELECT key, relation, value, author, source, created_at
 		FROM entities
 		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 	`, namespace, relation).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying tags: %w", err)

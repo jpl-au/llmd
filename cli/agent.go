@@ -27,6 +27,9 @@ Subcommands:
   prompt <name> <role>             show prompt template
   spawn <task-key> <agent>         spawn agent for a task
   runs [--status S] [--task K]     list agent runs
+  complete <task-key> [--exit N]   record an agent's exit
+  stop <task-key>                  stop a running agent
+  run <task-key> --worktree <dir>  internal: run the agent process
   stop <task-key>                  stop a running agent
 
 Built-in agents: claude-code, gemini, aider
@@ -52,7 +55,7 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	switch sub {
 	case "stop", "spawn", "complete":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("agent %s: author required", sub)
+			return nil, fmt.Errorf("agent %s: %w: author required", sub, sdk.ErrMissingArg)
 		}
 	case "add", "rm":
 		if ctx.Author == "" {
@@ -86,7 +89,7 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "stop":
 		return agentStop(ctx, args)
 	default:
-		return nil, fmt.Errorf("agent: unknown subcommand: %s", sub)
+		return nil, fmt.Errorf("agent: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
 	}
 }
 

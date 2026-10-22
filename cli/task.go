@@ -66,14 +66,14 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	switch sub {
 	case "add", "move", "set", "rm", "restore", "link", "start", "finish", "branch":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("task %s: author required for mutations", sub)
+			return nil, fmt.Errorf("task %s: %w: author required for mutations", sub, sdk.ErrMissingArg)
 		}
 	case "column":
 		if len(args) > 0 {
 			switch args[0] {
 			case "add", "rm", "mv", "move":
 				if ctx.Author == "" {
-					return nil, fmt.Errorf("task column %s: author required for mutations", args[0])
+					return nil, fmt.Errorf("task column %s: %w: author required for mutations", args[0], sdk.ErrMissingArg)
 				}
 			}
 		}
@@ -110,7 +110,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		case "mv", "move":
 			return taskMvColumn(ctx, args)
 		default:
-			return nil, fmt.Errorf("task column: unknown subcommand %q", colSub)
+			return nil, fmt.Errorf("task column: %w: unknown subcommand %q", sdk.ErrInvalidArg, colSub)
 		}
 	case "link":
 		return taskLink(ctx, args)
@@ -135,7 +135,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "commits":
 		return taskCommits(ctx, args)
 	default:
-		return nil, fmt.Errorf("task: unknown subcommand: %s", sub)
+		return nil, fmt.Errorf("task: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
 	}
 }
 

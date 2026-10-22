@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/jpl-au/llmd/internal/llmd/documents"
+
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/rules"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
@@ -41,7 +43,7 @@ func taskErr(err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, tasks.ErrNotFound):
+	case errors.Is(err, tasks.ErrNotFound), errors.Is(err, documents.ErrNotFound):
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, tasks.ErrNoSpec):
 		return fmt.Errorf("%w: %w", sdk.ErrNoSpec, err)

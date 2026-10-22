@@ -48,7 +48,7 @@ func (a *Audits) Thread(ctx context.Context, id string) ([]Audit, error) {
 	rows, err := a.db.Query(`
 		SELECT `+columns+` FROM audits
 		WHERE (id = ? OR parent_id = ?) AND deleted_at IS NULL
-		ORDER BY created_at ASC
+		ORDER BY created_at ASC, id ASC
 	`, threadID, threadID).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying thread: %w", err)

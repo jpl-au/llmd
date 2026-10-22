@@ -29,6 +29,14 @@ func docErr(err error) error {
 	switch {
 	case errors.Is(err, documents.ErrNotFound):
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+	case errors.Is(err, documents.ErrDeleted):
+		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+	case errors.Is(err, documents.ErrExists):
+		return fmt.Errorf("%w: %w", sdk.ErrExists, err)
+	case errors.Is(err, docpath.ErrInvalid), errors.Is(err, docpath.ErrTooLong):
+		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+	case errors.Is(err, search.ErrInvalidGlob), errors.Is(err, search.ErrInvalidQuery):
+		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
 	case errors.Is(err, history.ErrNotFound):
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, history.ErrVersionInvalid):
@@ -355,7 +363,7 @@ func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, erro
 	}
 	results, err := a.store.Search.FullText(a.ctx, query, searchOpts)
 	if err != nil {
-		return nil, err
+		return nil, docErr(err)
 	}
 
 	var hits []sdk.GrepHit
@@ -403,6 +411,7 @@ func (a *documentAPI) History(path string, limit int) ([]sdk.Version, error) {
 	versions := make([]sdk.Version, len(infos))
 	for i, info := range infos {
 		versions[i] = sdk.Version{
+			Path:      info.Path,
 			Number:    info.Version,
 			Author:    info.Author,
 			Message:   info.Message,
@@ -483,11 +492,15 @@ func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult
 	if err != nil {
 		return nil, err
 	}
-	return &sdk.ImportResult{
+	out := &sdk.ImportResult{
 		Created: r.Created,
 		Updated: r.Updated,
 		Skipped: r.Skipped,
-	}, nil
+	}
+	for _, e := range r.Errors {
+		out.Errors = append(out.Errors, e.Path+": "+e.Err.Error())
+	}
+	return out, nil
 }
 
 // Preview returns the first n non-blank lines of a document, skipping

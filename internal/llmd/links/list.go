@@ -54,7 +54,7 @@ func (l *Links) outgoing(ctx context.Context, relation string) ([]link.Link, err
 		SELECT key, relation, value, author, source, created_at
 		FROM entities
 		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 	`, namespace, relation).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying outgoing links: %w", err)
@@ -71,7 +71,7 @@ func (l *Links) incoming(ctx context.Context, toPath string) ([]link.Link, error
 		FROM entities
 		WHERE namespace = ? AND deleted_at IS NULL
 		  AND json_extract(value, '$.to') = ?
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 	`, namespace, toPath).WithContext(ctx).Read()
 	if err != nil {
 		return nil, fmt.Errorf("querying incoming links: %w", err)

@@ -10,7 +10,7 @@ set (`default.yaml`) is created when you run `llmd init`.
 ## Usage
 
 ```
-llmd rule show                     Display all column rules
+llmd rule show                     Display all column rules (alias: list)
 llmd rule set <column> [flags]     Configure a column rule
 llmd rule unset <column>           Remove agent (keep transitions)
 ```

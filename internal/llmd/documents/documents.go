@@ -27,6 +27,7 @@ import (
 var (
 	ErrNotFound = errors.New("document not found")
 	ErrDeleted  = errors.New("document is deleted")
+	ErrExists   = errors.New("destination already exists")
 )
 
 // Documents provides document operations against the content table.

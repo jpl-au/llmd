@@ -57,7 +57,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 			return nil, fmt.Errorf("checking document: %w", eerr)
 		}
 		if !exists {
-			return nil, fmt.Errorf("document not found: %s", opts.Path)
+			return nil, fmt.Errorf("%w: %s", documents.ErrNotFound, opts.Path)
 		}
 		path = opts.Path
 	} else {

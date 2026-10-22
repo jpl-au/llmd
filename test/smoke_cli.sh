@@ -265,7 +265,7 @@ MD
 
     # --- revert --- (revert to version 1, which is the pre-sed content
     # carried over by mv)
-    $llmd --author "smoke" revert docs/greeting --version 1 >/dev/null 2>&1
+    $llmd --author "smoke" revert docs/greeting 1 >/dev/null 2>&1
     out=$($llmd cat docs/greeting 2>&1)
     if [ -n "$out" ]; then
         log_pass "revert creates new version"

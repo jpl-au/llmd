@@ -61,7 +61,7 @@ func (s *Store) docActivity(ctx context.Context, limit int) []ActivityEvent {
 		SELECT path, author, COALESCE(message, ''), created_at, deleted_at
 		FROM content
 		WHERE namespace = 'core:document'
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 		LIMIT ?
 	`, limit).WithContext(ctx).Read()
 	if err != nil {
@@ -101,7 +101,7 @@ func (s *Store) entityActivity(ctx context.Context, limit int) []ActivityEvent {
 		SELECT namespace, relation, value, author, created_at, deleted_at
 		FROM entities
 		WHERE namespace IN ('core:tag', 'core:link')
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 		LIMIT ?
 	`, limit).WithContext(ctx).Read()
 	if err != nil {

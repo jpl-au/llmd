@@ -12,7 +12,7 @@ llmd ls [flags] [<path>]
 
 | Flag | Description |
 |------|-------------|
-| `-l` | Long format: shows VER, AUTHOR, DATE, PATH columns |
+| `-l` | Long format: shows KEY, VER, AUTHOR, DATE, PATH columns |
 | `-a` | Include soft-deleted documents |
 | `-t` | Sort by time, newest first |
 | `-r` | Reverse sort order |
