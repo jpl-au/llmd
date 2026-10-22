@@ -136,6 +136,7 @@ func (h *Host) Context(ctx context.Context, author string) sdk.Context {
 		sctx.Mirror = newMirrorAPI(h.store, ctx)
 		sctx.Agents = newAgentAPI(h.store, h.git, ctx)
 		sctx.Rules = newRuleAPI(h.store.Dir())
+		sctx.Hooks = newHookAPI(h.store, h.lim, h.git, ctx)
 	}
 	return sctx
 }
@@ -175,35 +176,36 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 		return nil, err
 	}
 
-	// Open a store if the command requires one. Streaming commands
-	// (mcp, serve) treat store errors as non-fatal so they can start
-	// and return per-call errors instead of failing to connect. The
-	// store is wired into a fresh host for this call; the receiver is
-	// left untouched so concurrent callers never see a half-built host.
+	// Open the store. Commands that can run without one (init,
+	// version, hook init, ...) carry on when it is missing; streaming
+	// commands (mcp, serve) start anyway and report per call; every
+	// other command fails. The store is wired into a fresh host for
+	// this call so the receiver is never a half-built host.
 	target := h
-	if h.store == nil && !h.storeless(opts.Cmd) {
+	if h.store == nil {
 		store, err := llmd.Open(opts.DB)
-		if err != nil {
-			if c.cmd.Streams {
-				slog.Warn("starting without store", "cmd", opts.Cmd, "error", err)
-				telemetry.Emit(telemetry.Entry{
-					Source:  "cli",
-					Event:   "start.nostore",
-					Command: opts.Cmd,
-					Success: true,
-					Error:   err.Error(),
-				})
-			} else {
-				emit(err)
-				return nil, err
-			}
-		} else {
+		switch {
+		case err == nil:
 			defer func() {
 				if cerr := store.Close(); cerr != nil {
 					slog.Warn("closing store", "err", cerr)
 				}
 			}()
 			target = setup(store)
+		case h.storeless(opts.Cmd):
+			slog.Debug("running without store", "cmd", opts.Cmd, "error", err)
+		case c.cmd.Streams:
+			slog.Warn("starting without store", "cmd", opts.Cmd, "error", err)
+			telemetry.Emit(telemetry.Entry{
+				Source:  "cli",
+				Event:   "start.nostore",
+				Command: opts.Cmd,
+				Success: true,
+				Error:   err.Error(),
+			})
+		default:
+			emit(err)
+			return nil, err
 		}
 	}
 

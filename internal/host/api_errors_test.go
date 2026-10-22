@@ -268,6 +268,9 @@ var notFoundExempt = map[string]map[string]string{
 		"Show": "store-wide",
 		"Set":  "creates the rule",
 	},
+	"HookStore": {
+		"Handle": "acts on a payload; a missing task is logged and skipped",
+	},
 }
 
 // notFoundStores maps interface names to their reflect types so the
@@ -283,6 +286,7 @@ var notFoundStores = map[string]reflect.Type{
 	"ActivityStore": reflect.TypeOf((*sdk.ActivityStore)(nil)).Elem(),
 	"MirrorStore":   reflect.TypeOf((*sdk.MirrorStore)(nil)).Elem(),
 	"RuleStore":     reflect.TypeOf((*sdk.RuleStore)(nil)).Elem(),
+	"HookStore":     reflect.TypeOf((*sdk.HookStore)(nil)).Elem(),
 }
 
 // TestNotFound is the guard for the SDK error contract: every store

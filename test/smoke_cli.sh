@@ -440,6 +440,15 @@ MD
         log_fail "task list --since returns recent tasks: got '$out'"
     fi
 
+    # --- hook: the same handler as POST /hook, from the command line ---
+    $llmd --author "smoke" queue send "hook smoke" --assign claude >/dev/null 2>&1
+    out=$(echo '{"hook_event_name":"SessionStart"}' | $llmd --author claude hook 2>&1)
+    if echo "$out" | grep -q "hook smoke"; then
+        log_pass "hook session start prints pending messages"
+    else
+        log_fail "hook session start prints pending messages: got '$out'"
+    fi
+
     # --- error on missing author ---
     echo "no author" | $llmd write docs/fail >/dev/null 2>&1 && rc=0 || rc=$?
     if [ "$rc" -ne 0 ]; then

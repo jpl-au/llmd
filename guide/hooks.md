@@ -1,130 +1,102 @@
 # Agent hooks
 
-How to wire AI agents to react to llmd events. Each agent platform has
-its own hook system - this guide shows how to connect them to llmd.
+Agent platforms such as Claude Code and Gemini CLI can run a command
+at points in a session: when it starts, when it ends, after a tool is
+used, when a task completes. llmd gives them one command for all of
+these:
 
-## Claude Code
-
-### Session start - check inbox
-
-Add a hook in `.claude/settings.json` that runs at session start to
-show the agent what needs its attention:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "type": "command",
-      "command": "llmd --author claude-code audit status"
-    }]
-  }
-}
+```
+llmd --author <name> hook
 ```
 
-The output is injected into the agent's context as the session begins.
-The agent sees any pending audits assigned to it and can act on them
-immediately.
+The platform passes its own event payload on standard input. llmd
+works out the platform from the author name, reads the event, and acts
+on it. The same handler sits behind every way of reaching llmd, so a
+hook over the command line, over HTTP and from a spawned agent all do
+the same thing.
 
-### Post-tool - check after MCP calls
+## What each event does
 
-Use a `PostToolUse` hook to check for updates after the agent calls
-llmd tools:
+| Event | What llmd does |
+|-------|----------------|
+| Session start | Prints the author's pending queue messages, so the agent sees what needs attention as it begins |
+| Session end or stop | Sends a queue message saying the session ended |
+| Task completed | Finishes the task and sends a queue message |
+| Task failed | Moves the task to `blocked` and sends a queue message |
+| Tool use | Records an audit entry on the task, when the payload names a task and has content |
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "type": "command",
-      "command": "llmd --author claude-code audit status",
-      "matcher": "mcp__llmd*"
-    }]
-  }
-}
-```
+Events the platform sends that are not in this table are accepted and
+ignored. A step that fails, such as finishing a task that is not ready,
+is logged and skipped so the rest still happens.
 
-The `matcher` ensures the hook only fires after llmd MCP tool calls,
-not after every tool use.
+## Setting up a platform
 
-## Gemini CLI
-
-### Session start - check inbox
-
-Add a hook in your Gemini CLI hooks configuration:
-
-```json
-{
-  "hooks": [{
-    "event": "SessionStart",
-    "type": "command",
-    "command": "llmd --author gemini audit status"
-  }]
-}
-```
-
-### After tool use
-
-```json
-{
-  "hooks": [{
-    "event": "AfterTool",
-    "type": "command",
-    "command": "llmd --author gemini audit status"
-  }]
-}
-```
-
-## Generic (any agent with HTTP)
-
-### SSE stream consumer
-
-Any agent or script can connect to the SSE endpoint and react
-to events:
+Print the configuration for your platform and install it where the
+platform expects:
 
 ```bash
-curl -sf -N "http://localhost:5563/events?type=audit.created" | \
-  while IFS= read -r line; do
-    case "$line" in
-      data:*) echo "${line#data:}" | jq . ;;
-    esac
-  done
+llmd hook init claude     # a hooks section for .claude/settings.json
+llmd hook init gemini     # a hooks list for the Gemini CLI configuration
+llmd hook init generic    # a shell script that wraps any command
 ```
 
-### Webhook receiver
+The author in the generated configuration is the configured author if
+one is set (`llmd config author`), otherwise the platform name.
 
-Point a webhook at your service and react to POSTs. Configure in
-`.llmd/config.yaml`:
+### Claude Code
 
-```yaml
-webhook:
-  my-agent:
-    url: http://localhost:8080/llmd-events
-    key: secret
+Merge the output of `llmd hook init claude` into `.claude/settings.json`.
+It runs the hook command at session start and end, on task completion,
+and after calls to llmd's MCP tools.
+
+### Gemini CLI
+
+Add the output of `llmd hook init gemini` to your hooks configuration.
+It runs the hook command at session start and after each tool use.
+
+### Any other agent
+
+`llmd hook init generic` prints a shell script. Run your agent through
+it with the task key as the first argument:
+
+```bash
+./hooks.sh 0mvj8snvv my-agent --some-flag
 ```
 
-The payload is the event JSON. Filter by `type` field in your handler.
+The script reports a session start before the command runs, then a
+completed or failed task depending on the exit code. Its payloads use
+the generic format, a JSON object with `event`, `task_id` and `content`
+fields, which any tool can produce:
 
-## Polling pattern for CLI agents
+```bash
+printf '{"event":"task.completed","task_id":"0mvj8snvv"}' | llmd --author my-agent hook
+```
 
-For agents without persistent connections (most CLI-based agents), the
-recommended pattern is:
+## Naming the task
 
-1. **Session start** - `llmd --author <identity> audit status` to
-   discover pending work
-2. **Work through items** - address each pending audit or task
-3. **Signal completion** - reply with `--status approved` or update
-   the task status
-4. **Session ends** - next session repeats from step 1
+Some platforms do not say which task an event belongs to. Pass it with
+`--task`:
 
-This requires no special infrastructure. The agent simply calls llmd
-commands to check state and act on it.
+```bash
+llmd --author claude hook --task 0mvj8snvv
+```
+
+Agents that llmd spawns receive this automatically in the settings
+written into their working directory.
+
+## Over HTTP
+
+When `llmd serve` is running, `POST /hook` is the same command: the
+body is the payload and the `Author` header names the agent. See
+`llmd guide serve`.
 
 ## Notes
 
-- `--author` is required for all agent-issued commands. Config author
-  is for humans only. See `guide audit` for details.
-- Hook output is injected into the agent's context window, so keep
-  responses concise. `audit status` is designed for this - it returns
-  a summary, not full content.
-- For agents managing multiple stores, prefix the llmd command with
-  a `cd` to the correct working directory, since llmd uses `.llmd/`
-  relative to the current directory.
+- `--author` is required. It names the agent and selects the payload
+  format: a name containing `claude` or `gemini` uses that platform's
+  format, anything else uses the generic format.
+- Only session start prints anything. Keep it that way: platforms
+  inject hook output into the agent's context, so quiet hooks keep the
+  context small.
+- llmd finds its store under `.llmd/` in the current directory. If an
+  agent runs elsewhere, prefix the command with `cd` to the project.

@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "llmd --author {{.Agent}} queue send 'Agent stop: task {{.TaskID}}' 2>/dev/null || true"
+            "command": "llmd --author {{.Agent}} hook --task {{.TaskID}} 2>/dev/null || true"
           }
         ]
       }

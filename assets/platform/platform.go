@@ -66,6 +66,18 @@ type HookEvent struct {
 	Meta map[string]string
 }
 
+// HookCommand returns the shell command a platform's hook runs so that
+// llmd handles the event: "llmd --author <author> hook", with the
+// author quoted for the shell.
+func HookCommand(author string) string {
+	return "llmd --author " + ShellQuote(author) + " hook"
+}
+
+// ShellQuote wraps s in single quotes for a POSIX shell.
+func ShellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // LastJSON scans a file and returns the last line that starts with '{'.
 // Agent tools write their JSON result as the final output line.
 func LastJSON(path string) (string, error) {

@@ -1,62 +1,28 @@
 package claude
 
-import "fmt"
+import (
+	"encoding/json"
 
-// HookConfig returns a Claude Code settings.json hooks snippet
-// configured to POST lifecycle events to the llmd HTTP server.
-func HookConfig(addr, author string) string {
-	url := "http://" + addr + "/hook"
-	return fmt.Sprintf(`{
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "http",
-            "url": %q,
-            "headers": {"Author": %q}
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "http",
-            "url": %q,
-            "headers": {"Author": %q}
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "http",
-            "url": %q,
-            "headers": {"Author": %q}
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "mcp__llmd.*",
-        "hooks": [
-          {
-            "type": "http",
-            "url": %q,
-            "headers": {"Author": %q}
-          }
-        ]
-      }
-    ]
-  }
-}
-`, url, author, url, author, url, author, url, author)
+	"github.com/jpl-au/llmd/assets/platform"
+)
+
+// HookConfig returns the hooks section of a Claude Code settings.json
+// that runs "llmd hook" for session start and end, task completion,
+// and tool use on llmd's MCP tools. The payload Claude Code passes on
+// stdin is what the hook command parses.
+func HookConfig(author string) string {
+	hook := []map[string]string{{"type": "command", "command": platform.HookCommand(author)}}
+	entry := func(matcher string) []map[string]any {
+		return []map[string]any{{"matcher": matcher, "hooks": hook}}
+	}
+	cfg := map[string]any{
+		"hooks": map[string]any{
+			"SessionStart":  entry("startup"),
+			"SessionEnd":    entry(""),
+			"TaskCompleted": entry(""),
+			"PostToolUse":   entry("mcp__llmd.*"),
+		},
+	}
+	out, _ := json.MarshalIndent(cfg, "", "  ")
+	return string(out) + "\n"
 }

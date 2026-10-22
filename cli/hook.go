@@ -1,4 +1,14 @@
-// hook.go scaffolds agent hook configurations.
+// hook.go is the single entry point for agent hook events.
+//
+// An agent platform runs "llmd --author <name> hook" at points in its
+// lifecycle and passes its native JSON payload on stdin. The command
+// hands the payload to sdk.HookStore, which chooses the platform from
+// the author, normalises the event and acts on it. The HTTP server
+// exposes the same command as POST /hook, so one implementation
+// defines what every hook does.
+//
+// "hook init <platform>" prints the configuration that wires a
+// platform's hooks to this command.
 
 package cli
 
@@ -14,36 +24,68 @@ import (
 )
 
 var hookSpec = sdk.Command{
-	Name: "hook", Desc: `Generate agent hook configurations.
+	Name: "hook", Desc: `Handle an agent hook event, or print hook configuration
 
-Prints a hook configuration for the named platform that integrates
-the agent with llmd's queue, task, and audit systems.
+Reads an agent platform's hook payload on stdin and acts on it:
+
+  session start      prints the author's pending queue messages
+  session end/stop   sends a queue message that the session ended
+  task completed     finishes the task and sends a queue message
+  task failed        moves the task to blocked and sends a queue message
+  tool use           records an audit entry when a task and content are given
+
+The platform is chosen from --author: a name containing "claude" or
+"gemini" selects that platform's payload format; any other name uses
+the generic format, a JSON object with "event", "task_id" and
+"content" fields.
 
 Subcommands:
-  init <platform>    generate hook config (claude, gemini, generic)
-
-The output is printed to stdout. For Claude Code, merge the hooks
-section into .claude/settings.json. For Gemini, add to your hook
-config. For generic agents, save as a wrapper script.`, Usage: "hook init <platform>",
+  init <platform>    print hook configuration (claude, gemini, generic)`,
+	Usage: "hook [--task <id>] | hook init <platform>",
+	Flags: []sdk.Flag{
+		{Name: "task", Type: "string", Desc: "Task the event belongs to, when the payload does not say"},
+	},
 }
 
-// hookCmd dispatches hook subcommands.
+// hookCmd runs hook init, or handles an event from stdin.
 func hookCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("hook: %w: subcommand required (init)", sdk.ErrMissingArg)
+	if len(args) > 0 && args[0] == "init" {
+		return hookInit(ctx, args[1:])
+	}
+	return hookEvent(ctx, args)
+}
+
+// hookEvent handles one hook payload.
+func hookEvent(ctx sdk.Context, args []string) (sdk.Response, error) {
+	flags, positional, err := sdk.ParseArgs(hookSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("hook: %w", err)
+	}
+	if len(positional) > 0 {
+		return nil, fmt.Errorf("hook: %w: unknown subcommand %q", sdk.ErrInvalidArg, positional[0])
+	}
+	if ctx.Author == "" {
+		return nil, fmt.Errorf("hook: %w: --author names the agent and selects its payload format", sdk.ErrMissingArg)
+	}
+	if len(ctx.Stdin) == 0 {
+		return nil, fmt.Errorf("hook: %w: hook payload on stdin", sdk.ErrMissingArg)
+	}
+	if ctx.Hooks == nil {
+		return nil, fmt.Errorf("hook: %w: no store in this directory - run llmd init", sdk.ErrNotFound)
 	}
 
-	switch args[0] {
-	case "init":
-		return hookInit(ctx, args[1:])
-	default:
-		return nil, fmt.Errorf("hook: %w: unknown subcommand %q", sdk.ErrInvalidArg, args[0])
+	result, err := ctx.Hooks.Handle(ctx.Author, ctx.Stdin, sdk.HookOpts{Task: flags.String("task")})
+	if err != nil {
+		return nil, fmt.Errorf("hook: %w", err)
 	}
+	return sdk.Result{Text: result.Content, Data: result}, nil
 }
 
 var platforms = []string{"claude", "gemini", "generic"}
 
-// hookInit generates a hook configuration for the named platform.
+// hookInit prints the hook configuration for a platform. The author
+// comes from the configured author when there is one, otherwise from
+// the platform name.
 func hookInit(_ sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("hook init: %w: platform required (%s)",
@@ -52,29 +94,19 @@ func hookInit(_ sdk.Context, args []string) (sdk.Response, error) {
 
 	name := args[0]
 
-	cfg, err := config.Load()
-	if err != nil {
-		cfg = config.Config{}
-	}
-	addr := cfg.Server.Addr
-	if addr == "" {
-		addr = "localhost:5563"
-	}
-
-	// Default author from the platform name.
 	author := name
-	if cfg.Author != "" {
+	if cfg, err := config.Load(); err == nil && cfg.Author != "" {
 		author = cfg.Author
 	}
 
 	var out string
 	switch {
 	case strings.Contains(name, "claude"):
-		out = claude.HookConfig(addr, author)
+		out = claude.HookConfig(author)
 	case strings.Contains(name, "gemini"):
-		out = gemini.HookConfig(addr, author)
+		out = gemini.HookConfig(author)
 	default:
-		out = generic.HookConfig(addr, author)
+		out = generic.HookConfig(author)
 	}
 
 	return sdk.Text(out), nil

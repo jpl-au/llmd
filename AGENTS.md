@@ -154,8 +154,8 @@ Focused interfaces per domain, each following the SDK-first pattern:
 | `sdk.TagStore` | `sdk/tags.go` | `internal/host/api_tags.go` (`tagAPI`) | `internal/host/host.go` |
 | `sdk.AuditStore` | `sdk/audits.go` | `internal/host/api_audits.go` (`auditAPI`) | `internal/host/host.go` |
 | `sdk.ActivityStore` | `sdk/activity.go` | `internal/host/api_activity.go` (`activityAPI`) | `internal/host/host.go` |
+| `sdk.HookStore` | `sdk/hooks.go` | `internal/host/api_hooks.go` (`hookAPI`) | `internal/host/host.go` |
 | `sdk.GitStore` | `sdk/git.go` | `internal/git/git.go` (`Git`) | `internal/host/host.go` |
-| `sdk.ConfigStore` | `sdk/config.go` | `internal/config/store.go` (`Store`) | `internal/host/host.go` |
 
 Each bridge type in `internal/host/` holds a `context.Context` field and
 translates SDK flat arguments into internal option structs, passing the
@@ -430,6 +430,18 @@ Content resolution order: positional args > `--file` > stdin.
 The `audit` command is a mixed command (like `task`): author is required for
 mutations (`add`, `reply`, `resolve`, `rm`, `status`) but not for reads
 (`list`, `show`).
+
+## Agent Hooks
+
+Agent platforms run `llmd --author <name> hook` at points in a session
+and pass their event payload on stdin. `sdk.HookStore.Handle` is the
+only place that decides what an event does: the author selects the
+platform parser (`assets/platform`), the payload becomes a
+`platform.HookEvent`, and the host acts through the queue, task and
+audit bridges. The `hook` command, `POST /hook` and the MCP tool are
+thin wrappers over it. `hook init <platform>` prints configuration that
+runs that command; spawned agents get it in the settings written to
+their worktree. Do not add hook behaviour to a transport.
 
 ## Message Queue
 

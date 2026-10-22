@@ -146,26 +146,19 @@ when you need it.
 
 ## Hooks
 
-Claude Code supports HTTP hooks that POST lifecycle events to an
-endpoint. When the llmd HTTP server is running, hooks can POST
-directly to the `/hook` endpoint for real-time integration.
-
-Generate the hook configuration:
+Claude Code can run a command at session start and end, on task
+completion and after tool use. Generate the configuration and merge it
+into `.claude/settings.json`:
 
 ```bash
 llmd hook init claude
 ```
 
-This outputs a settings.json snippet with HTTP hooks for session
-start, session end, task completion, and tool use. Merge it into
-your `.claude/settings.json`.
-
-The hook endpoint parses Claude Code's native payload format and
-routes events to the appropriate SDK operations: session start
-returns pending queue messages, task completion finishes the task
-and sends a notification, and tool use events are logged as audits.
-
-See `guide serve` for the full `/hook` endpoint reference.
+Each hook runs `llmd --author claude hook`, which reads Claude Code's
+payload and acts on it: session start prints pending queue messages
+into the context, task completion finishes the task and sends a
+message, and tool use on llmd's MCP tools is recorded as an audit.
+No server is needed. See `llmd guide hooks` for every event.
 
 ## Tips
 

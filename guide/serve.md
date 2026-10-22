@@ -148,7 +148,7 @@ These commands are not available over HTTP: `mcp`, `serve`, `init`,
 | `POST /agent/stop/<task>`           | Stop a running agent            |
 | `DELETE /agent/<name>`              | Remove an agent                 |
 
-### Rules, mirror and hooks
+### Rules and mirror
 
 | Route                          | Description                             |
 |--------------------------------|-----------------------------------------|
@@ -159,28 +159,25 @@ These commands are not available over HTTP: `mcp`, `serve`, `init`,
 | `POST /mirror/pull/<prefix>`   | Write documents under a prefix          |
 | `POST /mirror/push`            | Import edits made in the mirror         |
 | `POST /mirror/push/<prefix>`   | Import edits under a prefix             |
-| `GET /hook/init/<platform>`    | Print a hook configuration              |
 
-### Hook endpoint (POST)
+### Hooks
 
-| Route         | Description                                      |
-|---------------|--------------------------------------------------|
-| `POST /hook`  | Receive agent lifecycle events from hook systems  |
+| Route                          | Description                              |
+|--------------------------------|------------------------------------------|
+| `POST /hook`                   | Handle an agent hook event (body is the payload) |
+| `GET /hook/init/<platform>`    | Print a hook configuration               |
 
-The hook endpoint accepts platform-specific JSON payloads from agent
-hook systems (Claude Code HTTP hooks, Gemini adapters, etc.). The
-`Author` header identifies the agent. The server detects the platform,
-parses the native payload, and routes the normalised event to queue,
-task, or audit operations.
-
-Generate hook configurations with `llmd hook init <platform>`.
+`POST /hook` is the `hook` command over HTTP. The body is the agent
+platform's payload and the `Author` header names the agent, which
+selects the payload format. The response is the text a command hook
+would print; with `Output: json` it is the event, the task and the
+actions taken. Pass `?task=<id>` when the payload does not name the
+task. See `llmd guide hooks` for what each event does.
 
 ```bash
-# Claude Code HTTP hook
 curl -X POST http://localhost:5563/hook \
   -H "Author: claude-code" \
-  -H "Content-Type: application/json" \
-  -d '{"hook_event_name": "TaskCompleted", "session_id": "abc123"}'
+  -d '{"hook_event_name": "SessionEnd", "session_id": "abc123"}'
 ```
 
 ## Headers

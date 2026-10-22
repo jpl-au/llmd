@@ -108,6 +108,7 @@ func init() {
 
 	hookSpec.Routes = []sdk.Route{
 		{Method: "GET", Pattern: "/hook/init/{platform}", Args: []string{"init", "{platform}"}},
+		{Method: "POST", Pattern: "/hook"},
 	}
 
 	// export writes to the server's filesystem, so it is a POST even

@@ -53,7 +53,6 @@ func New(cfg config.Config, rt sdk.Runtime) *Server {
 		sse:    newSSEHub(),
 	}
 	s.mux.Use(s.log)
-	s.mux.HandleFunc("POST /hook", s.hookHandler())
 	s.register()
 
 	rt.Subscribe(s.sse.Broadcast)

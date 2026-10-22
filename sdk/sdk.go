@@ -181,6 +181,7 @@ type Context struct {
 	Git        GitStore
 	Agents     AgentStore
 	Rules      RuleStore
+	Hooks      HookStore
 }
 
 // Response is the marker interface for command return values. It uses
