@@ -17,7 +17,6 @@ import (
 
 	"github.com/jpl-au/llmd/pkg/events"
 
-	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -49,7 +48,7 @@ func (s *stub) Init(string) (string, error)       { return "", errors.New("init 
 // mux over httptest. The server is closed on cleanup.
 func newTestServer(t *testing.T, rt sdk.Runtime) *httptest.Server {
 	t.Helper()
-	s := New(config.Config{Server: config.ServerConfig{Addr: "localhost:0"}, Author: "test"}, rt)
+	s := New(rt, WithAddr("localhost:0"), WithAuthor("test"))
 	ts := httptest.NewServer(s.mux)
 	t.Cleanup(ts.Close)
 	return ts
@@ -70,7 +69,7 @@ func captureLog(t *testing.T) *bytes.Buffer {
 // TestListenAndServeShutdown is a lifecycle scenario: start, cancel,
 // confirm graceful shutdown within the deadline.
 func TestListenAndServeShutdown(t *testing.T) {
-	s := New(config.Config{Server: config.ServerConfig{Addr: "localhost:0"}, Author: "test"}, stubRuntime())
+	s := New(stubRuntime(), WithAddr("localhost:0"), WithAuthor("test"))
 
 	ctx, cancel := context.WithCancel(t.Context())
 

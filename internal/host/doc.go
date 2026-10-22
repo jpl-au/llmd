@@ -26,6 +26,14 @@
 //	    fmt.Printf("%s: %s\n", name, cmd.Desc)
 //	}
 //
+// Options adjust the defaults, for example to use a different git
+// implementation or fixed validation limits:
+//
+//	h, _ := host.Open("", host.WithGit(fakeGit), host.WithLimits(limits))
+//	for name, cmd := range h.Commands() {
+//	    fmt.Printf("%s: %s\n", name, cmd.Desc)
+//	}
+//
 // # Store API
 //
 // For every request the host builds an [sdk.Context] carrying store

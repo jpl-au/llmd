@@ -28,29 +28,61 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
+// DefaultAddr is the address the server listens on unless WithAddr
+// says otherwise.
+const DefaultAddr = "localhost:5563"
+
 // Server is an HTTP API server for llmd. It dispatches incoming
 // requests to sdk commands through the runtime, using the same
 // dispatch mechanism as the MCP server. The SSE hub streams events to
 // connected clients.
 type Server struct {
-	mux    *chain.Mux
-	rt     sdk.Runtime
-	addr   string
-	author string
-	sse    *sseHub
+	mux      *chain.Mux
+	rt       sdk.Runtime
+	addr     string
+	author   string
+	webhooks map[string]config.WebhookConfig
+	sse      *sseHub
 }
 
-// New creates a server from the given config and runtime. The server
-// registers an SSE hub that streams store events to connected clients
-// via GET /events, and a webhook hub that POSTs events to configured
-// endpoints; both receive events only while the runtime has a store.
-func New(cfg config.Config, rt sdk.Runtime) *Server {
+// Option configures a Server.
+type Option func(*Server)
+
+// WithAddr sets the listen address. The default is DefaultAddr.
+func WithAddr(addr string) Option {
+	return func(s *Server) {
+		if addr != "" {
+			s.addr = addr
+		}
+	}
+}
+
+// WithAuthor sets the author used for requests that carry no Author
+// header. The default is none, so such requests to commands that need
+// an author are rejected.
+func WithAuthor(author string) Option {
+	return func(s *Server) { s.author = author }
+}
+
+// WithWebhooks sets the endpoints that receive every store event as a
+// POST. The default is none.
+func WithWebhooks(hooks map[string]config.WebhookConfig) Option {
+	return func(s *Server) { s.webhooks = hooks }
+}
+
+// New creates a server over the runtime. It registers a route for
+// every command, an SSE hub that streams store events to clients on
+// GET /events, and a webhook hub for any configured endpoints. Events
+// flow only while the runtime has a store.
+func New(rt sdk.Runtime, opts ...Option) *Server {
 	s := &Server{
-		mux:    chain.New(),
-		rt:     rt,
-		addr:   cfg.Server.Addr,
-		author: cfg.Author,
-		sse:    newSSEHub(),
+		mux:  chain.New(),
+		rt:   rt,
+		addr: DefaultAddr,
+		sse:  newSSEHub(),
+	}
+	for _, o := range opts {
+		o(s)
 	}
 	s.mux.Use(s.log)
 	s.register()
@@ -58,7 +90,7 @@ func New(cfg config.Config, rt sdk.Runtime) *Server {
 	rt.Subscribe(s.sse.Broadcast)
 	s.mux.Handle("GET /events", s.sse)
 
-	if wh := newWebhookHub(cfg.Webhook); wh != nil {
+	if wh := newWebhookHub(s.webhooks); wh != nil {
 		rt.Subscribe(wh.Broadcast)
 		slog.Info("webhook enabled", "endpoints", len(wh.endpoints))
 	}

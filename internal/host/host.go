@@ -31,9 +31,31 @@ import (
 type Host struct {
 	store      *llmd.Store
 	lim        validate.Limits
+	limSet     bool
 	git        sdk.GitStore
 	commands   map[string]*cmdEntry
 	extensions []sdk.Extension
+	opts       []Option // reapplied to hosts built for a single call
+}
+
+// Option configures a Host. Options are applied by New and Open and
+// carried over to any host built for a single request, so a setting
+// made once holds for every call.
+type Option func(*Host)
+
+// WithGit sets the git implementation. The default runs the git
+// command line in the working directory.
+func WithGit(g sdk.GitStore) Option {
+	return func(h *Host) { h.git = g }
+}
+
+// WithLimits sets the validation limits for paths and content. The
+// default comes from the limits section of the configuration file.
+func WithLimits(l validate.Limits) Option {
+	return func(h *Host) {
+		h.lim = l
+		h.limSet = true
+	}
 }
 
 // cmdEntry maps a command to its owning extension.
@@ -45,19 +67,19 @@ type cmdEntry struct {
 // New creates a Host without a store. The Host can enumerate commands
 // (for help/discovery) but cannot execute store operations - the store
 // bridges on each [sdk.Context] remain nil.
-func New() *Host {
-	return setup(nil)
+func New(opts ...Option) *Host {
+	return setup(nil, opts...)
 }
 
 // Open creates a Host backed by a store at the given path (or the
 // default path if empty). The caller must defer Close() to release
 // the underlying database connection.
-func Open(dbPath string) (*Host, error) {
+func Open(dbPath string, opts ...Option) (*Host, error) {
 	store, err := llmd.Open(dbPath)
 	if err != nil {
 		return nil, err
 	}
-	return setup(store), nil
+	return setup(store, opts...), nil
 }
 
 // Close closes the underlying store. Safe to call on a storeless host.
@@ -191,7 +213,7 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 					slog.Warn("closing store", "err", cerr)
 				}
 			}()
-			target = setup(store)
+			target = setup(store, h.opts...)
 		case h.storeless(opts.Cmd):
 			slog.Debug("running without store", "cmd", opts.Cmd, "error", err)
 		case c.cmd.Streams:
@@ -266,19 +288,26 @@ func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
 // setup loads extensions and configures the command table. Called by
 // both New() and Open(). When store is non-nil it also bridges internal
 // bus events to extension EventHandlers and the pipeline handler.
-func setup(store *llmd.Store) *Host {
-	// Load validation limits from config.
-	cfg, err := config.Load()
-	if err != nil {
-		slog.Warn("loading config for validation limits", "err", err)
-	}
-	lim := validate.LoadLimits(cfg.Limits)
-
+func setup(store *llmd.Store, opts ...Option) *Host {
 	h := &Host{
 		store:    store,
-		lim:      lim,
-		git:      igit.New(),
 		commands: make(map[string]*cmdEntry),
+		opts:     opts,
+	}
+	for _, o := range opts {
+		o(h)
+	}
+
+	// Defaults for anything the options did not set.
+	if h.git == nil {
+		h.git = igit.New()
+	}
+	if !h.limSet {
+		cfg, err := config.Load()
+		if err != nil {
+			slog.Warn("loading config for validation limits", "err", err)
+		}
+		h.lim = validate.LoadLimits(cfg.Limits)
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
@@ -353,7 +382,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 	// store so subsequent calls on this host have a working connection.
 	if err == nil && h.store == nil {
 		if store, serr := llmd.Open(dbPath); serr == nil {
-			*h = *setup(store)
+			*h = *setup(store, h.opts...)
 			telemetry.Emit(telemetry.Entry{
 				Source:  "cli",
 				Event:   "connect",

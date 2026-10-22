@@ -35,6 +35,10 @@ func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 
-	s := server.New(cfg, ctx.Runtime)
+	s := server.New(ctx.Runtime,
+		server.WithAddr(cfg.Server.Addr),
+		server.WithAuthor(cfg.Author),
+		server.WithWebhooks(cfg.Webhook),
+	)
 	return nil, s.ListenAndServe(ctx)
 }

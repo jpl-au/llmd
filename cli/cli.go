@@ -53,84 +53,58 @@ func (c *CLI) Commands() []sdk.Command {
 	}
 }
 
+// handler is the function behind one command.
+type handler func(ctx sdk.Context, args []string) (sdk.Response, error)
+
+// handlers maps each command name to its function. Exec looks the
+// command up here, and a test checks that this table and Commands()
+// name exactly the same commands, so a command without a handler, or a
+// handler without a spec, fails the build rather than a user's call.
+var handlers = map[string]handler{
+	"cat":        cat,
+	"ls":         ls,
+	"write":      write,
+	"rm":         rm,
+	"mv":         mv,
+	"edit":       edit,
+	"sed":        sed,
+	"grep":       grep,
+	"find":       find,
+	"glob":       glob,
+	"history":    historyCmd,
+	"diff":       diffCmd,
+	"restore":    restore,
+	"revert":     revert,
+	"tag":        tag,
+	"link":       linkCmd,
+	"unlink":     unlink,
+	"task":       taskCmd,
+	"audit":      auditCmd,
+	"graph":      graph,
+	"status":     status,
+	"review":     review,
+	"import":     importCmd,
+	"export":     exportCmd,
+	"version":    versionCmd,
+	"config":     configCmd,
+	"init":       initCmd,
+	"vacuum":     vacuumCmd,
+	"mcp":        mcpCmd,
+	"serve":      serve,
+	"extensions": extensionsCmd,
+	"mirror":     mirror,
+	"guide":      guideCmd,
+	"hook":       hookCmd,
+	"queue":      queueCmd,
+	"agent":      agentCmd,
+	"rule":       ruleCmd,
+}
+
 // Exec dispatches a command name to its handler.
 func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
-	switch cmd {
-	case "cat":
-		return cat(ctx, args)
-	case "ls":
-		return ls(ctx, args)
-	case "write":
-		return write(ctx, args)
-	case "rm":
-		return rm(ctx, args)
-	case "mv":
-		return mv(ctx, args)
-	case "edit":
-		return edit(ctx, args)
-	case "sed":
-		return sed(ctx, args)
-	case "grep":
-		return grep(ctx, args)
-	case "find":
-		return find(ctx, args)
-	case "glob":
-		return glob(ctx, args)
-	case "history":
-		return historyCmd(ctx, args)
-	case "diff":
-		return diffCmd(ctx, args)
-	case "restore":
-		return restore(ctx, args)
-	case "revert":
-		return revert(ctx, args)
-	case "tag":
-		return tag(ctx, args)
-	case "link":
-		return linkCmd(ctx, args)
-	case "unlink":
-		return unlink(ctx, args)
-	case "task":
-		return taskCmd(ctx, args)
-	case "audit":
-		return auditCmd(ctx, args)
-	case "graph":
-		return graph(ctx, args)
-	case "status":
-		return status(ctx, args)
-	case "review":
-		return review(ctx, args)
-	case "import":
-		return importCmd(ctx, args)
-	case "export":
-		return exportCmd(ctx, args)
-	case "version":
-		return versionCmd(ctx, args)
-	case "config":
-		return configCmd(ctx, args)
-	case "init":
-		return initCmd(ctx, args)
-	case "vacuum":
-		return vacuumCmd(ctx, args)
-	case "mcp":
-		return mcpCmd(ctx, args)
-	case "serve":
-		return serve(ctx, args)
-	case "extensions":
-		return extensionsCmd(ctx, args)
-	case "mirror":
-		return mirror(ctx, args)
-	case "guide":
-		return guideCmd(ctx, args)
-	case "hook":
-		return hookCmd(ctx, args)
-	case "queue":
-		return queueCmd(ctx, args)
-	case "agent":
-		return agentCmd(ctx, args)
-	case "rule":
-		return ruleCmd(ctx, args)
-	default:
+	h, ok := handlers[cmd]
+	if !ok {
 		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
 	}
+	return h(ctx, args)
 }
