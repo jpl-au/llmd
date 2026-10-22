@@ -84,7 +84,7 @@ func (a *agentAPI) Register(cfg sdk.AgentConfig, author string) error {
 
 // Remove deletes an agent configuration by name.
 func (a *agentAPI) Remove(name, author string) error {
-	return a.store.Agents.Remove(a.ctx, name, author)
+	return agentErr(a.store.Agents.Remove(a.ctx, name, author))
 }
 
 // Agent returns a single agent configuration by name.

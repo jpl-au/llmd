@@ -518,12 +518,24 @@ func (a *documentAPI) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.Expo
 		Overwrite: opts.Overwrite,
 	})
 	if err != nil {
-		return nil, err
+		return nil, docErr(err)
 	}
-	return &sdk.ExportResult{
+
+	// A prefix export reports per-document failures alongside what it
+	// did export. A single-document export has exactly one outcome, so
+	// its failure is the call's error (a missing document is
+	// sdk.ErrNotFound).
+	if len(r.Errors) > 0 && len(r.Exported) == 0 && len(r.Skipped) == 0 {
+		return nil, docErr(fmt.Errorf("exporting %s: %w", r.Errors[0].Path, r.Errors[0].Err))
+	}
+	out := &sdk.ExportResult{
 		Exported: r.Exported,
 		Skipped:  r.Skipped,
-	}, nil
+	}
+	for _, e := range r.Errors {
+		out.Errors = append(out.Errors, e.Path+": "+e.Err.Error())
+	}
+	return out, nil
 }
 
 // quoteForFTS5 wraps a query in double quotes so FTS5 treats it as a

@@ -30,6 +30,9 @@ func (t *Tasks) Dependents(ctx context.Context, key string) ([]*task.Task, error
 	if err := t.ensure(); err != nil {
 		return nil, err
 	}
+	if _, err := t.Read(ctx, key); err != nil {
+		return nil, err
+	}
 	rows, err := t.db.Query(`
 		SELECT id, key, title, status, priority, position, assigned_to, branch, flags, depends_on, path, author, source, created_at, deleted_at
 		FROM tasks

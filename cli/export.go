@@ -54,6 +54,9 @@ func exportCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(result.Skipped) > 0 {
 		lines = append(lines, fmt.Sprintf("skipped %d existing", len(result.Skipped)))
 	}
+	for _, e := range result.Errors {
+		lines = append(lines, "failed "+e)
+	}
 
 	return sdk.Result{Text: strings.Join(lines, "\n"), Data: result}, nil
 }

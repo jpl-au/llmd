@@ -1,6 +1,8 @@
 package host
 
 import (
+	"fmt"
+
 	"github.com/jpl-au/llmd/internal/llmd/rules"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -55,7 +57,7 @@ func (r *ruleAPI) Unset(column string) error {
 	}
 	cr, ok := rs[column]
 	if !ok {
-		return nil
+		return fmt.Errorf("%w: no rule for column %s", sdk.ErrNotFound, column)
 	}
 	cr.Agent = ""
 	cr.Role = ""

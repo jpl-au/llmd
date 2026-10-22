@@ -49,6 +49,12 @@ func taskErr(err error) error {
 		return fmt.Errorf("%w: %w", sdk.ErrMissingArg, err)
 	case errors.Is(err, tasks.ErrInvalidCol):
 		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+	case errors.Is(err, tasks.ErrColNotFound):
+		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+	case errors.Is(err, tasks.ErrColExists):
+		return fmt.Errorf("%w: %w", sdk.ErrExists, err)
+	case errors.Is(err, tasks.ErrColNotEmpty):
+		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
 	case errors.Is(err, tasks.ErrCycle):
 		return fmt.Errorf("%w: %w", sdk.ErrCycle, err)
 	default:
@@ -187,7 +193,7 @@ func (a *taskAPI) AddColumn(name, after, author string) error {
 		return err
 	}
 	if err := a.store.Tasks.AddColumn(a.ctx, name, after, author); err != nil {
-		return err
+		return taskErr(err)
 	}
 	return a.syncRules()
 }
@@ -196,7 +202,7 @@ func (a *taskAPI) AddColumn(name, after, author string) error {
 // still contains tasks - they must be moved or deleted first.
 func (a *taskAPI) RemoveColumn(name, author string) error {
 	if err := a.store.Tasks.RemoveColumn(a.ctx, name, author); err != nil {
-		return err
+		return taskErr(err)
 	}
 	return a.syncRules()
 }
@@ -204,7 +210,7 @@ func (a *taskAPI) RemoveColumn(name, author string) error {
 // MoveColumn reorders a column to appear after the named column.
 func (a *taskAPI) MoveColumn(name, after, author string) error {
 	if err := a.store.Tasks.MoveColumn(a.ctx, name, after, author); err != nil {
-		return err
+		return taskErr(err)
 	}
 	return a.syncRules()
 }
@@ -470,7 +476,8 @@ func (a *taskAPI) Chain(key string) ([]*sdk.Task, error) {
 
 // Ready returns true if the full dependency chain is satisfied.
 func (a *taskAPI) Ready(key string) (bool, error) {
-	return a.store.Tasks.Ready(a.ctx, key)
+	ok, err := a.store.Tasks.Ready(a.ctx, key)
+	return ok, taskErr(err)
 }
 
 // Log returns audit events for a task, newest first. Converts internal

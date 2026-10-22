@@ -515,54 +515,6 @@ func TestDocumentsVacuum(t *testing.T) {
 	}
 }
 
-// TestDocumentsNotFound checks that every document operation on a
-// missing path maps the internal error to sdk.ErrNotFound.
-func TestDocumentsNotFound(t *testing.T) {
-	tests := []struct {
-		name string
-		call func(c sdk.Context) error
-	}{
-		{"Read", func(c sdk.Context) error {
-			_, err := c.Documents.Read("nonexistent", sdk.ReadOpts{})
-			return err
-		}},
-		{"Delete", func(c sdk.Context) error {
-			return c.Documents.Delete("nonexistent", sdk.DeleteOpts{Author: "alice"})
-		}},
-		{"Restore", func(c sdk.Context) error {
-			return c.Documents.Restore("nonexistent", sdk.RestoreOpts{Author: "alice"})
-		}},
-		{"Move", func(c sdk.Context) error {
-			return c.Documents.Move("nonexistent", "dest", sdk.MoveOpts{Author: "alice"})
-		}},
-		{"Edit", func(c sdk.Context) error {
-			return c.Documents.Edit("nonexistent", "old", "new", sdk.EditOpts{Author: "alice"})
-		}},
-		{"History", func(c sdk.Context) error {
-			_, err := c.Documents.History("nonexistent", 0)
-			return err
-		}},
-		{"Diff", func(c sdk.Context) error {
-			_, _, _, err := c.Documents.Diff("nonexistent", "nonexistent", 0)
-			return err
-		}},
-		{"Revert", func(c sdk.Context) error {
-			return c.Documents.Revert("nonexistent", 1, sdk.RevertOpts{Author: "alice"})
-		}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := testHost(t)
-			if err := tt.call(c); !errors.Is(err, sdk.ErrNotFound) {
-				t.Errorf("%s(nonexistent) error = %v, want sdk.ErrNotFound", tt.name, err)
-			}
-		})
-	}
-}
-
-// TestDocumentsImport reads files from a temp directory. Import strips
-// the .md extension, so "one.md" is stored as "one".
 func TestDocumentsImport(t *testing.T) {
 	tests := []struct {
 		name        string

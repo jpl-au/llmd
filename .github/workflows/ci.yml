@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -26,8 +26,19 @@ jobs:
       - name: Build
         run: go build ./...
 
+      - name: Vet
+        run: go vet ./...
+
+      # Race detector on, test order shuffled: the suite must not depend
+      # on ordering or on goroutines that happen to finish in time.
       - name: Test
-        run: go test ./...
+        run: go test -race -shuffle=on ./...
+
+      # End-to-end smoke tests build the binary and drive it through the
+      # CLI, HTTP API, queue, webhooks and agents. Bash only.
+      - name: Smoke
+        if: runner.os != 'Windows'
+        run: bash test/run.sh
 
       - name: Lint
         if: runner.os == 'Linux'

@@ -275,4 +275,5 @@ type ExportOpts struct {
 type ExportResult struct {
 	Exported []string
 	Skipped  []string
+	Errors   []string // "path: reason" for documents that could not be exported
 }

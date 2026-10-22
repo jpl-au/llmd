@@ -194,6 +194,9 @@ error types from leaking through the SDK boundary:
 | `tasks.ErrNoSpec` | `sdk.ErrNoSpec` |
 | `tasks.ErrMissingTitle` | `sdk.ErrMissingArg` |
 | `tasks.ErrInvalidCol` | `sdk.ErrInvalidArg` |
+| `tasks.ErrColNotFound` | `sdk.ErrNotFound` |
+| `tasks.ErrColExists` | `sdk.ErrExists` |
+| `tasks.ErrColNotEmpty` | `sdk.ErrInvalidArg` |
 | `links.ErrNotFound` | `sdk.ErrNotFound` |
 | `links.ErrSelfLink` | `sdk.ErrInvalidArg` |
 | `links.ErrExists` | `sdk.ErrExists` |
