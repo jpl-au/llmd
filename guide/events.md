@@ -111,7 +111,9 @@ rejected the request itself. An event is dropped, with a warning in
 the log, when the retries are used up or when the queue is full
 because an endpoint is too slow.
 
-Two optional settings tune each endpoint:
+The number of workers and the queue depth are set once for the server
+with `server.webhook_workers` and `server.webhook_queue`. Two optional
+settings tune each endpoint:
 
 ```yaml
 webhook:

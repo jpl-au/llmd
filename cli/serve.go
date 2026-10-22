@@ -40,6 +40,7 @@ func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
 		server.WithAuthor(cfg.Author),
 		server.WithToken(cfg.Server.Token),
 		server.WithWebhooks(cfg.Webhook),
+		server.WithWebhookQueue(cfg.Server.WebhookWorkers, cfg.Server.WebhookQueue),
 	)
 	return nil, s.ListenAndServe(ctx)
 }

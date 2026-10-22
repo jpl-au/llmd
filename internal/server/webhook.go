@@ -24,7 +24,7 @@ import (
 )
 
 // Delivery defaults. Retries and timeout can be set per endpoint in
-// the configuration; workers and queue depth are fixed.
+// the configuration; workers and queue depth under server.
 const (
 	webhookWorkers = 4
 	webhookQueue   = 256
@@ -63,17 +63,24 @@ type webhookHub struct {
 	send func(ep webhookEndpoint, data []byte) (int, error)
 }
 
-// newWebhookHub creates a hub from the webhook configuration map and
-// starts its workers. Returns nil if no endpoints are configured.
+// newWebhookHub creates a hub from the webhook configuration map with
+// the default worker count and queue depth, and starts its workers.
+// Returns nil if no endpoints are configured.
 func newWebhookHub(webhook map[string]config.WebhookConfig) *webhookHub {
-	return newWebhookHubSized(webhook, webhookWorkers, webhookQueue)
+	return newWebhookHubSized(webhook, 0, 0)
 }
 
 // newWebhookHubSized is newWebhookHub with the worker count and queue
-// depth chosen by the caller.
+// depth chosen by the caller. Zero or less means the default.
 func newWebhookHubSized(webhook map[string]config.WebhookConfig, workers, depth int) *webhookHub {
 	if len(webhook) == 0 {
 		return nil
+	}
+	if workers <= 0 {
+		workers = webhookWorkers
+	}
+	if depth <= 0 {
+		depth = webhookQueue
 	}
 
 	h := &webhookHub{

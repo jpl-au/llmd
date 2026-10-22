@@ -46,6 +46,8 @@ type Server struct {
 	author   string
 	token    string
 	webhooks map[string]config.WebhookConfig
+	workers  int // webhook workers; zero means the default
+	depth    int // webhook queue depth; zero means the default
 	sse      *sseHub
 	webhook  *webhookHub
 }
@@ -73,6 +75,13 @@ func WithAuthor(author string) Option {
 // POST. The default is none.
 func WithWebhooks(hooks map[string]config.WebhookConfig) Option {
 	return func(s *Server) { s.webhooks = hooks }
+}
+
+// WithWebhookQueue sets how many workers deliver webhooks and how many
+// events may wait for them. Zero or less keeps the defaults of four
+// workers and a queue of 256.
+func WithWebhookQueue(workers, depth int) Option {
+	return func(s *Server) { s.workers, s.depth = workers, depth }
 }
 
 // WithToken requires every request to carry "Authorization: Bearer
@@ -103,7 +112,7 @@ func New(rt sdk.Runtime, opts ...Option) *Server {
 	rt.Subscribe(s.sse.Broadcast)
 	s.mux.Handle("GET /events", s.sse)
 
-	if s.webhook = newWebhookHub(s.webhooks); s.webhook != nil {
+	if s.webhook = newWebhookHubSized(s.webhooks, s.workers, s.depth); s.webhook != nil {
 		rt.Subscribe(s.webhook.Broadcast)
 		slog.Info("webhook enabled", "endpoints", len(s.webhook.endpoints))
 	}

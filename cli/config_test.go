@@ -96,6 +96,19 @@ func TestConfig(t *testing.T) {
 			wantExact: metaPtr("s3cret"),
 		},
 		{
+			name: "set webhook workers then show key",
+			seed: func(t *testing.T, c sdk.Context) {
+				run(t, c, "config", nil, "server.webhook_workers", "8")
+			},
+			args:      []string{"server.webhook_workers"},
+			wantExact: metaPtr("8"),
+		},
+		{
+			name:       "webhook queue must be positive",
+			args:       []string{"server.webhook_queue", "0"},
+			wantAnyErr: true,
+		},
+		{
 			name:     "set global writes under HOME",
 			args:     []string{"--global", "author", "Bob"},
 			wantFile: "$HOME/.llmd/config.yaml",

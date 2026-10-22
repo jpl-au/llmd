@@ -35,8 +35,10 @@ type WebhookConfig struct {
 
 // ServerConfig holds HTTP server settings.
 type ServerConfig struct {
-	Addr  string `yaml:"addr,omitempty"`
-	Token string `yaml:"token,omitempty"` // when set, every request must carry Authorization: Bearer <token>
+	Addr           string `yaml:"addr,omitempty"`
+	Token          string `yaml:"token,omitempty"`           // when set, every request must carry Authorization: Bearer <token>
+	WebhookWorkers int    `yaml:"webhook_workers,omitempty"` // goroutines delivering webhooks (default 4)
+	WebhookQueue   int    `yaml:"webhook_queue,omitempty"`   // events that may wait for a worker (default 256)
 }
 
 // LogConfig holds logging settings.
@@ -147,6 +149,8 @@ func Keys() []string {
 		"author",
 		"server.addr",
 		"server.token",
+		"server.webhook_workers",
+		"server.webhook_queue",
 		"log.level",
 		"log.format",
 		"limits.path_length",
@@ -165,6 +169,10 @@ func (c Config) Field(key string) (string, bool) {
 		return c.Server.Addr, c.Server.Addr != ""
 	case "server.token":
 		return c.Server.Token, c.Server.Token != ""
+	case "server.webhook_workers":
+		return strconv.Itoa(c.Server.WebhookWorkers), c.Server.WebhookWorkers != 0
+	case "server.webhook_queue":
+		return strconv.Itoa(c.Server.WebhookQueue), c.Server.WebhookQueue != 0
 	case "log.level":
 		return c.Log.Level, c.Log.Level != ""
 	case "log.format":
@@ -194,6 +202,18 @@ func (c *Config) Set(key, value string) error {
 		c.Server.Addr = value
 	case "server.token":
 		c.Server.Token = value
+	case "server.webhook_workers":
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 1 {
+			return fmt.Errorf("server.webhook_workers must be a positive integer")
+		}
+		c.Server.WebhookWorkers = n
+	case "server.webhook_queue":
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 1 {
+			return fmt.Errorf("server.webhook_queue must be a positive integer")
+		}
+		c.Server.WebhookQueue = n
 	case "log.level":
 		switch value {
 		case "debug", "info", "warn", "error":
