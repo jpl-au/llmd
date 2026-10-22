@@ -161,6 +161,31 @@ func TestVacuum(t *testing.T) {
 	}
 }
 
+// TestVacuumResult_Total checks Total sums the three purge counts and
+// ignores the path list and dry-run flag.
+func TestVacuumResult_Total(t *testing.T) {
+	tests := []struct {
+		name   string
+		result llmd.VacuumResult
+		want   int64
+	}{
+		{"zero", llmd.VacuumResult{}, 0},
+		{"documents only", llmd.VacuumResult{Documents: 3, Paths: []string{"a", "b", "c"}}, 3},
+		{"tags only", llmd.VacuumResult{Tags: 2}, 2},
+		{"links only", llmd.VacuumResult{Links: 1}, 1},
+		{"all three", llmd.VacuumResult{Documents: 1, Tags: 2, Links: 3}, 6},
+		{"dry run counts the same", llmd.VacuumResult{Documents: 1, Tags: 2, Links: 3, DryRun: true}, 6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.result.Total(); got != tt.want {
+				t.Errorf("VacuumResult%+v.Total() = %d, want %d", tt.result, got, tt.want)
+			}
+		})
+	}
+}
+
 func withDryRun(r llmd.VacuumResult) llmd.VacuumResult {
 	r.DryRun = true
 	return r

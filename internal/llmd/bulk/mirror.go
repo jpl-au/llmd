@@ -122,17 +122,26 @@ func cleanStale(root *os.Root, keep map[string]bool, scope string) (int, error) 
 		return removed, err
 	}
 
-	// Second pass: remove empty directories. Remove fails on a directory
+	// Second pass: remove empty directories, deepest first so that a
+	// parent is emptied before it is tried. Remove fails on a directory
 	// that still has contents, which is exactly the signal to keep it,
-	// and a directory removed mid-walk surfaces as a walk error for its
-	// (already gone) children, so both outcomes are deliberately ignored.
-	_ = fs.WalkDir(root.FS(), start, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || !d.IsDir() || p == "." {
-			return nil
+	// so that error is deliberately ignored.
+	var dirs []string
+	err = fs.WalkDir(root.FS(), start, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-		_ = root.Remove(p)
+		if d.IsDir() && p != "." {
+			dirs = append(dirs, p)
+		}
 		return nil
 	})
+	if err != nil {
+		return removed, err
+	}
+	for i := len(dirs) - 1; i >= 0; i-- {
+		_ = root.Remove(dirs[i])
+	}
 
 	return removed, nil
 }

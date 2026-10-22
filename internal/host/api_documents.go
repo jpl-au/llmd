@@ -76,7 +76,7 @@ func (a *documentAPI) resolveDoc(identifier string, flagVersion int) (string, *i
 	p, v, _ := resolve.Identifier(a.ctx, identifier, a.store.Documents.KeyToPath)
 	p, err := docpath.Normalise(p)
 	if err != nil {
-		return "", nil, err
+		return "", nil, docErr(err)
 	}
 	if flagVersion > 0 {
 		return p, &flagVersion, nil
@@ -224,7 +224,7 @@ func (a *documentAPI) Move(from, to string, opts sdk.MoveOpts) error {
 	from = f
 	to, err = docpath.Normalise(to)
 	if err != nil {
-		errs = append(errs, err)
+		errs = append(errs, docErr(err))
 	} else if err := validate.Path(to, a.lim); err != nil {
 		errs = append(errs, err)
 	}
@@ -244,7 +244,7 @@ func (a *documentAPI) List(prefix string, opts sdk.ListOpts) ([]sdk.Doc, error) 
 		return nil, err
 	}
 	if strings.Contains(prefix, "..") {
-		return nil, docpath.ErrInvalid
+		return nil, docErr(docpath.ErrInvalid)
 	}
 	var sinceMS int64
 	if !opts.Since.IsZero() {
@@ -324,7 +324,8 @@ func (a *documentAPI) Edit(path, old, new string, opts sdk.EditOpts) error {
 // Glob returns document paths matching a shell-style glob pattern.
 // Delegates to the search package's glob implementation.
 func (a *documentAPI) Glob(pattern string) ([]string, error) {
-	return a.store.Search.Glob(a.ctx, pattern)
+	paths, err := a.store.Search.Glob(a.ctx, pattern)
+	return paths, docErr(err)
 }
 
 // Grep performs FTS5 full-text search. Maps sdk.GrepOpts to internal
@@ -340,7 +341,7 @@ func (a *documentAPI) Grep(query string, opts sdk.GrepOpts) ([]sdk.GrepHit, erro
 	if err := validate.Null(opts.Path, "path"); err != nil {
 		errs = append(errs, err)
 	} else if strings.Contains(opts.Path, "..") {
-		errs = append(errs, docpath.ErrInvalid)
+		errs = append(errs, docErr(docpath.ErrInvalid))
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err

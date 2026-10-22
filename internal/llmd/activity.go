@@ -22,8 +22,12 @@ type ActivityEvent struct {
 
 // RecentActivity returns the most recent events across documents,
 // entities, and tasks. Each source is queried in parallel, then
-// results are merged and sorted by timestamp.
+// results are merged and sorted by timestamp. A limit of zero or less
+// means no limit.
 func (s *Store) RecentActivity(ctx context.Context, limit int) ([]ActivityEvent, error) {
+	if limit <= 0 {
+		limit = -1 // SQLite: no limit; the audit log treats it the same way
+	}
 	var (
 		wg    sync.WaitGroup
 		mu    sync.Mutex
@@ -61,7 +65,7 @@ func (s *Store) docActivity(ctx context.Context, limit int) []ActivityEvent {
 		SELECT path, author, COALESCE(message, ''), created_at, deleted_at
 		FROM content
 		WHERE namespace = 'core:document'
-		ORDER BY created_at DESC, id DESC
+		ORDER BY COALESCE(deleted_at, created_at) DESC, id DESC
 		LIMIT ?
 	`, limit).WithContext(ctx).Read()
 	if err != nil {

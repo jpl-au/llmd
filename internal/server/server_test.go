@@ -7,25 +7,31 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/pkg/events"
-
 	"github.com/jpl-au/llmd/sdk"
 )
 
 // stub is a fake sdk.Runtime: a fixed command table and a dispatch
-// function the test controls. Subscribe is a no-op and Init is
+// function the test controls. Subscribe records each callback so a
+// test can emit events the way the store's bus would; Init is
 // unsupported, matching a host without a store.
 type stub struct {
 	cmds     map[string]*sdk.Command
 	dispatch func(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error)
+
+	mu   sync.Mutex
+	subs []func(events.Event)
 }
 
 func stubRuntime() *stub {
@@ -41,8 +47,31 @@ func (s *stub) Dispatch(ctx context.Context, cmd string, args []string, author s
 	return s.dispatch(ctx, cmd, args, author, stdin, dbPath)
 }
 func (s *stub) Commands() map[string]*sdk.Command { return s.cmds }
-func (s *stub) Subscribe(func(events.Event))      {}
 func (s *stub) Init(string) (string, error)       { return "", errors.New("init not supported") }
+
+func (s *stub) Subscribe(fn func(events.Event)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.subs = append(s.subs, fn)
+}
+
+// subscribers returns how many callbacks have been subscribed.
+func (s *stub) subscribers() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.subs)
+}
+
+// emit delivers e to every subscriber in order, as the event bus
+// does: synchronously, on the caller's goroutine.
+func (s *stub) emit(e events.Event) {
+	s.mu.Lock()
+	subs := slices.Clone(s.subs)
+	s.mu.Unlock()
+	for _, fn := range subs {
+		fn(e)
+	}
+}
 
 // newTestServer builds a Server over the stub runtime and serves its
 // mux over httptest. The server is closed on cleanup.
@@ -89,6 +118,128 @@ func TestListenAndServeShutdown(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("server did not shut down within 3 seconds")
+	}
+}
+
+// TestListenAndServeAddrInUse checks that a listen failure is returned
+// rather than waiting on the context.
+func TestListenAndServeAddrInUse(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := ln.Close(); err != nil {
+			t.Errorf("closing listener: %v", err)
+		}
+	})
+
+	s := New(stubRuntime(), WithAddr(ln.Addr().String()))
+	errCh := make(chan error, 1)
+	go func() { errCh <- s.ListenAndServe(t.Context()) }()
+
+	select {
+	case err := <-errCh:
+		if err == nil {
+			t.Errorf("ListenAndServe(%s) = nil, want address in use error", ln.Addr())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("ListenAndServe did not return when the address was taken")
+	}
+}
+
+// TestWithWebhooks covers what New does with the webhook option: with
+// endpoints configured it subscribes a second callback (the webhook
+// hub, after the SSE hub) and logs the endpoint count; with none
+// configured, or the option omitted, it subscribes only the SSE hub
+// and logs nothing.
+func TestWithWebhooks(t *testing.T) {
+	tests := []struct {
+		name     string
+		opts     []Option
+		wantSubs int
+		wantLog  string // "" means no webhook log line
+	}{
+		{name: "option omitted", wantSubs: 1},
+		{name: "nil map", opts: []Option{WithWebhooks(nil)}, wantSubs: 1},
+		{name: "empty map", opts: []Option{WithWebhooks(map[string]config.WebhookConfig{})}, wantSubs: 1},
+		{
+			name:     "one endpoint",
+			opts:     []Option{WithWebhooks(map[string]config.WebhookConfig{"a": {URL: "http://127.0.0.1:1"}})},
+			wantSubs: 2,
+			wantLog:  "endpoints=1",
+		},
+		{
+			name: "two endpoints",
+			opts: []Option{WithWebhooks(map[string]config.WebhookConfig{
+				"a": {URL: "http://127.0.0.1:1"},
+				"b": {URL: "http://127.0.0.1:1", Key: "k"},
+			})},
+			wantSubs: 2,
+			wantLog:  "endpoints=2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := captureLog(t)
+			rt := stubRuntime()
+			New(rt, tt.opts...)
+
+			if got := rt.subscribers(); got != tt.wantSubs {
+				t.Errorf("New(%s) subscribed %d callbacks, want %d", tt.name, got, tt.wantSubs)
+			}
+			log := buf.String()
+			if tt.wantLog == "" {
+				if strings.Contains(log, "webhook enabled") {
+					t.Errorf("New(%s) logged webhook enabled, want no webhook log:\n%s", tt.name, log)
+				}
+				return
+			}
+			for _, want := range []string{"webhook enabled", tt.wantLog} {
+				if !strings.Contains(log, want) {
+					t.Errorf("New(%s) log missing %q:\n%s", tt.name, want, log)
+				}
+			}
+		})
+	}
+}
+
+// TestWebhookSubscribed is an end-to-end scenario for the webhook
+// wiring: an event emitted through the runtime callback New subscribed
+// is POSTed to the configured endpoint with its bearer key.
+func TestWebhookSubscribed(t *testing.T) {
+	type delivery struct {
+		auth  string
+		event events.Event
+	}
+	got := make(chan delivery, 1)
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var e events.Event
+		if err := json.NewDecoder(r.Body).Decode(&e); err != nil {
+			t.Errorf("decoding webhook body: %v", err)
+		}
+		got <- delivery{auth: r.Header.Get("Authorization"), event: e}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(endpoint.Close)
+
+	rt := stubRuntime()
+	New(rt, WithWebhooks(map[string]config.WebhookConfig{"test": {URL: endpoint.URL, Key: "secret"}}))
+
+	want := events.Event{Type: events.TaskMoved, Key: "k1", Author: "claude", Timestamp: 1700000000000}
+	rt.emit(want)
+
+	select {
+	case d := <-got:
+		if !reflect.DeepEqual(d.event, want) {
+			t.Errorf("webhook received %+v, want %+v", d.event, want)
+		}
+		if d.auth != "Bearer secret" {
+			t.Errorf("webhook Authorization = %q, want %q", d.auth, "Bearer secret")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("webhook endpoint received nothing within 5s")
 	}
 }
 

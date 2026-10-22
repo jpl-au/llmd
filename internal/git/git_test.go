@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -274,11 +275,13 @@ func TestRevCount(t *testing.T) {
 	tests := []struct {
 		name       string
 		setup      func(t *testing.T, dir string)
+		branch     string
 		wantAhead  int
 		wantBehind int
+		wantErr    string
 	}{
-		{name: "same branch"},
-		{name: "ahead only", setup: featureWithCommits, wantAhead: 2},
+		{name: "same branch", branch: "main"},
+		{name: "ahead only", setup: featureWithCommits, branch: "feature", wantAhead: 2},
 		{
 			// Add a commit to main so feature is also behind.
 			name: "ahead and behind",
@@ -287,26 +290,32 @@ func TestRevCount(t *testing.T) {
 				gitRun(t, dir, "checkout", "main")
 				gitRun(t, dir, "commit", "--allow-empty", "-m", "main diverge")
 			},
+			branch:     "feature",
 			wantAhead:  2,
 			wantBehind: 1,
 		},
+		{name: "unknown branch", branch: "nope", wantErr: `branch "nope" not found in git`},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := testRepo(t)
-			branch := "main"
 			if tt.setup != nil {
 				tt.setup(t, dir)
-				branch = "feature"
 			}
-			ahead, behind, err := New().RevCount("main", branch)
+			ahead, behind, err := New().RevCount("main", tt.branch)
+			if tt.wantErr != "" {
+				if err == nil || err.Error() != tt.wantErr {
+					t.Fatalf("RevCount(main, %q) error = %v, want %q", tt.branch, err, tt.wantErr)
+				}
+				return
+			}
 			if err != nil {
-				t.Fatalf("RevCount(main, %q) error = %v", branch, err)
+				t.Fatalf("RevCount(main, %q) error = %v", tt.branch, err)
 			}
 			if ahead != tt.wantAhead || behind != tt.wantBehind {
 				t.Errorf("RevCount(main, %q) = ahead %d, behind %d, want ahead %d, behind %d",
-					branch, ahead, behind, tt.wantAhead, tt.wantBehind)
+					tt.branch, ahead, behind, tt.wantAhead, tt.wantBehind)
 			}
 		})
 	}
@@ -377,6 +386,289 @@ func TestDiff(t *testing.T) {
 			}
 			if !strings.Contains(got, tt.wantContains) {
 				t.Errorf("Diff(main, %q, %+v) = %q, want to contain %q", tt.branch, tt.opts, got, tt.wantContains)
+			}
+		})
+	}
+}
+
+// gitOut runs a git command in dir and returns its trimmed output,
+// failing the test on error.
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %s", args, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// worktreeCount returns how many working trees git records for the
+// repository at dir, including the main one.
+func worktreeCount(t *testing.T, dir string) int {
+	t.Helper()
+	var n int
+	for line := range strings.Lines(gitOut(t, dir, "worktree", "list", "--porcelain")) {
+		if strings.HasPrefix(line, "worktree ") {
+			n++
+		}
+	}
+	return n
+}
+
+// occupy creates path as a non-empty directory. git refuses to place a
+// worktree in it (an empty directory would be accepted).
+func occupy(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0755); err != nil {
+		t.Fatalf("MkdirAll(%q): %v", path, err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "keep.txt"), []byte("keep"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+}
+
+// checkWorktreeError asserts err carries the command prefix and git's
+// reason: a failed worktree command reports git's own message after
+// the prefix.
+func checkWorktreeError(t *testing.T, call string, err error, prefix, reason string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s error = nil, want prefix %q containing %q", call, prefix, reason)
+	}
+	if !strings.HasPrefix(err.Error(), prefix) || !strings.Contains(err.Error(), reason) {
+		t.Fatalf("%s error = %q, want prefix %q containing %q", call, err, prefix, reason)
+	}
+}
+
+func TestWorktreeCreate(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, dir, path string)
+		branch     string
+		wantReason string // substring of git's message after "git worktree create: "
+	}{
+		{name: "new branch", branch: "task/my-feature"},
+		{
+			name:       "existing path",
+			setup:      func(t *testing.T, _, path string) { occupy(t, path) },
+			branch:     "task/my-feature",
+			wantReason: "already exists",
+		},
+		{
+			name:       "duplicate branch",
+			setup:      func(t *testing.T, dir, _ string) { gitRun(t, dir, "branch", "task/my-feature") },
+			branch:     "task/my-feature",
+			wantReason: "already exists",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := testRepo(t)
+			path := filepath.Join(t.TempDir(), "wt")
+			if tt.setup != nil {
+				tt.setup(t, dir, path)
+			}
+			g := New()
+			err := g.WorktreeCreate(path, tt.branch)
+			if tt.wantReason != "" {
+				checkWorktreeError(t, "WorktreeCreate", err, "git worktree create: ", tt.wantReason)
+				return
+			}
+			if err != nil {
+				t.Fatalf("WorktreeCreate(%q, %q) error = %v", path, tt.branch, err)
+			}
+			// The new branch is checked out in the worktree and the main
+			// working directory is left on main.
+			if got := gitOut(t, path, "branch", "--show-current"); got != tt.branch {
+				t.Errorf("branch in worktree = %q, want %q", got, tt.branch)
+			}
+			if got, err := g.Branch(); err != nil || got != "main" {
+				t.Errorf("Branch() in main repo = %q, %v, want %q", got, err, "main")
+			}
+			if got := worktreeCount(t, dir); got != 2 {
+				t.Errorf("worktree count after WorktreeCreate = %d, want 2", got)
+			}
+		})
+	}
+}
+
+func TestWorktreeAdd(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, dir, path string)
+		branch     string
+		wantReason string // substring of git's message after "git worktree add: "
+	}{
+		{
+			name:   "existing branch",
+			setup:  func(t *testing.T, dir, _ string) { gitRun(t, dir, "branch", "feature") },
+			branch: "feature",
+		},
+		{
+			name: "existing path",
+			setup: func(t *testing.T, dir, path string) {
+				gitRun(t, dir, "branch", "feature")
+				occupy(t, path)
+			},
+			branch:     "feature",
+			wantReason: "already exists",
+		},
+		{name: "unknown branch", branch: "nope", wantReason: "invalid reference"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := testRepo(t)
+			path := filepath.Join(t.TempDir(), "wt")
+			if tt.setup != nil {
+				tt.setup(t, dir, path)
+			}
+			g := New()
+			err := g.WorktreeAdd(path, tt.branch)
+			if tt.wantReason != "" {
+				checkWorktreeError(t, "WorktreeAdd", err, "git worktree add: ", tt.wantReason)
+				return
+			}
+			if err != nil {
+				t.Fatalf("WorktreeAdd(%q, %q) error = %v", path, tt.branch, err)
+			}
+			if got := gitOut(t, path, "branch", "--show-current"); got != tt.branch {
+				t.Errorf("branch in worktree = %q, want %q", got, tt.branch)
+			}
+			if got, err := g.Branch(); err != nil || got != "main" {
+				t.Errorf("Branch() in main repo = %q, %v, want %q", got, err, "main")
+			}
+			if got := worktreeCount(t, dir); got != 2 {
+				t.Errorf("worktree count after WorktreeAdd = %d, want 2", got)
+			}
+		})
+	}
+}
+
+func TestWorktreeRemove(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, dir, path string)
+		wantReason string // substring of git's message after "git worktree remove: "
+		wantExists bool   // path still present afterwards
+	}{
+		{
+			name: "removes worktree",
+			setup: func(t *testing.T, _, path string) {
+				if err := New().WorktreeCreate(path, "feature"); err != nil {
+					t.Fatalf("WorktreeCreate(%q, feature) error = %v", path, err)
+				}
+			},
+		},
+		{
+			// A plain directory is refused and left in place.
+			name:       "not a worktree",
+			setup:      func(t *testing.T, _, path string) { occupy(t, path) },
+			wantReason: "is not a working tree",
+			wantExists: true,
+		},
+		{name: "missing path", wantReason: "is not a working tree"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := testRepo(t)
+			path := filepath.Join(t.TempDir(), "wt")
+			if tt.setup != nil {
+				tt.setup(t, dir, path)
+			}
+			err := New().WorktreeRemove(path)
+			if tt.wantReason != "" {
+				checkWorktreeError(t, "WorktreeRemove", err, "git worktree remove: ", tt.wantReason)
+			} else if err != nil {
+				t.Fatalf("WorktreeRemove(%q) error = %v", path, err)
+			}
+			if _, err := os.Stat(path); (err == nil) != tt.wantExists {
+				t.Errorf("Stat(%q) error = %v, want exists %v", path, err, tt.wantExists)
+			}
+			if got := worktreeCount(t, dir); got != 1 {
+				t.Errorf("worktree count after WorktreeRemove = %d, want 1", got)
+			}
+			if tt.wantReason == "" {
+				// Removing the worktree keeps the branch it had checked out.
+				if got := gitOut(t, dir, "branch", "--list", "feature"); got == "" {
+					t.Errorf("branch feature missing after WorktreeRemove, want kept")
+				}
+			}
+		})
+	}
+}
+
+// TestBranchError drives branchError with real git failures so the
+// *exec.ExitError carries the stderr git actually produces: an unknown
+// revision maps to the branch-not-found message, any other stderr is
+// reported verbatim, and an exit with no stderr or a non-exit error
+// falls through to the wrapped form.
+func TestBranchError(t *testing.T) {
+	sentinel := errors.New("git vanished")
+
+	tests := []struct {
+		name     string
+		err      func(t *testing.T, dir string) error
+		branch   string
+		want     string
+		wantWrap error // expected to be found with errors.Is, if set
+	}{
+		{
+			name: "unknown revision",
+			err: func(t *testing.T, dir string) error {
+				_, err := exec.Command("git", "rev-list", "--count", "main...nope").Output()
+				return err
+			},
+			branch: "nope",
+			want:   `branch "nope" not found in git`,
+		},
+		{
+			name: "other stderr",
+			err: func(t *testing.T, dir string) error {
+				_, err := exec.Command("git", "cat-file", "-t", "nope").Output()
+				return err
+			},
+			branch: "nope",
+			want:   "git: fatal: Not a valid object name nope",
+		},
+		{
+			// merge-base --is-ancestor exits 1 silently when the answer
+			// is no, so the ExitError has no stderr to report.
+			name: "exit without stderr",
+			err: func(t *testing.T, dir string) error {
+				featureWithCommits(t, dir)
+				_, err := exec.Command("git", "merge-base", "--is-ancestor", "feature", "main").Output()
+				return err
+			},
+			branch: "feature",
+			want:   "running git: exit status 1",
+		},
+		{
+			name:     "not an exit error",
+			err:      func(t *testing.T, dir string) error { return sentinel },
+			branch:   "feature",
+			want:     "running git: git vanished",
+			wantWrap: sentinel,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := testRepo(t)
+			in := tt.err(t, dir)
+			if in == nil {
+				t.Fatal("setup produced no error, want a git failure")
+			}
+			got := branchError(in, tt.branch)
+			if got == nil || got.Error() != tt.want {
+				t.Errorf("branchError(%v, %q) = %v, want %q", in, tt.branch, got, tt.want)
+			}
+			if tt.wantWrap != nil && !errors.Is(got, tt.wantWrap) {
+				t.Errorf("errors.Is(branchError(%v, %q), %v) = false, want true", in, tt.branch, tt.wantWrap)
 			}
 		})
 	}

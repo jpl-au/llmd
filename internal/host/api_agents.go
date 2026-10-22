@@ -476,7 +476,7 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 		return agentErr(err)
 	}
 	if r.Status != "running" {
-		return fmt.Errorf("agent run %s is not running", r.Key)
+		return agentErr(fmt.Errorf("%w: %s (status: %s)", agents.ErrNotRunning, r.Key, r.Status))
 	}
 
 	// Gracefully terminate the process. On Unix this sends SIGTERM; on
