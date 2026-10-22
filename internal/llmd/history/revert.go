@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/hash"
 	"github.com/jpl-au/llmd/internal/llmd/key"
@@ -78,7 +79,7 @@ func (h *History) revertInTx(ctx context.Context, tx *sql.Tx, path, content stri
 		message = fmt.Sprintf("Reverted to version %d", version)
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	k := key.Generate()
 
 	_, err = tx.ExecContext(ctx, `

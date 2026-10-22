@@ -6,7 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/pkg/events"
@@ -45,7 +46,7 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 	}
 
 	id := key.Generate()
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 
 	_, err = a.db.Query(`
 		INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)

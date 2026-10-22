@@ -3,7 +3,8 @@ package tags
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -20,7 +21,7 @@ func (t *Tags) Remove(ctx context.Context, value, name string, opts Options) err
 
 	relation := t.resolvePath(ctx, value)
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 
 	qr, err := t.db.Query(`
 		UPDATE entities SET deleted_at = ?

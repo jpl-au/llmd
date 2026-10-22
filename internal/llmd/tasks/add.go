@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 	"unicode"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/key"
@@ -78,7 +79,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		}
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	k := key.Generate()
 
 	// Validate dependency target exists.

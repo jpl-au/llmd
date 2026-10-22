@@ -6,7 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -126,7 +127,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 			Path:      tsk.Path,
 			Key:       key,
 			Author:    author,
-			Timestamp: time.Now().UnixMilli(),
+			Timestamp: clock.Now(),
 		}); err != nil {
 			return fmt.Errorf("emitting event: %w", err)
 		}

@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	pkgevents "github.com/jpl-au/llmd/pkg/events"
@@ -65,7 +66,7 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	}
 
 	k := key.Generate()
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 
 	_, err = a.db.Query(`
 		INSERT INTO agent_runs (key, task_key, agent, branch, worktree, pid, author, started_at)
@@ -143,7 +144,7 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 		return fmt.Errorf("%w: %s (status: %s)", ErrNotRunning, r.Key, r.Status)
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	event := "completed"
 	evtType := pkgevents.AgentCompleted
 	if opts.ExitCode != 0 {
@@ -215,7 +216,7 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 		return nil, fmt.Errorf("%w: %s (status: %s)", ErrNotRunning, r.Key, r.Status)
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	_, err = a.db.Query(`
 		INSERT INTO agent_events (run_key, event, created_at)
 		VALUES (?, 'stopped', ?)

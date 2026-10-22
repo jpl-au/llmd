@@ -3,7 +3,8 @@ package documents_test
 import (
 	"slices"
 	"testing"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock/clocktest"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
@@ -28,10 +29,9 @@ func TestList(t *testing.T) {
 	// Write in reverse alphabetical order with distinct timestamps so
 	// time order (newest first) differs from path order.
 	timed := func(t *testing.T, s *llmd.Store) {
+		clocktest.Sequence(t, 1_000, 1)
 		mustWrite(t, s, "notes/c", "c")
-		time.Sleep(2 * time.Millisecond)
 		mustWrite(t, s, "notes/b", "b")
-		time.Sleep(2 * time.Millisecond)
 		mustWrite(t, s, "notes/a", "a")
 	}
 

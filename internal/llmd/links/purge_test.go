@@ -4,6 +4,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd/links"
+
 	"github.com/jpl-au/llmd/internal/llmd"
 )
 
@@ -47,7 +49,7 @@ func TestPurge(t *testing.T) {
 				tt.setup(t, s)
 			}
 
-			got, err := s.Links.Purge(ctx)
+			got, err := s.Links.Purge(ctx, links.PurgeOptions{})
 			if err != nil {
 				t.Fatalf("Purge() error = %v", err)
 			}

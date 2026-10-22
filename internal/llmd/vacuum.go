@@ -17,55 +17,63 @@ package llmd
 import (
 	"context"
 	"fmt"
+
+	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/internal/llmd/links"
+	"github.com/jpl-au/llmd/internal/llmd/tags"
 )
+
+// VacuumOptions narrows a vacuum. Before purges only items deleted
+// before that Unix-millisecond time (0 purges everything soft-deleted);
+// DryRun reports what would be purged without changing anything.
+type VacuumOptions struct {
+	Before int64
+	DryRun bool
+}
 
 // VacuumResult contains the results of a vacuum operation.
 type VacuumResult struct {
-	Documents int64 // Number of documents purged
-	Tags      int64 // Number of tags purged
-	Links     int64 // Number of links purged
+	Documents int64    // Number of documents purged (all versions of each)
+	Tags      int64    // Number of tags purged
+	Links     int64    // Number of links purged
+	Paths     []string // Paths of the purged documents, in path order
+	DryRun    bool     // Nothing was changed; counts are what would be purged
 }
 
-// Total returns the total number of rows purged.
+// Total returns the total number of items purged.
 func (r VacuumResult) Total() int64 {
 	return r.Documents + r.Tags + r.Links
 }
 
-// Vacuum permanently deletes all soft-deleted data and reclaims disk space.
-// This operation cannot be undone.
-func (s *Store) Vacuum(ctx context.Context) (*VacuumResult, error) {
-	var result VacuumResult
+// Vacuum permanently deletes soft-deleted documents, the tags and links
+// they orphan, and separately soft-deleted tags and links, then runs
+// SQLite VACUUM to reclaim disk space. With DryRun it only reports.
+// Outside a dry run this operation cannot be undone.
+func (s *Store) Vacuum(ctx context.Context, opts VacuumOptions) (*VacuumResult, error) {
+	result := VacuumResult{DryRun: opts.DryRun}
 
-	// Purge soft-deleted documents
-	n, err := s.Documents.Purge(ctx)
+	paths, err := s.Documents.Purge(ctx, documents.PurgeOptions{Before: opts.Before, DryRun: opts.DryRun})
 	if err != nil {
 		return nil, fmt.Errorf("purging documents: %w", err)
 	}
-	result.Documents = n
+	result.Documents = int64(len(paths))
+	result.Paths = paths
 
-	// Purge soft-deleted tags, then tags orphaned by the document purge.
-	n, err = s.Tags.Purge(ctx)
+	n, err := s.Tags.Purge(ctx, tags.PurgeOptions{Before: opts.Before, DryRun: opts.DryRun})
 	if err != nil {
 		return nil, fmt.Errorf("purging tags: %w", err)
 	}
 	result.Tags = n
-	n, err = s.Tags.PurgeOrphans(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("purging orphaned tags: %w", err)
-	}
-	result.Tags += n
 
-	// Purge soft-deleted links, then links orphaned by the document purge.
-	n, err = s.Links.Purge(ctx)
+	n, err = s.Links.Purge(ctx, links.PurgeOptions{Before: opts.Before, DryRun: opts.DryRun})
 	if err != nil {
 		return nil, fmt.Errorf("purging links: %w", err)
 	}
 	result.Links = n
-	n, err = s.Links.PurgeOrphans(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("purging orphaned links: %w", err)
+
+	if opts.DryRun {
+		return &result, nil
 	}
-	result.Links += n
 
 	// Run SQLite VACUUM to reclaim disk space.
 	if _, err := s.db.Query("VACUUM").WithContext(ctx).Exec(); err != nil {

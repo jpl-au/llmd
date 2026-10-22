@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/pkg/events"
@@ -51,7 +52,7 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 		return nil, fmt.Errorf("marshaling link: %w", err)
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	k := key.Generate()
 
 	_, err = l.db.Query(`

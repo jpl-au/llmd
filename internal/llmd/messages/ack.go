@@ -3,7 +3,8 @@ package messages
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	pkgevents "github.com/jpl-au/llmd/pkg/events"
 )
@@ -25,7 +26,7 @@ func (m *Messages) Ack(ctx context.Context, key, consumer string) error {
 		return fmt.Errorf("ack %s: expected %s: %w", key, oldest.Key, ErrOrderViolation)
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	_, err = m.db.Query(`
 		INSERT OR IGNORE INTO message_acks (message_key, author, created_at)
 		VALUES (?, ?, ?)

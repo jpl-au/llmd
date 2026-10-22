@@ -6,7 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/task"
@@ -24,7 +25,7 @@ func (t *Tasks) Delete(ctx context.Context, key, author string) (*task.Task, err
 		return nil, err
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	_, err = t.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
 		_, err := tx.ExecContext(ctx, `
 			UPDATE tasks SET deleted_at = ? WHERE key = ? AND deleted_at IS NULL
@@ -87,7 +88,7 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 			Path:      tsk.Path,
 			Key:       key,
 			Author:    author,
-			Timestamp: time.Now().UnixMilli(),
+			Timestamp: clock.Now(),
 		}); err != nil {
 			return nil, fmt.Errorf("emitting event: %w", err)
 		}

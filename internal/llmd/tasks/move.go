@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 
@@ -82,7 +83,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 			Path:      tsk.Path,
 			Key:       key,
 			Author:    author,
-			Timestamp: time.Now().UnixMilli(),
+			Timestamp: clock.Now(),
 			Metadata:  map[string]any{"from": oldStatus, "to": status},
 		}); err != nil {
 			return fmt.Errorf("emitting event: %w", err)

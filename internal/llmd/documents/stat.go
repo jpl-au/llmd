@@ -152,16 +152,15 @@ func finish(stat *Stat, message, mime, meta sql.NullString, deletedAt sql.NullIn
 	if mime.Valid {
 		stat.MIME = mime.String
 	}
-	if deletedAt.Valid {
-		stat.DeletedAt = &deletedAt.Int64
-		return stat, ErrDeleted
-	}
-
 	if meta.Valid && meta.String != "" {
 		var m document.Meta
 		if err := json.Unmarshal([]byte(meta.String), &m); err == nil {
 			stat.Meta = &m
 		}
+	}
+	if deletedAt.Valid {
+		stat.DeletedAt = &deletedAt.Int64
+		return stat, ErrDeleted
 	}
 
 	return stat, nil

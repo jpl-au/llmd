@@ -47,8 +47,8 @@ func TestStat(t *testing.T) {
 			wantErr: documents.ErrNotFound,
 		},
 		{
-			// Stat by key still returns metadata for a soft-deleted
-			// document, alongside ErrDeleted.
+			// Stat by key still returns the full record, including
+			// Meta, for a soft-deleted document, alongside ErrDeleted.
 			name: "deleted by key",
 			setup: func(t *testing.T, s *llmd.Store) (string, string) {
 				doc := mustWrite(t, s, "docs/deleted", "content")
@@ -59,6 +59,7 @@ func TestStat(t *testing.T) {
 			wantStat:    true,
 			wantPath:    "docs/deleted",
 			wantVersion: 1,
+			wantLines:   1,
 		},
 	}
 

@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// TestParseSince covers the three accepted inputs (empty, duration
-// shorthand, RFC 3339) and rejection of anything else. Duration cases
+// TestParseSince covers the accepted inputs (empty, duration shorthand
+// including whole days, RFC 3339) and rejection of anything else. Duration cases
 // are relative to time.Now(), so they are checked against wantAgo
 // with a one-minute tolerance rather than an exact instant.
 func TestParseSince(t *testing.T) {
@@ -21,6 +21,7 @@ func TestParseSince(t *testing.T) {
 		{name: "duration minutes", input: "5m", wantAgo: 5 * time.Minute},
 		{name: "duration hours", input: "1h", wantAgo: time.Hour},
 		{name: "duration compound", input: "2h30m", wantAgo: 2*time.Hour + 30*time.Minute},
+		{name: "days", input: "7d", wantAgo: 7 * 24 * time.Hour},
 		{name: "rfc3339", input: "2026-01-15T10:00:00Z", want: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)},
 		{name: "invalid word", input: "yesterday", wantErr: true},
 		{name: "invalid date only", input: "2026-01-15", wantErr: true},

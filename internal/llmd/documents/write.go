@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/hash"
 	"github.com/jpl-au/llmd/internal/llmd/key"
@@ -53,7 +54,7 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 		return nil, err
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	s := hash.XXH3(content)
 
 	// Check if content is unchanged from latest version

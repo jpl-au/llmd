@@ -504,7 +504,7 @@ func TestDocumentsVacuum(t *testing.T) {
 					t.Fatalf("Delete(doc) error = %v", err)
 				}
 			}
-			result, err := c.Documents.Vacuum()
+			result, err := c.Documents.Vacuum(sdk.VacuumOpts{})
 			if err != nil {
 				t.Fatalf("Vacuum() error = %v", err)
 			}

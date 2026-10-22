@@ -4,7 +4,8 @@ import (
 	"errors"
 	"slices"
 	"testing"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock/clocktest"
 
 	"github.com/jpl-au/llmd/internal/sqlite/sqlitetest"
 
@@ -736,6 +737,7 @@ func TestLogNotFound(t *testing.T) {
 }
 
 func TestListSince(t *testing.T) {
+	clocktest.Sequence(t, 1_000, 1)
 	ts := setup(t)
 	ctx := t.Context()
 	origin := core.Origin{Author: "alice", Source: "test"}
@@ -750,9 +752,6 @@ func TestListSince(t *testing.T) {
 		t.Fatalf("expected 1 task, got %d", len(all))
 	}
 	cutoff := all[0].CreatedAt
-
-	// Ensure the next task gets a different millisecond timestamp.
-	time.Sleep(2 * time.Millisecond)
 
 	if _, err := ts.Add(ctx, "New task", nil, AddOptions{Origin: origin}); err != nil {
 		t.Fatalf("Add(New task) error = %v", err)

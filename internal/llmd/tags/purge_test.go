@@ -4,6 +4,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd/tags"
+
 	"github.com/jpl-au/llmd/internal/llmd"
 )
 
@@ -44,7 +46,7 @@ func TestPurge(t *testing.T) {
 				tt.setup(t, s)
 			}
 
-			got, err := s.Tags.Purge(ctx)
+			got, err := s.Tags.Purge(ctx, tags.PurgeOptions{})
 			if err != nil {
 				t.Fatalf("Purge() error = %v", err)
 			}

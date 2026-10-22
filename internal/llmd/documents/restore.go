@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -53,7 +54,7 @@ func (d *Documents) Restore(ctx context.Context, path string, opts RestoreOption
 
 	// Emit event
 	if d.bus != nil {
-		now := time.Now().UnixMilli()
+		now := clock.Now()
 		if err := d.bus.Emit(ctx, events.Event{
 			Type:      events.DocumentRestored,
 			Path:      path,

@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	pkgevents "github.com/jpl-au/llmd/pkg/events"
@@ -30,7 +31,7 @@ func (m *Messages) Send(ctx context.Context, opts SendOptions) (*message.Message
 		return nil, fmt.Errorf("messages: %w", err)
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	k := key.Generate()
 
 	var sourceKey sql.NullString

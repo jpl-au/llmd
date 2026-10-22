@@ -7,7 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -59,7 +60,7 @@ func (a *Audits) Restore(ctx context.Context, id, author string) (*Audit, error)
 			Path:      aud.Target,
 			Key:       id,
 			Author:    author,
-			Timestamp: time.Now().UnixMilli(),
+			Timestamp: clock.Now(),
 		}); err != nil {
 			return nil, fmt.Errorf("emitting event: %w", err)
 		}
@@ -83,7 +84,7 @@ func (a *Audits) Delete(ctx context.Context, id, author string) error {
 		return err
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	_, err = a.db.Query(`
 		UPDATE audits SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL
 	`, now, id).WithContext(ctx).Exec()

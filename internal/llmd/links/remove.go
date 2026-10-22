@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/link"
@@ -57,7 +58,7 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 	}
 
 	// Soft delete the matching links in a single transaction.
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	_, err = l.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
 		for _, k := range keysToDelete {
 			_, err := tx.ExecContext(ctx, `

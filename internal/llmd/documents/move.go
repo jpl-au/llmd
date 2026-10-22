@@ -3,7 +3,8 @@ package documents
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -57,7 +58,7 @@ func (d *Documents) Move(ctx context.Context, src, dst string, opts MoveOptions)
 
 	// Emit event
 	if d.bus != nil {
-		now := time.Now().UnixMilli()
+		now := clock.Now()
 		if err := d.bus.Emit(ctx, events.Event{
 			Type:      events.DocumentMoved,
 			Path:      dst,

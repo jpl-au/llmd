@@ -5,7 +5,8 @@ package audits
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/pkg/events"
@@ -43,7 +44,7 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 	targetType := inferTargetType(opts.Target)
 
 	id := key.Generate()
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 
 	var version *int
 	if opts.Version > 0 {

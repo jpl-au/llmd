@@ -5,36 +5,54 @@ import (
 	"fmt"
 )
 
-// Purge permanently deletes all soft-deleted tags.
-// Returns the number of rows deleted.
-func (t *Tags) Purge(ctx context.Context) (int64, error) {
-	qr, err := t.db.Query(`
-		DELETE FROM entities
-		WHERE namespace = ? AND deleted_at IS NOT NULL
-	`, namespace).WithContext(ctx).Exec()
+// PurgeOptions narrows a purge. Before keeps anything soft-deleted at or
+// after that Unix-millisecond time and treats documents deleted after it
+// as still present (0 applies no cutoff). DryRun counts what would be
+// purged without changing the database.
+type PurgeOptions struct {
+	Before int64
+	DryRun bool
+}
+
+// purgeWhere selects tags that are soft-deleted (before the cutoff, when
+// one is set) or orphaned: tags whose document has no live version and
+// no soft-deleted version newer than the cutoff. Tags on a merely
+// soft-deleted document survive so that restoring the document brings
+// them back; only a hard purge of the document orphans them.
+// Arguments: namespace, then the cutoff four times.
+const purgeWhere = `
+	namespace = ?
+	AND (
+		(deleted_at IS NOT NULL AND (? = 0 OR deleted_at < ?))
+		OR NOT EXISTS (
+			SELECT 1 FROM content c
+			WHERE c.namespace = 'core:document' AND c.path = entities.relation
+			AND (c.deleted_at IS NULL OR (? <> 0 AND c.deleted_at >= ?))
+		)
+	)
+`
+
+// Purge permanently deletes soft-deleted and orphaned tags. Returns the
+// number of rows deleted, or that would be deleted under DryRun.
+func (t *Tags) Purge(ctx context.Context, opts PurgeOptions) (int64, error) {
+	b := opts.Before
+	args := []any{namespace, b, b, b, b}
+
+	if opts.DryRun {
+		var n int64
+		row, err := t.db.Query("SELECT COUNT(*) FROM entities WHERE "+purgeWhere, args...).WithContext(ctx).ReadRow()
+		if err != nil {
+			return 0, fmt.Errorf("counting purgeable tags: %w", err)
+		}
+		if err := row.Scan(&n); err != nil {
+			return 0, fmt.Errorf("counting purgeable tags: %w", err)
+		}
+		return n, nil
+	}
+
+	qr, err := t.db.Query("DELETE FROM entities WHERE "+purgeWhere, args...).WithContext(ctx).Exec()
 	if err != nil {
 		return 0, fmt.Errorf("purging tags: %w", err)
 	}
-
-	return qr.SQLResult.RowsAffected()
-}
-
-// PurgeOrphans permanently deletes tags whose document no longer has
-// any version in the store. Tags on a soft-deleted document are kept
-// (its rows still exist) so that restoring the document brings them
-// back; only a hard purge of the document orphans them.
-func (t *Tags) PurgeOrphans(ctx context.Context) (int64, error) {
-	qr, err := t.db.Query(`
-		DELETE FROM entities
-		WHERE namespace = ?
-		AND NOT EXISTS (
-			SELECT 1 FROM content c
-			WHERE c.namespace = 'core:document' AND c.path = entities.relation
-		)
-	`, namespace).WithContext(ctx).Exec()
-	if err != nil {
-		return 0, fmt.Errorf("purging orphaned tags: %w", err)
-	}
-
 	return qr.SQLResult.RowsAffected()
 }

@@ -2,12 +2,13 @@ package entities
 
 import (
 	"context"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 )
 
 // Delete soft-deletes an entity by key.
 func (e *Entities) Delete(ctx context.Context, key string, opts DeleteOptions) error {
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 
 	qr, err := e.db.Query(`
 		UPDATE entities SET deleted_at = ?

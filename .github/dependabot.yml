@@ -1,0 +1,22 @@
+# Dependency updates arrive weekly in one grouped pull request per
+# ecosystem, so upgrades are reviewed a few at a time rather than in a
+# single large catch-up.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /test/listener
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

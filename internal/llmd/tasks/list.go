@@ -3,16 +3,19 @@
 package tasks
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jpl-au/llmd/pkg/model/task"
 )
 
-// List returns all non-deleted tasks matching the filter criteria.
-// Results are ordered by position then creation time. When no filters
-// are set, returns every active task on the board.
+// List returns all non-deleted tasks matching the filter criteria in
+// board order: by column (as the board defines them), then position,
+// then creation time, then id. When no filters are set, returns every
+// active task on the board.
 func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error) {
 	if err := t.ensure(); err != nil {
 		return nil, err
@@ -64,5 +67,35 @@ func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error
 		}
 		tasks = append(tasks, tsk)
 	}
-	return tasks, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	cols, err := t.Columns(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rank := make(map[string]int, len(cols))
+	for i, c := range cols {
+		rank[c] = i
+	}
+	column := func(status string) int {
+		if i, ok := rank[status]; ok {
+			return i
+		}
+		return len(cols) // unknown columns sort last
+	}
+	slices.SortStableFunc(tasks, func(a, b *task.Task) int {
+		if c := cmp.Compare(column(a.Status), column(b.Status)); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Position, b.Position); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.CreatedAt, b.CreatedAt); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.ID, b.ID)
+	})
+	return tasks, nil
 }

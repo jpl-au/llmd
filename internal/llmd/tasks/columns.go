@@ -7,7 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 )
 
 // Board holds the column list.
@@ -147,7 +148,7 @@ func (t *Tasks) writeBoard(ctx context.Context, b *Board, author string) error {
 	if err != nil {
 		return fmt.Errorf("encoding board: %w", err)
 	}
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	_, err = t.db.Query(
 		`INSERT INTO board (value, author, created_at) VALUES (?, ?, ?)`,
 		string(data), author, now,

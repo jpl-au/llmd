@@ -4,7 +4,8 @@ import (
 	"errors"
 	"slices"
 	"testing"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock/clocktest"
 
 	"github.com/jpl-au/llmd/internal/sqlite/sqlitetest"
 
@@ -566,6 +567,7 @@ func TestStatus(t *testing.T) {
 }
 
 func TestListSince(t *testing.T) {
+	clocktest.Sequence(t, 1_000, 1)
 	store := newTestStore(t)
 	ctx := t.Context()
 
@@ -574,9 +576,6 @@ func TestListSince(t *testing.T) {
 	})
 
 	cutoff := old.CreatedAt
-
-	// Ensure the next audit gets a different millisecond timestamp.
-	time.Sleep(2 * time.Millisecond)
 
 	if _, err := store.Add(ctx, AddOptions{
 		Target: "docs/new", Content: "New.", Author: "alice",

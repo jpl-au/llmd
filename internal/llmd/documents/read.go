@@ -157,16 +157,19 @@ func (d *Documents) scan(row *sql.Row) (*document.Document, error) {
 	if mime.Valid {
 		doc.MIME = mime.String
 	}
-	if deletedAt.Valid {
-		doc.DeletedAt = &deletedAt.Int64
-		return &doc, ErrDeleted
-	}
-
 	if meta.Valid && meta.String != "" {
 		var m document.Meta
 		if err := json.Unmarshal([]byte(meta.String), &m); err == nil {
 			doc.Meta = &m
 		}
+	}
+
+	// A soft-deleted document is returned in full alongside ErrDeleted
+	// so callers can still inspect it (for example to decide whether
+	// to restore).
+	if deletedAt.Valid {
+		doc.DeletedAt = &deletedAt.Int64
+		return &doc, ErrDeleted
 	}
 
 	return &doc, nil

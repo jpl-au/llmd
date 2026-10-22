@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/pkg/model/entity"
@@ -12,7 +13,7 @@ import (
 
 // Write creates a new entity. Entities are insert-only; state changes create new rows.
 func (e *Entities) Write(ctx context.Context, namespace, value string, opts WriteOptions) (*entity.Entity, error) {
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	k := key.Generate()
 
 	var relation sql.NullString

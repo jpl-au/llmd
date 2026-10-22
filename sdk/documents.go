@@ -68,9 +68,9 @@ type DocumentStore interface {
 	// non-destructive. See RevertOpts for the available options.
 	Revert(path string, version int, opts RevertOpts) error
 
-	// Vacuum permanently deletes all soft-deleted data and reclaims
-	// disk space. This operation cannot be undone.
-	Vacuum() (VacuumResult, error)
+	// Vacuum permanently deletes soft-deleted data and reclaims disk
+	// space. Outside a dry run this operation cannot be undone.
+	Vacuum(opts VacuumOpts) (VacuumResult, error)
 
 	// Import reads files from a filesystem directory into the store.
 	Import(dir string, opts ImportOpts) (*ImportResult, error)
@@ -250,6 +250,16 @@ type VacuumResult struct {
 	Documents int64
 	Tags      int64
 	Links     int64
+	Paths     []string // documents purged, or that would be, in path order
+	DryRun    bool     // nothing was changed
+}
+
+// VacuumOpts narrows a vacuum. DryRun reports what would be purged
+// without changing anything. Before purges only items deleted before
+// that time; the zero time purges everything soft-deleted.
+type VacuumOpts struct {
+	DryRun bool
+	Before time.Time
 }
 
 // ImportOpts configures a bulk import operation.

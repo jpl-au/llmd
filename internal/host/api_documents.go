@@ -452,8 +452,12 @@ func (a *documentAPI) Revert(path string, version int, opts sdk.RevertOpts) erro
 
 // Vacuum permanently removes all soft-deleted data and reclaims disk
 // space. Returns counts of deleted documents, tags, and links.
-func (a *documentAPI) Vacuum() (sdk.VacuumResult, error) {
-	r, err := a.store.Vacuum(a.ctx)
+func (a *documentAPI) Vacuum(opts sdk.VacuumOpts) (sdk.VacuumResult, error) {
+	var before int64
+	if !opts.Before.IsZero() {
+		before = opts.Before.UnixMilli()
+	}
+	r, err := a.store.Vacuum(a.ctx, llmd.VacuumOptions{Before: before, DryRun: opts.DryRun})
 	if err != nil {
 		return sdk.VacuumResult{}, err
 	}
@@ -461,6 +465,8 @@ func (a *documentAPI) Vacuum() (sdk.VacuumResult, error) {
 		Documents: r.Documents,
 		Tags:      r.Tags,
 		Links:     r.Links,
+		Paths:     r.Paths,
+		DryRun:    r.DryRun,
 	}, nil
 }
 

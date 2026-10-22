@@ -13,7 +13,8 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/qwr"
 )
@@ -126,7 +127,7 @@ func (l *Log) Record(ctx context.Context, actor, action, subject, oldValue, newV
 		return fmt.Errorf("audit: creating table: %w", err)
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 
 	var oldV, newV sql.NullString
 	if oldValue != "" {

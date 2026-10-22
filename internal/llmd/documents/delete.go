@@ -3,7 +3,8 @@ package documents
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -15,7 +16,7 @@ func (d *Documents) Delete(ctx context.Context, path string, opts DeleteOptions)
 		return err
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 
 	qr, err := d.db.Query(`
 		UPDATE content SET deleted_at = ?

@@ -1,6 +1,7 @@
 package documents_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
@@ -11,7 +12,7 @@ func TestPurge(t *testing.T) {
 	tests := []struct {
 		name     string
 		setup    func(t *testing.T, s *llmd.Store)
-		want     int64
+		want     []string          // paths reported purged
 		wantKept map[string]string // path -> content still readable after the purge
 		wantGone []string          // paths that must read as ErrNotFound after the purge
 	}{
@@ -24,13 +25,13 @@ func TestPurge(t *testing.T) {
 				mustDelete(t, s, "docs/a")
 				mustDelete(t, s, "docs/b")
 			},
-			want:     2,
+			want:     []string{"docs/a", "docs/b"},
 			wantKept: map[string]string{"docs/c": "content c"},
 			wantGone: []string{"docs/a", "docs/b"},
 		},
 		{
 			name: "nothing to purge",
-			want: 0,
+			want: nil,
 		},
 		{
 			// Delete soft-deletes every version, so Purge must remove
@@ -42,7 +43,7 @@ func TestPurge(t *testing.T) {
 				mustWrite(t, s, "docs/versioned", "v3")
 				mustDelete(t, s, "docs/versioned")
 			},
-			want:     3,
+			want:     []string{"docs/versioned"},
 			wantGone: []string{"docs/versioned"},
 		},
 	}
@@ -55,12 +56,12 @@ func TestPurge(t *testing.T) {
 				tt.setup(t, s)
 			}
 
-			n, err := s.Documents.Purge(ctx)
+			got, err := s.Documents.Purge(ctx, documents.PurgeOptions{})
 			if err != nil {
 				t.Fatalf("Purge() error = %v", err)
 			}
-			if n != tt.want {
-				t.Errorf("Purge() = %d, want %d", n, tt.want)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("Purge() = %v, want %v", got, tt.want)
 			}
 
 			for path, content := range tt.wantKept {

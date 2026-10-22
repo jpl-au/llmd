@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/pkg/events"
@@ -37,7 +38,7 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 		return existing, ErrExists
 	}
 
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	k := key.Generate()
 
 	tagValue := tag.Value{Tag: name}

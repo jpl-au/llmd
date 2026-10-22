@@ -7,7 +7,8 @@ import (
 	"database/sql"
 	"log/slog"
 	"strings"
-	"time"
+
+	"github.com/jpl-au/llmd/internal/clock"
 )
 
 // addFlag appends a flag to the comma-separated flags string. Returns
@@ -44,7 +45,7 @@ func removeFlag(flags, flag string) string {
 // Mirrors audit.Log.Record but uses the provided tx so the audit
 // entry commits or rolls back with the surrounding operation.
 func recordTx(ctx context.Context, tx *sql.Tx, actor, action, subject, oldValue, newValue string) {
-	now := time.Now().UnixMilli()
+	now := clock.Now()
 	var oldV, newV sql.NullString
 	if oldValue != "" {
 		oldV = sql.NullString{String: oldValue, Valid: true}
