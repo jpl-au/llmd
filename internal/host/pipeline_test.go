@@ -34,11 +34,16 @@ func setRule(t *testing.T, c sdk.Context, column string, rule sdk.ColumnRule) {
 	}
 }
 
-// registerAgent registers an agent whose command is on every PATH, so
-// Spawn passes the command lookup and reaches the git check.
+// registerAgent registers an agent whose command is the running test
+// binary, which exists on every platform, so Spawn passes the command
+// lookup and reaches the git check.
 func registerAgent(t *testing.T, c sdk.Context, name string) {
 	t.Helper()
-	if err := c.Agents.Register(sdk.AgentConfig{Name: name, Command: "sh"}, "alice"); err != nil {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Agents.Register(sdk.AgentConfig{Name: name, Command: exe}, "alice"); err != nil {
 		t.Fatalf("Agents.Register(%q) error = %v", name, err)
 	}
 }

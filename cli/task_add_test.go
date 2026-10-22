@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -144,8 +145,8 @@ func TestTaskAdd(t *testing.T) {
 			setup: func(t *testing.T, _ sdk.Context) taskVars {
 				return taskVars{"file": filepath.Join(t.TempDir(), "missing.md")}
 			},
-			args:        []string{"Fix auth", "--file", "{file}"},
-			wantErrText: "no such file",
+			args:    []string{"Fix auth", "--file", "{file}"},
+			wantErr: fs.ErrNotExist,
 		},
 		{
 			name: "--file and --path are mutually exclusive",

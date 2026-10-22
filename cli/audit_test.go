@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -213,9 +214,9 @@ func TestAuditAdd(t *testing.T) {
 			wantErr: sdk.ErrInvalidArg,
 		},
 		{
-			name:       "missing --file",
-			args:       []string{"add", "docs/a", "--file", "{dir}/nope.md"},
-			wantErrMsg: "no such file",
+			name:    "missing --file",
+			args:    []string{"add", "docs/a", "--file", "{dir}/nope.md"},
+			wantErr: fs.ErrNotExist,
 		},
 	}
 
