@@ -138,17 +138,6 @@ func Save(key, value string, global bool) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// Path returns the config file path that would be used for reads.
-// Local .llmd/config.yaml takes precedence over global.
-func Path() string {
-	local := filepath.Join(".llmd", "config.yaml")
-	if _, err := os.Stat(local); err == nil {
-		return local
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".llmd", "config.yaml")
-}
-
 // Keys returns all valid dot-notation config keys.
 func Keys() []string {
 	return []string{

@@ -42,14 +42,17 @@ tidy:
 	go test ./...
 	golangci-lint run ./...
 
-# Static analysis. Configuration lives in .golangci.yml.
+# Static analysis. Configuration lives in .golangci.yml. deadcode
+# reports functions no code or test reaches; any output fails the run.
 lint:
 	golangci-lint run ./...
+	@out=$$(deadcode -test ./...); if [ -n "$$out" ]; then echo "$$out"; exit 1; fi
 
 # Install the tools that tidy and lint need. CI installs the same
-# golangci-lint version.
+# versions.
 tools:
 	go install golang.org/x/tools/cmd/goimports@latest
+	go install golang.org/x/tools/cmd/deadcode@latest
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 
 # Remove build artifacts.

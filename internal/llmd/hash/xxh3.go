@@ -1,12 +1,6 @@
 // Package hash provides content hashing for document change detection
-// and deduplication.
-//
-// Two algorithms are available:
-//   - [XXH3]: fast 64-bit hash used for change detection during imports
-//     and writes. Speed matters here because every document write
-//     computes a hash.
-//   - [Blake2b]: cryptographic 128-bit hash used where collision
-//     resistance matters more than speed (e.g. content addressing).
+// and deduplication. XXH3 is a fast 64-bit hash; speed matters because
+// every document write computes one.
 package hash
 
 import (

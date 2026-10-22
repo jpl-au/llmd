@@ -185,7 +185,7 @@ func metaPtr(s string) *string { return &s }
 // writes the whitelist that init creates.
 func TestConfigGit(t *testing.T) {
 	seedDefault := func(t *testing.T, c sdk.Context) {
-		if err := config.InitGitignore(); err != nil {
+		if err := config.InitGitignoreIn(config.StoreDir); err != nil {
 			t.Fatal(err)
 		}
 	}

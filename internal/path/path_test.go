@@ -57,46 +57,6 @@ func TestNormalise(t *testing.T) {
 	}
 }
 
-func TestDirect(t *testing.T) {
-	tests := []struct {
-		path   string
-		prefix string
-		want   bool
-	}{
-		// Direct children of "docs"
-		{"docs/readme", "docs", true},
-		{"docs/api", "docs", true},
-		{"docs/api/auth", "docs", false}, // nested
-
-		// Exact match
-		{"docs", "docs", true},
-
-		// Top-level (empty prefix)
-		{"readme", "", true},
-		{"docs/readme", "", false}, // nested
-
-		// Trailing slash in prefix
-		{"docs/readme", "docs/", true},
-
-		// Windows backslash in prefix (cross-platform)
-		{"docs/readme", "docs\\", true},
-		{"docs/api/auth", "docs\\api", true},
-
-		// No match
-		{"notes/meeting", "docs", false},
-	}
-
-	for _, tt := range tests {
-		name := tt.path + "_" + tt.prefix
-		t.Run(name, func(t *testing.T) {
-			got := Direct(tt.path, tt.prefix)
-			if got != tt.want {
-				t.Errorf("Direct(%q, %q) = %v, want %v", tt.path, tt.prefix, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestResolveDB(t *testing.T) {
 	tests := []struct {
 		input   string
@@ -160,42 +120,6 @@ func TestResolveDB(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Errorf("ResolveDB(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMirrorDir(t *testing.T) {
-	tests := []struct {
-		input   string
-		want    string
-		wantErr bool
-	}{
-		// Default store.
-		{"", filepath.Join(".llmd", "llmd"), false},
-
-		// Named store.
-		{"docs", filepath.Join(".llmd", "llmd-docs"), false},
-
-		// Sanitisation propagates.
-		{"my store", filepath.Join(".llmd", "llmd-my-store"), false},
-
-		// Explicit .db path.
-		{"my-store.db", filepath.Join(".llmd", "my-store"), false},
-
-		// Error propagates.
-		{"my*store", "", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got, err := MirrorDir(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("MirrorDir(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("MirrorDir(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

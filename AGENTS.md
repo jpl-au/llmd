@@ -49,7 +49,7 @@ internal/llmd/entities/     Named entity extraction
 internal/llmd/audits/       Agent-to-agent and human-to-agent review threads
 internal/llmd/audit/        Change log
 internal/llmd/key/          ID generation: 9-char base36 from ms timestamps
-internal/llmd/hash/         Content hashing (xxh3, blake2b)
+internal/llmd/hash/         Content hashing (xxh3)
 internal/llmd/meta/         Document metadata helpers
 internal/git/               Git CLI wrapper: sdk.GitStore implementation (build-tagged)
 internal/config/            Configuration files and .llmd/.gitignore management

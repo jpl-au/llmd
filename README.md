@@ -117,7 +117,6 @@ author attribution.
 | [lipgloss v2](https://charm.land/lipgloss/v2) | Terminal styling and tree rendering | MIT |
 | [go-udiff](https://github.com/aymanbagabas/go-udiff) | Unified diff | MIT |
 | [xxh3](https://github.com/zeebo/xxh3) | Content hashing | BSD 2-Clause |
-| [x/crypto](https://pkg.go.dev/golang.org/x/crypto) | BLAKE2b hashing | BSD 3-Clause |
 | [yaml.v3](https://gopkg.in/yaml.v3) | Configuration files | MIT and Apache 2.0 |
 
 ## Licence

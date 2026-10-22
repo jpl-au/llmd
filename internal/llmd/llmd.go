@@ -80,11 +80,6 @@ type Store struct {
 	workPath string // work.db path
 }
 
-// DefaultPath returns the default store path.
-func DefaultPath() string {
-	return filepath.Join(".llmd", "llmd.db")
-}
-
 // Init creates a new store. Fails if it already exists.
 func Init(path string) (*Store, error) {
 	var err error

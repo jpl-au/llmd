@@ -16,7 +16,7 @@
 //
 // Document paths are DB keys, not filesystem paths. Normalise and Direct
 // use the path package (always forward-slash) so behaviour is identical on
-// all platforms. Filesystem path construction (ResolveDB, MirrorDir) uses
+// all platforms. Filesystem path construction (ResolveDB) uses
 // filepath, which is platform-aware.
 package path
 
@@ -105,19 +105,6 @@ func sanitiseDBName(name string) (string, error) {
 	return s, nil
 }
 
-// MirrorDir returns the mirror directory for the active database.
-// Empty dbPath uses the default store, producing .llmd/llmd/.
-// A name like "docs" produces .llmd/llmd-docs/.
-func MirrorDir(dbPath string) (string, error) {
-	resolved, err := ResolveDB(dbPath)
-	if err != nil {
-		return "", err
-	}
-	base := filepath.Base(resolved)
-	name := strings.TrimSuffix(base, ".db")
-	return filepath.Join(".llmd", name), nil
-}
-
 // Normalise cleans and validates a document path.
 // It ensures paths use forward slashes, have no leading/trailing slashes,
 // and contain no directory traversal sequences.
@@ -161,37 +148,4 @@ func Normalise(p string) (string, error) {
 	}
 
 	return p, nil
-}
-
-// Direct reports whether path is a direct child of prefix.
-// Both paths should use forward slashes. Backslashes in prefix are
-// converted so that Windows-style input is accepted on any platform.
-//
-// Examples (prefix="docs"):
-//   - "docs/readme" -> true (direct child)
-//   - "docs/api/auth" -> false (nested)
-//   - "docs" -> true (exact match)
-//
-// Examples (prefix=""):
-//   - "readme" -> true (top level)
-//   - "docs/readme" -> false (nested)
-func Direct(p, prefix string) bool {
-	// Convert backslashes and remove trailing slash from prefix.
-	prefix = strings.ReplaceAll(prefix, "\\", "/")
-	prefix = strings.TrimSuffix(prefix, "/")
-
-	if p == prefix {
-		return true
-	}
-
-	var remainder string
-	if prefix == "" {
-		remainder = p
-	} else if strings.HasPrefix(p, prefix+"/") {
-		remainder = p[len(prefix)+1:]
-	} else {
-		return false
-	}
-
-	return !strings.Contains(remainder, "/")
 }

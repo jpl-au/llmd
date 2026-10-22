@@ -42,12 +42,6 @@ func gitignorePath(dir string) string {
 	return filepath.Join(dir, ".gitignore")
 }
 
-// InitGitignore creates .llmd/.gitignore in the working directory with
-// sensible defaults. See InitGitignoreIn.
-func InitGitignore() error {
-	return InitGitignoreIn(StoreDir)
-}
-
 // InitGitignoreIn creates <dir>/.gitignore with sensible defaults,
 // creating dir if needed. No-op if the file already exists, which
 // preserves user edits on subsequent init calls.
@@ -178,10 +172,4 @@ func removeLine(dir, line string) error {
 	}
 
 	return os.WriteFile(path, []byte(strings.Join(out, "\n")), 0644)
-}
-
-// EnsureAllowed adds a whitelist entry if not already present.
-// Used by mirror to ensure its output directory is committed.
-func EnsureAllowed(pattern string) error {
-	return GitAllow(pattern)
 }

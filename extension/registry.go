@@ -59,13 +59,6 @@ func All() []sdk.Extension {
 	return exts
 }
 
-// Get returns a specific extension by name, or nil if not found.
-func Get(name string) sdk.Extension {
-	mu.RLock()
-	defer mu.RUnlock()
-	return registry[name]
-}
-
 // Names returns the names of all registered extensions.
 func Names() []string {
 	mu.RLock()
