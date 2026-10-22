@@ -1,9 +1,9 @@
 // handler.go builds HTTP handlers that dispatch to sdk commands.
 //
-// Each handler extracts the path from the URL, reads metadata from
-// headers, reads the body as stdin, and dispatches through the runtime. The
-// response is written as JSON or plain text depending on the Output
-// header.
+// Each handler builds the command's arguments from the route's
+// template and the URL, reads metadata from headers, reads the body as
+// stdin, and dispatches through the runtime. The response is written
+// as JSON or plain text depending on the Output header.
 
 package server
 
@@ -19,24 +19,13 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// subcommandRoutes lists commands that use subcommand dispatching.
-// For these, the URL path is split on "/" so each segment becomes a
-// separate arg (e.g. /task/move/abc → ["move", "abc"]). All other
-// commands receive the full path as a single arg.
-var subcommandRoutes = map[string]bool{
-	"task": true, "agent": true, "audit": true, "queue": true,
-	"mirror": true, "tag": true, "link": true,
-}
-
 // handle returns an http.HandlerFunc that dispatches to the named
-// command. The URL path after the command name becomes the command's
-// positional arguments. Headers carry metadata. The request body,
-// when present, is passed as stdin.
-func (s *Server) handle(cmd string) http.HandlerFunc {
+// command with the arguments described by tmpl (see sdk.Route.Args).
+// Headers carry metadata. The request body, when present, is passed
+// as stdin.
+func (s *Server) handle(cmd string, tmpl []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Build args from the URL path after the command prefix.
-		path := r.PathValue("path")
-		args := buildArgs(cmd, r, path)
+		args := buildArgs(r, tmpl)
 
 		// Read metadata from headers.
 		author := r.Header.Get("Author")
@@ -82,29 +71,30 @@ func (s *Server) handle(cmd string) http.HandlerFunc {
 	}
 }
 
-// buildArgs constructs the argument slice from the URL path and query
-// parameters. The "q" query parameter is treated as a positional
-// argument (prepended before the path) for search commands. All other
-// query parameters become flags (e.g. ?version=3 → --version 3).
+// buildArgs constructs the argument slice for a request.
 //
-// For subcommand dispatchers (task, agent, audit, queue), the path
-// is split on "/" so each segment becomes a separate arg. For all
-// other commands, the path is passed as a single arg.
-func buildArgs(cmd string, r *http.Request, path string) []string {
+// The "q" query parameter comes first as a positional argument (the
+// search pattern for grep and find). Then the route template is
+// expanded: a "{name}" entry becomes the matching part of the URL and
+// is dropped when empty; any other entry is passed as written. Every
+// other query parameter becomes a flag: ?version=3 is --version 3,
+// ?all=true is --all, and ?all=false is left out.
+func buildArgs(r *http.Request, tmpl []string) []string {
 	var args []string
 	query := r.URL.Query()
 
-	// The "q" param is a positional arg (search pattern), not a flag.
 	if q := query.Get("q"); q != "" {
 		args = append(args, q)
 	}
 
-	if path != "" {
-		if subcommandRoutes[cmd] {
-			args = append(args, strings.Split(path, "/")...)
-		} else {
-			args = append(args, path)
+	for _, a := range tmpl {
+		if strings.HasPrefix(a, "{") && strings.HasSuffix(a, "}") {
+			if v := r.PathValue(a[1 : len(a)-1]); v != "" {
+				args = append(args, v)
+			}
+			continue
 		}
+		args = append(args, a)
 	}
 
 	for k, vals := range query {
@@ -112,7 +102,13 @@ func buildArgs(cmd string, r *http.Request, path string) []string {
 			continue
 		}
 		for _, v := range vals {
-			args = append(args, "--"+k, v)
+			switch v {
+			case "true":
+				args = append(args, "--"+k)
+			case "false":
+			default:
+				args = append(args, "--"+k, v)
+			}
 		}
 	}
 	return args

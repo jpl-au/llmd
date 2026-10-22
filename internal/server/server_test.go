@@ -188,11 +188,35 @@ func TestDispatchErrorStatus(t *testing.T) {
 	}
 }
 
-// TestRoutes covers the route and method mapping built by register:
-// read commands are GET, mutations are POST, mixed commands accept
-// both, skipped commands are not routed, and the URL path becomes the
-// dispatched command's arguments.
+// TestRoutes covers how register and buildArgs turn a request into a
+// command: default routes (GET for reads, POST for commands that need
+// an author), declared routes with their argument templates, the
+// method discipline (a mutation is never reachable by GET), document
+// paths with slashes, an encoded slash in an earlier segment, the q
+// positional, query flags, and the true/false mapping for boolean
+// flags.
 func TestRoutes(t *testing.T) {
+	cmds := map[string]*sdk.Command{
+		"cat":  {Name: "cat"},
+		"edit": {Name: "edit", NeedsAuthor: true},
+		"mcp":  {Name: "mcp"},
+		"task": {Name: "task", Routes: []sdk.Route{
+			{Method: "GET", Pattern: "/task", Args: []string{"list"}},
+			{Method: "GET", Pattern: "/task/show/{id}", Args: []string{"show", "{id}"}},
+			{Method: "POST", Pattern: "/task/move/{id}/{column}", Args: []string{"move", "{id}", "{column}"}},
+			{Method: "POST", Pattern: "/task/link/{id}/{path...}", Args: []string{"link", "{id}", "{path}"}},
+			{Method: "DELETE", Pattern: "/task/{id}", Args: []string{"rm", "{id}"}},
+		}},
+		"tag": {Name: "tag", Routes: []sdk.Route{
+			{Method: "GET", Pattern: "/tag/{path...}", Args: []string{"{path}"}},
+			{Method: "POST", Pattern: "/tag/{name}/{path...}", Args: []string{"{path}", "{name}"}},
+			{Method: "DELETE", Pattern: "/tag/{name}/{path...}", Args: []string{"--delete", "{path}", "{name}"}},
+		}},
+		"link": {Name: "link", Routes: []sdk.Route{
+			{Method: "POST", Pattern: "/link/{from}/{to...}", Args: []string{"{from}", "{to}"}},
+		}},
+	}
+
 	tests := []struct {
 		name       string
 		method     string
@@ -206,22 +230,27 @@ func TestRoutes(t *testing.T) {
 		{"read post rejected", "POST", "/cat/docs/api", http.StatusMethodNotAllowed, "", nil},
 		{"write post", "POST", "/edit/docs/api", http.StatusOK, "edit", []string{"docs/api"}},
 		{"write get rejected", "GET", "/edit/docs/api", http.StatusMethodNotAllowed, "", nil},
-		{"mixed get splits path", "GET", "/task/show/abc", http.StatusOK, "task", []string{"show", "abc"}},
-		{"mixed post splits path", "POST", "/task/move/abc/review", http.StatusOK, "task", []string{"move", "abc", "review"}},
+		{"declared bare", "GET", "/task", http.StatusOK, "task", []string{"list"}},
+		{"declared read", "GET", "/task/show/abc", http.StatusOK, "task", []string{"show", "abc"}},
+		{"declared mutation", "POST", "/task/move/abc/review", http.StatusOK, "task", []string{"move", "abc", "review"}},
+		{"mutation by get rejected", "GET", "/task/move/abc/review", http.StatusMethodNotAllowed, "", nil},
+		{"delete", "DELETE", "/task/abc", http.StatusOK, "task", []string{"rm", "abc"}},
+		{"trailing path keeps slashes", "POST", "/task/link/abc/docs/api/v2", http.StatusOK, "task", []string{"link", "abc", "docs/api/v2"}},
+		{"nested path read", "GET", "/tag/docs/api", http.StatusOK, "tag", []string{"docs/api"}},
+		{"template reorders arguments", "POST", "/tag/important/docs/api", http.StatusOK, "tag", []string{"docs/api", "important"}},
+		{"literal template entry", "DELETE", "/tag/important/docs/api", http.StatusOK, "tag", []string{"--delete", "docs/api", "important"}},
+		{"encoded slash in an earlier segment", "POST", "/link/docs%2Fa/docs/b", http.StatusOK, "link", []string{"docs/a", "docs/b"}},
 		{"query positional", "GET", "/cat?q=hello", http.StatusOK, "cat", []string{"hello"}},
 		{"query flag", "GET", "/cat/docs/api?version=3", http.StatusOK, "cat", []string{"docs/api", "--version", "3"}},
+		{"boolean query true", "GET", "/cat/docs/api?all=true", http.StatusOK, "cat", []string{"docs/api", "--all"}},
+		{"boolean query false", "GET", "/cat/docs/api?all=false", http.StatusOK, "cat", []string{"docs/api"}},
 		{"skipped command", "GET", "/mcp", http.StatusNotFound, "", nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rt := stubRuntime()
-			rt.cmds = map[string]*sdk.Command{
-				"cat":  {Name: "cat"},
-				"edit": {Name: "edit", NeedsAuthor: true},
-				"task": {Name: "task"},
-				"mcp":  {Name: "mcp"},
-			}
+			rt.cmds = cmds
 			var mu sync.Mutex
 			var gotCmd string
 			var gotArgs []string

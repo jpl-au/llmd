@@ -18,7 +18,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -110,45 +109,35 @@ func (s *Server) log(next http.Handler) http.Handler {
 	})
 }
 
-// mixedCommands lists commands that support both reads and writes
-// via subcommands. These are registered as both GET and POST so
-// agents can read (GET /task/show/abc) and mutate (POST /task/move/abc/review)
-// through the same command namespace.
-var mixedCommands = map[string]bool{
-	"task": true, "agent": true, "audit": true, "queue": true,
-	"tag": true, "link": true,
-}
-
-// register walks all registered commands and creates an HTTP route
-// for each one. Read commands are GET, mutation commands are POST.
-// Mixed commands (task, agent, audit, queue) get both methods.
+// register creates the HTTP routes for every command. A command that
+// declares routes gets exactly those; any other command gets the two
+// default routes from defaultRoutes.
 func (s *Server) register() {
 	for _, cmd := range s.rt.Commands() {
 		if skip(cmd.Name) {
 			continue
 		}
-
-		handler := s.handle(cmd.Name)
-
-		if mixedCommands[cmd.Name] {
-			// Register both GET (reads) and POST (mutations).
-			s.mux.HandleFunc("GET /"+cmd.Name+"/{path...}", handler)
-			s.mux.HandleFunc("GET /"+cmd.Name, handler)
-			s.mux.HandleFunc("POST /"+cmd.Name+"/{path...}", handler)
-			s.mux.HandleFunc("POST /"+cmd.Name, handler)
-			continue
+		routes := cmd.Routes
+		if len(routes) == 0 {
+			routes = defaultRoutes(cmd)
 		}
-
-		method := "GET"
-		if cmd.NeedsAuthor {
-			method = "POST"
+		for _, rt := range routes {
+			s.mux.HandleFunc(rt.Method+" "+rt.Pattern, s.handle(cmd.Name, rt.Args))
 		}
+	}
+}
 
-		pattern := fmt.Sprintf("%s /%s/{path...}", method, cmd.Name)
-		s.mux.HandleFunc(pattern, handler)
-
-		bare := fmt.Sprintf("%s /%s", method, cmd.Name)
-		s.mux.HandleFunc(bare, handler)
+// defaultRoutes gives a command without declared routes one route for
+// the bare command and one with a trailing document path: GET for
+// reads, POST for a command that needs an author.
+func defaultRoutes(cmd *sdk.Command) []sdk.Route {
+	method := "GET"
+	if cmd.NeedsAuthor {
+		method = "POST"
+	}
+	return []sdk.Route{
+		{Method: method, Pattern: "/" + cmd.Name},
+		{Method: method, Pattern: "/" + cmd.Name + "/{path...}", Args: []string{"{path}"}},
 	}
 }
 

@@ -536,13 +536,21 @@ It follows the same pattern as the MCP server - a thin transport layer over
 `sdk.Runtime.Dispatch`. Commands are registered automatically by walking
 `sdk.Runtime.Commands()`, so plugins get HTTP routes for free.
 
-**Route structure:** URL paths mirror CLI commands. `/cat/docs/api` dispatches
-to the `cat` command with path `docs/api`. `/grep?q=hello` dispatches to
-`grep` with the search query as a positional argument.
+**Route structure:** URL paths mirror CLI commands:
+`/<command>/<subcommand>/<arguments>`. `/cat/docs/api` dispatches to `cat`
+with the path `docs/api`; `/task/move/abc/review` dispatches to `task` with
+`move abc review`. `/grep?q=hello` passes the query as the first positional
+argument. A document path is always the last part of the URL so it can hold
+slashes; an earlier path is URL-encoded as one segment.
 
-**Method mapping:** Read commands (`NeedsAuthor == false`) are GET, mutation
-commands are POST. The same `NeedsAuthor` field drives both MCP tool
-classification and HTTP method selection.
+**Routes are declared:** a command with subcommands lists its routes in
+`sdk.Command.Routes` (see `cli/routes.go`): method, pattern and the
+argument template the URL expands into. A command without routes gets the
+default pair `GET /<name>` and `GET /<name>/{path...}`, or `POST` when it
+has `NeedsAuthor`. Reads are GET; changes are POST or DELETE. Tests in
+`cli/routes_test.go` check that every GET route works without an author
+(so none can mutate), that templates and patterns agree, and that
+`guide/serve.md` lists every declared route.
 
 **Headers carry metadata:** `Author` (fallback identity), `Message` (commit
 message), `Source` (origin tracking), `Output` (`json` to request structured

@@ -120,6 +120,59 @@ _smoke_http() {
         log_fail "GET /guide unknown topic returns 404: got $code"
     fi
 
+    # --- tags: POST /tag/<name>/<path>, GET /tag/<path>, DELETE ---
+    curl -sf -X POST "$base/tag/important/docs/smoke" -H "Author: http-smoke" >/dev/null 2>&1
+    out=$(curl -sf "$base/tag/docs/smoke" 2>&1)
+    if echo "$out" | grep -q "important"; then
+        log_pass "POST /tag/<name>/<path> then GET /tag/<path>"
+    else
+        log_fail "POST /tag/<name>/<path> then GET /tag/<path>: got '$out'"
+    fi
+
+    curl -sf -X DELETE "$base/tag/important/docs/smoke" -H "Author: http-smoke" >/dev/null 2>&1
+    out=$(curl -sf "$base/tag/docs/smoke" 2>&1)
+    if echo "$out" | grep -q "important"; then
+        log_fail "DELETE /tag/<name>/<path> removes the tag: still present"
+    else
+        log_pass "DELETE /tag/<name>/<path> removes the tag"
+    fi
+
+    # --- tasks: POST /task/add/<title>, GET /task/show, POST /task/move ---
+    out=$(curl -sf -X POST "$base/task/add/Smoke%20task" -H "Author: http-smoke" \
+        -H "Output: json" -d "# Smoke task
+
+Spec body." 2>&1)
+    key=$(echo "$out" | sed -n 's/.*"Key": *"\([a-z0-9]\{9\}\)".*/\1/p' | head -1)
+    if [ -n "$key" ]; then
+        log_pass "POST /task/add/<title> creates a task"
+    else
+        log_fail "POST /task/add/<title> creates a task: got '$out'"
+    fi
+
+    code=$(curl -s -o /dev/null -w "%{http_code}" "$base/task/move/$key/in-progress" 2>&1)
+    if [ "$code" = "405" ]; then
+        log_pass "GET on a mutation route is rejected with 405"
+    else
+        log_fail "GET on a mutation route is rejected with 405: got $code"
+    fi
+
+    curl -sf -X POST "$base/task/move/$key/in-progress" -H "Author: http-smoke" >/dev/null 2>&1
+    out=$(curl -sf "$base/task/show/$key" 2>&1)
+    if echo "$out" | grep -q "in-progress"; then
+        log_pass "POST /task/move/<id>/<column> then GET /task/show/<id>"
+    else
+        log_fail "POST /task/move/<id>/<column> then GET /task/show/<id>: got '$out'"
+    fi
+
+    # --- audits: POST /audit/add/<target> with a nested path ---
+    out=$(curl -sf -X POST "$base/audit/add/docs/smoke" -H "Author: http-smoke" \
+        -d "Needs a second look." 2>&1)
+    if echo "$out" | grep -q "Created audit"; then
+        log_pass "POST /audit/add/<target> accepts a nested path"
+    else
+        log_fail "POST /audit/add/<target> accepts a nested path: got '$out'"
+    fi
+
     # --- POST /rm ---
     out=$(curl -sf -X POST "$base/rm/docs/http-test" \
         -H "Author: http-smoke" 2>&1)

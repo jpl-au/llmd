@@ -123,6 +123,32 @@ type Command struct {
 	MCPName     string
 	NeedsAuthor bool
 	Streams     bool
+
+	// Routes lists the command's HTTP routes. A command with none gets
+	// the server's default: GET /<name> and GET /<name>/{path...} for
+	// reads, or POST for a command that needs an author. Commands with
+	// subcommands declare their routes so that every mutation is a
+	// POST or DELETE and never a GET.
+	Routes []Route
+}
+
+// Route is one HTTP route for a command.
+//
+// Pattern is a net/http pattern without the method, such as
+// "/task/move/{id}/{column}". A trailing "{path...}" wildcard holds a
+// document path with slashes; any earlier wildcard is a single URL
+// segment, so a document path there is URL-encoded.
+//
+// Args are the arguments the command receives, in order. An entry of
+// the form "{name}" is replaced by that part of the URL and dropped
+// when empty; any other entry is passed as written, which is how a
+// route selects a subcommand or a flag. Query parameters are appended
+// as flags and the request body is the command's stdin, for every
+// route.
+type Route struct {
+	Method  string
+	Pattern string
+	Args    []string
 }
 
 // Context carries per-invocation data to commands. It embeds
