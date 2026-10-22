@@ -26,7 +26,7 @@ func display(result sdk.Response, jsonOut bool) int {
 	switch r := result.(type) {
 	case sdk.Text:
 		if string(r) != "" {
-			lipgloss.Println(string(r))
+			lipgloss.Fprintln(os.Stdout, string(r))
 		}
 	case sdk.Markdown:
 		if jsonOut && r.Data != nil {
@@ -36,7 +36,7 @@ func display(result sdk.Response, jsonOut bool) int {
 				return errorf(false, "encoding JSON: %v", err)
 			}
 		} else if r.Text != "" {
-			lipgloss.Println(renderMarkdown(r.Text))
+			lipgloss.Fprintln(os.Stdout, renderMarkdown(r.Text))
 		}
 	case sdk.Result:
 		if jsonOut {
@@ -46,7 +46,7 @@ func display(result sdk.Response, jsonOut bool) int {
 				return errorf(false, "encoding JSON: %v", err)
 			}
 		} else if r.Text != "" {
-			lipgloss.Println(r.Text)
+			lipgloss.Fprintln(os.Stdout, r.Text)
 		}
 	case sdk.Data:
 		enc := json.NewEncoder(os.Stdout)

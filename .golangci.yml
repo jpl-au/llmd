@@ -41,7 +41,7 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
-        - charm.land/lipgloss/v2.Println
+        - charm.land/lipgloss/v2.Fprintln
     misspell:
       locale: UK
       ignore-rules:
