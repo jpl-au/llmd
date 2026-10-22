@@ -46,6 +46,7 @@ Keys use dot notation for nested values. The config file is YAML.
 |-----|-------------|
 | `author` | Default author for interactive terminal use |
 | `server.addr` | HTTP server listen address (default `localhost:5563`) |
+| `server.token` | Bearer token the HTTP server requires on every request. Off when empty |
 | `log.level` | Log level: `debug`, `info`, `warn`, `error` |
 | `log.format` | Log format: `text`, `json` |
 | `limits.path_length` | Maximum document path length in bytes (default `1024`) |

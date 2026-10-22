@@ -101,8 +101,26 @@ webhook:
 ```
 
 Each event is POSTed as JSON. The `key` is sent as an `Authorization:
-Bearer <key>` header. Delivery is fire-and-forget - errors are logged
-but never block the event bus.
+Bearer <key>` header.
+
+Delivery never blocks the event bus. Events are queued and sent by a
+small set of workers. A request that fails with a network error or a
+5xx response is retried, waiting 1s, then 2s, then 4s and so on
+between attempts. A 4xx response is not retried because the endpoint
+rejected the request itself. An event is dropped, with a warning in
+the log, when the retries are used up or when the queue is full
+because an endpoint is too slow.
+
+Two optional settings tune each endpoint:
+
+```yaml
+webhook:
+  my-service:
+    url: http://localhost:8080/llmd-events
+    key: secret-api-key
+    retries: 5      # retries after the first attempt (default 2)
+    timeout: 30s    # per request (default 10s)
+```
 
 ### CLI polling
 

@@ -18,8 +18,11 @@ package server
 
 import (
 	"context"
+	"crypto/subtle"
+	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/jpl-au/chain"
@@ -41,8 +44,10 @@ type Server struct {
 	rt       sdk.Runtime
 	addr     string
 	author   string
+	token    string
 	webhooks map[string]config.WebhookConfig
 	sse      *sseHub
+	webhook  *webhookHub
 }
 
 // Option configures a Server.
@@ -70,6 +75,13 @@ func WithWebhooks(hooks map[string]config.WebhookConfig) Option {
 	return func(s *Server) { s.webhooks = hooks }
 }
 
+// WithToken requires every request to carry "Authorization: Bearer
+// <token>". The default is no token, which suits the localhost
+// default address; set one before binding to any other address.
+func WithToken(token string) Option {
+	return func(s *Server) { s.token = token }
+}
+
 // New creates a server over the runtime. It registers a route for
 // every command, an SSE hub that streams store events to clients on
 // GET /events, and a webhook hub for any configured endpoints. Events
@@ -85,17 +97,37 @@ func New(rt sdk.Runtime, opts ...Option) *Server {
 		o(s)
 	}
 	s.mux.Use(s.log)
+	s.mux.Use(s.auth)
 	s.register()
 
 	rt.Subscribe(s.sse.Broadcast)
 	s.mux.Handle("GET /events", s.sse)
 
-	if wh := newWebhookHub(s.webhooks); wh != nil {
-		rt.Subscribe(wh.Broadcast)
-		slog.Info("webhook enabled", "endpoints", len(wh.endpoints))
+	if s.webhook = newWebhookHub(s.webhooks); s.webhook != nil {
+		rt.Subscribe(s.webhook.Broadcast)
+		slog.Info("webhook enabled", "endpoints", len(s.webhook.endpoints))
 	}
 
 	return s
+}
+
+// errUnauthorized is returned when a token is required and missing or
+// wrong.
+var errUnauthorized = errors.New("unauthorised: a bearer token is required")
+
+// auth is a middleware that enforces the configured bearer token. With
+// no token configured it passes every request through.
+func (s *Server) auth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.token != "" {
+			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			if subtle.ConstantTimeCompare([]byte(got), []byte(s.token)) != 1 {
+				writeError(w, http.StatusUnauthorized, errUnauthorized)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // ListenAndServe starts the HTTP server. It blocks until the context
@@ -112,6 +144,9 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	}()
 
 	slog.Info("serving", "addr", s.addr)
+	if s.webhook != nil {
+		defer s.webhook.Close()
+	}
 
 	select {
 	case err := <-errCh:

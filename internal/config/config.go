@@ -27,13 +27,16 @@ type Config struct {
 
 // WebhookConfig holds settings for a single webhook endpoint.
 type WebhookConfig struct {
-	URL string `yaml:"url"`
-	Key string `yaml:"key,omitempty"`
+	URL     string `yaml:"url"`
+	Key     string `yaml:"key,omitempty"`     // sent as Authorization: Bearer <key>
+	Retries int    `yaml:"retries,omitempty"` // retries after the first attempt (default 2)
+	Timeout string `yaml:"timeout,omitempty"` // per request, a duration such as 10s (default 10s)
 }
 
 // ServerConfig holds HTTP server settings.
 type ServerConfig struct {
-	Addr string `yaml:"addr,omitempty"`
+	Addr  string `yaml:"addr,omitempty"`
+	Token string `yaml:"token,omitempty"` // when set, every request must carry Authorization: Bearer <token>
 }
 
 // LogConfig holds logging settings.
@@ -143,6 +146,7 @@ func Keys() []string {
 	return []string{
 		"author",
 		"server.addr",
+		"server.token",
 		"log.level",
 		"log.format",
 		"limits.path_length",
@@ -159,6 +163,8 @@ func (c Config) Field(key string) (string, bool) {
 		return c.Author, c.Author != ""
 	case "server.addr":
 		return c.Server.Addr, c.Server.Addr != ""
+	case "server.token":
+		return c.Server.Token, c.Server.Token != ""
 	case "log.level":
 		return c.Log.Level, c.Log.Level != ""
 	case "log.format":
@@ -186,6 +192,8 @@ func (c *Config) Set(key, value string) error {
 		c.Author = value
 	case "server.addr":
 		c.Server.Addr = value
+	case "server.token":
+		c.Server.Token = value
 	case "log.level":
 		switch value {
 		case "debug", "info", "warn", "error":

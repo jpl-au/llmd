@@ -38,6 +38,7 @@ func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
 	s := server.New(ctx.Runtime,
 		server.WithAddr(cfg.Server.Addr),
 		server.WithAuthor(cfg.Author),
+		server.WithToken(cfg.Server.Token),
 		server.WithWebhooks(cfg.Webhook),
 	)
 	return nil, s.ListenAndServe(ctx)

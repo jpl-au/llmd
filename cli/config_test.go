@@ -88,6 +88,14 @@ func TestConfig(t *testing.T) {
 			wantText: []string{"author=Alice", "limits.path_length=2048"},
 		},
 		{
+			name: "set server token then show key",
+			seed: func(t *testing.T, c sdk.Context) {
+				run(t, c, "config", nil, "server.token", "s3cret")
+			},
+			args:      []string{"server.token"},
+			wantExact: metaPtr("s3cret"),
+		},
+		{
 			name:     "set global writes under HOME",
 			args:     []string{"--global", "author", "Bob"},
 			wantFile: "$HOME/.llmd/config.yaml",

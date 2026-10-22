@@ -15,6 +15,16 @@ set `server.addr` in your config:
 llmd config server.addr "localhost:9090"
 ```
 
+The server has no authentication by default, which is fine on
+localhost. Before listening on any other address, set a token. Every
+request must then carry it in an `Authorization: Bearer <token>`
+header, and a request without it gets a `401` response:
+
+```
+llmd config server.token "a-long-random-string"
+curl -H "Authorization: Bearer a-long-random-string" http://localhost:5563/ls
+```
+
 ## How routes work
 
 The URL mirrors the command line. The first part is the command, the
@@ -185,6 +195,7 @@ curl -X POST http://localhost:5563/hook \
 | Header   | Description                                              |
 |----------|----------------------------------------------------------|
 | `Author` | Identity for mutations. Falls back to the server default |
+| `Authorization` | `Bearer <token>` when `server.token` is set    |
 | `Message`| Version message (passed as `--message`)                  |
 | `Source` | Source attribution (passed as `--source`)                 |
 | `Output` | Set to `json` to force JSON response on all endpoints    |
