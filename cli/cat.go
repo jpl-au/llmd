@@ -66,10 +66,7 @@ func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
 	// sliced range. Agents piecing together a long doc via repeated
 	// cat --offset calls need stable line numbers to correlate with
 	// grep results.
-	startLine := opts.Offset
-	if startLine < 1 {
-		startLine = 1
-	}
+	startLine := max(opts.Offset, 1)
 
 	var results []string
 	for _, path := range paths {

@@ -34,7 +34,7 @@ func (t *Tasks) Delete(ctx context.Context, key, author string) (*task.Task, err
 		}
 		recordTx(ctx, tx, author, "deleted", key, tsk.Status, "")
 		return nil, nil
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 		}
 		recordTx(ctx, tx, author, "restored", key, "", tsk.Status)
 		return nil, nil
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, err
 	}

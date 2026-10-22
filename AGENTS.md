@@ -199,6 +199,13 @@ error types from leaking through the SDK boundary:
 | `audits.ErrNotFound` | `sdk.ErrNotFound` |
 | `audits.ErrMissingAuthor` | `sdk.ErrMissingArg` |
 | `audits.ErrMissingTarget` | `sdk.ErrMissingArg` |
+| `history.ErrVersionInvalid` | `sdk.ErrInvalidArg` |
+| `documents.ErrNotFound` (tag or link target) | `sdk.ErrNotFound` |
+| `agents.ErrNotFound`, `agents.ErrRunNotFound` | `sdk.ErrNotFound` |
+| `agents.ErrRunning` | `sdk.ErrAgentRunning` |
+| `agents.ErrNotRunning` | `sdk.ErrAgentNotRunning` |
+| `messages.ErrNotFound` | `sdk.ErrNotFound` |
+| `messages.ErrOrderViolation` | `sdk.ErrOrderViolation` |
 
 CLI commands use context-local stores:
 
@@ -260,6 +267,31 @@ a store and wire SDK globals for testing. Two modes:
   use when tests need a real filesystem (e.g. git operations)
 
 Host tests use `TestMemory`; CLI git tests use `TestDisk`.
+
+**Table-driven by default** - tests that exercise one operation with
+several inputs or expectations are written as a single `TestX` with a
+`tests := []struct{ name string; ... }` table and `t.Run(tt.name, ...)`
+subtests. See `sdk/flags_test.go`, `internal/path/path_test.go` and
+`internal/llmd/key/key_test.go` for the idiom. Conventions:
+
+- Declarative `want` / `wantErr` fields over check callbacks; compare
+  errors with `errors.Is` against the package sentinels.
+- A `setup func(t *testing.T, s *llmd.Store)` field when cases need
+  different precondition state.
+- Every subtest opens its own store (`testStore(t)` or
+  `host.TestSetup`). Never add `t.Parallel()`: in-memory stores share a
+  SQLite shared-cache URI and host tests wire package globals.
+- Failure messages read `Func(args) = got, want %v`.
+- Use `t.Context()` rather than `context.Background()`.
+
+Genuinely sequential scenarios (multi-step workflows such as
+write/edit/revert, git start/branch/finish flows, the host integration
+suite) stay as plain tests and may use `t.Run` for phases.
+
+**Toolchain** - the minimum Go version is 1.27.0 (`go.mod`). Run
+`make tidy` before committing; it includes `go fix ./...`, whose
+modernisers are applied as-is (for example promoted fields in composite
+literals, `min`/`max`, `for range n`).
 
 ## CLI Views
 
@@ -500,14 +532,16 @@ not JSON envelopes. This matches the CLI where stdin is the document body.
 is set or when no text representation exists.
 
 **Error mapping:** SDK sentinel errors map to HTTP status codes  - 
-`ErrNotFound` → 404, `ErrMissingArg`/`ErrInvalidArg` → 400, `ErrExists` → 409,
-`ErrNoSpec` → 422. All errors return JSON `{"error": "..."}`.
+`ErrNotFound` → 404, `ErrMissingArg`/`ErrInvalidArg` → 400, `ErrExists`,
+`ErrOrderViolation`, `ErrCycle`, `ErrAgentRunning`, `ErrAgentNotRunning` and
+`ErrNotReady` → 409, `ErrNoSpec` → 422. All errors return JSON
+`{"error": "..."}`.
 
 **Configuration:** Listen address is read from `serve_addr` config key,
 defaulting to `localhost:5563`. No flags or environment variables.
 
 **Skipped commands:** `mcp`, `serve`, `init`, `config`, `version`,
-`guide` are not exposed over HTTP - they are admin or local-only.
+`extensions` are not exposed over HTTP - they are admin or local-only.
 
 The server uses `github.com/jpl-au/chain` as the HTTP mux, which wraps
 Go 1.22's enhanced `net/http` routing with middleware support.
@@ -582,10 +616,11 @@ through context or structs.
   `sdk.Tags.Remove` return errors when the target link/tag does not exist.
   They are not idempotent.
 
-- **Task path deduplication** - When `task add` creates a spec document
-  automatically (no `--path`), it generates `tasks/<slug>`. If that path
-  already exists, it appends `-2`, `-3`, `-4` (incrementing) to avoid silently versioning
-  an unrelated document. Explicit `--path` skips deduplication.
+- **Task path deduplication** - When `task add` is given no `--path`, it
+  generates `tasks/<slug>`. If a document already exists there, or a live
+  task already claims that path, it appends `-2`, `-3`, `-4` (incrementing)
+  so tasks never share a spec and never silently version an unrelated
+  document. Explicit `--path` skips deduplication.
 
 - **--db name resolution** - The `--db` flag accepts a bare name (e.g. `docs`)
   which `path.ResolveDB` converts to `.llmd/llmd-docs.db`. A value with path

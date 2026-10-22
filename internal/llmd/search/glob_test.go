@@ -1,148 +1,91 @@
 package search_test
 
 import (
-	"context"
+	"slices"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd/search"
 )
 
 func TestGlob(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme.md", "readme", testWriteOpts()); err != nil {
-		t.Fatalf("Write readme: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/api.md", "api", testWriteOpts()); err != nil {
-		t.Fatalf("Write api: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/guide/intro.md", "intro", testWriteOpts()); err != nil {
-		t.Fatalf("Write intro: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "notes/todo.txt", "todo", testWriteOpts()); err != nil {
-		t.Fatalf("Write todo: %v", err)
-	}
-
-	matches, err := s.Search.Glob(ctx, "docs/*.md")
-	if err != nil {
-		t.Fatalf("Glob() error = %v", err)
-	}
-
-	if len(matches) != 2 {
-		t.Errorf("Glob(docs/*.md) returned %d matches, want 2", len(matches))
-	}
-}
-
-func TestGlob_DoublestarPrefix(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme.md", "readme", testWriteOpts()); err != nil {
-		t.Fatalf("Write readme: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/guide/intro.md", "intro", testWriteOpts()); err != nil {
-		t.Fatalf("Write intro: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/guide/advanced/tips.md", "tips", testWriteOpts()); err != nil {
-		t.Fatalf("Write tips: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "notes/todo.txt", "todo", testWriteOpts()); err != nil {
-		t.Fatalf("Write todo: %v", err)
-	}
-
-	matches, err := s.Search.Glob(ctx, "docs/**/*.md")
-	if err != nil {
-		t.Fatalf("Glob() error = %v", err)
-	}
-
-	if len(matches) != 3 {
-		t.Errorf("Glob(docs/**/*.md) returned %d matches, want 3: %v", len(matches), matches)
-	}
-}
-
-func TestGlob_DoublestarOnly(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "a.md", "a", testWriteOpts()); err != nil {
-		t.Fatalf("Write a: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/b.md", "b", testWriteOpts()); err != nil {
-		t.Fatalf("Write b: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/sub/c.md", "c", testWriteOpts()); err != nil {
-		t.Fatalf("Write c: %v", err)
+	tests := []struct {
+		name    string
+		docs    []string
+		rewrite []string // docs written a second time so they reach version 2
+		pattern string
+		opts    search.Options
+		want    []string
+	}{
+		{
+			name:    "single star",
+			docs:    []string{"docs/readme.md", "docs/api.md", "docs/guide/intro.md", "notes/todo.txt"},
+			pattern: "docs/*.md",
+			want:    []string{"docs/api.md", "docs/readme.md"},
+		},
+		{
+			name:    "doublestar prefix",
+			docs:    []string{"docs/readme.md", "docs/guide/intro.md", "docs/guide/advanced/tips.md", "notes/todo.txt"},
+			pattern: "docs/**/*.md",
+			want:    []string{"docs/guide/advanced/tips.md", "docs/guide/intro.md", "docs/readme.md"},
+		},
+		{
+			name:    "doublestar only",
+			docs:    []string{"a.md", "docs/b.md", "docs/sub/c.md"},
+			pattern: "**/*.md",
+			want:    []string{"a.md", "docs/b.md", "docs/sub/c.md"},
+		},
+		{
+			name:    "question mark",
+			docs:    []string{"v1", "v2", "v10"},
+			pattern: "v?",
+			want:    []string{"v1", "v2"},
+		},
+		{
+			name:    "limit",
+			docs:    []string{"docs/a.md", "docs/b.md", "docs/c.md", "docs/d.md", "docs/e.md"},
+			pattern: "docs/*.md",
+			opts:    search.Options{Limit: 2},
+			want:    []string{"docs/a.md", "docs/b.md"},
+		},
+		{
+			name:    "no match",
+			docs:    []string{"docs/readme.md"},
+			pattern: "notes/*.txt",
+			want:    nil,
+		},
+		{
+			// Regression: the latest-version subquery must correlate per
+			// path. A single doc at version 2 used to hide every doc still
+			// at version 1.
+			name:    "mixed versions",
+			docs:    []string{"docs/a.md", "docs/b.md", "docs/c.md"},
+			rewrite: []string{"docs/b.md"},
+			pattern: "docs/*.md",
+			want:    []string{"docs/a.md", "docs/b.md", "docs/c.md"},
+		},
 	}
 
-	matches, err := s.Search.Glob(ctx, "**/*.md")
-	if err != nil {
-		t.Fatalf("Glob() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			for _, p := range tt.docs {
+				if _, err := s.Documents.Write(t.Context(), p, "content", testWriteOpts()); err != nil {
+					t.Fatalf("Write(%q) error = %v", p, err)
+				}
+			}
+			for _, p := range tt.rewrite {
+				if _, err := s.Documents.Write(t.Context(), p, "content v2", testWriteOpts()); err != nil {
+					t.Fatalf("Write(%q) v2 error = %v", p, err)
+				}
+			}
 
-	if len(matches) != 3 {
-		t.Errorf("Glob(**/*.md) returned %d matches, want 3: %v", len(matches), matches)
-	}
-}
-
-func TestGlob_QuestionMark(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "v1", "v1", testWriteOpts()); err != nil {
-		t.Fatalf("Write v1: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "v2", "v2", testWriteOpts()); err != nil {
-		t.Fatalf("Write v2: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "v10", "v10", testWriteOpts()); err != nil {
-		t.Fatalf("Write v10: %v", err)
-	}
-
-	matches, err := s.Search.Glob(ctx, "v?")
-	if err != nil {
-		t.Fatalf("Glob() error = %v", err)
-	}
-
-	if len(matches) != 2 {
-		t.Errorf("Glob(v?) returned %d matches, want 2: %v", len(matches), matches)
-	}
-}
-
-func TestGlob_Limit(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	for i := range 5 {
-		if _, err := s.Documents.Write(ctx, "docs/"+string(rune('a'+i))+".md", "content", testWriteOpts()); err != nil {
-			t.Fatalf("Write docs/%c.md: %v", rune('a'+i), err)
-		}
-	}
-
-	matches, err := s.Search.Glob(ctx, "docs/*.md", search.Options{Limit: 2})
-	if err != nil {
-		t.Fatalf("Glob() error = %v", err)
-	}
-
-	if len(matches) != 2 {
-		t.Errorf("Glob(limit=2) returned %d matches, want 2", len(matches))
-	}
-}
-
-func TestGlob_NoMatch(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme.md", "readme", testWriteOpts()); err != nil {
-		t.Fatalf("Write readme: %v", err)
-	}
-
-	matches, err := s.Search.Glob(ctx, "notes/*.txt")
-	if err != nil {
-		t.Fatalf("Glob() error = %v", err)
-	}
-
-	if len(matches) != 0 {
-		t.Errorf("Glob(no match) returned %d matches, want 0", len(matches))
+			got, err := s.Search.Glob(t.Context(), tt.pattern, tt.opts)
+			if err != nil {
+				t.Fatalf("Glob(%q) error = %v", tt.pattern, err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("Glob(%q) = %v, want %v", tt.pattern, got, tt.want)
+			}
+		})
 	}
 }

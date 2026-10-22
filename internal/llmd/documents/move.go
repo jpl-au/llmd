@@ -42,7 +42,7 @@ func (d *Documents) Move(ctx context.Context, src, dst string, opts MoveOptions)
 	qr, err := d.db.Query(`
 		UPDATE content SET path = ?
 		WHERE namespace = ? AND path = ?
-	`, dst, namespace, src).WithContext(ctx).Execute()
+	`, dst, namespace, src).WithContext(ctx).Exec()
 	if err != nil {
 		return fmt.Errorf("moving document: %w", err)
 	}

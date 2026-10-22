@@ -31,6 +31,8 @@ func docErr(err error) error {
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, history.ErrNotFound):
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+	case errors.Is(err, history.ErrVersionInvalid):
+		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
 	case errors.Is(err, documents.ErrNoMatch):
 		return fmt.Errorf("%w: %w", sdk.ErrNoMatch, err)
 	case errors.Is(err, documents.ErrNotUnique):
@@ -125,10 +127,7 @@ func sliceLines(content string, offset, limit int) string {
 		trailingNewline = true
 	}
 
-	start := offset - 1
-	if start < 0 {
-		start = 0
-	}
+	start := max(offset-1, 0)
 	if start >= len(lines) {
 		return ""
 	}
@@ -423,7 +422,7 @@ func (a *documentAPI) Diff(src, dst string, ctx int) (string, int, int, error) {
 
 	result, err := a.store.History.Diff(a.ctx, src, dst, opts)
 	if err != nil {
-		return "", 0, 0, err
+		return "", 0, 0, docErr(err)
 	}
 
 	return result.Unified, result.Stats.Added, result.Stats.Removed, nil

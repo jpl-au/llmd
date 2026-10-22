@@ -17,6 +17,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/tree"
+
 	"github.com/jpl-au/llmd/sdk"
 )
 

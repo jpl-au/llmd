@@ -15,8 +15,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jpl-au/llmd/internal/config"
 	"gopkg.in/yaml.v3"
+
+	"github.com/jpl-au/llmd/internal/config"
 )
 
 // ColumnRule defines the behaviour for a single board column.

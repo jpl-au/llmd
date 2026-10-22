@@ -18,10 +18,7 @@ func (t *Tags) Remove(ctx context.Context, value, name string, opts Options) err
 		return err
 	}
 
-	relation, err := t.resolvePath(ctx, value)
-	if err != nil {
-		return err
-	}
+	relation := t.resolvePath(ctx, value)
 
 	now := time.Now().UnixMilli()
 
@@ -29,7 +26,7 @@ func (t *Tags) Remove(ctx context.Context, value, name string, opts Options) err
 		UPDATE entities SET deleted_at = ?
 		WHERE namespace = ? AND relation = ? AND json_extract(value, '$.tag') = ?
 		  AND deleted_at IS NULL
-	`, now, namespace, relation, name).WithContext(ctx).Execute()
+	`, now, namespace, relation, name).WithContext(ctx).Exec()
 
 	if err != nil {
 		return fmt.Errorf("removing tag: %w", err)

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/llmd/documents"
+
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/resolve"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
@@ -18,7 +20,7 @@ func tagErr(err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, tags.ErrNotFound):
+	case errors.Is(err, tags.ErrNotFound), errors.Is(err, documents.ErrNotFound):
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, tags.ErrInvalid):
 		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)

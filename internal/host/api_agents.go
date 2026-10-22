@@ -48,6 +48,8 @@ func agentErr(err error) error {
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, agents.ErrRunning):
 		return fmt.Errorf("%w: %w", sdk.ErrAgentRunning, err)
+	case errors.Is(err, agents.ErrNotRunning):
+		return fmt.Errorf("%w: %w", sdk.ErrAgentNotRunning, err)
 	default:
 		return err
 	}
@@ -308,7 +310,9 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		OnFailure: opts.OnFailure,
 	}); err != nil {
 		if cfg.Role != "auditor" {
-			sdk.Git.WorktreeRemove(absWorktree)
+			if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
+				slog.Warn("cleaning up worktree after config failure", "path", absWorktree, "error", rmErr)
+			}
 		}
 		return nil, fmt.Errorf("writing run config: %w", err)
 	}
@@ -351,7 +355,9 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		Author:   author,
 	})
 	if err != nil {
-		cmd.Process.Kill()
+		if killErr := cmd.Process.Kill(); killErr != nil {
+			slog.Warn("killing agent after record failure", "pid", cmd.Process.Pid, "error", killErr)
+		}
 		if cfg.Role != "auditor" {
 			if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
 				slog.Warn("cleaning up worktree after record failure", "path", absWorktree, "error", rmErr)
@@ -480,7 +486,9 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 		if err == nil {
 			if err := terminate(proc); err != nil {
 				slog.Debug("graceful termination failed, killing", "pid", r.PID, "error", err)
-				proc.Kill()
+				if killErr := proc.Kill(); killErr != nil {
+					slog.Warn("killing agent", "pid", r.PID, "error", killErr)
+				}
 			}
 		}
 	}

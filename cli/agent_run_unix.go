@@ -22,7 +22,8 @@ func forward(cmd *exec.Cmd) func() {
 		if !ok {
 			return
 		}
-		cmd.Process.Signal(sig)
+		// Best effort: the child may already have exited.
+		_ = cmd.Process.Signal(sig)
 	}()
 	return func() {
 		signal.Stop(ch)

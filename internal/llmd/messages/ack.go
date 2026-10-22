@@ -29,7 +29,7 @@ func (m *Messages) Ack(ctx context.Context, key, consumer string) error {
 	_, err = m.db.Query(`
 		INSERT OR IGNORE INTO message_acks (message_key, author, created_at)
 		VALUES (?, ?, ?)
-	`, key, consumer, now).WithContext(ctx).Write()
+	`, key, consumer, now).WithContext(ctx).Exec()
 	if err != nil {
 		return fmt.Errorf("inserting ack: %w", err)
 	}

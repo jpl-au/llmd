@@ -1,90 +1,102 @@
 package documents_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 func TestRead(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	opts := testWriteOpts()
-	opts.Message = "initial"
-	if _, err := s.Documents.Write(ctx, "docs/readme", "# Hello", opts); err != nil {
-		t.Fatalf("Write: %v", err)
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T, s *llmd.Store)
+		path        string
+		version     int // 0 reads the latest version
+		want        string
+		wantVersion int
+		wantMessage string
+		wantErr     error
+	}{
+		{
+			name: "latest version",
+			setup: func(t *testing.T, s *llmd.Store) {
+				opts := testWriteOpts()
+				opts.Message = "initial"
+				if _, err := s.Documents.Write(t.Context(), "docs/readme", "# Hello", opts); err != nil {
+					t.Fatalf("Write: %v", err)
+				}
+			},
+			path:        "docs/readme",
+			want:        "# Hello",
+			wantVersion: 1,
+			wantMessage: "initial",
+		},
+		{
+			name: "specific version",
+			setup: func(t *testing.T, s *llmd.Store) {
+				mustWrite(t, s, "docs/readme", "version 1")
+				mustWrite(t, s, "docs/readme", "version 2")
+				mustWrite(t, s, "docs/readme", "version 3")
+			},
+			path:        "docs/readme",
+			version:     2,
+			want:        "version 2",
+			wantVersion: 2,
+		},
+		{
+			name:    "not found",
+			path:    "nonexistent",
+			wantErr: documents.ErrNotFound,
+		},
 	}
 
-	doc, err := s.Documents.Read(ctx, "docs/readme")
-	if err != nil {
-		t.Fatalf("Read() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	if doc.Content != "# Hello" {
-		t.Errorf("Content = %q, want %q", doc.Content, "# Hello")
-	}
-	if doc.Message != "initial" {
-		t.Errorf("Message = %q, want %q", doc.Message, "initial")
-	}
-}
+			var opts documents.ReadOptions
+			if tt.version != 0 {
+				v := tt.version
+				opts.Version = &v
+			}
+			doc, err := s.Documents.Read(ctx, tt.path, opts)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Read(%q, version %d) error = %v, want %v", tt.path, tt.version, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
 
-func TestRead_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	_, err := s.Documents.Read(ctx, "nonexistent")
-	if !errors.Is(err, documents.ErrNotFound) {
-		t.Errorf("Read() error = %v, want ErrNotFound", err)
-	}
-}
-
-func TestRead_SpecificVersion(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-	opts := testWriteOpts()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "version 1", opts); err != nil {
-		t.Fatalf("Write v1: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "version 2", opts); err != nil {
-		t.Fatalf("Write v2: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "version 3", opts); err != nil {
-		t.Fatalf("Write v3: %v", err)
-	}
-
-	v := 2
-	doc, err := s.Documents.Read(ctx, "docs/readme", documents.ReadOptions{Version: &v})
-	if err != nil {
-		t.Fatalf("Read() error = %v", err)
-	}
-
-	if doc.Content != "version 2" {
-		t.Errorf("Content = %q, want %q", doc.Content, "version 2")
-	}
-	if doc.Version != 2 {
-		t.Errorf("Version = %d, want 2", doc.Version)
+			if doc.Content != tt.want {
+				t.Errorf("Read(%q, version %d).Content = %q, want %q", tt.path, tt.version, doc.Content, tt.want)
+			}
+			if doc.Version != tt.wantVersion {
+				t.Errorf("Read(%q, version %d).Version = %d, want %d", tt.path, tt.version, doc.Version, tt.wantVersion)
+			}
+			if doc.Message != tt.wantMessage {
+				t.Errorf("Read(%q, version %d).Message = %q, want %q", tt.path, tt.version, doc.Message, tt.wantMessage)
+			}
+		})
 	}
 }
 
 func TestReadByKey(t *testing.T) {
 	s := testStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
-	written, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
-	if err != nil {
-		t.Fatalf("Write: %v", err)
-	}
+	written := mustWrite(t, s, "docs/readme", "content")
 
 	doc, err := s.Documents.ReadByKey(ctx, written.Key)
 	if err != nil {
-		t.Fatalf("ReadByKey() error = %v", err)
+		t.Fatalf("ReadByKey(%q) error = %v", written.Key, err)
 	}
-
 	if doc.Content != "content" {
-		t.Errorf("Content = %q, want %q", doc.Content, "content")
+		t.Errorf("ReadByKey(%q).Content = %q, want %q", written.Key, doc.Content, "content")
 	}
 }

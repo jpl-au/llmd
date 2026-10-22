@@ -17,10 +17,7 @@ func (l *Links) List(ctx context.Context, value string, opts ...Options) ([]link
 		opt = opts[0]
 	}
 
-	relation, err := l.resolvePath(ctx, value)
-	if err != nil {
-		return nil, err
-	}
+	relation := l.resolvePath(ctx, value)
 
 	// Default to Outgoing if not specified
 	dir := opt.Direction

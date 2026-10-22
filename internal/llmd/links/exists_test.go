@@ -1,133 +1,88 @@
 package links_test
 
 import (
-	"context"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 )
 
+// TestExists covers link presence checks by path and by key, with and
+// without a label filter, for a missing link and a removed one. Every
+// case starts with a fresh store holding docs/a and docs/b.
 func TestExists(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
-		t.Fatalf("Write docs/a: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
-		t.Fatalf("Write docs/b: %v", err)
-	}
-	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
-		t.Fatalf("Add link: %v", err)
-	}
-
-	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if !ok {
-		t.Error("Exists() = false, want true")
-	}
-}
-
-func TestExists_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
-		t.Fatalf("Write a: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
-		t.Fatalf("Write b: %v", err)
-	}
-
-	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if ok {
-		t.Error("Exists() = true, want false")
-	}
-}
-
-func TestExists_WithLabel(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
-		t.Fatalf("Write a: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
-		t.Fatalf("Write b: %v", err)
-	}
-
-	opts := testOpts()
-	opts.Label = "related"
-	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", opts); err != nil {
-		t.Fatalf("Add link: %v", err)
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, s *llmd.Store)
+		byKey bool // address both documents by key instead of path
+		opts  []links.Options
+		want  bool
+	}{
+		{
+			name:  "found",
+			setup: func(t *testing.T, s *llmd.Store) { addLink(t, s, "docs/a", "docs/b", "") },
+			want:  true,
+		},
+		{
+			name: "not found",
+			want: false,
+		},
+		{
+			name:  "matching label",
+			setup: func(t *testing.T, s *llmd.Store) { addLink(t, s, "docs/a", "docs/b", "related") },
+			opts:  []links.Options{{Label: "related"}},
+			want:  true,
+		},
+		{
+			name:  "different label",
+			setup: func(t *testing.T, s *llmd.Store) { addLink(t, s, "docs/a", "docs/b", "related") },
+			opts:  []links.Options{{Label: "other"}},
+			want:  false,
+		},
+		{
+			name:  "labelled link without label filter",
+			setup: func(t *testing.T, s *llmd.Store) { addLink(t, s, "docs/a", "docs/b", "related") },
+			want:  true,
+		},
+		{
+			name:  "by key",
+			setup: func(t *testing.T, s *llmd.Store) { addLink(t, s, "docs/a", "docs/b", "") },
+			byKey: true,
+			want:  true,
+		},
+		{
+			name: "removed link",
+			setup: func(t *testing.T, s *llmd.Store) {
+				addLink(t, s, "docs/a", "docs/b", "")
+				if err := s.Links.Remove(t.Context(), "docs/a", "docs/b", testOpts()); err != nil {
+					t.Fatalf("Remove() error = %v", err)
+				}
+			},
+			want: false,
+		},
 	}
 
-	// Should find with matching label
-	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b", links.Options{Label: "related"}); err != nil {
-		t.Fatalf("Exists(label=related) error = %v", err)
-	} else if !ok {
-		t.Error("Exists(label=related) = false, want true")
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
 
-	// Should not find with different label
-	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b", links.Options{Label: "other"}); err != nil {
-		t.Fatalf("Exists(label=other) error = %v", err)
-	} else if ok {
-		t.Error("Exists(label=other) = true, want false")
-	}
+			keys := writeDocs(t, s, "docs/a", "docs/b")
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	// Should find with no label filter
-	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if !ok {
-		t.Error("Exists() = false, want true")
-	}
-}
+			from, to := "docs/a", "docs/b"
+			if tt.byKey {
+				from, to = keys[from], keys[to]
+			}
 
-func TestExists_ByKey(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	docA, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts())
-	if err != nil {
-		t.Fatalf("Write a: %v", err)
-	}
-	docB, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts())
-	if err != nil {
-		t.Fatalf("Write b: %v", err)
-	}
-	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
-		t.Fatalf("Add link: %v", err)
-	}
-
-	if ok, err := s.Links.Exists(ctx, docA.Key, docB.Key); err != nil {
-		t.Fatalf("Exists(keys) error = %v", err)
-	} else if !ok {
-		t.Error("Exists(keys) = false, want true")
-	}
-}
-
-func TestExists_RemovedLink(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
-		t.Fatalf("Write a: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
-		t.Fatalf("Write b: %v", err)
-	}
-	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
-		t.Fatalf("Add link: %v", err)
-	}
-	if err := s.Links.Remove(ctx, "docs/a", "docs/b", testOpts()); err != nil {
-		t.Fatalf("Remove link: %v", err)
-	}
-
-	if ok, err := s.Links.Exists(ctx, "docs/a", "docs/b"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if ok {
-		t.Error("Exists() = true for removed link, want false")
+			got, err := s.Links.Exists(t.Context(), from, to, tt.opts...)
+			if err != nil {
+				t.Fatalf("Exists(%q, %q, %v) error = %v", from, to, tt.opts, err)
+			}
+			if got != tt.want {
+				t.Errorf("Exists(%q, %q, %v) = %v, want %v", from, to, tt.opts, got, tt.want)
+			}
+		})
 	}
 }

@@ -1,11 +1,19 @@
 package search
 
 import (
+	"reflect"
 	"testing"
 )
 
 func TestParseMarkdown(t *testing.T) {
-	content := `# First Section
+	tests := []struct {
+		name    string
+		content string
+		want    []section
+	}{
+		{
+			name: "headings",
+			content: `# First Section
 
 Content of first section.
 
@@ -15,86 +23,80 @@ Content of second section.
 
 ## Subsection
 
-Nested content here.`
-
-	sections := parseMarkdown(content)
-
-	if len(sections) != 3 {
-		t.Fatalf("expected 3 sections, got %d", len(sections))
-	}
-
-	if sections[0].header != "First Section" {
-		t.Errorf("sections[0].header = %q, want %q", sections[0].header, "First Section")
-	}
-	if sections[1].header != "Second Section" {
-		t.Errorf("sections[1].header = %q, want %q", sections[1].header, "Second Section")
-	}
-	if sections[2].header != "Subsection" {
-		t.Errorf("sections[2].header = %q, want %q", sections[2].header, "Subsection")
-	}
-}
-
-func TestParseMarkdown_NoHeadings(t *testing.T) {
-	content := "Just plain text without any headings."
-
-	sections := parseMarkdown(content)
-
-	if len(sections) != 1 {
-		t.Fatalf("expected 1 section for no headings, got %d", len(sections))
-	}
-	if sections[0].header != "" {
-		t.Errorf("expected empty header, got %q", sections[0].header)
-	}
-	if sections[0].text != content {
-		t.Errorf("expected full content in section")
-	}
-}
-
-func TestParseMarkdown_Preamble(t *testing.T) {
-	content := `Some preamble text before any heading.
+Nested content here.`,
+			want: []section{
+				{header: "First Section", startLine: 1, endLine: 4, text: "# First Section\n\nContent of first section.\n"},
+				{header: "Second Section", startLine: 5, endLine: 8, text: "# Second Section\n\nContent of second section.\n"},
+				{header: "Subsection", startLine: 9, endLine: 11, text: "## Subsection\n\nNested content here."},
+			},
+		},
+		{
+			// No headings: the whole content is one section with an empty header.
+			name:    "no headings",
+			content: "Just plain text without any headings.",
+			want: []section{
+				{header: "", startLine: 1, endLine: 1, text: "Just plain text without any headings."},
+			},
+		},
+		{
+			// Preamble before the first heading comes first with an empty header.
+			name: "preamble",
+			content: `Some preamble text before any heading.
 
 # First Heading
 
-Content after heading.`
-
-	sections := parseMarkdown(content)
-
-	if len(sections) != 2 {
-		t.Fatalf("expected 2 sections (preamble + heading), got %d", len(sections))
+Content after heading.`,
+			want: []section{
+				{header: "", startLine: 1, endLine: 2, text: "Some preamble text before any heading.\n"},
+				{header: "First Heading", startLine: 3, endLine: 5, text: "# First Heading\n\nContent after heading."},
+			},
+		},
 	}
 
-	// Preamble should be first
-	if sections[0].header != "" {
-		t.Errorf("preamble should have empty header, got %q", sections[0].header)
-	}
-	if sections[0].startLine != 1 {
-		t.Errorf("preamble startLine = %d, want 1", sections[0].startLine)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseMarkdown(tt.content)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseMarkdown(%q) = %#v, want %#v", tt.content, got, tt.want)
+			}
+		})
 	}
 }
 
 func TestContainsTerms(t *testing.T) {
 	tests := []struct {
+		name  string
 		text  string
 		terms []string
 		want  bool
 	}{
-		{"hello world", []string{"hello"}, true},
-		{"hello world", []string{"HELLO"}, true}, // case insensitive
-		{"hello world", []string{"missing"}, false},
-		{"hello world", []string{"missing", "hello"}, true}, // any term matches
-		{"hello world", []string{}, false},
+		{"match", "hello world", []string{"hello"}, true},
+		{"case insensitive", "hello world", []string{"HELLO"}, true},
+		{"missing", "hello world", []string{"missing"}, false},
+		{"any term matches", "hello world", []string{"missing", "hello"}, true},
+		{"no terms", "hello world", []string{}, false},
 	}
 
 	for _, tt := range tests {
-		got := containsTerms(tt.text, tt.terms)
-		if got != tt.want {
-			t.Errorf("containsTerms(%q, %v) = %v, want %v", tt.text, tt.terms, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			got := containsTerms(tt.text, tt.terms)
+			if got != tt.want {
+				t.Errorf("containsTerms(%q, %v) = %v, want %v", tt.text, tt.terms, got, tt.want)
+			}
+		})
 	}
 }
 
 func TestExtractSections(t *testing.T) {
-	content := `# Intro
+	tests := []struct {
+		name    string
+		content string
+		query   string
+		want    []Match
+	}{
+		{
+			name: "single match",
+			content: `# Intro
 
 No matches here.
 
@@ -104,21 +106,15 @@ This section has the unicorn we want.
 
 # Conclusion
 
-Also no matches.`
-
-	matches := extractSections(content, "unicorn")
-
-	if len(matches) != 1 {
-		t.Fatalf("expected 1 matching section, got %d", len(matches))
-	}
-
-	if matches[0].Section != "Target Section" {
-		t.Errorf("Section = %q, want %q", matches[0].Section, "Target Section")
-	}
-}
-
-func TestExtractSections_MultipleMatches(t *testing.T) {
-	content := `# First Match
+Also no matches.`,
+			query: "unicorn",
+			want: []Match{
+				{Line: 5, Text: "# Target Section\n\nThis section has the unicorn we want.\n", Section: "Target Section"},
+			},
+		},
+		{
+			name: "multiple matches",
+			content: `# First Match
 
 keyword appears here.
 
@@ -128,18 +124,21 @@ nothing interesting.
 
 # Second Match
 
-keyword again here.`
-
-	matches := extractSections(content, "keyword")
-
-	if len(matches) != 2 {
-		t.Fatalf("expected 2 matching sections, got %d", len(matches))
+keyword again here.`,
+			query: "keyword",
+			want: []Match{
+				{Line: 1, Text: "# First Match\n\nkeyword appears here.\n", Section: "First Match"},
+				{Line: 9, Text: "# Second Match\n\nkeyword again here.", Section: "Second Match"},
+			},
+		},
 	}
 
-	if matches[0].Section != "First Match" {
-		t.Errorf("first match Section = %q", matches[0].Section)
-	}
-	if matches[1].Section != "Second Match" {
-		t.Errorf("second match Section = %q", matches[1].Section)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractSections(tt.content, tt.query)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("extractSections(%q, %q) = %#v, want %#v", tt.content, tt.query, got, tt.want)
+			}
+		})
 	}
 }

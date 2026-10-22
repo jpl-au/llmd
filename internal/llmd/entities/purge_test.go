@@ -1,79 +1,75 @@
 package entities_test
 
 import (
-	"context"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
 )
 
+// TestPurge covers hard-deleting soft-deleted entities: the count
+// returned and how many "test:item" entities remain, for a mix of
+// deleted and live entities, an empty store, and live entities only.
 func TestPurge(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Write some entities
-	ent1, _ := s.Entities.Write(ctx, "test:item", `{"name":"a"}`, testWriteOpts())
-	ent2, _ := s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts())
-	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"c"}`, testWriteOpts()); err != nil {
-		t.Fatalf("Write c: %v", err)
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T, s *llmd.Store)
+		want          int64 // entities purged
+		wantRemaining int   // test:item entities listed after Purge
+	}{
+		{
+			name: "deleted entities purged",
+			setup: func(t *testing.T, s *llmd.Store) {
+				for _, v := range []string{`{"name":"a"}`, `{"name":"b"}`} {
+					key := writeEntity(t, s, "test:item", v, "")
+					if err := s.Entities.Delete(t.Context(), key, testDeleteOpts()); err != nil {
+						t.Fatalf("Delete(%s) error = %v", key, err)
+					}
+				}
+				writeEntity(t, s, "test:item", `{"name":"c"}`, "")
+			},
+			want:          2,
+			wantRemaining: 1,
+		},
+		{
+			name:          "nothing to purge",
+			want:          0,
+			wantRemaining: 0,
+		},
+		{
+			name: "live entities untouched",
+			setup: func(t *testing.T, s *llmd.Store) {
+				writeEntity(t, s, "test:item", `{"name":"a"}`, "")
+				writeEntity(t, s, "test:item", `{"name":"b"}`, "")
+			},
+			want:          0,
+			wantRemaining: 2,
+		},
 	}
 
-	// Delete some
-	if err := s.Entities.Delete(ctx, ent1.Key, testDeleteOpts()); err != nil {
-		t.Fatalf("Delete(%s): %v", ent1.Key, err)
-	}
-	if err := s.Entities.Delete(ctx, ent2.Key, testDeleteOpts()); err != nil {
-		t.Fatalf("Delete(%s): %v", ent2.Key, err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	// Purge should remove 2 entities
-	n, err := s.Entities.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 2 {
-		t.Errorf("Purge() = %d, want 2", n)
-	}
+			got, err := s.Entities.Purge(ctx)
+			if err != nil {
+				t.Fatalf("Purge() error = %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("Purge() = %d, want %d", got, tt.want)
+			}
 
-	// Only one entity should remain
-	list, _ := s.Entities.List(ctx, "test:item", entities.ListOptions{})
-	if len(list) != 1 {
-		t.Errorf("List() after purge returned %d entities, want 1", len(list))
-	}
-}
-
-func TestPurge_Empty(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Purge with nothing to purge
-	n, err := s.Entities.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 0 {
-		t.Errorf("Purge() = %d, want 0", n)
-	}
-}
-
-func TestPurge_OnlyDeleted(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Write entities but don't delete any
-	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"a"}`, testWriteOpts()); err != nil {
-		t.Fatalf("Write a: %v", err)
-	}
-	if _, err := s.Entities.Write(ctx, "test:item", `{"name":"b"}`, testWriteOpts()); err != nil {
-		t.Fatalf("Write b: %v", err)
-	}
-
-	// Purge should do nothing
-	n, err := s.Entities.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 0 {
-		t.Errorf("Purge() = %d, want 0", n)
+			list, err := s.Entities.List(ctx, "test:item", entities.ListOptions{})
+			if err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+			if len(list) != tt.wantRemaining {
+				t.Errorf("List() after Purge() returned %d entities, want %d", len(list), tt.wantRemaining)
+			}
+		})
 	}
 }

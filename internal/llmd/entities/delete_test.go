@@ -1,56 +1,60 @@
 package entities_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/entities"
 )
 
+// TestDelete covers soft-deleting an entity, a key that never existed,
+// and a second delete of the same key. setup returns the key to delete;
+// after Delete the key must not be readable in any case.
 func TestDelete(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Write an entity
-	written, _ := s.Entities.Write(ctx, "test:item", `{"name":"foo"}`, testWriteOpts())
-
-	// Delete it
-	err := s.Entities.Delete(ctx, written.Key, testDeleteOpts())
-	if err != nil {
-		t.Fatalf("Delete() error = %v", err)
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T, s *llmd.Store) string
+		wantErr error
+	}{
+		{
+			name: "existing",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				return writeEntity(t, s, "test:item", `{"name":"foo"}`, "")
+			},
+		},
+		{
+			name:    "not found",
+			setup:   func(t *testing.T, s *llmd.Store) string { return "nonexistent" },
+			wantErr: entities.ErrNotFound,
+		},
+		{
+			name: "already deleted",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				key := writeEntity(t, s, "test:item", `{"name":"foo"}`, "")
+				if err := s.Entities.Delete(t.Context(), key, testDeleteOpts()); err != nil {
+					t.Fatalf("Delete(%s) error = %v", key, err)
+				}
+				return key
+			},
+			wantErr: entities.ErrNotFound,
+		},
 	}
 
-	// Should not be readable now
-	_, err = s.Entities.Read(ctx, written.Key)
-	if !errors.Is(err, entities.ErrNotFound) {
-		t.Errorf("Read() after delete should return ErrNotFound, got %v", err)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			key := tt.setup(t, s)
 
-func TestDelete_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
+			err := s.Entities.Delete(ctx, key, testDeleteOpts())
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Delete(%q) error = %v, want %v", key, err, tt.wantErr)
+			}
 
-	err := s.Entities.Delete(ctx, "nonexistent", testDeleteOpts())
-	if !errors.Is(err, entities.ErrNotFound) {
-		t.Errorf("Delete() error = %v, want ErrNotFound", err)
-	}
-}
-
-func TestDelete_AlreadyDeleted(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Write and delete
-	written, _ := s.Entities.Write(ctx, "test:item", `{"name":"foo"}`, testWriteOpts())
-	if err := s.Entities.Delete(ctx, written.Key, testDeleteOpts()); err != nil {
-		t.Fatalf("Delete: %v", err)
-	}
-
-	// Delete again should return not found
-	err := s.Entities.Delete(ctx, written.Key, testDeleteOpts())
-	if !errors.Is(err, entities.ErrNotFound) {
-		t.Errorf("Delete() again error = %v, want ErrNotFound", err)
+			if _, err := s.Entities.Read(ctx, key); !errors.Is(err, entities.ErrNotFound) {
+				t.Errorf("Read(%q) after Delete error = %v, want %v", key, err, entities.ErrNotFound)
+			}
+		})
 	}
 }

@@ -11,8 +11,9 @@ package history
 import (
 	"errors"
 
-	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/qwr"
+
+	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 const namespace = "core:document"

@@ -1,134 +1,120 @@
 package tags_test
 
 import (
-	"context"
+	"slices"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/pkg/model/tag"
 )
 
+// TestList covers listing the tags on one document by path and by key,
+// and a document with no tags. Every case starts with a fresh store
+// holding "docs/readme".
 func TestList(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, s *llmd.Store)
+		byKey bool // address the document by key instead of path
+		want  int  // number of tags listed
+	}{
+		{
+			name: "two tags",
+			setup: func(t *testing.T, s *llmd.Store) {
+				for _, name := range []string{"important", "v1"} {
+					if _, err := s.Tags.Add(t.Context(), "docs/readme", name, testOpts()); err != nil {
+						t.Fatalf("Add(%s) error = %v", name, err)
+					}
+				}
+			},
+			want: 2,
+		},
+		{
+			name: "by key",
+			setup: func(t *testing.T, s *llmd.Store) {
+				if _, err := s.Tags.Add(t.Context(), "docs/readme", "important", testOpts()); err != nil {
+					t.Fatalf("Add() error = %v", err)
+				}
+			},
+			byKey: true,
+			want:  1,
+		},
+		{
+			name: "empty",
+			want: 0,
+		},
+	}
 
-	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
-		t.Fatalf("Add important: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/readme", "v1", testOpts()); err != nil {
-		t.Fatalf("Add v1: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
 
-	tags, err := s.Tags.List(ctx, "docs/readme", testOpts())
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
+			doc, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
+			if err != nil {
+				t.Fatalf("Write() error = %v", err)
+			}
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	if len(tags) != 2 {
-		t.Errorf("List() returned %d tags, want 2", len(tags))
+			value := "docs/readme"
+			if tt.byKey {
+				value = doc.Key
+			}
+
+			got, err := s.Tags.List(ctx, value, testOpts())
+			if err != nil {
+				t.Fatalf("List(%q) error = %v", value, err)
+			}
+			if len(got) != tt.want {
+				t.Errorf("List(%q) returned %d tags, want %d", value, len(got), tt.want)
+			}
+		})
 	}
 }
 
-func TestList_ByKey(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	doc, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts())
-	if err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-
-	tags, err := s.Tags.List(ctx, doc.Key, testOpts())
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-
-	if len(tags) != 1 {
-		t.Errorf("List() returned %d tags, want 1", len(tags))
-	}
-}
-
-func TestList_Empty(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	tags, err := s.Tags.List(ctx, "docs/readme", testOpts())
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-
-	if len(tags) != 0 {
-		t.Errorf("List() returned %d tags, want 0", len(tags))
-	}
-}
-
+// TestListAll covers the store-wide tag summary: unique names with the
+// number of documents carrying each, and the empty store. ListAll orders
+// by name, so want is compared exactly.
 func TestListAll(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write readme: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/api", "api content", testWriteOpts()); err != nil {
-		t.Fatalf("Write api: %v", err)
-	}
-
-	if _, err := s.Tags.Add(ctx, "docs/readme", "important", testOpts()); err != nil {
-		t.Fatalf("Add important: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/readme", "v1", testOpts()); err != nil {
-		t.Fatalf("Add v1: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/api", "important", testOpts()); err != nil { // duplicate tag name
-		t.Fatalf("Add important api: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/api", "needs-review", testOpts()); err != nil {
-		t.Fatalf("Add needs-review: %v", err)
-	}
-
-	all, err := s.Tags.ListAll(ctx)
-	if err != nil {
-		t.Fatalf("ListAll() error = %v", err)
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, s *llmd.Store)
+		want  []tag.Info
+	}{
+		{
+			name: "unique names with counts",
+			setup: func(t *testing.T, s *llmd.Store) {
+				writeTagged(t, s, "docs/readme", "important", "v1")
+				writeTagged(t, s, "docs/api", "important", "needs-review") // "important" repeated
+			},
+			want: []tag.Info{
+				{Name: "important", Count: 2},
+				{Name: "needs-review", Count: 1},
+				{Name: "v1", Count: 1},
+			},
+		},
+		{
+			name: "empty",
+			want: nil,
+		},
 	}
 
-	// Should return unique tag names: important, needs-review, v1
-	if len(all) != 3 {
-		t.Errorf("ListAll() returned %d tags, want 3", len(all))
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	// Check counts - "important" is on 2 docs, others on 1
-	counts := make(map[string]int)
-	for _, info := range all {
-		counts[info.Name] = info.Count
-	}
-	if counts["important"] != 2 {
-		t.Errorf("important count = %d, want 2", counts["important"])
-	}
-	if counts["v1"] != 1 {
-		t.Errorf("v1 count = %d, want 1", counts["v1"])
-	}
-	if counts["needs-review"] != 1 {
-		t.Errorf("needs-review count = %d, want 1", counts["needs-review"])
-	}
-}
-
-func TestListAll_Empty(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	all, err := s.Tags.ListAll(ctx)
-	if err != nil {
-		t.Fatalf("ListAll() error = %v", err)
-	}
-
-	if len(all) != 0 {
-		t.Errorf("ListAll() returned %d tags, want 0", len(all))
+			got, err := s.Tags.ListAll(t.Context())
+			if err != nil {
+				t.Fatalf("ListAll() error = %v", err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("ListAll() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

@@ -11,10 +11,7 @@ func (t *Tags) Exists(ctx context.Context, value, name string) (bool, error) {
 		return false, err
 	}
 
-	relation, err := t.resolvePath(ctx, value)
-	if err != nil {
-		return false, err
-	}
+	relation := t.resolvePath(ctx, value)
 
 	var exists bool
 	row, err := t.db.Query(`

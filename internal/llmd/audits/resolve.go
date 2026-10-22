@@ -4,6 +4,8 @@ package audits
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -28,21 +30,25 @@ func (a *Audits) Restore(ctx context.Context, id, author string) (*Audit, error)
 		return nil, err
 	}
 
-	// Read including deleted.
+	// Only a soft-deleted audit can be restored; a live or unknown
+	// id is reported as not found, matching documents.Restore.
 	row, err := a.db.Query(`
-		SELECT `+columns+` FROM audits WHERE id = ?
+		SELECT `+columns+` FROM audits WHERE id = ? AND deleted_at IS NOT NULL
 	`, id).WithContext(ctx).ReadRow()
 	if err != nil {
 		return nil, err
 	}
 	aud, err := scanAudit(row)
 	if err != nil {
-		return nil, ErrNotFound
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("reading audit: %w", err)
 	}
 
 	_, err = a.db.Query(`
 		UPDATE audits SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL
-	`, id).WithContext(ctx).Execute()
+	`, id).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, fmt.Errorf("restoring audit: %w", err)
 	}
@@ -80,7 +86,7 @@ func (a *Audits) Delete(ctx context.Context, id, author string) error {
 	now := time.Now().UnixMilli()
 	_, err = a.db.Query(`
 		UPDATE audits SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL
-	`, now, id).WithContext(ctx).Execute()
+	`, now, id).WithContext(ctx).Exec()
 	if err != nil {
 		return fmt.Errorf("deleting audit: %w", err)
 	}

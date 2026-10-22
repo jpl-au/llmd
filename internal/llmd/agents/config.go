@@ -38,30 +38,41 @@ func (a *Agents) Register(_ context.Context, cfg sdk.AgentConfig, _ string) erro
 
 	// Seed default prompt templates (write only if missing).
 	for role, content := range assets.Agent.Templates() {
-		a.seed(filepath.Join(dir, role+".md"), content)
+		if err := a.seed(filepath.Join(dir, role+".md"), content); err != nil {
+			return err
+		}
 	}
 
 	// Seed default prompt templates into default/ too.
 	defaultDir := filepath.Join(a.dir, "default")
-	os.MkdirAll(defaultDir, 0755)
+	if err := os.MkdirAll(defaultDir, 0755); err != nil {
+		return fmt.Errorf("creating %s: %w", defaultDir, err)
+	}
 	for role, content := range assets.Agent.Templates() {
-		a.seed(filepath.Join(defaultDir, role+".md"), content)
+		if err := a.seed(filepath.Join(defaultDir, role+".md"), content); err != nil {
+			return err
+		}
 	}
 
 	// Seed runtime settings if available.
 	if s := assets.Agent.Settings(cfg.Name); s != "" {
-		a.seed(filepath.Join(dir, "settings.json"), s)
+		if err := a.seed(filepath.Join(dir, "settings.json"), s); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 // seed writes content to path only if the file does not exist.
-func (a *Agents) seed(path, content string) {
+func (a *Agents) seed(path, content string) error {
 	if _, err := os.Stat(path); err == nil {
-		return
+		return nil
 	}
-	os.WriteFile(path, []byte(content), 0644)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("seeding %s: %w", path, err)
+	}
+	return nil
 }
 
 // Settings returns the runtime settings for an agent, or empty

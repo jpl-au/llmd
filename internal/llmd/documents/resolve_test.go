@@ -1,60 +1,59 @@
 package documents_test
 
 import (
-	"context"
+	"errors"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 func TestKeyToPath(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	written, err := s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts())
-	if err != nil {
-		t.Fatalf("Write: %v", err)
+	tests := []struct {
+		name string
+		// setup prepares the store and returns the key to resolve.
+		setup   func(t *testing.T, s *llmd.Store) string
+		want    string
+		wantErr error
+	}{
+		{
+			name: "resolves key to path",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				return mustWrite(t, s, "docs/readme", "hello world").Key
+			},
+			want: "docs/readme",
+		},
+		{
+			name: "stable across versions",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				v1 := mustWrite(t, s, "docs/readme", "v1 content")
+				v2 := mustWrite(t, s, "docs/readme", "v2 content")
+				if v1.Key != v2.Key {
+					t.Fatalf("Key changed between versions: v1=%q v2=%q", v1.Key, v2.Key)
+				}
+				return v1.Key
+			},
+			want: "docs/readme",
+		},
+		{
+			name:    "unknown key",
+			setup:   func(t *testing.T, s *llmd.Store) string { return "zzzzzzzzz" },
+			wantErr: documents.ErrNotFound,
+		},
 	}
 
-	path, err := s.Documents.KeyToPath(ctx, written.Key)
-	if err != nil {
-		t.Fatalf("KeyToPath() error = %v", err)
-	}
-	if path != "docs/readme" {
-		t.Errorf("path = %q, want %q", path, "docs/readme")
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			key := tt.setup(t, s)
 
-func TestKeyToPath_StableAcrossVersions(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	v1, err := s.Documents.Write(ctx, "docs/readme", "v1 content", testWriteOpts())
-	if err != nil {
-		t.Fatalf("Write v1: %v", err)
-	}
-	v2, err := s.Documents.Write(ctx, "docs/readme", "v2 content", testWriteOpts())
-	if err != nil {
-		t.Fatalf("Write v2: %v", err)
-	}
-
-	if v1.Key != v2.Key {
-		t.Fatalf("Key changed between versions: v1=%q v2=%q", v1.Key, v2.Key)
-	}
-
-	path, err := s.Documents.KeyToPath(ctx, v1.Key)
-	if err != nil {
-		t.Fatalf("KeyToPath() error = %v", err)
-	}
-	if path != "docs/readme" {
-		t.Errorf("path = %q, want %q", path, "docs/readme")
-	}
-}
-
-func TestKeyToPath_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	_, err := s.Documents.KeyToPath(ctx, "zzzzzzzzz")
-	if err == nil {
-		t.Error("KeyToPath() expected error for unknown key")
+			got, err := s.Documents.KeyToPath(t.Context(), key)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("KeyToPath(%q) error = %v, want %v", key, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("KeyToPath(%q) = %q, want %q", key, got, tt.want)
+			}
+		})
 	}
 }

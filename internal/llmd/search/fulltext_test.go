@@ -1,174 +1,158 @@
 package search_test
 
 import (
-	"context"
+	"errors"
+	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd/search"
 )
 
+// testDoc is a document written to a fresh store before searching.
+type testDoc struct {
+	path    string
+	content string
+}
+
+// TestFullText covers result-level behaviour: which documents a query
+// returns under each option. wantPaths is checked when set; want is the
+// result count for cases where rank ordering makes the paths ambiguous.
 func TestFullText(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
+	tests := []struct {
+		name        string
+		docs        []testDoc
+		query       string
+		opts        search.Options
+		wantErr     error
+		want        int      // number of results
+		wantPaths   []string // sorted result paths, checked when set
+		wantMatches int      // matches per result
+	}{
+		{
+			name: "prefix match",
+			docs: []testDoc{
+				{"docs/auth", "authentication and authorization"},
+				{"docs/api", "API endpoints for users"},
+				{"docs/errors", "error handling and logging"},
+			},
+			query:       "auth*",
+			want:        1,
+			wantPaths:   []string{"docs/auth"},
+			wantMatches: 1,
+		},
+		{
+			name: "path prefix",
+			docs: []testDoc{
+				{"docs/readme", "hello world"},
+				{"notes/readme", "hello world"},
+			},
+			query:       "hello",
+			opts:        search.Options{Path: "docs/"},
+			want:        1,
+			wantPaths:   []string{"docs/readme"},
+			wantMatches: 1,
+		},
+		{
+			name: "limit",
+			docs: []testDoc{
+				{"docs/a", "common word here"},
+				{"docs/b", "common word here"},
+				{"docs/c", "common word here"},
+				{"docs/d", "common word here"},
+				{"docs/e", "common word here"},
+			},
+			query:       "common",
+			opts:        search.Options{Limit: 2},
+			want:        2,
+			wantMatches: 1,
+		},
+		{
+			name: "mode paths has no matches",
+			docs: []testDoc{
+				{"docs/readme", "hello world content"},
+				{"docs/guide", "hello again content"},
+			},
+			query:       "hello",
+			opts:        search.Options{Mode: search.ModePaths},
+			want:        2,
+			wantPaths:   []string{"docs/guide", "docs/readme"},
+			wantMatches: 0,
+		},
+		{
+			name:    "invalid query",
+			docs:    []testDoc{{"docs/test", "some content"}},
+			query:   "AND OR NOT",
+			wantErr: search.ErrInvalidQuery,
+		},
+	}
 
-	if _, err := s.Documents.Write(ctx, "docs/auth", "authentication and authorization", testWriteOpts()); err != nil {
-		t.Fatalf("Write auth: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/api", "API endpoints for users", testWriteOpts()); err != nil {
-		t.Fatalf("Write api: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/errors", "error handling and logging", testWriteOpts()); err != nil {
-		t.Fatalf("Write errors: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			for _, d := range tt.docs {
+				if _, err := s.Documents.Write(t.Context(), d.path, d.content, testWriteOpts()); err != nil {
+					t.Fatalf("Write(%q) error = %v", d.path, err)
+				}
+			}
 
-	results, err := s.Search.FullText(ctx, "auth*")
-	if err != nil {
-		t.Fatalf("FullText() error = %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Errorf("FullText() returned %d results, want 1", len(results))
-	}
-	if len(results) > 0 && results[0].Path != "docs/auth" {
-		t.Errorf("Path = %q, want %q", results[0].Path, "docs/auth")
+			results, err := s.Search.FullText(t.Context(), tt.query, tt.opts)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("FullText(%q) error = %v, want %v", tt.query, err, tt.wantErr)
+			}
+			if tt.wantErr != nil {
+				return
+			}
+			if len(results) != tt.want {
+				t.Errorf("FullText(%q) returned %d results, want %d", tt.query, len(results), tt.want)
+			}
+			var paths []string
+			for _, r := range results {
+				paths = append(paths, r.Path)
+				if len(r.Matches) != tt.wantMatches {
+					t.Errorf("FullText(%q) %s has %d matches, want %d", tt.query, r.Path, len(r.Matches), tt.wantMatches)
+				}
+			}
+			slices.Sort(paths)
+			if tt.wantPaths != nil && !slices.Equal(paths, tt.wantPaths) {
+				t.Errorf("FullText(%q) paths = %v, want %v", tt.query, paths, tt.wantPaths)
+			}
+		})
 	}
 }
 
-func TestFullText_PathPrefix(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "hello world", testWriteOpts()); err != nil {
-		t.Fatalf("Write docs/readme: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "notes/readme", "hello world", testWriteOpts()); err != nil {
-		t.Fatalf("Write notes/readme: %v", err)
-	}
-
-	results, err := s.Search.FullText(ctx, "hello", search.Options{Path: "docs/"})
-	if err != nil {
-		t.Fatalf("FullText() error = %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Errorf("FullText(path=docs/) returned %d results, want 1", len(results))
-	}
-}
-
-func TestFullText_Limit(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	for i := range 5 {
-		if _, err := s.Documents.Write(ctx, "docs/"+string(rune('a'+i)), "common word here", testWriteOpts()); err != nil {
-			t.Fatalf("Write docs/%c: %v", rune('a'+i), err)
-		}
-	}
-
-	results, err := s.Search.FullText(ctx, "common", search.Options{Limit: 2})
-	if err != nil {
-		t.Fatalf("FullText() error = %v", err)
-	}
-
-	if len(results) != 2 {
-		t.Errorf("FullText(limit=2) returned %d results, want 2", len(results))
-	}
-}
-
-func TestFullText_ModePaths(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "hello world content", testWriteOpts()); err != nil {
-		t.Fatalf("Write readme: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/guide", "hello again content", testWriteOpts()); err != nil {
-		t.Fatalf("Write guide: %v", err)
-	}
-
-	results, err := s.Search.FullText(ctx, "hello", search.Options{Mode: search.ModePaths})
-	if err != nil {
-		t.Fatalf("FullText(ModePaths) error = %v", err)
-	}
-
-	if len(results) != 2 {
-		t.Errorf("FullText(ModePaths) returned %d results, want 2", len(results))
-	}
-	for _, r := range results {
-		if len(r.Matches) != 0 {
-			t.Errorf("ModePaths should have no matches, got %d", len(r.Matches))
-		}
-	}
-}
-
-func TestFullText_ModeLines(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	content := "line one\nline two with target word\nline three\nline four\nline five"
-	if _, err := s.Documents.Write(ctx, "docs/test", content, testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	results, err := s.Search.FullText(ctx, "target", search.Options{
-		Mode:    search.ModeLines,
-		Context: 1,
-	})
-	if err != nil {
-		t.Fatalf("FullText(ModeLines) error = %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-
-	if len(results[0].Matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(results[0].Matches))
-	}
-
-	m := results[0].Matches[0]
-	if m.Line != 2 {
-		t.Errorf("Line = %d, want 2", m.Line)
-	}
-	if m.Text != "line two with target word" {
-		t.Errorf("Text = %q, want %q", m.Text, "line two with target word")
-	}
-	if len(m.Before) != 1 || m.Before[0] != "line one" {
-		t.Errorf("Before = %v, want [line one]", m.Before)
-	}
-	if len(m.After) != 1 || m.After[0] != "line three" {
-		t.Errorf("After = %v, want [line three]", m.After)
-	}
-}
-
-func TestFullText_ModeLines_MultipleMatches(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	content := "first match here\nsecond line\nthird match here\nfourth line"
-	if _, err := s.Documents.Write(ctx, "docs/test", content, testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	results, err := s.Search.FullText(ctx, "match", search.Options{Mode: search.ModeLines})
-	if err != nil {
-		t.Fatalf("FullText(ModeLines) error = %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-
-	if len(results[0].Matches) != 2 {
-		t.Errorf("expected 2 matches, got %d", len(results[0].Matches))
-	}
-}
-
-func TestFullText_ModeSections(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	content := `# Introduction
+// TestFullText_Modes covers match-level output: the Match values each
+// mode produces for a single document.
+func TestFullText_Modes(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		query   string
+		opts    search.Options
+		want    []search.Match
+	}{
+		{
+			name:    "lines with context",
+			content: "line one\nline two with target word\nline three\nline four\nline five",
+			query:   "target",
+			opts:    search.Options{Mode: search.ModeLines, Context: 1},
+			want: []search.Match{
+				{Line: 2, Column: 14, Text: "line two with target word", Before: []string{"line one"}, After: []string{"line three"}},
+			},
+		},
+		{
+			name:    "lines multiple matches",
+			content: "first match here\nsecond line\nthird match here\nfourth line",
+			query:   "match",
+			opts:    search.Options{Mode: search.ModeLines},
+			want: []search.Match{
+				{Line: 1, Column: 6, Text: "first match here"},
+				{Line: 3, Column: 6, Text: "third match here"},
+			},
+		},
+		{
+			name: "sections",
+			content: `# Introduction
 
 This is the intro section.
 
@@ -178,99 +162,55 @@ This section has the target keyword.
 
 # Conclusion
 
-Final thoughts here.`
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", content, testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
+Final thoughts here.`,
+			query: "target",
+			opts:  search.Options{Mode: search.ModeSections},
+			want: []search.Match{
+				{Line: 5, Text: "# Features\n\nThis section has the target keyword.\n", Section: "Features"},
+			},
+		},
+		{
+			// No heading means empty section name.
+			name:    "sections no headings",
+			content: "Just plain text with target word and no markdown headings.",
+			query:   "target",
+			opts:    search.Options{Mode: search.ModeSections},
+			want: []search.Match{
+				{Line: 1, Text: "Just plain text with target word and no markdown headings.", Section: ""},
+			},
+		},
+		{
+			// Snippet contains the keyword with highlight markers.
+			name:    "snippets",
+			content: "prefix text here then the target keyword appears in the middle of this document followed by more text",
+			query:   "target",
+			opts:    search.Options{Mode: search.ModeSnippets},
+			want: []search.Match{
+				{Text: "prefix text here then the <b>target</b> keyword appears in the middle of this document followed by more text"},
+			},
+		},
 	}
 
-	results, err := s.Search.FullText(ctx, "target", search.Options{Mode: search.ModeSections})
-	if err != nil {
-		t.Fatalf("FullText(ModeSections) error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			if _, err := s.Documents.Write(t.Context(), "docs/test", tt.content, testWriteOpts()); err != nil {
+				t.Fatalf("Write() error = %v", err)
+			}
 
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-
-	if len(results[0].Matches) != 1 {
-		t.Fatalf("expected 1 section match, got %d", len(results[0].Matches))
-	}
-
-	m := results[0].Matches[0]
-	if m.Section != "Features" {
-		t.Errorf("Section = %q, want %q", m.Section, "Features")
-	}
-}
-
-func TestFullText_ModeSections_NoHeadings(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	content := "Just plain text with target word and no markdown headings."
-	if _, err := s.Documents.Write(ctx, "docs/plain", content, testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	results, err := s.Search.FullText(ctx, "target", search.Options{Mode: search.ModeSections})
-	if err != nil {
-		t.Fatalf("FullText(ModeSections) error = %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-
-	if len(results[0].Matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(results[0].Matches))
-	}
-
-	// No heading means empty section name
-	if results[0].Matches[0].Section != "" {
-		t.Errorf("Section = %q, want empty", results[0].Matches[0].Section)
-	}
-}
-
-func TestFullText_ModeSnippets(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	content := "prefix text here then the target keyword appears in the middle of this document followed by more text"
-	if _, err := s.Documents.Write(ctx, "docs/test", content, testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	results, err := s.Search.FullText(ctx, "target", search.Options{Mode: search.ModeSnippets})
-	if err != nil {
-		t.Fatalf("FullText(ModeSnippets) error = %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
-	}
-
-	if len(results[0].Matches) != 1 {
-		t.Fatalf("expected 1 match, got %d", len(results[0].Matches))
-	}
-
-	// Snippet should contain the keyword with highlight markers
-	m := results[0].Matches[0]
-	if m.Text == "" {
-		t.Error("snippet text should not be empty")
-	}
-}
-
-func TestFullText_InvalidQuery(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/test", "some content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	// Invalid FTS5 syntax
-	_, err := s.Search.FullText(ctx, "AND OR NOT")
-	if err == nil {
-		t.Error("expected error for invalid query")
+			results, err := s.Search.FullText(t.Context(), tt.query, tt.opts)
+			if err != nil {
+				t.Fatalf("FullText(%q) error = %v", tt.query, err)
+			}
+			if len(results) != 1 {
+				t.Fatalf("FullText(%q) returned %d results, want 1", tt.query, len(results))
+			}
+			if results[0].Path != "docs/test" {
+				t.Errorf("FullText(%q) Path = %q, want %q", tt.query, results[0].Path, "docs/test")
+			}
+			if !reflect.DeepEqual(results[0].Matches, tt.want) {
+				t.Errorf("FullText(%q) Matches = %#v, want %#v", tt.query, results[0].Matches, tt.want)
+			}
+		})
 	}
 }

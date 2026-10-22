@@ -11,6 +11,7 @@ package config
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -112,10 +113,10 @@ func appendLine(line string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-
-	_, err = fmt.Fprintln(f, line)
-	return err
+	if _, err := fmt.Fprintln(f, line); err != nil {
+		return errors.Join(err, f.Close())
+	}
+	return f.Close()
 }
 
 // removeLine removes a line from the gitignore file.

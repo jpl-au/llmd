@@ -5,7 +5,6 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
-	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func testStore(t *testing.T) *llmd.Store {
@@ -14,10 +13,14 @@ func testStore(t *testing.T) *llmd.Store {
 	if err != nil {
 		t.Fatalf("OpenMemory() error = %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("closing store: %v", err)
+		}
+	})
 	return s
 }
 
 func testWriteOpts() documents.WriteOptions {
-	return documents.WriteOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return documents.WriteOptions{Author: "test", Source: "cli"}
 }

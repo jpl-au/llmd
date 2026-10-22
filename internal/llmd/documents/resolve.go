@@ -8,9 +8,9 @@ func (d *Documents) KeyToPath(ctx context.Context, k string) (string, error) {
 	var path string
 	row, err := d.db.Query(`
 		SELECT path FROM content
-		WHERE key = ? AND deleted_at IS NULL
+		WHERE namespace = ? AND key = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
-	`, k).WithContext(ctx).ReadRow()
+	`, namespace, k).WithContext(ctx).ReadRow()
 	if err != nil {
 		return "", err
 	}

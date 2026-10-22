@@ -103,9 +103,9 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 		desc.WriteString("\n\nFlags:")
 		for _, f := range cmd.Flags {
 			if f.Short != "" {
-				desc.WriteString(fmt.Sprintf("\n  -%s, --%s  %s", f.Short, f.Name, f.Desc))
+				fmt.Fprintf(&desc, "\n  -%s, --%s  %s", f.Short, f.Name, f.Desc)
 			} else {
-				desc.WriteString(fmt.Sprintf("\n  --%s  %s", f.Name, f.Desc))
+				fmt.Fprintf(&desc, "\n  --%s  %s", f.Name, f.Desc)
 			}
 		}
 	}

@@ -15,8 +15,9 @@ package documents
 import (
 	"errors"
 
-	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/qwr"
+
+	"github.com/jpl-au/llmd/internal/llmd/events"
 )
 
 // Errors returned by document operations. ErrDeleted is returned

@@ -11,7 +11,7 @@ func (d *Documents) Purge(ctx context.Context) (int64, error) {
 	qr, err := d.db.Query(`
 		DELETE FROM content
 		WHERE namespace = ? AND deleted_at IS NOT NULL
-	`, namespace).WithContext(ctx).Execute()
+	`, namespace).WithContext(ctx).Exec()
 	if err != nil {
 		return 0, fmt.Errorf("purging documents: %w", err)
 	}

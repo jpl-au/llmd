@@ -3,7 +3,7 @@
 // Usage:
 //
 //	llmd link <from> <to>                Create a link
-//	llmd link --label <label> <from> <to>  Create a labeled link
+//	llmd link --label <label> <from> <to>  Create a labelled link
 //	llmd link <path>                     List outgoing links
 //	llmd link --in <path>                List incoming links
 

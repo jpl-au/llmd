@@ -119,7 +119,11 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 				return nil, err
 			}
 		} else {
-			defer store.Close()
+			defer func() {
+				if cerr := store.Close(); cerr != nil {
+					slog.Warn("closing store", "err", cerr)
+				}
+			}()
 
 			// Re-setup with the store so SDK globals and bridges
 			// are wired before dispatch.
@@ -265,7 +269,9 @@ func setup(store *llmd.Store) *Host {
 			return "", err
 		}
 		path := store.Path()
-		store.Close()
+		if err := store.Close(); err != nil {
+			return "", fmt.Errorf("closing store: %w", err)
+		}
 
 		// Create default .llmd/.gitignore for new stores.
 		if err := config.InitGitignore(); err != nil {

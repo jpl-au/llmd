@@ -7,8 +7,8 @@ import (
 	"github.com/jpl-au/llmd/pkg/model/entity"
 )
 
-// List returns entities in a namespace, optionally filtered by relation.
-// Returns the latest state for each unique namespace+relation combination.
+// List returns every non-deleted entity in a namespace, newest first,
+// optionally filtered by relation.
 func (e *Entities) List(ctx context.Context, namespace string, opts ListOptions) ([]entity.Entity, error) {
 	query := `
 		SELECT id, key, namespace, relation, value, author, source, created_at, deleted_at

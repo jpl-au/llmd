@@ -1,75 +1,73 @@
 package history_test
 
 import (
-	"context"
+	"errors"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 func TestDiff(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-	opts := testWriteOpts()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "first version", opts); err != nil {
-		t.Fatalf("Write(first version): %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "second version", opts); err != nil {
-		t.Fatalf("Write(second version): %v", err)
-	}
-
-	// Key is stable across versions, so use key:version to diff.
-	versions, _ := s.History.List(ctx, "docs/readme")
-	key := versions[0].Key
-
-	result, err := s.History.Diff(ctx, key+":1", key+":2")
-	if err != nil {
-		t.Fatalf("Diff() error = %v", err)
-	}
-
-	if result.A.Content != "first version" {
-		t.Errorf("A.Content = %q, want %q", result.A.Content, "first version")
-	}
-	if result.B.Content != "second version" {
-		t.Errorf("B.Content = %q, want %q", result.B.Content, "second version")
-	}
-}
-
-func TestDiff_ByPath(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-	opts := testWriteOpts()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "readme content", opts); err != nil {
-		t.Fatalf("Write(readme): %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/api", "api content", opts); err != nil {
-		t.Fatalf("Write(api): %v", err)
-	}
-
-	result, err := s.History.Diff(ctx, "docs/readme", "docs/api")
-	if err != nil {
-		t.Fatalf("Diff() error = %v", err)
+	tests := []struct {
+		name string
+		// setup prepares the store and returns the two identifiers to diff.
+		setup   func(t *testing.T, s *llmd.Store) (a, b string)
+		wantA   string
+		wantB   string
+		wantErr error
+	}{
+		{
+			// Key is stable across versions, so key:version addresses
+			// each version of one document.
+			name: "key with version",
+			setup: func(t *testing.T, s *llmd.Store) (string, string) {
+				doc := mustWrite(t, s, "docs/readme", "first version")
+				mustWrite(t, s, "docs/readme", "second version")
+				return doc.Key + ":1", doc.Key + ":2"
+			},
+			wantA: "first version",
+			wantB: "second version",
+		},
+		{
+			name: "by path",
+			setup: func(t *testing.T, s *llmd.Store) (string, string) {
+				mustWrite(t, s, "docs/readme", "readme content")
+				mustWrite(t, s, "docs/api", "api content")
+				return "docs/readme", "docs/api"
+			},
+			wantA: "readme content",
+			wantB: "api content",
+		},
+		{
+			name: "not found",
+			setup: func(t *testing.T, s *llmd.Store) (string, string) {
+				mustWrite(t, s, "docs/readme", "content")
+				return "docs/readme", "docs/nonexistent"
+			},
+			wantErr: documents.ErrNotFound,
+		},
 	}
 
-	if result.A.Content != "readme content" {
-		t.Errorf("A.Content = %q, want %q", result.A.Content, "readme content")
-	}
-	if result.B.Content != "api content" {
-		t.Errorf("B.Content = %q, want %q", result.B.Content, "api content")
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			a, b := tt.setup(t, s)
 
-func TestDiff_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-	opts := testWriteOpts()
+			result, err := s.History.Diff(t.Context(), a, b)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Diff(%q, %q) error = %v, want %v", a, b, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
 
-	if _, err := s.Documents.Write(ctx, "docs/readme", "content", opts); err != nil {
-		t.Fatalf("Write(readme): %v", err)
-	}
-
-	_, err := s.History.Diff(ctx, "docs/readme", "docs/nonexistent")
-	if err == nil {
-		t.Error("Diff() expected error for nonexistent document")
+			if result.A.Content != tt.wantA {
+				t.Errorf("Diff(%q, %q).A.Content = %q, want %q", a, b, result.A.Content, tt.wantA)
+			}
+			if result.B.Content != tt.wantB {
+				t.Errorf("Diff(%q, %q).B.Content = %q, want %q", a, b, result.B.Content, tt.wantB)
+			}
+		})
 	}
 }

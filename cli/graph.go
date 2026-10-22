@@ -16,6 +16,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/tree"
+
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -210,8 +211,8 @@ func renderBurstTree(bursts []int, events []graphEvent) string {
 	// becomes the deepest level, and we wrap each preceding burst
 	// around it as a parent.
 	var inner *tree.Tree
-	for b := len(bursts) - 1; b >= 0; b-- {
-		start := bursts[b]
+	for b, start := range slices.Backward(bursts) {
+
 		end := len(events)
 		if b < len(bursts)-1 {
 			end = bursts[b+1]

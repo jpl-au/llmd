@@ -1,79 +1,88 @@
 package tags_test
 
 import (
-	"context"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd"
 )
 
+// TestExists covers tag presence checks by path and by key, including a
+// tag that was never added and one that was removed. Every case starts
+// with a fresh store holding "docs/test".
 func TestExists(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/test", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write() error = %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/test", "important", testOpts()); err != nil {
-		t.Fatalf("Add() error = %v", err)
-	}
-
-	if ok, err := s.Tags.Exists(ctx, "docs/test", "important"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if !ok {
-		t.Error("Exists() = false, want true")
-	}
-}
-
-func TestExists_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/test", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write() error = %v", err)
-	}
-
-	if ok, err := s.Tags.Exists(ctx, "docs/test", "nonexistent"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if ok {
-		t.Error("Exists() = true, want false")
-	}
-}
-
-func TestExists_ByKey(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	written, err := s.Documents.Write(ctx, "docs/test", "content", testWriteOpts())
-	if err != nil {
-		t.Fatalf("Write() error = %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/test", "important", testOpts()); err != nil {
-		t.Fatalf("Add() error = %v", err)
-	}
-
-	if ok, err := s.Tags.Exists(ctx, written.Key, "important"); err != nil {
-		t.Fatalf("Exists(key) error = %v", err)
-	} else if !ok {
-		t.Error("Exists(key) = false, want true")
-	}
-}
-
-func TestExists_RemovedTag(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/test", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/test", "important", testOpts()); err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if err := s.Tags.Remove(ctx, "docs/test", "important", testOpts()); err != nil {
-		t.Fatalf("Remove: %v", err)
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, s *llmd.Store)
+		byKey bool // address the document by key instead of path
+		tag   string
+		want  bool
+	}{
+		{
+			name: "found",
+			setup: func(t *testing.T, s *llmd.Store) {
+				if _, err := s.Tags.Add(t.Context(), "docs/test", "important", testOpts()); err != nil {
+					t.Fatalf("Add() error = %v", err)
+				}
+			},
+			tag:  "important",
+			want: true,
+		},
+		{
+			name: "not found",
+			tag:  "nonexistent",
+			want: false,
+		},
+		{
+			name: "by key",
+			setup: func(t *testing.T, s *llmd.Store) {
+				if _, err := s.Tags.Add(t.Context(), "docs/test", "important", testOpts()); err != nil {
+					t.Fatalf("Add() error = %v", err)
+				}
+			},
+			byKey: true,
+			tag:   "important",
+			want:  true,
+		},
+		{
+			name: "removed tag",
+			setup: func(t *testing.T, s *llmd.Store) {
+				if _, err := s.Tags.Add(t.Context(), "docs/test", "important", testOpts()); err != nil {
+					t.Fatalf("Add() error = %v", err)
+				}
+				if err := s.Tags.Remove(t.Context(), "docs/test", "important", testOpts()); err != nil {
+					t.Fatalf("Remove() error = %v", err)
+				}
+			},
+			tag:  "important",
+			want: false,
+		},
 	}
 
-	if ok, err := s.Tags.Exists(ctx, "docs/test", "important"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if ok {
-		t.Error("Exists() = true for removed tag, want false")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+
+			doc, err := s.Documents.Write(ctx, "docs/test", "content", testWriteOpts())
+			if err != nil {
+				t.Fatalf("Write() error = %v", err)
+			}
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
+
+			value := "docs/test"
+			if tt.byKey {
+				value = doc.Key
+			}
+
+			got, err := s.Tags.Exists(ctx, value, tt.tag)
+			if err != nil {
+				t.Fatalf("Exists(%q, %q) error = %v", value, tt.tag, err)
+			}
+			if got != tt.want {
+				t.Errorf("Exists(%q, %q) = %v, want %v", value, tt.tag, got, tt.want)
+			}
+		})
 	}
 }

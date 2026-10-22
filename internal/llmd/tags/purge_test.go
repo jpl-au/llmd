@@ -1,65 +1,68 @@
 package tags_test
 
 import (
-	"context"
+	"slices"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd"
 )
 
+// TestPurge covers hard-deleting removed tags: the count returned and the
+// tags that survive on "docs/test" afterwards, and the empty store.
 func TestPurge(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Create a document and add tags
-	if _, err := s.Documents.Write(ctx, "docs/test", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/test", "important", testOpts()); err != nil {
-		t.Fatalf("Add important: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/test", "review", testOpts()); err != nil {
-		t.Fatalf("Add review: %v", err)
-	}
-	if _, err := s.Tags.Add(ctx, "docs/test", "draft", testOpts()); err != nil {
-		t.Fatalf("Add draft: %v", err)
-	}
-
-	// Remove some tags
-	if err := s.Tags.Remove(ctx, "docs/test", "important", testOpts()); err != nil {
-		t.Fatalf("Remove() error = %v", err)
-	}
-	if err := s.Tags.Remove(ctx, "docs/test", "review", testOpts()); err != nil {
-		t.Fatalf("Remove() error = %v", err)
-	}
-
-	// Purge should remove 2 tags
-	n, err := s.Tags.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 2 {
-		t.Errorf("Purge() = %d, want 2", n)
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T, s *llmd.Store)
+		want          int64    // tags purged
+		wantRemaining []string // tag names still on docs/test
+	}{
+		{
+			name: "removed tags purged",
+			setup: func(t *testing.T, s *llmd.Store) {
+				writeTagged(t, s, "docs/test", "important", "review", "draft")
+				for _, name := range []string{"important", "review"} {
+					if err := s.Tags.Remove(t.Context(), "docs/test", name, testOpts()); err != nil {
+						t.Fatalf("Remove(%s) error = %v", name, err)
+					}
+				}
+			},
+			want:          2,
+			wantRemaining: []string{"draft"},
+		},
+		{
+			name:          "nothing to purge",
+			want:          0,
+			wantRemaining: nil,
+		},
 	}
 
-	// "draft" tag should still exist
-	tags, err := s.Tags.List(ctx, "docs/test")
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-	if len(tags) != 1 || tags[0].Value.Tag != "draft" {
-		t.Errorf("List() = %v, want [draft]", tags)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-func TestPurge_Empty(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
+			got, err := s.Tags.Purge(ctx)
+			if err != nil {
+				t.Fatalf("Purge() error = %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("Purge() = %d, want %d", got, tt.want)
+			}
 
-	// Purge with nothing to purge
-	n, err := s.Tags.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 0 {
-		t.Errorf("Purge() = %d, want 0", n)
+			list, err := s.Tags.List(ctx, "docs/test")
+			if err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+			var remaining []string
+			for _, tg := range list {
+				remaining = append(remaining, tg.Value.Tag)
+			}
+			if !slices.Equal(remaining, tt.wantRemaining) {
+				t.Errorf("List() after Purge() = %v, want %v", remaining, tt.wantRemaining)
+			}
+		})
 	}
 }

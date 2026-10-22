@@ -1,14 +1,12 @@
 package llmd_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
-	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func testStore(t *testing.T) *llmd.Store {
@@ -17,29 +15,33 @@ func testStore(t *testing.T) *llmd.Store {
 	if err != nil {
 		t.Fatalf("OpenMemory() error = %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("closing store: %v", err)
+		}
+	})
 	return s
 }
 
 func testWriteOpts() documents.WriteOptions {
-	return documents.WriteOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return documents.WriteOptions{Author: "test", Source: "cli"}
 }
 
 func testDeleteOpts() documents.DeleteOptions {
-	return documents.DeleteOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return documents.DeleteOptions{Author: "test", Source: "cli"}
 }
 
 func testTagOpts() tags.Options {
-	return tags.Options{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return tags.Options{Author: "test", Source: "cli"}
 }
 
 func testLinkOpts() links.Options {
-	return links.Options{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return links.Options{Author: "test", Source: "cli"}
 }
 
 func TestVacuum(t *testing.T) {
 	s := testStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Create documents
 	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
@@ -80,9 +82,11 @@ func TestVacuum(t *testing.T) {
 	if result.Documents != 1 {
 		t.Errorf("Documents = %d, want 1", result.Documents)
 	}
-	// Tags associated with deleted doc are also soft-deleted
-	if result.Tags < 1 {
-		t.Errorf("Tags = %d, want >= 1", result.Tags)
+	// The explicitly removed tag plus the tag orphaned when docs/a was
+	// purged. (Tags on a merely soft-deleted document survive so that
+	// restore brings them back; only the hard purge cascades.)
+	if result.Tags != 2 {
+		t.Errorf("Tags = %d, want 2", result.Tags)
 	}
 	if result.Links != 1 {
 		t.Errorf("Links = %d, want 1", result.Links)
@@ -94,7 +98,7 @@ func TestVacuum(t *testing.T) {
 
 func TestVacuum_Empty(t *testing.T) {
 	s := testStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	result, err := s.Vacuum(ctx)
 	if err != nil {

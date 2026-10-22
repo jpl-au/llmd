@@ -5,43 +5,47 @@ import (
 	"time"
 )
 
-func TestParseSinceDuration(t *testing.T) {
-	before := time.Now()
-	got, err := ParseSince("5m")
-	if err != nil {
-		t.Fatalf("ParseSince(5m): %v", err)
+// TestParseSince covers the three accepted inputs (empty, duration
+// shorthand, RFC 3339) and rejection of anything else. Duration cases
+// are relative to time.Now(), so they are checked against wantAgo
+// with a one-minute tolerance rather than an exact instant.
+func TestParseSince(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    time.Time     // exact instant (RFC 3339 and empty cases)
+		wantAgo time.Duration // approximate offset from now (duration cases)
+		wantErr bool
+	}{
+		{name: "empty is zero time", input: ""},
+		{name: "duration minutes", input: "5m", wantAgo: 5 * time.Minute},
+		{name: "duration hours", input: "1h", wantAgo: time.Hour},
+		{name: "duration compound", input: "2h30m", wantAgo: 2*time.Hour + 30*time.Minute},
+		{name: "rfc3339", input: "2026-01-15T10:00:00Z", want: time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)},
+		{name: "invalid word", input: "yesterday", wantErr: true},
+		{name: "invalid date only", input: "2026-01-15", wantErr: true},
 	}
-	// Should be roughly 5 minutes ago.
-	diff := before.Sub(got)
-	if diff < 4*time.Minute || diff > 6*time.Minute {
-		t.Errorf("ParseSince(5m) = %v ago, want ~5m", diff)
-	}
-}
 
-func TestParseSinceRFC3339(t *testing.T) {
-	got, err := ParseSince("2026-01-15T10:00:00Z")
-	if err != nil {
-		t.Fatalf("ParseSince(RFC3339): %v", err)
-	}
-	want := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
-	if !got.Equal(want) {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
-
-func TestParseSinceEmpty(t *testing.T) {
-	got, err := ParseSince("")
-	if err != nil {
-		t.Fatalf("ParseSince(''): %v", err)
-	}
-	if !got.IsZero() {
-		t.Errorf("got %v, want zero", got)
-	}
-}
-
-func TestParseSinceInvalid(t *testing.T) {
-	_, err := ParseSince("yesterday")
-	if err == nil {
-		t.Fatal("expected error for invalid input")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := time.Now()
+			got, err := ParseSince(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseSince(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if tt.wantAgo != 0 {
+				diff := before.Sub(got)
+				if diff < tt.wantAgo-time.Minute || diff > tt.wantAgo+time.Minute {
+					t.Errorf("ParseSince(%q) = %v ago, want ~%v", tt.input, diff, tt.wantAgo)
+				}
+				return
+			}
+			if !got.Equal(tt.want) {
+				t.Errorf("ParseSince(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
 	}
 }

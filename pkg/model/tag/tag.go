@@ -78,7 +78,7 @@ type Tag struct {
 //
 // Info is returned by listing all tags and provides aggregate information
 // about tag usage across the store, useful for tag clouds, filters, or
-// organizational views.
+// organisational views.
 type Info struct {
 	// Name is the tag name.
 	Name string

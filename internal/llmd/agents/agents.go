@@ -30,8 +30,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/qwr"
+
+	"github.com/jpl-au/llmd/internal/llmd/events"
 )
 
 // Schema is the DDL for the agent tables.
@@ -77,6 +78,7 @@ var (
 	ErrNotFound    = errors.New("agent not found")
 	ErrRunNotFound = errors.New("agent run not found")
 	ErrRunning     = errors.New("agent already running for task")
+	ErrNotRunning  = errors.New("agent run is not running")
 )
 
 // Agents provides agent configuration and run tracking. Config,
@@ -116,7 +118,7 @@ func (a *Agents) ensure() error {
 			a.err = fmt.Errorf("work database not available")
 			return
 		}
-		_, a.err = a.db.Query(Schema).Write()
+		_, a.err = a.db.Query(Schema).Exec()
 	})
 	return a.err
 }

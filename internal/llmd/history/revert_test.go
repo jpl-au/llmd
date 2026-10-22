@@ -1,7 +1,7 @@
 package history_test
 
 import (
-	"context"
+	"errors"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd/history"
@@ -9,96 +9,106 @@ import (
 )
 
 func TestRevert(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "original content", testWriteOpts()); err != nil {
-		t.Fatalf("Write v1: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "modified content", testWriteOpts()); err != nil {
-		t.Fatalf("Write v2: %v", err)
-	}
-
-	doc, err := s.History.Revert(ctx, "docs/readme", 1, testRevertOpts())
-	if err != nil {
-		t.Fatalf("Revert() error = %v", err)
-	}
-
-	if doc.Content != "original content" {
-		t.Errorf("Content = %q, want %q", doc.Content, "original content")
-	}
-	if doc.Version != 3 {
-		t.Errorf("Version = %d, want 3 (new version)", doc.Version)
-	}
-	if doc.Message != "Reverted to version 1" {
-		t.Errorf("Message = %q, want %q", doc.Message, "Reverted to version 1")
-	}
-
-	latest, _ := s.Documents.Read(ctx, "docs/readme")
-	if latest.Content != "original content" {
-		t.Errorf("Latest content = %q, want %q", latest.Content, "original content")
-	}
-}
-
-func TestRevert_CustomMessage(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "v1", testWriteOpts()); err != nil {
-		t.Fatalf("Write v1: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "v2", testWriteOpts()); err != nil {
-		t.Fatalf("Write v2: %v", err)
-	}
-
-	revertOpts := testRevertOpts()
-	revertOpts.Message = "Rolling back bad change"
-	doc, err := s.History.Revert(ctx, "docs/readme", 1, revertOpts)
-	if err != nil {
-		t.Fatalf("Revert() error = %v", err)
-	}
-
-	if doc.Message != "Rolling back bad change" {
-		t.Errorf("Message = %q, want %q", doc.Message, "Rolling back bad change")
-	}
-}
-
-func TestRevert_SkipsUnchanged(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "same content", testWriteOpts()); err != nil {
-		t.Fatalf("Write v1: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "different", testWriteOpts()); err != nil {
-		t.Fatalf("Write v2: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "same content", testWriteOpts()); err != nil {
-		t.Fatalf("Write v3: %v", err)
+	tests := []struct {
+		name        string
+		contents    []string // successive versions of docs/readme
+		path        string   // document to revert; defaults to docs/readme
+		version     int      // version to revert to
+		opts        history.RevertOptions
+		want        string // content after the revert
+		wantVersion int
+		wantMessage string
+		wantErr     error
+	}{
+		{
+			name:        "creates new version with old content",
+			contents:    []string{"original content", "modified content"},
+			version:     1,
+			opts:        testRevertOpts(),
+			want:        "original content",
+			wantVersion: 3,
+			wantMessage: "Reverted to version 1",
+		},
+		{
+			name:        "custom message",
+			contents:    []string{"v1", "v2"},
+			version:     1,
+			opts:        history.RevertOptions{Author: "test", Source: "cli", Message: "Rolling back bad change"},
+			want:        "v1",
+			wantVersion: 3,
+			wantMessage: "Rolling back bad change",
+		},
+		{
+			// Reverting to content identical to the latest version
+			// returns the latest version instead of creating a new one.
+			name:        "skips unchanged",
+			contents:    []string{"same content", "different", "same content"},
+			version:     1,
+			opts:        testRevertOpts(),
+			want:        "same content",
+			wantVersion: 3,
+		},
+		{
+			name:     "requires author",
+			contents: []string{"content"},
+			version:  1,
+			opts:     history.RevertOptions{Source: "cli"},
+			wantErr:  core.ErrAuthorRequired,
+		},
+		{
+			name:    "missing document",
+			path:    "docs/missing",
+			version: 1,
+			opts:    testRevertOpts(),
+			wantErr: history.ErrNotFound,
+		},
+		{
+			name:     "missing version",
+			contents: []string{"only one"},
+			version:  5,
+			opts:     testRevertOpts(),
+			wantErr:  history.ErrVersionInvalid,
+		},
 	}
 
-	doc, err := s.History.Revert(ctx, "docs/readme", 1, testRevertOpts())
-	if err != nil {
-		t.Fatalf("Revert() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			for _, content := range tt.contents {
+				mustWrite(t, s, "docs/readme", content)
+			}
 
-	if doc.Version != 3 {
-		t.Errorf("Version = %d, want 3 (no new version needed)", doc.Version)
-	}
-}
+			path := "docs/readme"
+			if tt.path != "" {
+				path = tt.path
+			}
+			doc, err := s.History.Revert(ctx, path, tt.version, tt.opts)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Revert(%q, %d) error = %v, want %v", path, tt.version, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
 
-func TestRevert_RequiresAuthor(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
+			if doc.Content != tt.want {
+				t.Errorf("Revert(%q, %d).Content = %q, want %q", "docs/readme", tt.version, doc.Content, tt.want)
+			}
+			if doc.Version != tt.wantVersion {
+				t.Errorf("Revert(%q, %d).Version = %d, want %d", "docs/readme", tt.version, doc.Version, tt.wantVersion)
+			}
+			if doc.Message != tt.wantMessage {
+				t.Errorf("Revert(%q, %d).Message = %q, want %q", "docs/readme", tt.version, doc.Message, tt.wantMessage)
+			}
 
-	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	_, err := s.History.Revert(ctx, "docs/readme", 1, history.RevertOptions{
-		Origin: core.Origin{Source: "cli"},
-	})
-	if err == nil {
-		t.Error("Revert() without author should fail")
+			// The reverted content must be what a plain read now returns.
+			latest, err := s.Documents.Read(ctx, "docs/readme")
+			if err != nil {
+				t.Fatalf("Read() after Revert error = %v", err)
+			}
+			if latest.Content != tt.want {
+				t.Errorf("Read() after Revert: Content = %q, want %q", latest.Content, tt.want)
+			}
+		})
 	}
 }

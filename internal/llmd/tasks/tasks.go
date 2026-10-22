@@ -14,10 +14,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/jpl-au/qwr"
+
 	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/events"
-	"github.com/jpl-au/qwr"
 )
 
 // Schema is the DDL for the tasks table and its indices.
@@ -96,7 +97,7 @@ func (t *Tasks) ensure() error {
 			t.err = fmt.Errorf("work database not available")
 			return
 		}
-		_, t.err = t.db.Query(Schema).Write()
+		_, t.err = t.db.Query(Schema).Exec()
 		if t.err != nil {
 			return
 		}

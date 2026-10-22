@@ -3,7 +3,6 @@ package links
 import (
 	"context"
 	"database/sql"
-	"fmt"
 )
 
 // Exists checks if a link exists between two documents.
@@ -15,17 +14,12 @@ func (l *Links) Exists(ctx context.Context, from, to string, opts ...Options) (b
 		opt = opts[0]
 	}
 
-	fromPath, err := l.resolvePath(ctx, from)
-	if err != nil {
-		return false, fmt.Errorf("resolving from: %w", err)
-	}
-	toPath, err := l.resolvePath(ctx, to)
-	if err != nil {
-		return false, fmt.Errorf("resolving to: %w", err)
-	}
+	fromPath := l.resolvePath(ctx, from)
+	toPath := l.resolvePath(ctx, to)
 
 	var exists bool
 	var row *sql.Row
+	var err error
 	if opt.Label != "" {
 		row, err = l.db.Query(`
 			SELECT EXISTS(

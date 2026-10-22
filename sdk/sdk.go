@@ -42,6 +42,10 @@ var (
 	// ErrAgentRunning means a task already has a running agent.
 	ErrAgentRunning = errors.New("agent already running for task")
 
+	// ErrAgentNotRunning means the task's agent run has already
+	// completed, failed, or been stopped.
+	ErrAgentNotRunning = errors.New("agent run is not running")
+
 	// ErrNotReady means a task's dependencies are not satisfied.
 	ErrNotReady = errors.New("task dependencies not satisfied")
 

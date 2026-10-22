@@ -50,7 +50,7 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 	_, err = a.db.Query(`
 		INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, assignee, status, opts.Content, threadID, now).WithContext(ctx).Execute()
+	`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, assignee, status, opts.Content, threadID, now).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, fmt.Errorf("inserting reply: %w", err)
 	}

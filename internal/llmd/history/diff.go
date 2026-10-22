@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/aymanbagabas/go-udiff"
+
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/resolve"
 	"github.com/jpl-au/llmd/pkg/model/document"
@@ -52,7 +53,9 @@ func (h *History) Diff(ctx context.Context, a, b string, opts ...DiffOptions) (*
 	labelA := formatLabel(docA)
 	labelB := formatLabel(docB)
 
-	edits := udiff.Strings(docA.Content, docB.Content)
+	// Line-level edits: Strings would produce character-level edits,
+	// which inflate the added/removed counts for small in-line changes.
+	edits := udiff.Lines(docA.Content, docB.Content)
 	unified, err := udiff.ToUnified(labelA, labelB, docA.Content, edits, context)
 	if err != nil {
 		return nil, fmt.Errorf("computing diff: %w", err)

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/llmd/documents"
+
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/resolve"
@@ -18,7 +20,7 @@ func linkErr(err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, links.ErrNotFound):
+	case errors.Is(err, links.ErrNotFound), errors.Is(err, documents.ErrNotFound):
 		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
 	case errors.Is(err, links.ErrSelfLink):
 		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)

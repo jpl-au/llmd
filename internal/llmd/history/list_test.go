@@ -1,80 +1,65 @@
 package history_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd/history"
 )
 
 func TestList(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-	opts := testWriteOpts()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "version 1", opts); err != nil {
-		t.Fatalf("Write v1: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "version 2", opts); err != nil {
-		t.Fatalf("Write v2: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/readme", "version 3", opts); err != nil {
-		t.Fatalf("Write v3: %v", err)
-	}
-
-	versions, err := s.History.List(ctx, "docs/readme")
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-
-	if len(versions) != 3 {
-		t.Errorf("List() returned %d versions, want 3", len(versions))
-	}
-
-	if versions[0].Version != 3 {
-		t.Errorf("versions[0].Version = %d, want 3", versions[0].Version)
-	}
-	if versions[1].Version != 2 {
-		t.Errorf("versions[1].Version = %d, want 2", versions[1].Version)
-	}
-	if versions[2].Version != 1 {
-		t.Errorf("versions[2].Version = %d, want 1", versions[2].Version)
-	}
-}
-
-func TestList_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	_, err := s.History.List(ctx, "nonexistent")
-	if !errors.Is(err, history.ErrNotFound) {
-		t.Errorf("List() error = %v, want ErrNotFound", err)
-	}
-}
-
-func TestList_Limit(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-	opts := testWriteOpts()
-
-	for i := 1; i <= 5; i++ {
-		if _, err := s.Documents.Write(ctx, "docs/readme", fmt.Sprintf("version %d", i), opts); err != nil {
-			t.Fatalf("Write v%d: %v", i, err)
-		}
+	tests := []struct {
+		name    string
+		writes  int // versions of docs/readme to write before listing
+		path    string
+		opts    history.ListOptions
+		want    []int // versions, newest first
+		wantErr error
+	}{
+		{
+			name:   "all versions newest first",
+			writes: 3,
+			path:   "docs/readme",
+			want:   []int{3, 2, 1},
+		},
+		{
+			name:   "limit",
+			writes: 5,
+			path:   "docs/readme",
+			opts:   history.ListOptions{Limit: 2},
+			want:   []int{5, 4},
+		},
+		{
+			name:    "not found",
+			path:    "nonexistent",
+			wantErr: history.ErrNotFound,
+		},
 	}
 
-	versions, err := s.History.List(ctx, "docs/readme", history.ListOptions{Limit: 2})
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			for i := 1; i <= tt.writes; i++ {
+				mustWrite(t, s, "docs/readme", fmt.Sprintf("version %d", i))
+			}
 
-	if len(versions) != 2 {
-		t.Errorf("List(Limit=2) returned %d versions, want 2", len(versions))
-	}
+			versions, err := s.History.List(t.Context(), tt.path, tt.opts)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("List(%q, %+v) error = %v, want %v", tt.path, tt.opts, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
 
-	if versions[0].Version != 5 {
-		t.Errorf("versions[0].Version = %d, want 5", versions[0].Version)
+			got := make([]int, len(versions))
+			for i, v := range versions {
+				got[i] = v.Version
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("List(%q, %+v) versions = %v, want %v", tt.path, tt.opts, got, tt.want)
+			}
+		})
 	}
 }

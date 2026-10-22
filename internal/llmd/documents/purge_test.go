@@ -1,99 +1,83 @@
 package documents_test
 
 import (
-	"context"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 func TestPurge(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Create and delete some documents
-	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
-		t.Fatalf("Write a: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
-		t.Fatalf("Write b: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts()); err != nil {
-		t.Fatalf("Write c: %v", err)
-	}
-
-	if err := s.Documents.Delete(ctx, "docs/a", testDeleteOpts()); err != nil {
-		t.Fatalf("Delete docs/a: %v", err)
-	}
-	if err := s.Documents.Delete(ctx, "docs/b", testDeleteOpts()); err != nil {
-		t.Fatalf("Delete docs/b: %v", err)
-	}
-
-	// Purge should remove 2 documents
-	n, err := s.Documents.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 2 {
-		t.Errorf("Purge() = %d, want 2", n)
-	}
-
-	// docs/c should still exist
-	doc, err := s.Documents.Read(ctx, "docs/c")
-	if err != nil {
-		t.Errorf("Read(docs/c) error = %v", err)
-	}
-	if doc.Content != "content c" {
-		t.Errorf("Content = %q, want %q", doc.Content, "content c")
-	}
-
-	// docs/a should be gone permanently
-	_, err = s.Documents.Read(ctx, "docs/a")
-	if err != documents.ErrNotFound {
-		t.Errorf("Read(docs/a) error = %v, want ErrNotFound", err)
-	}
-}
-
-func TestPurge_Empty(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Purge with nothing to purge
-	n, err := s.Documents.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 0 {
-		t.Errorf("Purge() = %d, want 0", n)
-	}
-}
-
-func TestPurge_AllVersions(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Create multiple versions
-	if _, err := s.Documents.Write(ctx, "docs/versioned", "v1", testWriteOpts()); err != nil {
-		t.Fatalf("Write v1: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/versioned", "v2", testWriteOpts()); err != nil {
-		t.Fatalf("Write v2: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/versioned", "v3", testWriteOpts()); err != nil {
-		t.Fatalf("Write v3: %v", err)
+	tests := []struct {
+		name     string
+		setup    func(t *testing.T, s *llmd.Store)
+		want     int64
+		wantKept map[string]string // path -> content still readable after the purge
+		wantGone []string          // paths that must read as ErrNotFound after the purge
+	}{
+		{
+			name: "removes soft-deleted documents",
+			setup: func(t *testing.T, s *llmd.Store) {
+				mustWrite(t, s, "docs/a", "content a")
+				mustWrite(t, s, "docs/b", "content b")
+				mustWrite(t, s, "docs/c", "content c")
+				mustDelete(t, s, "docs/a")
+				mustDelete(t, s, "docs/b")
+			},
+			want:     2,
+			wantKept: map[string]string{"docs/c": "content c"},
+			wantGone: []string{"docs/a", "docs/b"},
+		},
+		{
+			name: "nothing to purge",
+			want: 0,
+		},
+		{
+			// Delete soft-deletes every version, so Purge must remove
+			// all of them.
+			name: "removes all versions",
+			setup: func(t *testing.T, s *llmd.Store) {
+				mustWrite(t, s, "docs/versioned", "v1")
+				mustWrite(t, s, "docs/versioned", "v2")
+				mustWrite(t, s, "docs/versioned", "v3")
+				mustDelete(t, s, "docs/versioned")
+			},
+			want:     3,
+			wantGone: []string{"docs/versioned"},
+		},
 	}
 
-	// Delete the document (soft-deletes all versions)
-	if err := s.Documents.Delete(ctx, "docs/versioned", testDeleteOpts()); err != nil {
-		t.Fatalf("Delete docs/versioned: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	// Purge should remove all 3 versions
-	n, err := s.Documents.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 3 {
-		t.Errorf("Purge() = %d, want 3", n)
+			n, err := s.Documents.Purge(ctx)
+			if err != nil {
+				t.Fatalf("Purge() error = %v", err)
+			}
+			if n != tt.want {
+				t.Errorf("Purge() = %d, want %d", n, tt.want)
+			}
+
+			for path, content := range tt.wantKept {
+				doc, err := s.Documents.Read(ctx, path)
+				if err != nil {
+					t.Errorf("Read(%q) after Purge error = %v", path, err)
+					continue
+				}
+				if doc.Content != content {
+					t.Errorf("Read(%q) after Purge: Content = %q, want %q", path, doc.Content, content)
+				}
+			}
+			for _, path := range tt.wantGone {
+				if _, err := s.Documents.Read(ctx, path); err != documents.ErrNotFound {
+					t.Errorf("Read(%q) after Purge error = %v, want %v", path, err, documents.ErrNotFound)
+				}
+			}
+		})
 	}
 }

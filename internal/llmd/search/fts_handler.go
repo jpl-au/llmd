@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/qwr"
+
+	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // FTSHandler maintains the FTS5 index in response to document events.
@@ -90,7 +91,7 @@ func (h *FTSHandler) onWrite(ctx context.Context, event events.Event) error {
 		}
 
 		return nil, nil
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 
 	return err
 }
@@ -119,7 +120,7 @@ func (h *FTSHandler) onDelete(ctx context.Context, event events.Event) error {
 	_, err = h.db.Query(`
 		INSERT INTO content_fts(content_fts, rowid, key, path, content)
 		VALUES ('delete', ?, ?, ?, ?)
-	`, rowID, key, path, content).WithContext(ctx).Execute()
+	`, rowID, key, path, content).WithContext(ctx).Exec()
 	if err != nil {
 		return fmt.Errorf("removing from FTS: %w", err)
 	}
@@ -148,7 +149,7 @@ func (h *FTSHandler) onRestore(ctx context.Context, event events.Event) error {
 	_, err = h.db.Query(`
 		INSERT INTO content_fts(rowid, key, path, content)
 		VALUES (?, ?, ?, ?)
-	`, rowID, key, path, content).WithContext(ctx).Execute()
+	`, rowID, key, path, content).WithContext(ctx).Exec()
 	if err != nil {
 		return fmt.Errorf("adding restored document to FTS: %w", err)
 	}
@@ -198,7 +199,7 @@ func (h *FTSHandler) onMove(ctx context.Context, event events.Event) error {
 		}
 
 		return nil, nil
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 
 	return err
 }

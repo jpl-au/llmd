@@ -9,7 +9,6 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/pkg/events"
-	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/pkg/model/tag"
 )
 
@@ -24,8 +23,8 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 		return nil, err
 	}
 
-	relation, err := t.resolvePath(ctx, value)
-	if err != nil {
+	relation := t.resolvePath(ctx, value)
+	if err := t.requireDocument(ctx, relation); err != nil {
 		return nil, err
 	}
 
@@ -50,20 +49,18 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 	_, err = t.db.Query(`
 		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Execute()
+	`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Exec()
 
 	if err != nil {
 		return nil, fmt.Errorf("inserting tag: %w", err)
 	}
 
 	result := &tag.Tag{
-		Key:      k,
-		Relation: relation,
-		Value:    tagValue,
-		Origin: core.Origin{
-			Author: opts.Author,
-			Source: opts.Source,
-		},
+		Key:       k,
+		Relation:  relation,
+		Value:     tagValue,
+		Author:    opts.Author,
+		Source:    opts.Source,
 		CreatedAt: now,
 	}
 
@@ -87,10 +84,9 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 func (t *Tags) find(ctx context.Context, relation, name string) (*tag.Tag, error) {
 	var tg tag.Tag
 	var valueStr string
-	var deletedAt sql.NullInt64
 
 	row, err := t.db.Query(`
-		SELECT key, relation, value, author, source, created_at, deleted_at
+		SELECT key, relation, value, author, source, created_at
 		FROM entities
 		WHERE namespace = ? AND relation = ? AND json_extract(value, '$.tag') = ?
 		AND deleted_at IS NULL
@@ -99,12 +95,8 @@ func (t *Tags) find(ctx context.Context, relation, name string) (*tag.Tag, error
 	if err != nil {
 		return nil, err
 	}
-	if err := row.Scan(&tg.Key, &tg.Relation, &valueStr, &tg.Author, &tg.Source, &tg.CreatedAt, &deletedAt); err != nil {
+	if err := row.Scan(&tg.Key, &tg.Relation, &valueStr, &tg.Author, &tg.Source, &tg.CreatedAt); err != nil {
 		return nil, err
-	}
-
-	if deletedAt.Valid {
-		return nil, sql.ErrNoRows
 	}
 
 	if err := json.Unmarshal([]byte(valueStr), &tg.Value); err != nil {

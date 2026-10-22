@@ -60,7 +60,7 @@ func Validate(k string) error {
 		return ErrInvalidLength
 	}
 	for _, c := range k {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'z') {
 			return ErrInvalidChar
 		}
 	}

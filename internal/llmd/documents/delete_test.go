@@ -1,43 +1,59 @@
 package documents_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 func TestDelete(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T, s *llmd.Store)
+		path    string
+		wantErr error
+	}{
+		{
+			name:  "soft-deletes existing document",
+			setup: func(t *testing.T, s *llmd.Store) { mustWrite(t, s, "docs/readme", "content") },
+			path:  "docs/readme",
+		},
+		{
+			name:    "not found",
+			path:    "nonexistent",
+			wantErr: documents.ErrNotFound,
+		},
 	}
 
-	err := s.Documents.Delete(ctx, "docs/readme", testDeleteOpts())
-	if err != nil {
-		t.Fatalf("Delete() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	list, _ := s.Documents.List(ctx)
-	if len(list) != 0 {
-		t.Errorf("List() after delete returned %d items, want 0", len(list))
-	}
+			err := s.Documents.Delete(ctx, tt.path, testDeleteOpts())
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Delete(%q) error = %v, want %v", tt.path, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
 
-	_, err = s.Documents.Read(ctx, "docs/readme")
-	if !errors.Is(err, documents.ErrDeleted) {
-		t.Errorf("Read() after delete error = %v, want ErrDeleted", err)
-	}
-}
-
-func TestDelete_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	err := s.Documents.Delete(ctx, "nonexistent", testDeleteOpts())
-	if !errors.Is(err, documents.ErrNotFound) {
-		t.Errorf("Delete() error = %v, want ErrNotFound", err)
+			// A deleted document is hidden from List and reads as ErrDeleted.
+			list, err := s.Documents.List(ctx)
+			if err != nil {
+				t.Fatalf("List() after Delete error = %v", err)
+			}
+			if len(list) != 0 {
+				t.Errorf("List() after Delete(%q) returned %d items, want 0", tt.path, len(list))
+			}
+			if _, err := s.Documents.Read(ctx, tt.path); !errors.Is(err, documents.ErrDeleted) {
+				t.Errorf("Read(%q) after Delete error = %v, want %v", tt.path, err, documents.ErrDeleted)
+			}
+		})
 	}
 }

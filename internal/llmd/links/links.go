@@ -11,11 +11,13 @@ package links
 import (
 	"context"
 	"errors"
+	"fmt"
+
+	"github.com/jpl-au/qwr"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/llmd/internal/llmd/resolve"
-	"github.com/jpl-au/qwr"
 )
 
 const namespace = "core:link"
@@ -39,7 +41,20 @@ func New(db *qwr.Manager, docs *documents.Documents, bus *events.Bus) *Links {
 }
 
 // resolvePath translates a document identifier (path or key) to a path.
-func (l *Links) resolvePath(ctx context.Context, value string) (string, error) {
+func (l *Links) resolvePath(ctx context.Context, value string) string {
 	path, _, _ := resolve.Identifier(ctx, value, l.docs.KeyToPath)
-	return path, nil
+	return path
+}
+
+// requireDocument returns documents.ErrNotFound unless a live document
+// exists at path. Links may only connect documents that exist.
+func (l *Links) requireDocument(ctx context.Context, path string) error {
+	exists, err := l.docs.Exists(ctx, path)
+	if err != nil {
+		return fmt.Errorf("checking document: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("%s: %w", path, documents.ErrNotFound)
+	}
+	return nil
 }

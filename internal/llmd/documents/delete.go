@@ -20,7 +20,7 @@ func (d *Documents) Delete(ctx context.Context, path string, opts DeleteOptions)
 	qr, err := d.db.Query(`
 		UPDATE content SET deleted_at = ?
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
-	`, now, namespace, path).WithContext(ctx).Execute()
+	`, now, namespace, path).WithContext(ctx).Exec()
 	if err != nil {
 		return fmt.Errorf("deleting document: %w", err)
 	}

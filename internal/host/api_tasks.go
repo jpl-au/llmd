@@ -291,8 +291,7 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 // Finish moves a task to done and returns a summary with optional git
 // statistics. Git is optional - the task moves regardless.
 func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishResult, error) {
-	t, err := a.store.Tasks.Read(a.ctx, key)
-	if err != nil {
+	if _, err := a.store.Tasks.Read(a.ctx, key); err != nil {
 		return nil, taskErr(err)
 	}
 
@@ -304,7 +303,7 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 		return nil, err
 	}
 
-	t, err = a.store.Tasks.Read(a.ctx, key)
+	t, err := a.store.Tasks.Read(a.ctx, key)
 	if err != nil {
 		return nil, taskErr(err)
 	}
@@ -477,7 +476,7 @@ func (a *taskAPI) Ready(key string) (bool, error) {
 func (a *taskAPI) Log(key string, limit int) ([]sdk.TaskEvent, error) {
 	events, err := a.store.Tasks.Log(a.ctx, key, limit)
 	if err != nil {
-		return nil, err
+		return nil, taskErr(err)
 	}
 	out := make([]sdk.TaskEvent, len(events))
 	for i, e := range events {

@@ -1,60 +1,61 @@
 package documents_test
 
 import (
-	"context"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd"
 )
 
 func TestExists(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Document doesn't exist
-	if ok, err := s.Documents.Exists(ctx, "docs/readme"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if ok {
-		t.Error("Exists() = true, want false for non-existent document")
+	tests := []struct {
+		name string
+		// setup prepares the store and returns the path or key to look up.
+		setup func(t *testing.T, s *llmd.Store) string
+		want  bool
+	}{
+		{
+			name:  "missing document",
+			setup: func(t *testing.T, s *llmd.Store) string { return "docs/readme" },
+			want:  false,
+		},
+		{
+			name: "by path",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				mustWrite(t, s, "docs/readme", "# Hello")
+				return "docs/readme"
+			},
+			want: true,
+		},
+		{
+			name: "by key",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				return mustWrite(t, s, "docs/readme", "# Hello").Key
+			},
+			want: true,
+		},
+		{
+			name: "deleted document",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				mustWrite(t, s, "docs/readme", "# Hello")
+				mustDelete(t, s, "docs/readme")
+				return "docs/readme"
+			},
+			want: false,
+		},
 	}
 
-	// Create document
-	doc, err := s.Documents.Write(ctx, "docs/readme", "# Hello", testWriteOpts())
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			value := tt.setup(t, s)
 
-	// Document exists by path
-	if ok, err := s.Documents.Exists(ctx, "docs/readme"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if !ok {
-		t.Error("Exists() = false, want true for existing document")
-	}
-
-	// Document exists by key
-	if ok, err := s.Documents.Exists(ctx, doc.Key); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if !ok {
-		t.Error("Exists() = false, want true for existing document by key")
-	}
-}
-
-func TestExists_Deleted(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Create and delete document
-	_, err := s.Documents.Write(ctx, "docs/readme", "# Hello", testWriteOpts())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := s.Documents.Delete(ctx, "docs/readme", testDeleteOpts()); err != nil {
-		t.Fatal(err)
-	}
-
-	// Deleted document should not exist
-	if ok, err := s.Documents.Exists(ctx, "docs/readme"); err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	} else if ok {
-		t.Error("Exists() = true, want false for deleted document")
+			got, err := s.Documents.Exists(t.Context(), value)
+			if err != nil {
+				t.Fatalf("Exists(%q) error = %v", value, err)
+			}
+			if got != tt.want {
+				t.Errorf("Exists(%q) = %v, want %v", value, got, tt.want)
+			}
+		})
 	}
 }

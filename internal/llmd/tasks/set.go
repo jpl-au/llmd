@@ -115,7 +115,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		}
 
 		return nil, nil
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 	if err != nil {
 		return err
 	}

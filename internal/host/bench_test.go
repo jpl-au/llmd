@@ -18,7 +18,11 @@ func BenchmarkNewHostWithStore(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer store.Close()
+	b.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			b.Errorf("closing store: %v", err)
+		}
+	})
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -31,7 +35,11 @@ func BenchmarkExecLS(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer store.Close()
+	b.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			b.Errorf("closing store: %v", err)
+		}
+	})
 
 	h := setup(store)
 
@@ -46,7 +54,11 @@ func BenchmarkExecCat(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer store.Close()
+	b.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			b.Errorf("closing store: %v", err)
+		}
+	})
 
 	h := setup(store)
 
@@ -64,7 +76,11 @@ func BenchmarkExecWrite(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer store.Close()
+	b.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			b.Errorf("closing store: %v", err)
+		}
+	})
 
 	h := setup(store)
 	content := []byte("# Benchmark Test\n\nThis is test content.")

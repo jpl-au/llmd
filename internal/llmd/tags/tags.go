@@ -11,11 +11,13 @@ package tags
 import (
 	"context"
 	"errors"
+	"fmt"
+
+	"github.com/jpl-au/qwr"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/llmd/internal/llmd/resolve"
-	"github.com/jpl-au/qwr"
 )
 
 const namespace = "core:tag"
@@ -39,7 +41,20 @@ func New(db *qwr.Manager, docs *documents.Documents, bus *events.Bus) *Tags {
 }
 
 // resolvePath translates a document identifier (path or key) to a path.
-func (t *Tags) resolvePath(ctx context.Context, value string) (string, error) {
+func (t *Tags) resolvePath(ctx context.Context, value string) string {
 	path, _, _ := resolve.Identifier(ctx, value, t.docs.KeyToPath)
-	return path, nil
+	return path
+}
+
+// requireDocument returns documents.ErrNotFound unless a live document
+// exists at path. Tags may only be attached to documents that exist.
+func (t *Tags) requireDocument(ctx context.Context, path string) error {
+	exists, err := t.docs.Exists(ctx, path)
+	if err != nil {
+		return fmt.Errorf("checking document: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("%s: %w", path, documents.ErrNotFound)
+	}
+	return nil
 }

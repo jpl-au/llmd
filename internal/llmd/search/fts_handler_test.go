@@ -1,206 +1,151 @@
 package search_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
-	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
-func TestFTSHandler_Write(t *testing.T) {
-	store := ftsTestStore(t)
-	ctx := context.Background()
-
-	// Write a document
-	doc, err := store.Documents.Write(ctx, "test/fts", "hello world", ftsWriteOpts())
-	if err != nil {
-		t.Fatalf("write failed: %v", err)
+// TestFTSHandler checks that the FTS index follows the document
+// lifecycle. Each case applies a sequence of document operations to a
+// fresh store and then searches for content touched by that sequence.
+// setup returns the key the single result is expected to carry, or ""
+// when the key is not asserted.
+func TestFTSHandler(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(t *testing.T, s *llmd.Store) string
+		query    string
+		want     int    // number of results
+		wantPath string // path of the single result, checked when want == 1
+	}{
+		{
+			name: "write indexes content",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				doc, err := s.Documents.Write(t.Context(), "test/fts", "hello world", testWriteOpts())
+				if err != nil {
+					t.Fatalf("Write() error = %v", err)
+				}
+				return doc.Key
+			},
+			query:    "hello",
+			want:     1,
+			wantPath: "test/fts",
+		},
+		{
+			name: "update drops original content",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				if _, err := s.Documents.Write(t.Context(), "test/update", "original content", testWriteOpts()); err != nil {
+					t.Fatalf("Write() error = %v", err)
+				}
+				if _, err := s.Documents.Write(t.Context(), "test/update", "updated content", testWriteOpts()); err != nil {
+					t.Fatalf("Write() update error = %v", err)
+				}
+				return ""
+			},
+			query: "original",
+			want:  0,
+		},
+		{
+			name: "update indexes new content",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				if _, err := s.Documents.Write(t.Context(), "test/update", "original content", testWriteOpts()); err != nil {
+					t.Fatalf("Write() error = %v", err)
+				}
+				doc, err := s.Documents.Write(t.Context(), "test/update", "updated content", testWriteOpts())
+				if err != nil {
+					t.Fatalf("Write() update error = %v", err)
+				}
+				return doc.Key
+			},
+			query:    "updated",
+			want:     1,
+			wantPath: "test/update",
+		},
+		{
+			name: "delete removes from index",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				if _, err := s.Documents.Write(t.Context(), "test/delete", "searchable content", testWriteOpts()); err != nil {
+					t.Fatalf("Write() error = %v", err)
+				}
+				if err := s.Documents.Delete(t.Context(), "test/delete", ftsDeleteOpts()); err != nil {
+					t.Fatalf("Delete() error = %v", err)
+				}
+				return ""
+			},
+			query: "searchable",
+			want:  0,
+		},
+		{
+			name: "restore returns to index",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				if _, err := s.Documents.Write(t.Context(), "test/restore", "restorable content", testWriteOpts()); err != nil {
+					t.Fatalf("Write() error = %v", err)
+				}
+				if err := s.Documents.Delete(t.Context(), "test/restore", ftsDeleteOpts()); err != nil {
+					t.Fatalf("Delete() error = %v", err)
+				}
+				if err := s.Documents.Restore(t.Context(), "test/restore", ftsRestoreOpts()); err != nil {
+					t.Fatalf("Restore() error = %v", err)
+				}
+				return ""
+			},
+			query:    "restorable",
+			want:     1,
+			wantPath: "test/restore",
+		},
+		{
+			name: "move keeps content under new path",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				if _, err := s.Documents.Write(t.Context(), "old/path", "moveable content", testWriteOpts()); err != nil {
+					t.Fatalf("Write() error = %v", err)
+				}
+				if err := s.Documents.Move(t.Context(), "old/path", "new/path", ftsMoveOpts()); err != nil {
+					t.Fatalf("Move() error = %v", err)
+				}
+				return ""
+			},
+			query:    "moveable",
+			want:     1,
+			wantPath: "new/path",
+		},
 	}
 
-	// Search for it
-	results, err := store.Search.FullText(ctx, "hello")
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			wantKey := tt.setup(t, s)
 
-	if len(results) != 1 {
-		t.Errorf("expected 1 result, got %d", len(results))
-	}
-	if len(results) > 0 && results[0].Key != doc.Key {
-		t.Errorf("expected key %s, got %s", doc.Key, results[0].Key)
-	}
-}
-
-func TestFTSHandler_WriteUpdate(t *testing.T) {
-	store := ftsTestStore(t)
-	ctx := context.Background()
-
-	// Write initial version
-	_, err := store.Documents.Write(ctx, "test/update", "original content", ftsWriteOpts())
-	if err != nil {
-		t.Fatalf("first write failed: %v", err)
-	}
-
-	// Update with new content
-	doc2, err := store.Documents.Write(ctx, "test/update", "updated content", ftsWriteOpts())
-	if err != nil {
-		t.Fatalf("second write failed: %v", err)
-	}
-
-	// Search for original - should not find
-	results, err := store.Search.FullText(ctx, "original")
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-	if len(results) != 0 {
-		t.Errorf("expected 0 results for 'original', got %d", len(results))
-	}
-
-	// Search for updated - should find
-	results, err = store.Search.FullText(ctx, "updated")
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-	if len(results) != 1 {
-		t.Errorf("expected 1 result for 'updated', got %d", len(results))
-	}
-	if len(results) > 0 && results[0].Key != doc2.Key {
-		t.Errorf("expected key %s, got %s", doc2.Key, results[0].Key)
-	}
-}
-
-func TestFTSHandler_Delete(t *testing.T) {
-	store := ftsTestStore(t)
-	ctx := context.Background()
-
-	// Write a document
-	_, err := store.Documents.Write(ctx, "test/delete", "searchable content", ftsWriteOpts())
-	if err != nil {
-		t.Fatalf("write failed: %v", err)
-	}
-
-	// Verify it's searchable
-	results, err := store.Search.FullText(ctx, "searchable")
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result before delete, got %d", len(results))
-	}
-
-	// Delete the document
-	err = store.Documents.Delete(ctx, "test/delete", ftsDeleteOpts())
-	if err != nil {
-		t.Fatalf("delete failed: %v", err)
-	}
-
-	// Verify it's no longer searchable
-	results, err = store.Search.FullText(ctx, "searchable")
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-	if len(results) != 0 {
-		t.Errorf("expected 0 results after delete, got %d", len(results))
-	}
-}
-
-func TestFTSHandler_Restore(t *testing.T) {
-	store := ftsTestStore(t)
-	ctx := context.Background()
-
-	// Write a document
-	_, err := store.Documents.Write(ctx, "test/restore", "restorable content", ftsWriteOpts())
-	if err != nil {
-		t.Fatalf("write failed: %v", err)
-	}
-
-	// Delete it
-	err = store.Documents.Delete(ctx, "test/restore", ftsDeleteOpts())
-	if err != nil {
-		t.Fatalf("delete failed: %v", err)
-	}
-
-	// Verify not searchable
-	results, err := store.Search.FullText(ctx, "restorable")
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-	if len(results) != 0 {
-		t.Fatalf("expected 0 results after delete, got %d", len(results))
-	}
-
-	// Restore it
-	err = store.Documents.Restore(ctx, "test/restore", ftsRestoreOpts())
-	if err != nil {
-		t.Fatalf("restore failed: %v", err)
-	}
-
-	// Verify searchable again
-	results, err = store.Search.FullText(ctx, "restorable")
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-	if len(results) != 1 {
-		t.Errorf("expected 1 result after restore, got %d", len(results))
-	}
-}
-
-func TestFTSHandler_Move(t *testing.T) {
-	store := ftsTestStore(t)
-	ctx := context.Background()
-
-	// Write a document
-	_, err := store.Documents.Write(ctx, "old/path", "moveable content", ftsWriteOpts())
-	if err != nil {
-		t.Fatalf("write failed: %v", err)
-	}
-
-	// Move it
-	err = store.Documents.Move(ctx, "old/path", "new/path", ftsMoveOpts())
-	if err != nil {
-		t.Fatalf("move failed: %v", err)
-	}
-
-	// Search should still find it
-	results, err := store.Search.FullText(ctx, "moveable")
-	if err != nil {
-		t.Fatalf("search failed: %v", err)
-	}
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result after move, got %d", len(results))
-	}
-
-	// Verify it has the new path
-	if results[0].Path != "new/path" {
-		t.Errorf("expected path new/path, got %s", results[0].Path)
+			results, err := s.Search.FullText(t.Context(), tt.query)
+			if err != nil {
+				t.Fatalf("FullText(%q) error = %v", tt.query, err)
+			}
+			if len(results) != tt.want {
+				t.Fatalf("FullText(%q) returned %d results, want %d", tt.query, len(results), tt.want)
+			}
+			if tt.want == 0 {
+				return
+			}
+			if results[0].Path != tt.wantPath {
+				t.Errorf("FullText(%q) Path = %q, want %q", tt.query, results[0].Path, tt.wantPath)
+			}
+			if wantKey != "" && results[0].Key != wantKey {
+				t.Errorf("FullText(%q) Key = %q, want %q", tt.query, results[0].Key, wantKey)
+			}
+		})
 	}
 }
 
 // Test helpers
-func ftsTestStore(t *testing.T) *llmd.Store {
-	t.Helper()
-	s, err := llmd.OpenMemory()
-	if err != nil {
-		t.Fatalf("OpenMemory() error = %v", err)
-	}
-	t.Cleanup(func() { s.Close() })
-	return s
-}
-
-func ftsWriteOpts() documents.WriteOptions {
-	return documents.WriteOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
-}
-
 func ftsDeleteOpts() documents.DeleteOptions {
-	return documents.DeleteOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return documents.DeleteOptions{Author: "test", Source: "cli"}
 }
 
 func ftsRestoreOpts() documents.RestoreOptions {
-	return documents.RestoreOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return documents.RestoreOptions{Author: "test", Source: "cli"}
 }
 
 func ftsMoveOpts() documents.MoveOptions {
-	return documents.MoveOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return documents.MoveOptions{Author: "test", Source: "cli"}
 }

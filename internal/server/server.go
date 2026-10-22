@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/jpl-au/chain"
+
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/sdk"

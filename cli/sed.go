@@ -30,7 +30,7 @@ func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	for _, arg := range args {
 		if arg == "-i" {
-			continue // -i is default behavior (always in-place)
+			continue // -i is default behaviour (always in-place)
 		}
 		if expr == "" {
 			expr = arg

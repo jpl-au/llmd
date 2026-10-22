@@ -10,106 +10,74 @@ import (
 
 func TestParseVersion(t *testing.T) {
 	tests := []struct {
-		input   string
-		path    string
-		version *int
+		name        string
+		input       string
+		wantPath    string
+		wantVersion *int
 	}{
-		{"notes/readme", "notes/readme", nil},
-		{"notes/readme:3", "notes/readme", new(3)},
-		{"my:file:5", "my:file", new(5)},
-		{"notes/readme:abc", "notes/readme:abc", nil},
-		{"0mnnqhmvm", "0mnnqhmvm", nil},
-		{"0mnnqhmvm:7", "0mnnqhmvm", new(7)},
+		{"path", "notes/readme", "notes/readme", nil},
+		{"path with version", "notes/readme:3", "notes/readme", new(3)},
+		{"colon in path", "my:file:5", "my:file", new(5)},
+		{"non-numeric suffix", "notes/readme:abc", "notes/readme:abc", nil},
+		{"key", "0mnnqhmvm", "0mnnqhmvm", nil},
+		{"key with version", "0mnnqhmvm:7", "0mnnqhmvm", new(7)},
 	}
 
 	for _, tt := range tests {
-		path, version := resolve.ParseVersion(tt.input)
-		if path != tt.path {
-			t.Errorf("ParseVersion(%q) path = %q, want %q", tt.input, path, tt.path)
-		}
-		if (version == nil) != (tt.version == nil) {
-			t.Errorf("ParseVersion(%q) version nil = %v, want %v", tt.input, version == nil, tt.version == nil)
-		} else if version != nil && *version != *tt.version {
-			t.Errorf("ParseVersion(%q) version = %d, want %d", tt.input, *version, *tt.version)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			path, version := resolve.ParseVersion(tt.input)
+			if path != tt.wantPath {
+				t.Errorf("ParseVersion(%q) path = %q, want %q", tt.input, path, tt.wantPath)
+			}
+			if (version == nil) != (tt.wantVersion == nil) {
+				t.Errorf("ParseVersion(%q) version nil = %v, want %v", tt.input, version == nil, tt.wantVersion == nil)
+			} else if version != nil && *version != *tt.wantVersion {
+				t.Errorf("ParseVersion(%q) version = %d, want %d", tt.input, *version, *tt.wantVersion)
+			}
+		})
 	}
 }
 
-func TestIdentifier_Path(t *testing.T) {
-	ctx := context.Background()
-	path, version, byKey := resolve.Identifier(ctx, "notes/readme", nil)
-	if path != "notes/readme" {
-		t.Errorf("path = %q, want %q", path, "notes/readme")
-	}
-	if version != nil {
-		t.Errorf("version = %v, want nil", version)
-	}
-	if byKey {
-		t.Error("byKey = true, want false")
-	}
-}
-
-func TestIdentifier_PathVersion(t *testing.T) {
-	ctx := context.Background()
-	path, version, _ := resolve.Identifier(ctx, "notes/readme:3", nil)
-	if path != "notes/readme" {
-		t.Errorf("path = %q, want %q", path, "notes/readme")
-	}
-	if version == nil || *version != 3 {
-		t.Errorf("version = %v, want 3", version)
-	}
-}
-
-func TestIdentifier_Key(t *testing.T) {
-	ctx := context.Background()
+func TestIdentifier(t *testing.T) {
 	lookup := func(_ context.Context, key string) (string, error) {
 		if key == "0mnnqhmvm" {
 			return "observations/llmd-recorder", nil
 		}
 		return "", errors.New("not found")
 	}
-	path, _, byKey := resolve.Identifier(ctx, "0mnnqhmvm", lookup)
-	if path != "observations/llmd-recorder" {
-		t.Errorf("path = %q, want %q", path, "observations/llmd-recorder")
-	}
-	if !byKey {
-		t.Error("byKey = false, want true")
-	}
-}
-
-func TestIdentifier_KeyVersion(t *testing.T) {
-	ctx := context.Background()
-	lookup := func(_ context.Context, key string) (string, error) {
-		if key == "0mnnqhmvm" {
-			return "observations/llmd-recorder", nil
-		}
+	notFound := func(_ context.Context, _ string) (string, error) {
 		return "", errors.New("not found")
 	}
-	path, version, byKey := resolve.Identifier(ctx, "0mnnqhmvm:7", lookup)
-	if path != "observations/llmd-recorder" {
-		t.Errorf("path = %q, want %q", path, "observations/llmd-recorder")
+
+	tests := []struct {
+		name        string
+		value       string
+		lookup      resolve.KeyToPath
+		wantPath    string
+		wantVersion *int
+		wantByKey   bool
+	}{
+		{"path", "notes/readme", nil, "notes/readme", nil, false},
+		{"path with version", "notes/readme:3", nil, "notes/readme", new(3), false},
+		{"key", "0mnnqhmvm", lookup, "observations/llmd-recorder", nil, true},
+		{"key with version", "0mnnqhmvm:7", lookup, "observations/llmd-recorder", new(7), true},
+		{"key not found", "0mnnqhmvm", notFound, "0mnnqhmvm", nil, false},
 	}
-	if version == nil || *version != 7 {
-		t.Errorf("version = %v, want 7", version)
-	}
-	if !byKey {
-		t.Error("byKey = false, want true")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path, version, byKey := resolve.Identifier(t.Context(), tt.value, tt.lookup)
+			if path != tt.wantPath {
+				t.Errorf("Identifier(%q) path = %q, want %q", tt.value, path, tt.wantPath)
+			}
+			if (version == nil) != (tt.wantVersion == nil) {
+				t.Errorf("Identifier(%q) version nil = %v, want %v", tt.value, version == nil, tt.wantVersion == nil)
+			} else if version != nil && *version != *tt.wantVersion {
+				t.Errorf("Identifier(%q) version = %d, want %d", tt.value, *version, *tt.wantVersion)
+			}
+			if byKey != tt.wantByKey {
+				t.Errorf("Identifier(%q) byKey = %v, want %v", tt.value, byKey, tt.wantByKey)
+			}
+		})
 	}
 }
-
-func TestIdentifier_KeyNotFound(t *testing.T) {
-	ctx := context.Background()
-	lookup := func(_ context.Context, _ string) (string, error) {
-		return "", errors.New("not found")
-	}
-	path, _, byKey := resolve.Identifier(ctx, "0mnnqhmvm", lookup)
-	if path != "0mnnqhmvm" {
-		t.Errorf("path = %q, want %q", path, "0mnnqhmvm")
-	}
-	if byKey {
-		t.Error("byKey = true, want false")
-	}
-}
-
-//go:fix inline
-func intPtr(v int) *int { return new(v) }

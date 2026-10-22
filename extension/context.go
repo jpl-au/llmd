@@ -12,8 +12,9 @@
 package extension
 
 import (
-	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/qwr"
+
+	"github.com/jpl-au/llmd/internal/llmd"
 )
 
 // Context provides extensions controlled access to llmd internals.

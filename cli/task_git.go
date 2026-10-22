@@ -88,6 +88,10 @@ func taskDiff(ctx sdk.Context, args []string) (sdk.Response, error) {
 		key = positional[0]
 	}
 
+	if err := ctx.Git.Available(); err != nil {
+		return nil, fmt.Errorf("task diff: %w", err)
+	}
+
 	t, err := resolveTask(ctx, "task diff", key)
 	if err != nil {
 		return nil, err
@@ -134,6 +138,10 @@ func taskFiles(ctx sdk.Context, args []string) (sdk.Response, error) {
 	var key string
 	if len(positional) > 0 {
 		key = positional[0]
+	}
+
+	if err := ctx.Git.Available(); err != nil {
+		return nil, fmt.Errorf("task files: %w", err)
 	}
 
 	t, err := resolveTask(ctx, "task files", key)

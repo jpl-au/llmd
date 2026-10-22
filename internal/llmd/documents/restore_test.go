@@ -1,36 +1,33 @@
 package documents_test
 
 import (
-	"context"
 	"testing"
 )
 
 func TestRestore(t *testing.T) {
 	s := testStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
-	if _, err := s.Documents.Write(ctx, "docs/readme", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	if err := s.Documents.Delete(ctx, "docs/readme", testDeleteOpts()); err != nil {
-		t.Fatalf("Delete docs/readme: %v", err)
-	}
+	mustWrite(t, s, "docs/readme", "content")
+	mustDelete(t, s, "docs/readme")
 
-	err := s.Documents.Restore(ctx, "docs/readme", testRestoreOpts())
-	if err != nil {
+	if err := s.Documents.Restore(ctx, "docs/readme", testRestoreOpts()); err != nil {
 		t.Fatalf("Restore() error = %v", err)
 	}
 
-	list, _ := s.Documents.List(ctx)
+	list, err := s.Documents.List(ctx)
+	if err != nil {
+		t.Fatalf("List() after Restore error = %v", err)
+	}
 	if len(list) != 1 {
-		t.Errorf("List() after restore returned %d items, want 1", len(list))
+		t.Errorf("List() after Restore returned %d items, want 1", len(list))
 	}
 
 	doc, err := s.Documents.Read(ctx, "docs/readme")
 	if err != nil {
-		t.Errorf("Read() after restore error = %v", err)
+		t.Fatalf("Read() after Restore error = %v", err)
 	}
 	if doc.Content != "content" {
-		t.Errorf("Content = %q, want %q", doc.Content, "content")
+		t.Errorf("Read() after Restore: Content = %q, want %q", doc.Content, "content")
 	}
 }

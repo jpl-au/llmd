@@ -83,50 +83,46 @@ func TestGetContext(t *testing.T) {
 }
 
 func TestExtractLines(t *testing.T) {
-	content := "first line\nsecond with keyword\nthird line\nfourth keyword again\nfifth line"
-
-	matches := extractLines(content, "keyword", 1)
-
-	if len(matches) != 2 {
-		t.Fatalf("expected 2 matches, got %d", len(matches))
+	tests := []struct {
+		name    string
+		content string
+		query   string
+		ctx     int
+		want    []Match
+	}{
+		{
+			name:    "with context",
+			content: "first line\nsecond with keyword\nthird line\nfourth keyword again\nfifth line",
+			query:   "keyword",
+			ctx:     1,
+			want: []Match{
+				{Line: 2, Column: 12, Text: "second with keyword", Before: []string{"first line"}, After: []string{"third line"}},
+				{Line: 4, Column: 7, Text: "fourth keyword again", Before: []string{"third line"}, After: []string{"fifth line"}},
+			},
+		},
+		{
+			name:    "case insensitive",
+			content: "UPPERCASE keyword here\nlowercase KEYWORD here",
+			query:   "keyword",
+			want: []Match{
+				{Line: 1, Column: 10, Text: "UPPERCASE keyword here"},
+				{Line: 2, Column: 10, Text: "lowercase KEYWORD here"},
+			},
+		},
+		{
+			name:    "no matches",
+			content: "nothing relevant here",
+			query:   "missing",
+			want:    nil,
+		},
 	}
 
-	// First match
-	if matches[0].Line != 2 {
-		t.Errorf("first match Line = %d, want 2", matches[0].Line)
-	}
-	if matches[0].Text != "second with keyword" {
-		t.Errorf("first match Text = %q", matches[0].Text)
-	}
-	if len(matches[0].Before) != 1 || matches[0].Before[0] != "first line" {
-		t.Errorf("first match Before = %v", matches[0].Before)
-	}
-	if len(matches[0].After) != 1 || matches[0].After[0] != "third line" {
-		t.Errorf("first match After = %v", matches[0].After)
-	}
-
-	// Second match
-	if matches[1].Line != 4 {
-		t.Errorf("second match Line = %d, want 4", matches[1].Line)
-	}
-}
-
-func TestExtractLines_CaseInsensitive(t *testing.T) {
-	content := "UPPERCASE keyword here\nlowercase KEYWORD here"
-
-	matches := extractLines(content, "keyword", 0)
-
-	if len(matches) != 2 {
-		t.Errorf("expected 2 case-insensitive matches, got %d", len(matches))
-	}
-}
-
-func TestExtractLines_NoMatches(t *testing.T) {
-	content := "nothing relevant here"
-
-	matches := extractLines(content, "missing", 0)
-
-	if len(matches) != 0 {
-		t.Errorf("expected 0 matches, got %d", len(matches))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractLines(tt.content, tt.query, tt.ctx)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("extractLines(%q, %q, %d) = %#v, want %#v", tt.content, tt.query, tt.ctx, got, tt.want)
+			}
+		})
 	}
 }

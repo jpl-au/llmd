@@ -25,7 +25,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	if err := t.ensure(); err != nil {
 		return nil, err
 	}
-	if err := t.ensureBoard(ctx, opts.Origin.Author); err != nil {
+	if err := t.ensureBoard(ctx, opts.Author); err != nil {
 		return nil, err
 	}
 
@@ -48,7 +48,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	// --path links to an existing store document. The document must exist.
 	// Body content (stdin/--file) creates a new document at tasks/<slug>.
 	// No body and no --path: task has no spec, sits in backlog.
-	path := "tasks/" + slug(title)
+	var path string
 
 	if opts.Path != "" {
 		exists, eerr := t.docs.Exists(ctx, opts.Path)
@@ -59,26 +59,22 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 			return nil, fmt.Errorf("document not found: %s", opts.Path)
 		}
 		path = opts.Path
-	} else if len(body) > 0 {
-		// Avoid squatting on an existing document. If the
-		// auto-generated path is already taken, append a numeric
-		// suffix to make it unique.
-		for i := 2; ; i++ {
-			exists, eerr := t.docs.Exists(ctx, path)
-			if eerr != nil {
-				return nil, fmt.Errorf("checking document: %w", eerr)
-			}
-			if !exists {
-				break
-			}
-			path = fmt.Sprintf("tasks/%s-%d", slug(title), i)
+	} else {
+		// Avoid squatting on an existing document or sharing a spec
+		// path with another live task. If the auto-generated path is
+		// taken, append a numeric suffix to make it unique.
+		path, err = t.uniquePath(ctx, slug(title))
+		if err != nil {
+			return nil, err
 		}
 
-		_, err = t.docs.Write(ctx, path, string(body), documents.WriteOptions{
-			Origin: opts.Origin,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("creating document: %w", err)
+		if len(body) > 0 {
+			_, err = t.docs.Write(ctx, path, string(body), documents.WriteOptions{
+				Origin: opts.Origin,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("creating document: %w", err)
+			}
 		}
 	}
 
@@ -122,7 +118,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 
 		recordTx(ctx, tx, opts.Author, "created", k, "", title)
 		return maxPos + 1, nil
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +153,47 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	}
 
 	return tsk, nil
+}
+
+// uniquePath returns tasks/<slug>, or the first tasks/<slug>-N (N from
+// 2) that is used by neither a document nor a live task.
+func (t *Tasks) uniquePath(ctx context.Context, s string) (string, error) {
+	base := "tasks/" + s
+	path := base
+	for i := 2; ; i++ {
+		taken, err := t.pathTaken(ctx, path)
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			return path, nil
+		}
+		path = fmt.Sprintf("%s-%d", base, i)
+	}
+}
+
+// pathTaken reports whether a document exists at path or a live task
+// already claims it as its spec path.
+func (t *Tasks) pathTaken(ctx context.Context, path string) (bool, error) {
+	exists, err := t.docs.Exists(ctx, path)
+	if err != nil {
+		return false, fmt.Errorf("checking document: %w", err)
+	}
+	if exists {
+		return true, nil
+	}
+
+	var n int
+	row, err := t.db.Query(`
+		SELECT COUNT(*) FROM tasks WHERE path = ? AND deleted_at IS NULL
+	`, path).WithContext(ctx).ReadRow()
+	if err != nil {
+		return false, fmt.Errorf("checking task path: %w", err)
+	}
+	if err := row.Scan(&n); err != nil {
+		return false, fmt.Errorf("checking task path: %w", err)
+	}
+	return n > 0, nil
 }
 
 // slug converts a title to a URL-friendly path component.

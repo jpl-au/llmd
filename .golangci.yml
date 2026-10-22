@@ -1,0 +1,58 @@
+# golangci-lint v2 configuration.
+#
+# Run with `make lint`. The default linter set (errcheck, govet,
+# ineffassign, staticcheck, unused) is kept and a few low-noise linters
+# are added. Formatting is enforced by gofmt and goimports so `make tidy`
+# and `make lint` agree.
+version: "2"
+
+run:
+  timeout: 5m
+  # Lint the telemetry build so the tag-gated files are checked too;
+  # the default build is covered by go vet in `make tidy`.
+  build-tags:
+    - telemetry
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/jpl-au/llmd
+
+linters:
+  enable:
+    - misspell
+    - unconvert
+  settings:
+    errcheck:
+      # Closing a reader or a read-only handle cannot lose data, and
+      # writing to stdout or an HTTP response has no useful recovery.
+      # Writers that matter (files being written, the store) are checked
+      # explicitly in code.
+      exclude-functions:
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*database/sql.Rows).Close
+        - (*os.File).Close
+        - (*os.Root).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - charm.land/lipgloss/v2.Println
+    misspell:
+      locale: UK
+      ignore-rules:
+        - color
+        - initialize
+        - serialize
+        - normalize
+        - finalize
+        - optimize
+        - organize
+        - marshaling
+        - unmarshaling
+        - artifact
+        - artifacts

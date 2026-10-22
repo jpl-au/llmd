@@ -26,6 +26,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jpl-au/qwr"
+	"github.com/jpl-au/qwr/checkpoint"
+	"github.com/jpl-au/qwr/profile"
+
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/audits"
@@ -40,9 +44,6 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd/tags"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	docpath "github.com/jpl-au/llmd/internal/path"
-	"github.com/jpl-au/qwr"
-	"github.com/jpl-au/qwr/checkpoint"
-	"github.com/jpl-au/qwr/profile"
 )
 
 // Store is the top-level handle for all document and work operations.
@@ -146,8 +147,7 @@ func open(path string) (*Store, error) {
 	}
 
 	if err := s.migrate(); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("migrating schema: %w", err)
+		return nil, errors.Join(fmt.Errorf("migrating schema: %w", err), db.Close())
 	}
 
 	s.wire()
@@ -174,8 +174,7 @@ func OpenMemory() (*Store, error) {
 		Writer(wp).
 		Open()
 	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("opening work database: %w", err)
+		return nil, errors.Join(fmt.Errorf("opening work database: %w", err), db.Close())
 	}
 
 	s := &Store{
@@ -186,14 +185,10 @@ func OpenMemory() (*Store, error) {
 	}
 
 	if err := s.migrate(); err != nil {
-		work.Close()
-		db.Close()
-		return nil, fmt.Errorf("migrating schema: %w", err)
+		return nil, errors.Join(fmt.Errorf("migrating schema: %w", err), work.Close(), db.Close())
 	}
 	if err := s.migrateWork(); err != nil {
-		work.Close()
-		db.Close()
-		return nil, fmt.Errorf("migrating work schema: %w", err)
+		return nil, errors.Join(fmt.Errorf("migrating work schema: %w", err), work.Close(), db.Close())
 	}
 
 	s.wire()
@@ -255,7 +250,9 @@ func (s *Store) WorkDB() *qwr.Manager {
 	s.work = db
 	if err := s.migrateWork(); err != nil {
 		slog.Error("migrating work schema", "err", err)
-		s.work.Close()
+		if cerr := s.work.Close(); cerr != nil {
+			slog.Warn("closing work database after failed migration", "err", cerr)
+		}
 		s.work = nil
 		return nil
 	}
@@ -288,7 +285,7 @@ func (s *Store) migrateWork() error {
 		agents.Schema,
 	}
 	for _, ddl := range schemas {
-		if _, err := s.work.Query(ddl).Write(); err != nil {
+		if _, err := s.work.Query(ddl).Exec(); err != nil {
 			return fmt.Errorf("migrating work schema: %w", err)
 		}
 	}
@@ -311,11 +308,11 @@ func (s *Store) Close() error {
 // Both llmd.db and work.db (if open) are checkpointed.
 func (s *Store) Checkpoint() error {
 	if s.work != nil {
-		if err := s.work.RunCheckpoint(checkpoint.Truncate); err != nil {
+		if err := s.work.Checkpoint(checkpoint.Truncate).Exec(); err != nil {
 			return fmt.Errorf("checkpointing work database: %w", err)
 		}
 	}
-	return s.db.RunCheckpoint(checkpoint.Truncate)
+	return s.db.Checkpoint(checkpoint.Truncate).Exec()
 }
 
 // Path returns the path to the store database.

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
-	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/pkg/model/entity"
 )
 
@@ -24,7 +23,7 @@ func (e *Entities) Write(ctx context.Context, namespace, value string, opts Writ
 	_, err := e.db.Query(`
 		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, value, opts.Author, opts.Source, now).WithContext(ctx).Execute()
+	`, k, namespace, relation, value, opts.Author, opts.Source, now).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, fmt.Errorf("inserting entity: %w", err)
 	}
@@ -34,10 +33,8 @@ func (e *Entities) Write(ctx context.Context, namespace, value string, opts Writ
 		Namespace: namespace,
 		Relation:  opts.Relation,
 		Value:     value,
-		Origin: core.Origin{
-			Author: opts.Author,
-			Source: opts.Source,
-		},
+		Author:    opts.Author,
+		Source:    opts.Source,
 		CreatedAt: now,
 	}, nil
 }

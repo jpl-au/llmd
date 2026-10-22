@@ -103,6 +103,31 @@ func (m *Messages) History(ctx context.Context, consumer string, since int64) ([
 	return msgs, rows.Err()
 }
 
+// bySourceKey returns the message stored under a source key.
+func (m *Messages) bySourceKey(ctx context.Context, sourceKey string) (*message.Message, error) {
+	rows, err := m.db.Query(`
+		SELECT id, key, source_key, type, payload, author, source, assigned_to, created_at
+		FROM messages
+		WHERE source_key = ?
+	`, sourceKey).WithContext(ctx).Read()
+	if err != nil {
+		return nil, fmt.Errorf("reading message: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, ErrNotFound
+	}
+	msg, err := scanMessage(rows)
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
 // scanMessage scans a message row into a Message struct.
 func scanMessage(rows *sql.Rows) (message.Message, error) {
 	var msg message.Message

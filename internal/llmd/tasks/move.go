@@ -5,10 +5,13 @@ package tasks
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/jpl-au/llmd/internal/llmd/documents"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -68,7 +71,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 
 		recordTx(ctx, tx, author, "moved", key, oldStatus, status)
 		return nil, nil
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 	if err != nil {
 		return err
 	}
@@ -159,7 +162,10 @@ func (t *Tasks) repositionTx(ctx context.Context, tx *sql.Tx, key, status string
 func (t *Tasks) hasSpec(ctx context.Context, path string) (bool, error) {
 	doc, err := t.docs.Read(ctx, path)
 	if err != nil {
-		return false, nil // No document = no spec
+		if errors.Is(err, documents.ErrNotFound) || errors.Is(err, documents.ErrDeleted) {
+			return false, nil // No document = no spec
+		}
+		return false, fmt.Errorf("reading spec %s: %w", path, err)
 	}
 	content := strings.TrimSpace(doc.Content)
 	if idx := strings.Index(content, "\n"); idx >= 0 {

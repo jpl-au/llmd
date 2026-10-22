@@ -22,13 +22,13 @@ func (s *Search) Glob(ctx context.Context, pattern string, opts ...Options) ([]s
 
 	// Get all document paths (latest versions only)
 	query := `
-		SELECT DISTINCT path FROM content
-		WHERE namespace = 'core:document' AND deleted_at IS NULL
-		AND version = (
-			SELECT MAX(version) FROM content c2
-			WHERE c2.namespace = namespace AND c2.path = path
+		SELECT DISTINCT c.path FROM content c
+		WHERE c.namespace = 'core:document' AND c.deleted_at IS NULL
+		AND c.version = (
+			SELECT MAX(c2.version) FROM content c2
+			WHERE c2.namespace = c.namespace AND c2.path = c.path
 		)
-		ORDER BY path
+		ORDER BY c.path
 	`
 
 	rows, err := s.db.Query(query).WithContext(ctx).Read()

@@ -2,10 +2,45 @@ package host
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/jpl-au/llmd/sdk"
 )
+
+// spec is a task body with content beyond the title heading, so the
+// task can leave the backlog (see hasSpec in internal/llmd/tasks).
+var spec = []byte("# Spec\n\nDo the thing.")
+
+// addTask creates a task and fails the test on error.
+func addTask(t *testing.T, title string, body []byte, opts sdk.TaskAddOpts) *sdk.Task {
+	t.Helper()
+	task, err := sdk.Tasks.Add(title, body, opts)
+	if err != nil {
+		t.Fatalf("Add(%q) error = %v", title, err)
+	}
+	return task
+}
+
+// moveTask moves a task and fails the test on error.
+func moveTask(t *testing.T, key, column string) {
+	t.Helper()
+	if err := sdk.Tasks.Move(key, column, "alice"); err != nil {
+		t.Fatalf("Move(%q, %q) error = %v", key, column, err)
+	}
+}
+
+// readTask reads a task and fails the test on error.
+func readTask(t *testing.T, key string) *sdk.Task {
+	t.Helper()
+	task, err := sdk.Tasks.Read(key)
+	if err != nil {
+		t.Fatalf("Read(%q) error = %v", key, err)
+	}
+	return task
+}
+
+func ptr[T any](v T) *T { return &v }
 
 func TestBranchSlug(t *testing.T) {
 	tests := []struct {
@@ -20,355 +55,405 @@ func TestBranchSlug(t *testing.T) {
 		{"already-slugged", "already-slugged"},
 		{"special!@#chars", "special-chars"},
 	}
+
 	for _, tt := range tests {
-		got := branchSlug(tt.title)
-		if got != tt.want {
-			t.Errorf("branchSlug(%q) = %q, want %q", tt.title, got, tt.want)
-		}
+		t.Run(tt.title, func(t *testing.T) {
+			got := branchSlug(tt.title)
+			if got != tt.want {
+				t.Errorf("branchSlug(%q) = %q, want %q", tt.title, got, tt.want)
+			}
+		})
 	}
 }
 
 func TestTasksStart(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Start me", []byte("# Spec\n\nStart."), sdk.TaskAddOpts{Author: "alice"})
-
-	updated, err := sdk.Tasks.Start(task.Key, "alice", sdk.StartOpts{})
-	if err != nil {
-		t.Fatalf("Start: %v", err)
+	tests := []struct {
+		name       string
+		body       []byte
+		opts       sdk.StartOpts
+		wantErr    error
+		wantStatus string
+	}{
+		{"default column", spec, sdk.StartOpts{}, nil, "in-progress"},
+		{"custom column", spec, sdk.StartOpts{Column: "up-next"}, nil, "up-next"},
+		{"no spec", nil, sdk.StartOpts{}, sdk.ErrNoSpec, "backlog"},
 	}
-	if updated.Status != "in-progress" {
-		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
-	}
-}
 
-func TestTasksStartCustomColumn(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Custom col", []byte("# Spec\n\nCustom."), sdk.TaskAddOpts{Author: "alice"})
-
-	updated, err := sdk.Tasks.Start(task.Key, "alice", sdk.StartOpts{Column: "up-next"})
-	if err != nil {
-		t.Fatalf("Start: %v", err)
-	}
-	if updated.Status != "up-next" {
-		t.Errorf("status = %q, want %q", updated.Status, "up-next")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			task := addTask(t, "Start me", tt.body, sdk.TaskAddOpts{Author: "alice"})
+			updated, err := sdk.Tasks.Start(task.Key, "alice", tt.opts)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Start(%+v) error = %v, want %v", tt.opts, err, tt.wantErr)
+			}
+			if err != nil {
+				updated = readTask(t, task.Key)
+			}
+			if updated.Status != tt.wantStatus {
+				t.Errorf("Start(%+v) status = %q, want %q", tt.opts, updated.Status, tt.wantStatus)
+			}
+		})
 	}
 }
 
 func TestTasksFinish(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Finish me", []byte("# Spec\n\nDo it."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
-		t.Fatalf("Move: %v", err)
+	tests := []struct {
+		name       string
+		opts       sdk.FinishOpts
+		wantStatus string
+	}{
+		{"default column", sdk.FinishOpts{}, "done"},
+		{"custom column", sdk.FinishOpts{Column: "review"}, "review"},
 	}
 
-	result, err := sdk.Tasks.Finish(task.Key, "alice", sdk.FinishOpts{})
-	if err != nil {
-		t.Fatalf("Finish: %v", err)
-	}
-	if result.Task.Status != "done" {
-		t.Errorf("status = %q, want %q", result.Task.Status, "done")
-	}
-}
-
-func TestTasksFinishCustomColumn(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Review me", []byte("# Spec\n\nReview."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
-		t.Fatalf("Move: %v", err)
-	}
-
-	result, err := sdk.Tasks.Finish(task.Key, "alice", sdk.FinishOpts{Column: "review"})
-	if err != nil {
-		t.Fatalf("Finish: %v", err)
-	}
-	if result.Task.Status != "review" {
-		t.Errorf("status = %q, want %q", result.Task.Status, "review")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			task := addTask(t, "Finish me", spec, sdk.TaskAddOpts{Author: "alice"})
+			moveTask(t, task.Key, "in-progress")
+			result, err := sdk.Tasks.Finish(task.Key, "alice", tt.opts)
+			if err != nil {
+				t.Fatalf("Finish(%+v) error = %v", tt.opts, err)
+			}
+			if result.Task.Status != tt.wantStatus {
+				t.Errorf("Finish(%+v) status = %q, want %q", tt.opts, result.Task.Status, tt.wantStatus)
+			}
+		})
 	}
 }
 
 func TestTasksByBranch(t *testing.T) {
 	testHost(t)
 
-	task, _ := sdk.Tasks.Add("Branched", nil, sdk.TaskAddOpts{
-		Author: "alice",
-		Branch: "feature/login",
-	})
+	task := addTask(t, "Branched", nil, sdk.TaskAddOpts{Author: "alice", Branch: "feature/login"})
 
 	found, err := sdk.Tasks.ByBranch("feature/login")
 	if err != nil {
 		t.Fatalf("ByBranch: %v", err)
 	}
 	if found.Key != task.Key {
-		t.Errorf("key = %q, want %q", found.Key, task.Key)
+		t.Errorf("ByBranch(feature/login) key = %q, want %q", found.Key, task.Key)
 	}
 }
 
-func TestTasksByBranchNotFound(t *testing.T) {
-	testHost(t)
-
-	_, err := sdk.Tasks.ByBranch("nonexistent")
-	if !errors.Is(err, sdk.ErrNotFound) {
-		t.Errorf("ByBranch error = %v, want sdk.ErrNotFound", err)
-	}
-}
-
+// TestTasksAdd checks the task returned by Add and the same task read
+// back, plus the spec document when a body is supplied. want.Path ""
+// means any non-empty generated path.
 func TestTasksAdd(t *testing.T) {
-	testHost(t)
-
-	task, err := sdk.Tasks.Add("Fix the bug", nil, sdk.TaskAddOpts{Author: "alice"})
-	if err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if task.Title != "Fix the bug" {
-		t.Errorf("title = %q, want %q", task.Title, "Fix the bug")
-	}
-	if task.Status != "backlog" {
-		t.Errorf("status = %q, want %q", task.Status, "backlog")
-	}
-	if task.Key == "" {
-		t.Error("key is empty")
-	}
-	if task.Path == "" {
-		t.Error("path is empty")
-	}
-}
-
-func TestTasksAddWithBody(t *testing.T) {
-	testHost(t)
-
-	body := []byte("## Spec\n\nFix the auth tokens.")
-	task, err := sdk.Tasks.Add("Auth fix", body, sdk.TaskAddOpts{Author: "alice"})
-	if err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-
-	// The spec document should exist
-	ok, _ := sdk.Documents.Exists(task.Path)
-	if !ok {
-		t.Error("spec document does not exist")
-	}
-
-	content, _ := sdk.Documents.Read(task.Path, sdk.ReadOpts{})
-	if string(content) != string(body) {
-		t.Errorf("spec content = %q, want %q", content, body)
-	}
-}
-
-func TestTasksAddWithColumn(t *testing.T) {
-	testHost(t)
-
-	task, err := sdk.Tasks.Add("Urgent", nil, sdk.TaskAddOpts{
-		Author: "alice",
-		Status: "up-next",
-	})
-	if err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if task.Status != "up-next" {
-		t.Errorf("status = %q, want %q", task.Status, "up-next")
-	}
-}
-
-func TestTasksAddWithPriority(t *testing.T) {
-	testHost(t)
-
-	task, err := sdk.Tasks.Add("High pri", nil, sdk.TaskAddOpts{
-		Author:   "alice",
-		Priority: 1,
-	})
-	if err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if task.Priority != 1 {
-		t.Errorf("priority = %d, want 1", task.Priority)
-	}
-}
-
-func TestTasksAddWithPath(t *testing.T) {
-	testHost(t)
-
-	// Create an existing document first
-	if err := sdk.Documents.Write("specs/auth", []byte("# Auth Spec"), sdk.WriteOpts{Author: "alice"}); err != nil {
-		t.Fatalf("Write: %v", err)
+	tests := []struct {
+		name  string
+		title string
+		body  []byte
+		opts  sdk.TaskAddOpts
+		setup func(t *testing.T)
+		want  sdk.Task
+	}{
+		{
+			name:  "defaults",
+			title: "Fix the bug",
+			opts:  sdk.TaskAddOpts{Author: "alice"},
+			want:  sdk.Task{Title: "Fix the bug", Status: "backlog"},
+		},
+		{
+			name:  "with body",
+			title: "Auth fix",
+			body:  []byte("## Spec\n\nFix the auth tokens."),
+			opts:  sdk.TaskAddOpts{Author: "alice"},
+			want:  sdk.Task{Title: "Auth fix", Status: "backlog"},
+		},
+		{
+			name:  "with column",
+			title: "Urgent",
+			opts:  sdk.TaskAddOpts{Author: "alice", Status: "up-next"},
+			want:  sdk.Task{Title: "Urgent", Status: "up-next"},
+		},
+		{
+			name:  "with priority",
+			title: "High pri",
+			opts:  sdk.TaskAddOpts{Author: "alice", Priority: 1},
+			want:  sdk.Task{Title: "High pri", Status: "backlog", Priority: 1},
+		},
+		{
+			name:  "with existing path",
+			title: "Auth work",
+			opts:  sdk.TaskAddOpts{Author: "alice", Path: "specs/auth"},
+			setup: func(t *testing.T) { writeDoc(t, "specs/auth", "# Auth Spec") },
+			want:  sdk.Task{Title: "Auth work", Status: "backlog", Path: "specs/auth"},
+		},
+		{
+			name:  "with assignee",
+			title: "Assigned",
+			opts:  sdk.TaskAddOpts{Author: "alice", AssignedTo: "bob"},
+			want:  sdk.Task{Title: "Assigned", Status: "backlog", AssignedTo: "bob"},
+		},
+		{
+			name:  "with branch",
+			title: "Branched",
+			opts:  sdk.TaskAddOpts{Author: "alice", Branch: "feature-login"},
+			want:  sdk.Task{Title: "Branched", Status: "backlog", Branch: "feature-login"},
+		},
 	}
 
-	task, err := sdk.Tasks.Add("Auth work", nil, sdk.TaskAddOpts{
-		Author: "alice",
-		Path:   "specs/auth",
-	})
-	if err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if task.Path != "specs/auth" {
-		t.Errorf("path = %q, want %q", task.Path, "specs/auth")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			if tt.setup != nil {
+				tt.setup(t)
+			}
+			task, err := sdk.Tasks.Add(tt.title, tt.body, tt.opts)
+			if err != nil {
+				t.Fatalf("Add(%q, %+v) error = %v", tt.title, tt.opts, err)
+			}
+			if task.Key == "" {
+				t.Error("Add() key is empty")
+			}
+			if task.Path == "" {
+				t.Error("Add() path is empty")
+			}
+			views := []struct {
+				label string
+				got   *sdk.Task
+			}{{"Add()", task}, {"Read()", readTask(t, task.Key)}}
+			for _, v := range views {
+				label, got := v.label, v.got
+				if got.Title != tt.want.Title {
+					t.Errorf("%s title = %q, want %q", label, got.Title, tt.want.Title)
+				}
+				if got.Status != tt.want.Status {
+					t.Errorf("%s status = %q, want %q", label, got.Status, tt.want.Status)
+				}
+				if got.Priority != tt.want.Priority {
+					t.Errorf("%s priority = %d, want %d", label, got.Priority, tt.want.Priority)
+				}
+				if got.AssignedTo != tt.want.AssignedTo {
+					t.Errorf("%s assigned_to = %q, want %q", label, got.AssignedTo, tt.want.AssignedTo)
+				}
+				if got.Branch != tt.want.Branch {
+					t.Errorf("%s branch = %q, want %q", label, got.Branch, tt.want.Branch)
+				}
+				if tt.want.Path != "" && got.Path != tt.want.Path {
+					t.Errorf("%s path = %q, want %q", label, got.Path, tt.want.Path)
+				}
+			}
+			if tt.body != nil {
+				ok, _ := sdk.Documents.Exists(task.Path)
+				if !ok {
+					t.Errorf("Exists(%q) = false, want spec document", task.Path)
+				}
+				content, _ := sdk.Documents.Read(task.Path, sdk.ReadOpts{})
+				if string(content) != string(tt.body) {
+					t.Errorf("Read(%q) = %q, want %q", task.Path, content, tt.body)
+				}
+			}
+		})
 	}
 }
 
 func TestTasksRead(t *testing.T) {
 	testHost(t)
 
-	created, _ := sdk.Tasks.Add("Read me", nil, sdk.TaskAddOpts{Author: "alice"})
+	created := addTask(t, "Read me", nil, sdk.TaskAddOpts{Author: "alice"})
 
 	task, err := sdk.Tasks.Read(created.Key)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
 	if task.Title != "Read me" {
-		t.Errorf("title = %q, want %q", task.Title, "Read me")
-	}
-}
-
-func TestTasksReadNotFound(t *testing.T) {
-	testHost(t)
-
-	_, err := sdk.Tasks.Read("nonexistent")
-	if !errors.Is(err, sdk.ErrNotFound) {
-		t.Errorf("Read error = %v, want sdk.ErrNotFound", err)
+		t.Errorf("Read(%q) title = %q, want %q", created.Key, task.Title, "Read me")
 	}
 }
 
 func TestTasksList(t *testing.T) {
-	testHost(t)
+	type seed struct {
+		title string
+		opts  sdk.TaskAddOpts
+	}
+	tests := []struct {
+		name string
+		seed []seed
+		opts sdk.TaskListOpts
+		want []string // sorted titles
+	}{
+		{
+			name: "all",
+			seed: []seed{
+				{"One", sdk.TaskAddOpts{Author: "alice"}},
+				{"Two", sdk.TaskAddOpts{Author: "alice"}},
+				{"Three", sdk.TaskAddOpts{Author: "alice", Status: "up-next"}},
+			},
+			opts: sdk.TaskListOpts{},
+			want: []string{"One", "Three", "Two"},
+		},
+		{
+			name: "filter by column",
+			seed: []seed{
+				{"Backlog", sdk.TaskAddOpts{Author: "alice"}},
+				{"Next", sdk.TaskAddOpts{Author: "alice", Status: "up-next"}},
+			},
+			opts: sdk.TaskListOpts{Status: "up-next"},
+			want: []string{"Next"},
+		},
+		{
+			name: "filter by assignee",
+			seed: []seed{
+				{"Alice task", sdk.TaskAddOpts{Author: "alice", AssignedTo: "alice"}},
+				{"Bob task", sdk.TaskAddOpts{Author: "bob", AssignedTo: "bob"}},
+			},
+			opts: sdk.TaskListOpts{AssignedTo: "alice"},
+			want: []string{"Alice task"},
+		},
+		{
+			name: "filter by priority",
+			seed: []seed{
+				{"Normal", sdk.TaskAddOpts{Author: "alice"}},
+				{"Urgent", sdk.TaskAddOpts{Author: "alice", Priority: 1}},
+				{"Critical", sdk.TaskAddOpts{Author: "alice", Priority: 2}},
+			},
+			opts: sdk.TaskListOpts{Priority: 1},
+			want: []string{"Urgent"},
+		},
+		{
+			name: "empty store",
+			opts: sdk.TaskListOpts{},
+			want: nil,
+		},
+	}
 
-	if _, err := sdk.Tasks.Add("One", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
-		t.Fatalf("Add One: %v", err)
-	}
-	if _, err := sdk.Tasks.Add("Two", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
-		t.Fatalf("Add Two: %v", err)
-	}
-	if _, err := sdk.Tasks.Add("Three", nil, sdk.TaskAddOpts{Author: "alice", Status: "up-next"}); err != nil {
-		t.Fatalf("Add Three: %v", err)
-	}
-
-	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{})
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(tasks) != 3 {
-		t.Fatalf("List returned %d tasks, want 3", len(tasks))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			for _, s := range tt.seed {
+				addTask(t, s.title, nil, s.opts)
+			}
+			tasks, err := sdk.Tasks.List(tt.opts)
+			if err != nil {
+				t.Fatalf("List(%+v) error = %v", tt.opts, err)
+			}
+			var got []string
+			for _, task := range tasks {
+				got = append(got, task.Title)
+			}
+			slices.Sort(got)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("List(%+v) = %v, want %v", tt.opts, got, tt.want)
+			}
+		})
 	}
 }
 
-func TestTasksListFilterByColumn(t *testing.T) {
-	testHost(t)
-
-	if _, err := sdk.Tasks.Add("Backlog", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
-		t.Fatalf("Add Backlog: %v", err)
-	}
-	if _, err := sdk.Tasks.Add("Next", nil, sdk.TaskAddOpts{Author: "alice", Status: "up-next"}); err != nil {
-		t.Fatalf("Add Next: %v", err)
-	}
-
-	tasks, _ := sdk.Tasks.List(sdk.TaskListOpts{Status: "up-next"})
-	if len(tasks) != 1 {
-		t.Fatalf("got %d tasks, want 1", len(tasks))
-	}
-	if tasks[0].Title != "Next" {
-		t.Errorf("title = %q, want %q", tasks[0].Title, "Next")
-	}
-}
-
-func TestTasksListFilterByAssignee(t *testing.T) {
-	testHost(t)
-
-	if _, err := sdk.Tasks.Add("Alice task", nil, sdk.TaskAddOpts{Author: "alice", AssignedTo: "alice"}); err != nil {
-		t.Fatalf("Add Alice task: %v", err)
-	}
-	if _, err := sdk.Tasks.Add("Bob task", nil, sdk.TaskAddOpts{Author: "bob", AssignedTo: "bob"}); err != nil {
-		t.Fatalf("Add Bob task: %v", err)
-	}
-
-	tasks, _ := sdk.Tasks.List(sdk.TaskListOpts{AssignedTo: "alice"})
-	if len(tasks) != 1 {
-		t.Fatalf("got %d tasks, want 1", len(tasks))
-	}
-}
-
+// TestTasksMove moves a task through the listed columns in order and
+// checks the error of the first failing move (if any) and the final
+// status. Tasks cannot leave the backlog without a spec document.
 func TestTasksMove(t *testing.T) {
-	testHost(t)
-
-	// Create task with a multi-line spec so it can leave backlog.
-	// hasSpec strips the first line (heading) and checks for content after it.
-	task, _ := sdk.Tasks.Add("Movable", []byte("# Spec\n\nDo the thing."), sdk.TaskAddOpts{Author: "alice"})
-
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
-		t.Fatalf("Move: %v", err)
+	tests := []struct {
+		name       string
+		body       []byte
+		columns    []string
+		wantErr    error
+		wantStatus string
+	}{
+		{"with spec", spec, []string{"in-progress"}, nil, "in-progress"},
+		{"across columns", spec, []string{"up-next", "in-progress", "review", "done"}, nil, "done"},
+		{"no spec", nil, []string{"in-progress"}, sdk.ErrNoSpec, "backlog"},
+		{"unknown column", spec, []string{"nope"}, sdk.ErrInvalidArg, "backlog"},
 	}
 
-	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.Status != "in-progress" {
-		t.Errorf("status = %q, want %q", updated.Status, "in-progress")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			task := addTask(t, "Movable", tt.body, sdk.TaskAddOpts{Author: "alice"})
+			var err error
+			var col string
+			for _, col = range tt.columns {
+				if err = sdk.Tasks.Move(task.Key, col, "alice"); err != nil {
+					break
+				}
+			}
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("Move(%q, %q) error = %v, want %v", task.Key, col, err, tt.wantErr)
+			}
+			if got := readTask(t, task.Key).Status; got != tt.wantStatus {
+				t.Errorf("Read(%q) status = %q, want %q", task.Key, got, tt.wantStatus)
+			}
+		})
 	}
 }
 
-func TestTasksMoveNoSpec(t *testing.T) {
-	testHost(t)
-
-	// Task without body - no spec document
-	task, _ := sdk.Tasks.Add("No spec", nil, sdk.TaskAddOpts{Author: "alice"})
-
-	err := sdk.Tasks.Move(task.Key, "in-progress", "alice")
-	if err == nil {
-		t.Fatal("Move should fail for task without spec")
-	}
-	if !errors.Is(err, sdk.ErrNoSpec) {
-		t.Errorf("error = %v, want ErrNoSpec", err)
-	}
-}
-
+// TestTasksSet applies each TaskSetOpts in order and compares the
+// mutable metadata read back afterwards.
 func TestTasksSet(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Original", nil, sdk.TaskAddOpts{Author: "alice"})
-
-	newTitle := "Updated"
-	newPri := 1
-	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{
-		Title:    &newTitle,
-		Priority: &newPri,
-	}); err != nil {
-		t.Fatalf("Set: %v", err)
+	tests := []struct {
+		name  string
+		title string
+		ops   []sdk.TaskSetOpts
+		want  sdk.Task
+	}{
+		{
+			name:  "title and priority",
+			title: "Original",
+			ops:   []sdk.TaskSetOpts{{Title: ptr("Updated"), Priority: ptr(1)}},
+			want:  sdk.Task{Title: "Updated", Priority: 1},
+		},
+		{
+			name:  "assignee",
+			title: "Assign me",
+			ops:   []sdk.TaskSetOpts{{AssignedTo: ptr("bob")}},
+			want:  sdk.Task{Title: "Assign me", AssignedTo: "bob"},
+		},
+		{
+			name:  "branch",
+			title: "Set branch",
+			ops:   []sdk.TaskSetOpts{{Branch: ptr("feature-new")}},
+			want:  sdk.Task{Title: "Set branch", Branch: "feature-new"},
+		},
+		{
+			name:  "flag",
+			title: "Flagged",
+			ops:   []sdk.TaskSetOpts{{Flag: "blocked"}},
+			want:  sdk.Task{Title: "Flagged", Flags: "blocked"},
+		},
+		{
+			name:  "flag then unflag",
+			title: "Flagged",
+			ops:   []sdk.TaskSetOpts{{Flag: "blocked"}, {Unflag: "blocked"}},
+			want:  sdk.Task{Title: "Flagged", Flags: ""},
+		},
 	}
 
-	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.Title != "Updated" {
-		t.Errorf("title = %q, want %q", updated.Title, "Updated")
-	}
-	if updated.Priority != 1 {
-		t.Errorf("priority = %d, want 1", updated.Priority)
-	}
-}
-
-func TestTasksSetFlags(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Flagged", nil, sdk.TaskAddOpts{Author: "alice"})
-
-	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Flag: "blocked"}); err != nil {
-		t.Fatalf("Set flag: %v", err)
-	}
-	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.Flags != "blocked" {
-		t.Errorf("flags = %q, want %q", updated.Flags, "blocked")
-	}
-
-	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Unflag: "blocked"}); err != nil {
-		t.Fatalf("Set unflag: %v", err)
-	}
-	updated, _ = sdk.Tasks.Read(task.Key)
-	if updated.Flags != "" {
-		t.Errorf("flags = %q, want empty after unflag", updated.Flags)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			task := addTask(t, tt.title, nil, sdk.TaskAddOpts{Author: "alice"})
+			for _, op := range tt.ops {
+				if err := sdk.Tasks.Set(task.Key, "alice", op); err != nil {
+					t.Fatalf("Set(%+v) error = %v", op, err)
+				}
+			}
+			got := readTask(t, task.Key)
+			if got.Title != tt.want.Title {
+				t.Errorf("title = %q, want %q", got.Title, tt.want.Title)
+			}
+			if got.Priority != tt.want.Priority {
+				t.Errorf("priority = %d, want %d", got.Priority, tt.want.Priority)
+			}
+			if got.AssignedTo != tt.want.AssignedTo {
+				t.Errorf("assigned_to = %q, want %q", got.AssignedTo, tt.want.AssignedTo)
+			}
+			if got.Branch != tt.want.Branch {
+				t.Errorf("branch = %q, want %q", got.Branch, tt.want.Branch)
+			}
+			if got.Flags != tt.want.Flags {
+				t.Errorf("flags = %q, want %q", got.Flags, tt.want.Flags)
+			}
+		})
 	}
 }
 
 func TestTasksDeleteRestore(t *testing.T) {
 	testHost(t)
 
-	task, _ := sdk.Tasks.Add("Deletable", nil, sdk.TaskAddOpts{Author: "alice"})
+	task := addTask(t, "Deletable", nil, sdk.TaskAddOpts{Author: "alice"})
 
 	deleted, err := sdk.Tasks.Delete(task.Key, "alice")
 	if err != nil {
@@ -398,292 +483,176 @@ func TestTasksDeleteRestore(t *testing.T) {
 	}
 }
 
+// TestTasksColumns checks the board column order after each column
+// operation.
 func TestTasksColumns(t *testing.T) {
-	testHost(t)
-
-	cols, err := sdk.Tasks.Columns()
-	if err != nil {
-		t.Fatalf("Columns: %v", err)
+	defaults := []string{"backlog", "up-next", "in-progress", "review", "approval", "done", "blocked"}
+	tests := []struct {
+		name  string
+		setup func(t *testing.T)
+		want  []string
+	}{
+		{
+			name: "defaults",
+			want: defaults,
+		},
+		{
+			name: "add after column",
+			setup: func(t *testing.T) {
+				if err := sdk.Tasks.AddColumn("staging", "in-progress", "alice"); err != nil {
+					t.Fatalf("AddColumn(staging, in-progress) error = %v", err)
+				}
+			},
+			want: []string{"backlog", "up-next", "in-progress", "staging", "review", "approval", "done", "blocked"},
+		},
+		{
+			name: "add then remove",
+			setup: func(t *testing.T) {
+				if err := sdk.Tasks.AddColumn("temp", "", "alice"); err != nil {
+					t.Fatalf("AddColumn(temp) error = %v", err)
+				}
+				if err := sdk.Tasks.RemoveColumn("temp", "alice"); err != nil {
+					t.Fatalf("RemoveColumn(temp) error = %v", err)
+				}
+			},
+			want: defaults,
+		},
+		{
+			name: "add then move",
+			setup: func(t *testing.T) {
+				if err := sdk.Tasks.AddColumn("qa", "", "alice"); err != nil {
+					t.Fatalf("AddColumn(qa) error = %v", err)
+				}
+				if err := sdk.Tasks.MoveColumn("qa", "review", "alice"); err != nil {
+					t.Fatalf("MoveColumn(qa, review) error = %v", err)
+				}
+			},
+			want: []string{"backlog", "up-next", "in-progress", "review", "qa", "approval", "done", "blocked"},
+		},
 	}
 
-	expected := []string{"backlog", "up-next", "in-progress", "review", "approval", "done", "blocked"}
-	if len(cols) != len(expected) {
-		t.Fatalf("got %d columns, want %d", len(cols), len(expected))
-	}
-	for i, col := range cols {
-		if col != expected[i] {
-			t.Errorf("column[%d] = %q, want %q", i, col, expected[i])
-		}
-	}
-}
-
-func TestTasksAddColumn(t *testing.T) {
-	testHost(t)
-
-	if err := sdk.Tasks.AddColumn("staging", "in-progress", "alice"); err != nil {
-		t.Fatalf("AddColumn: %v", err)
-	}
-
-	cols, _ := sdk.Tasks.Columns()
-	found := false
-	for i, c := range cols {
-		if c == "staging" {
-			found = true
-			if i == 0 || cols[i-1] != "in-progress" {
-				t.Errorf("staging column not after code")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			if tt.setup != nil {
+				tt.setup(t)
 			}
-		}
-	}
-	if !found {
-		t.Error("testing column not found")
-	}
-}
-
-func TestTasksRemoveColumn(t *testing.T) {
-	testHost(t)
-
-	if err := sdk.Tasks.AddColumn("temp", "", "alice"); err != nil {
-		t.Fatalf("AddColumn: %v", err)
-	}
-
-	if err := sdk.Tasks.RemoveColumn("temp", "alice"); err != nil {
-		t.Fatalf("RemoveColumn: %v", err)
-	}
-
-	cols, _ := sdk.Tasks.Columns()
-	for _, c := range cols {
-		if c == "temp" {
-			t.Error("temp column still exists after RemoveColumn")
-		}
+			got, err := sdk.Tasks.Columns()
+			if err != nil {
+				t.Fatalf("Columns() error = %v", err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("Columns() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
-func TestTasksMoveColumn(t *testing.T) {
-	testHost(t)
-
-	if err := sdk.Tasks.AddColumn("qa", "", "alice"); err != nil {
-		t.Fatalf("AddColumn: %v", err)
-	}
-
-	if err := sdk.Tasks.MoveColumn("qa", "review", "alice"); err != nil {
-		t.Fatalf("MoveColumn: %v", err)
-	}
-
-	cols, _ := sdk.Tasks.Columns()
-	for i, c := range cols {
-		if c == "qa" && (i == 0 || cols[i-1] != "review") {
-			t.Errorf("qa not after review")
-		}
-	}
-}
-
+// TestTasksLog moves a task through the listed columns, then checks
+// the event count and, when wantMoved is set, the first "moved" event.
 func TestTasksLog(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Logged", []byte("# Spec\n\nDetails here."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
-		t.Fatalf("Move: %v", err)
+	tests := []struct {
+		name      string
+		moves     []string
+		limit     int
+		wantLen   int
+		wantMoved sdk.TaskEvent // zero value skips the check
+	}{
+		{
+			name:      "records move",
+			moves:     []string{"in-progress"},
+			limit:     0,
+			wantLen:   2, // created + moved
+			wantMoved: sdk.TaskEvent{Actor: "alice", Action: "moved", OldValue: "backlog", NewValue: "in-progress"},
+		},
+		{
+			name:    "limit",
+			moves:   []string{"up-next", "in-progress", "review"},
+			limit:   2,
+			wantLen: 2,
+		},
 	}
 
-	events, err := sdk.Tasks.Log(task.Key, 0)
-	if err != nil {
-		t.Fatalf("Log: %v", err)
-	}
-	if len(events) == 0 {
-		t.Error("Log returned no events")
-	}
-
-	// Should have a move event
-	found := false
-	for _, e := range events {
-		if e.Action == "moved" {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("no move event found in log")
-	}
-}
-
-func TestTasksLogLimit(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Many events", []byte("# Spec\n\nLots of changes."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "up-next", "alice"); err != nil {
-		t.Fatalf("Move up-next: %v", err)
-	}
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
-		t.Fatalf("Move in-progress: %v", err)
-	}
-	if err := sdk.Tasks.Move(task.Key, "review", "alice"); err != nil {
-		t.Fatalf("Move review: %v", err)
-	}
-
-	events, _ := sdk.Tasks.Log(task.Key, 2)
-	if len(events) > 2 {
-		t.Errorf("Log limit 2 returned %d events", len(events))
-	}
-}
-
-func TestTasksListFilterByPriority(t *testing.T) {
-	testHost(t)
-
-	if _, err := sdk.Tasks.Add("Normal", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
-		t.Fatalf("Add Normal: %v", err)
-	}
-	if _, err := sdk.Tasks.Add("Urgent", nil, sdk.TaskAddOpts{Author: "alice", Priority: 1}); err != nil {
-		t.Fatalf("Add Urgent: %v", err)
-	}
-	if _, err := sdk.Tasks.Add("Critical", nil, sdk.TaskAddOpts{Author: "alice", Priority: 2}); err != nil {
-		t.Fatalf("Add Critical: %v", err)
-	}
-
-	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Priority: 1})
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(tasks) != 1 {
-		t.Fatalf("got %d tasks, want 1", len(tasks))
-	}
-	if tasks[0].Title != "Urgent" {
-		t.Errorf("title = %q, want %q", tasks[0].Title, "Urgent")
-	}
-}
-
-func TestTasksListEmpty(t *testing.T) {
-	testHost(t)
-
-	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{})
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(tasks) != 0 {
-		t.Errorf("List on empty store: got %d, want 0", len(tasks))
-	}
-}
-
-func TestTasksSetAssignee(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Assign me", nil, sdk.TaskAddOpts{Author: "alice"})
-
-	assignee := "bob"
-	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{
-		AssignedTo: &assignee,
-	}); err != nil {
-		t.Fatalf("Set: %v", err)
-	}
-
-	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.AssignedTo != "bob" {
-		t.Errorf("assigned_to = %q, want %q", updated.AssignedTo, "bob")
-	}
-}
-
-func TestTasksMoveAcrossColumns(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Journey", []byte("# Spec\n\nFull lifecycle."), sdk.TaskAddOpts{Author: "alice"})
-
-	// Move through the whole board
-	for _, col := range []string{"up-next", "in-progress", "review", "done"} {
-		if err := sdk.Tasks.Move(task.Key, col, "alice"); err != nil {
-			t.Fatalf("Move to %s: %v", col, err)
-		}
-	}
-
-	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.Status != "done" {
-		t.Errorf("status = %q, want %q", updated.Status, "done")
-	}
-}
-
-func TestTasksDeleteNotFound(t *testing.T) {
-	testHost(t)
-
-	_, err := sdk.Tasks.Delete("nonexistent", "alice")
-	if !errors.Is(err, sdk.ErrNotFound) {
-		t.Errorf("Delete error = %v, want sdk.ErrNotFound", err)
-	}
-}
-
-func TestTasksAddWithAssignee(t *testing.T) {
-	testHost(t)
-
-	task, err := sdk.Tasks.Add("Assigned", nil, sdk.TaskAddOpts{
-		Author:     "alice",
-		AssignedTo: "bob",
-	})
-	if err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if task.AssignedTo != "bob" {
-		t.Errorf("assigned_to = %q, want %q", task.AssignedTo, "bob")
-	}
-}
-
-func TestTasksAddWithBranch(t *testing.T) {
-	testHost(t)
-
-	task, err := sdk.Tasks.Add("Branched", nil, sdk.TaskAddOpts{
-		Author: "alice",
-		Branch: "feature-login",
-	})
-	if err != nil {
-		t.Fatalf("Add: %v", err)
-	}
-	if task.Branch != "feature-login" {
-		t.Errorf("branch = %q, want %q", task.Branch, "feature-login")
-	}
-
-	// Read back
-	got, _ := sdk.Tasks.Read(task.Key)
-	if got.Branch != "feature-login" {
-		t.Errorf("branch after read = %q, want %q", got.Branch, "feature-login")
-	}
-}
-
-func TestTasksSetBranch(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Set branch", nil, sdk.TaskAddOpts{Author: "alice"})
-
-	branch := "feature-new"
-	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{
-		Branch: &branch,
-	}); err != nil {
-		t.Fatalf("Set: %v", err)
-	}
-
-	updated, _ := sdk.Tasks.Read(task.Key)
-	if updated.Branch != "feature-new" {
-		t.Errorf("branch = %q, want %q", updated.Branch, "feature-new")
-	}
-}
-
-func TestTasksLogEventDetails(t *testing.T) {
-	testHost(t)
-
-	task, _ := sdk.Tasks.Add("Detailed", []byte("# Spec\n\nLog details."), sdk.TaskAddOpts{Author: "alice"})
-	if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
-		t.Fatalf("Move: %v", err)
-	}
-
-	events, _ := sdk.Tasks.Log(task.Key, 0)
-
-	for _, e := range events {
-		if e.Action == "moved" {
-			if e.OldValue == "" {
-				t.Error("move event missing OldValue")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			task := addTask(t, "Logged", spec, sdk.TaskAddOpts{Author: "alice"})
+			for _, col := range tt.moves {
+				moveTask(t, task.Key, col)
 			}
-			if e.NewValue == "" {
-				t.Error("move event missing NewValue")
+			events, err := sdk.Tasks.Log(task.Key, tt.limit)
+			if err != nil {
+				t.Fatalf("Log(%q, %d) error = %v", task.Key, tt.limit, err)
 			}
-			if e.Actor == "" {
-				t.Error("move event missing Actor")
+			if len(events) != tt.wantLen {
+				t.Errorf("Log(%q, %d) returned %d events, want %d", task.Key, tt.limit, len(events), tt.wantLen)
 			}
-			return
-		}
+			if tt.wantMoved == (sdk.TaskEvent{}) {
+				return
+			}
+			i := slices.IndexFunc(events, func(e sdk.TaskEvent) bool { return e.Action == "moved" })
+			if i < 0 {
+				t.Fatalf("Log(%q, %d) has no moved event: %+v", task.Key, tt.limit, events)
+			}
+			got := events[i]
+			if got.Actor != tt.wantMoved.Actor || got.OldValue != tt.wantMoved.OldValue || got.NewValue != tt.wantMoved.NewValue {
+				t.Errorf("Log(%q, %d) moved event = {Actor:%q OldValue:%q NewValue:%q}, want {Actor:%q OldValue:%q NewValue:%q}",
+					task.Key, tt.limit, got.Actor, got.OldValue, got.NewValue,
+					tt.wantMoved.Actor, tt.wantMoved.OldValue, tt.wantMoved.NewValue)
+			}
+		})
 	}
-	t.Error("no move event found")
+}
+
+// TestTasksNotFound checks that every task operation on a missing key
+// maps the internal error to sdk.ErrNotFound.
+func TestTasksNotFound(t *testing.T) {
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{"Read", func() error {
+			_, err := sdk.Tasks.Read("nonexistent")
+			return err
+		}},
+		{"Delete", func() error {
+			_, err := sdk.Tasks.Delete("nonexistent", "alice")
+			return err
+		}},
+		{"Restore", func() error {
+			_, err := sdk.Tasks.Restore("nonexistent", "alice")
+			return err
+		}},
+		{"Move", func() error {
+			return sdk.Tasks.Move("nonexistent", "done", "alice")
+		}},
+		{"Set", func() error {
+			return sdk.Tasks.Set("nonexistent", "alice", sdk.TaskSetOpts{Title: ptr("x")})
+		}},
+		{"Start", func() error {
+			_, err := sdk.Tasks.Start("nonexistent", "alice", sdk.StartOpts{})
+			return err
+		}},
+		{"Finish", func() error {
+			_, err := sdk.Tasks.Finish("nonexistent", "alice", sdk.FinishOpts{})
+			return err
+		}},
+		{"ByBranch", func() error {
+			_, err := sdk.Tasks.ByBranch("nonexistent")
+			return err
+		}},
+		{"Log", func() error {
+			_, err := sdk.Tasks.Log("nonexistent", 0)
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			if err := tt.call(); !errors.Is(err, sdk.ErrNotFound) {
+				t.Errorf("%s(nonexistent) error = %v, want sdk.ErrNotFound", tt.name, err)
+			}
+		})
+	}
 }

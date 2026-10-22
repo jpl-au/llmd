@@ -11,8 +11,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/jpl-au/llmd/internal/llmd/events"
 	"github.com/jpl-au/qwr"
+
+	"github.com/jpl-au/llmd/internal/llmd/events"
 )
 
 // Schema is the DDL for the messages and message_acks tables.
@@ -72,7 +73,7 @@ func (m *Messages) ensure() error {
 			m.err = fmt.Errorf("work database not available")
 			return
 		}
-		_, m.err = m.db.Query(Schema).Write()
+		_, m.err = m.db.Query(Schema).Exec()
 	})
 	return m.err
 }

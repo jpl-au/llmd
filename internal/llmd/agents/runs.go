@@ -70,7 +70,7 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	_, err = a.db.Query(`
 		INSERT INTO agent_runs (key, task_key, agent, branch, worktree, pid, author, started_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, k, opts.TaskKey, opts.Agent, opts.Branch, opts.Worktree, opts.PID, opts.Author, now).Write()
+	`, k, opts.TaskKey, opts.Agent, opts.Branch, opts.Worktree, opts.PID, opts.Author, now).Exec()
 	if err != nil {
 		return nil, fmt.Errorf("inserting agent run: %w", err)
 	}
@@ -78,7 +78,7 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	_, err = a.db.Query(`
 		INSERT INTO agent_events (run_key, event, created_at)
 		VALUES (?, 'spawned', ?)
-	`, k, now).Write()
+	`, k, now).Exec()
 	if err != nil {
 		return nil, fmt.Errorf("inserting spawned event: %w", err)
 	}
@@ -97,7 +97,7 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	}
 
 	if a.bus != nil {
-		a.bus.Emit(ctx, pkgevents.Event{
+		if err := a.bus.Emit(ctx, pkgevents.Event{
 			Type:      pkgevents.AgentSpawned,
 			Key:       k,
 			Author:    opts.Author,
@@ -107,7 +107,9 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 				"agent":    opts.Agent,
 				"branch":   opts.Branch,
 			},
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
 	}
 
 	return r, nil
@@ -138,7 +140,7 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 		return err
 	}
 	if r.Status != "running" {
-		return fmt.Errorf("agent run %s is not running (status: %s)", r.Key, r.Status)
+		return fmt.Errorf("%w: %s (status: %s)", ErrNotRunning, r.Key, r.Status)
 	}
 
 	now := time.Now().UnixMilli()
@@ -172,7 +174,7 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 	_, err = a.db.Query(`
 		INSERT INTO agent_events (run_key, event, exit_code, monetary_cost, input_tokens, output_tokens, model, session_id, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, r.Key, event, opts.ExitCode, costVal, inTok, outTok, model, sessionID, now).Write()
+	`, r.Key, event, opts.ExitCode, costVal, inTok, outTok, model, sessionID, now).Exec()
 	if err != nil {
 		return fmt.Errorf("inserting completion event: %w", err)
 	}
@@ -187,13 +189,15 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 	}
 
 	if a.bus != nil {
-		a.bus.Emit(ctx, pkgevents.Event{
+		if err := a.bus.Emit(ctx, pkgevents.Event{
 			Type:      evtType,
 			Key:       r.Key,
 			Author:    r.Author,
 			Timestamp: now,
 			Metadata:  metadata,
-		})
+		}); err != nil {
+			return fmt.Errorf("emitting event: %w", err)
+		}
 	}
 	return nil
 }
@@ -208,14 +212,14 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 		return nil, err
 	}
 	if r.Status != "running" {
-		return nil, fmt.Errorf("agent run %s is not running (status: %s)", r.Key, r.Status)
+		return nil, fmt.Errorf("%w: %s (status: %s)", ErrNotRunning, r.Key, r.Status)
 	}
 
 	now := time.Now().UnixMilli()
 	_, err = a.db.Query(`
 		INSERT INTO agent_events (run_key, event, created_at)
 		VALUES (?, 'stopped', ?)
-	`, r.Key, now).Write()
+	`, r.Key, now).Exec()
 	if err != nil {
 		return nil, fmt.Errorf("inserting stopped event: %w", err)
 	}
@@ -225,7 +229,7 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 	r.StoppedAt = now
 
 	if a.bus != nil {
-		a.bus.Emit(ctx, pkgevents.Event{
+		if err := a.bus.Emit(ctx, pkgevents.Event{
 			Type:      pkgevents.AgentStopped,
 			Key:       r.Key,
 			Author:    author,
@@ -234,7 +238,9 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 				"task_key": r.TaskKey,
 				"agent":    r.Agent,
 			},
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("emitting event: %w", err)
+		}
 	}
 	return r, nil
 }

@@ -23,7 +23,7 @@ const mime = "text/markdown"
 func (d *Documents) Write(ctx context.Context, path, content string, opts WriteOptions) (*document.Document, error) {
 	result, err := d.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
 		return d.writeInTx(ctx, tx, path, content, opts)
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, err
 	}

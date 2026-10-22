@@ -151,7 +151,7 @@ func (t *Tasks) writeBoard(ctx context.Context, b *Board, author string) error {
 	_, err = t.db.Query(
 		`INSERT INTO board (value, author, created_at) VALUES (?, ?, ?)`,
 		string(data), author, now,
-	).WithContext(ctx).Execute()
+	).WithContext(ctx).Exec()
 	return err
 }
 

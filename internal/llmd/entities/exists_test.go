@@ -1,131 +1,120 @@
 package entities_test
 
 import (
-	"context"
+	"errors"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/entities"
 )
 
+// TestExists covers presence checks by key for a written entity, an
+// unknown key, and a deleted entity. setup returns the key to check.
 func TestExists(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	ent, _ := s.Entities.Write(ctx, "test:item", `{"name":"foo"}`, testWriteOpts())
-
-	exists, err := s.Entities.Exists(ctx, ent.Key)
-	if err != nil {
-		t.Fatalf("Exists() error = %v", err)
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, s *llmd.Store) string
+		want  bool
+	}{
+		{
+			name: "found",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				return writeEntity(t, s, "test:item", `{"name":"foo"}`, "")
+			},
+			want: true,
+		},
+		{
+			name:  "not found",
+			setup: func(t *testing.T, s *llmd.Store) string { return "nonexistent" },
+			want:  false,
+		},
+		{
+			name: "deleted",
+			setup: func(t *testing.T, s *llmd.Store) string {
+				key := writeEntity(t, s, "test:item", `{"name":"foo"}`, "")
+				if err := s.Entities.Delete(t.Context(), key, testDeleteOpts()); err != nil {
+					t.Fatalf("Delete(%s) error = %v", key, err)
+				}
+				return key
+			},
+			want: false,
+		},
 	}
-	if !exists {
-		t.Error("Exists() = false, want true")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			key := tt.setup(t, s)
+
+			got, err := s.Entities.Exists(t.Context(), key)
+			if err != nil {
+				t.Fatalf("Exists(%q) error = %v", key, err)
+			}
+			if got != tt.want {
+				t.Errorf("Exists(%q) = %v, want %v", key, got, tt.want)
+			}
+		})
 	}
 }
 
-func TestExists_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	exists, err := s.Entities.Exists(ctx, "nonexistent")
-	if err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	}
-	if exists {
-		t.Error("Exists() = true, want false")
-	}
-}
-
-func TestExists_Deleted(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	ent, _ := s.Entities.Write(ctx, "test:item", `{"name":"foo"}`, testWriteOpts())
-	if err := s.Entities.Delete(ctx, ent.Key, testDeleteOpts()); err != nil {
-		t.Fatalf("Delete: %v", err)
-	}
-
-	exists, err := s.Entities.Exists(ctx, ent.Key)
-	if err != nil {
-		t.Fatalf("Exists() error = %v", err)
-	}
-	if exists {
-		t.Error("Exists() = true for deleted entity, want false")
-	}
-}
-
+// TestExistsInNamespace covers the namespace+relation presence check
+// against a store holding one "test:item" entity on docs/readme.
 func TestExistsInNamespace(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	opts := testWriteOpts()
-	opts.Relation = "docs/readme"
-	if _, err := s.Entities.Write(ctx, "test:item", `{"x":1}`, opts); err != nil {
-		t.Fatalf("Write: %v", err)
+	tests := []struct {
+		name      string
+		namespace string
+		relation  string
+		want      bool
+	}{
+		{"same relation", "test:item", "docs/readme", true},
+		{"different relation", "test:item", "docs/other", false},
 	}
 
-	exists, err := s.Entities.ExistsInNamespace(ctx, "test:item", "docs/readme")
-	if err != nil {
-		t.Fatalf("ExistsInNamespace() error = %v", err)
-	}
-	if !exists {
-		t.Error("ExistsInNamespace() = false, want true")
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			writeEntity(t, s, "test:item", `{"x":1}`, "docs/readme")
 
-func TestExistsInNamespace_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	opts := testWriteOpts()
-	opts.Relation = "docs/readme"
-	if _, err := s.Entities.Write(ctx, "test:item", `{"x":1}`, opts); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	// Different relation
-	exists, err := s.Entities.ExistsInNamespace(ctx, "test:item", "docs/other")
-	if err != nil {
-		t.Fatalf("ExistsInNamespace() error = %v", err)
-	}
-	if exists {
-		t.Error("ExistsInNamespace() = true, want false")
+			got, err := s.Entities.ExistsInNamespace(t.Context(), tt.namespace, tt.relation)
+			if err != nil {
+				t.Fatalf("ExistsInNamespace(%q, %q) error = %v", tt.namespace, tt.relation, err)
+			}
+			if got != tt.want {
+				t.Errorf("ExistsInNamespace(%q, %q) = %v, want %v", tt.namespace, tt.relation, got, tt.want)
+			}
+		})
 	}
 }
 
+// TestFindByValue covers JSON-path lookup against a store holding
+// "important" and "draft" tagged entities on docs/readme.
 func TestFindByValue(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	opts := testWriteOpts()
-	opts.Relation = "docs/readme"
-	if _, err := s.Entities.Write(ctx, "test:item", `{"tag":"important"}`, opts); err != nil {
-		t.Fatalf("Write important: %v", err)
-	}
-	if _, err := s.Entities.Write(ctx, "test:item", `{"tag":"draft"}`, opts); err != nil {
-		t.Fatalf("Write draft: %v", err)
+	tests := []struct {
+		name    string
+		value   string // value matched at $.tag
+		want    string // Value of the found entity
+		wantErr error
+	}{
+		{"found", "important", `{"tag":"important"}`, nil},
+		{"not found", "nonexistent", "", entities.ErrNotFound},
 	}
 
-	// Find by JSON path
-	ent, err := s.Entities.FindByValue(ctx, "test:item", "docs/readme", "$.tag", "important")
-	if err != nil {
-		t.Fatalf("FindByValue() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			writeEntity(t, s, "test:item", `{"tag":"important"}`, "docs/readme")
+			writeEntity(t, s, "test:item", `{"tag":"draft"}`, "docs/readme")
 
-	if ent.Value != `{"tag":"important"}` {
-		t.Errorf("FindByValue() Value = %q, want %q", ent.Value, `{"tag":"important"}`)
-	}
-}
-
-func TestFindByValue_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	opts := testWriteOpts()
-	opts.Relation = "docs/readme"
-	if _, err := s.Entities.Write(ctx, "test:item", `{"tag":"important"}`, opts); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-
-	_, err := s.Entities.FindByValue(ctx, "test:item", "docs/readme", "$.tag", "nonexistent")
-	if err == nil {
-		t.Error("FindByValue() should return error for nonexistent value")
+			got, err := s.Entities.FindByValue(t.Context(), "test:item", "docs/readme", "$.tag", tt.value)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("FindByValue($.tag, %q) error = %v, want %v", tt.value, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if got.Value != tt.want {
+				t.Errorf("FindByValue($.tag, %q) Value = %q, want %q", tt.value, got.Value, tt.want)
+			}
+		})
 	}
 }

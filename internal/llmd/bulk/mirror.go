@@ -76,36 +76,51 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 		result.Wrote++
 	}
 
-	result.Removed = cleanStale(root, keep)
+	removed, err := cleanStale(root, keep)
+	result.Removed = removed
+	if err != nil {
+		return nil, fmt.Errorf("removing stale files: %w", err)
+	}
 	return result, nil
 }
 
-// cleanStale removes files under root that are not in the keep set.
-// Also removes empty directories left behind. Returns the number of
-// files removed.
-func cleanStale(root *os.Root, keep map[string]bool) int {
+// cleanStale removes files under root that are not in the keep set,
+// then removes any directories left empty. Returns the number of files
+// removed and the first error met while walking or removing a file.
+func cleanStale(root *os.Root, keep map[string]bool) (int, error) {
 	var removed int
 
 	// First pass: remove stale files.
-	fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || p == "." {
+	err := fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || p == "." {
 			return nil
 		}
 		if !keep[p] {
-			root.Remove(p)
+			if err := root.Remove(p); err != nil {
+				return fmt.Errorf("removing %s: %w", p, err)
+			}
 			removed++
 		}
 		return nil
 	})
+	if err != nil {
+		return removed, err
+	}
 
-	// Second pass: remove empty directories (only succeeds if empty).
-	fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+	// Second pass: remove empty directories. Remove fails on a directory
+	// that still has contents, which is exactly the signal to keep it,
+	// and a directory removed mid-walk surfaces as a walk error for its
+	// (already gone) children, so both outcomes are deliberately ignored.
+	_ = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || !d.IsDir() || p == "." {
 			return nil
 		}
-		root.Remove(p)
+		_ = root.Remove(p)
 		return nil
 	})
 
-	return removed
+	return removed, nil
 }

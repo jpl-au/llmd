@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
 	"github.com/jpl-au/llmd/ui"
 )
 
@@ -15,7 +16,6 @@ var (
 	ruleSuccess = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	ruleFailure = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	ruleDim     = lipgloss.NewStyle().Faint(true)
-	ruleLabel   = lipgloss.NewStyle().Faint(true).Width(10)
 )
 
 // RenderRule renders a single rule as a coloured tree.

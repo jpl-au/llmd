@@ -1,72 +1,71 @@
 package links_test
 
 import (
-	"context"
+	"slices"
 	"testing"
+
+	"github.com/jpl-au/llmd/internal/llmd"
 )
 
+// TestPurge covers hard-deleting removed links: the count returned and
+// the links that survive from docs/b afterwards, and the empty store.
 func TestPurge(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Create documents and add links
-	if _, err := s.Documents.Write(ctx, "docs/a", "content a", testWriteOpts()); err != nil {
-		t.Fatalf("Write a: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/b", "content b", testWriteOpts()); err != nil {
-		t.Fatalf("Write b: %v", err)
-	}
-	if _, err := s.Documents.Write(ctx, "docs/c", "content c", testWriteOpts()); err != nil {
-		t.Fatalf("Write c: %v", err)
-	}
-
-	if _, err := s.Links.Add(ctx, "docs/a", "docs/b", testOpts()); err != nil {
-		t.Fatalf("Add a->b: %v", err)
-	}
-	if _, err := s.Links.Add(ctx, "docs/a", "docs/c", testOpts()); err != nil {
-		t.Fatalf("Add a->c: %v", err)
-	}
-	if _, err := s.Links.Add(ctx, "docs/b", "docs/c", testOpts()); err != nil {
-		t.Fatalf("Add b->c: %v", err)
-	}
-
-	// Remove some links
-	if err := s.Links.Remove(ctx, "docs/a", "docs/b", testOpts()); err != nil {
-		t.Fatalf("Remove a->b: %v", err)
-	}
-	if err := s.Links.Remove(ctx, "docs/a", "docs/c", testOpts()); err != nil {
-		t.Fatalf("Remove a->c: %v", err)
+	tests := []struct {
+		name          string
+		setup         func(t *testing.T, s *llmd.Store)
+		want          int64    // links purged
+		wantRemaining []string // targets still linked from docs/b
+	}{
+		{
+			name: "removed links purged",
+			setup: func(t *testing.T, s *llmd.Store) {
+				writeDocs(t, s, "docs/a", "docs/b", "docs/c")
+				addLink(t, s, "docs/a", "docs/b", "")
+				addLink(t, s, "docs/a", "docs/c", "")
+				addLink(t, s, "docs/b", "docs/c", "")
+				for _, to := range []string{"docs/b", "docs/c"} {
+					if err := s.Links.Remove(t.Context(), "docs/a", to, testOpts()); err != nil {
+						t.Fatalf("Remove(docs/a, %s) error = %v", to, err)
+					}
+				}
+			},
+			want:          2,
+			wantRemaining: []string{"docs/c"},
+		},
+		{
+			name:          "nothing to purge",
+			want:          0,
+			wantRemaining: nil,
+		},
 	}
 
-	// Purge should remove 2 links
-	n, err := s.Links.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 2 {
-		t.Errorf("Purge() = %d, want 2", n)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	// b -> c link should still exist
-	links, err := s.Links.List(ctx, "docs/b")
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-	if len(links) != 1 || links[0].Value.To != "docs/c" {
-		t.Errorf("List() = %v, want [docs/c]", links)
-	}
-}
+			got, err := s.Links.Purge(ctx)
+			if err != nil {
+				t.Fatalf("Purge() error = %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("Purge() = %d, want %d", got, tt.want)
+			}
 
-func TestPurge_Empty(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	// Purge with nothing to purge
-	n, err := s.Links.Purge(ctx)
-	if err != nil {
-		t.Fatalf("Purge() error = %v", err)
-	}
-	if n != 0 {
-		t.Errorf("Purge() = %d, want 0", n)
+			list, err := s.Links.List(ctx, "docs/b")
+			if err != nil {
+				t.Fatalf("List() error = %v", err)
+			}
+			var remaining []string
+			for _, lk := range list {
+				remaining = append(remaining, lk.Value.To)
+			}
+			if !slices.Equal(remaining, tt.wantRemaining) {
+				t.Errorf("List() after Purge() = %v, want %v", remaining, tt.wantRemaining)
+			}
+		})
 	}
 }

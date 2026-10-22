@@ -10,6 +10,7 @@ import (
 
 	client "github.com/jpl-au/http-client"
 	"github.com/jpl-au/http-client/options"
+
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/pkg/events"
 )

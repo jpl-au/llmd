@@ -10,6 +10,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
+
 	"github.com/jpl-au/llmd/sdk"
 )
 

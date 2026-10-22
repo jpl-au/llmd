@@ -7,7 +7,7 @@ func Validate(name string) error {
 		return ErrInvalid
 	}
 	for _, c := range name {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
 			return ErrInvalid
 		}
 	}

@@ -2,6 +2,8 @@ package documents
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,16 +26,19 @@ func (d *Documents) Restore(ctx context.Context, path string, opts RestoreOption
 		ORDER BY version DESC LIMIT 1
 	`, namespace, path).WithContext(ctx).ReadRow()
 	if err != nil {
-		return ErrNotFound
+		return fmt.Errorf("finding deleted document: %w", err)
 	}
 	if err := row.Scan(&key, &version); err != nil {
-		return ErrNotFound
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("finding deleted document: %w", err)
 	}
 
 	qr, err := d.db.Query(`
 		UPDATE content SET deleted_at = NULL
 		WHERE namespace = ? AND path = ? AND deleted_at IS NOT NULL
-	`, namespace, path).WithContext(ctx).Execute()
+	`, namespace, path).WithContext(ctx).Exec()
 	if err != nil {
 		return fmt.Errorf("restoring document: %w", err)
 	}

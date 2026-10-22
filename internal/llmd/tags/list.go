@@ -11,10 +11,7 @@ import (
 // List returns all tags for a document.
 // value can be a document path or key.
 func (t *Tags) List(ctx context.Context, value string, opts ...Options) ([]tag.Tag, error) {
-	relation, err := t.resolvePath(ctx, value)
-	if err != nil {
-		return nil, err
-	}
+	relation := t.resolvePath(ctx, value)
 
 	rows, err := t.db.Query(`
 		SELECT key, relation, value, author, source, created_at

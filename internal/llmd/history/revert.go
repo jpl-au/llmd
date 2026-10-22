@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,7 +30,7 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 
 	result, err := h.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
 		return h.revertInTx(ctx, tx, path, content, version, opts)
-	}).WithContext(ctx).Write()
+	}).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, err
 	}
@@ -118,12 +119,32 @@ func (h *History) content(ctx context.Context, path string, version int) (string
 		return "", err
 	}
 	if err := row.Scan(&content); err != nil {
-		if err == sql.ErrNoRows {
-			return "", ErrVersionInvalid
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", h.missing(ctx, path)
 		}
 		return "", err
 	}
 	return content, nil
+}
+
+// missing reports why a version lookup found nothing: ErrNotFound when
+// the document has no versions at all, ErrVersionInvalid when the
+// document exists but not at the requested version.
+func (h *History) missing(ctx context.Context, path string) error {
+	var n int
+	row, err := h.db.Query(`
+		SELECT COUNT(*) FROM content WHERE namespace = ? AND path = ?
+	`, namespace, path).WithContext(ctx).ReadRow()
+	if err != nil {
+		return err
+	}
+	if err := row.Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return ErrVersionInvalid
 }
 
 // latestInTx reads the latest version of a document within a transaction.

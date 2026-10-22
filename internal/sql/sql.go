@@ -49,12 +49,12 @@ func Exec(db *qwr.Manager) error {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", entry.Name(), err)
 		}
-		if _, err := db.Query(string(data)).Write(); err != nil {
+		if _, err := db.Query(string(data)).Exec(); err != nil {
 			return fmt.Errorf("exec %s: %w", entry.Name(), err)
 		}
 	}
 
 	// Embed help documentation inside the database for discoverability.
-	_, err = db.Query("INSERT OR IGNORE INTO help (content) VALUES (?)", help).Write()
+	_, err = db.Query("INSERT OR IGNORE INTO help (content) VALUES (?)", help).Exec()
 	return err
 }

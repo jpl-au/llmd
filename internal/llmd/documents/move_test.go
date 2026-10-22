@@ -1,46 +1,63 @@
 package documents_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 func TestMove(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/old", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T, s *llmd.Store)
+		src     string
+		dst     string
+		want    string // content readable at dst after the move
+		wantErr error
+	}{
+		{
+			name:  "moves content to new path",
+			setup: func(t *testing.T, s *llmd.Store) { mustWrite(t, s, "docs/old", "content") },
+			src:   "docs/old",
+			dst:   "docs/new",
+			want:  "content",
+		},
+		{
+			name:    "not found",
+			src:     "nonexistent",
+			dst:     "docs/new",
+			wantErr: documents.ErrNotFound,
+		},
 	}
 
-	err := s.Documents.Move(ctx, "docs/old", "docs/new", testMoveOpts())
-	if err != nil {
-		t.Fatalf("Move() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	_, err = s.Documents.Read(ctx, "docs/old")
-	if !errors.Is(err, documents.ErrNotFound) {
-		t.Errorf("Read(old) error = %v, want ErrNotFound", err)
-	}
+			err := s.Documents.Move(ctx, tt.src, tt.dst, testMoveOpts())
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Move(%q, %q) error = %v, want %v", tt.src, tt.dst, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
 
-	doc, err := s.Documents.Read(ctx, "docs/new")
-	if err != nil {
-		t.Fatalf("Read(new) error = %v", err)
-	}
-	if doc.Content != "content" {
-		t.Errorf("Content = %q, want %q", doc.Content, "content")
-	}
-}
-
-func TestMove_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	err := s.Documents.Move(ctx, "nonexistent", "docs/new", testMoveOpts())
-	if !errors.Is(err, documents.ErrNotFound) {
-		t.Errorf("Move() error = %v, want ErrNotFound", err)
+			if _, err := s.Documents.Read(ctx, tt.src); !errors.Is(err, documents.ErrNotFound) {
+				t.Errorf("Read(%q) after Move error = %v, want %v", tt.src, err, documents.ErrNotFound)
+			}
+			doc, err := s.Documents.Read(ctx, tt.dst)
+			if err != nil {
+				t.Fatalf("Read(%q) after Move error = %v", tt.dst, err)
+			}
+			if doc.Content != tt.want {
+				t.Errorf("Read(%q) after Move: Content = %q, want %q", tt.dst, doc.Content, tt.want)
+			}
+		})
 	}
 }

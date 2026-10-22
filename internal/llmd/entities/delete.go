@@ -12,7 +12,7 @@ func (e *Entities) Delete(ctx context.Context, key string, opts DeleteOptions) e
 	qr, err := e.db.Query(`
 		UPDATE entities SET deleted_at = ?
 		WHERE key = ? AND deleted_at IS NULL
-	`, now, key).WithContext(ctx).Execute()
+	`, now, key).WithContext(ctx).Exec()
 	if err != nil {
 		return err
 	}

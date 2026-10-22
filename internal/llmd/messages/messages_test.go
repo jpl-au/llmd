@@ -1,7 +1,7 @@
 package messages
 
 import (
-	"context"
+	"errors"
 	"testing"
 
 	"github.com/jpl-au/qwr"
@@ -18,89 +18,116 @@ func openTestDB(t *testing.T) *qwr.Manager {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("closing database: %v", err)
+		}
+	})
 	return db
 }
 
-func TestSendAndPending(t *testing.T) {
-	db := openTestDB(t)
-	store := New(func() *qwr.Manager { return db }, nil)
-	ctx := context.Background()
+// TestPending covers which sent messages a consumer sees as pending.
+// want lists indices into sends whose keys must appear, in order.
+func TestPending(t *testing.T) {
+	tests := []struct {
+		name     string
+		sends    []SendOptions
+		consumer string
+		want     []int
+	}{
+		{
+			name:     "broadcast seen by any consumer",
+			sends:    []SendOptions{{Type: "document.written", Author: "human", Source: "cli"}},
+			consumer: "claude",
+			want:     []int{0},
+		},
+		{
+			name:     "directed seen by assignee",
+			sends:    []SendOptions{{Type: "direct", Author: "human", Source: "cli", AssignedTo: "claude"}},
+			consumer: "claude",
+			want:     []int{0},
+		},
+		{
+			name:     "directed hidden from other consumer",
+			sends:    []SendOptions{{Type: "direct", Author: "human", Source: "cli", AssignedTo: "claude"}},
+			consumer: "gemini",
+			want:     nil,
+		},
+		{
+			// Sending again with the same source_key inserts nothing and
+			// returns the message already stored under that key.
+			name: "duplicate source key ignored",
+			sends: []SendOptions{
+				{Type: "task.created", Author: "human", Source: "cli", SourceKey: "task.created:abc123"},
+				{Type: "task.created", Author: "poller", Source: "mcp", SourceKey: "task.created:abc123"},
+			},
+			consumer: "claude",
+			want:     []int{0},
+		},
+	}
 
-	// Send a broadcast message.
-	msg, err := store.Send(ctx, SendOptions{
-		Type:   "document.written",
-		Author: "human",
-		Source: "cli",
-	})
-	if err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-	if msg.Key == "" {
-		t.Fatal("expected non-empty key")
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := openTestDB(t)
+			store := New(func() *qwr.Manager { return db }, nil)
 
-	// Both consumers should see the broadcast.
-	pending, err := store.Pending(ctx, "claude", 0)
-	if err != nil {
-		t.Fatalf("Pending: %v", err)
-	}
-	if len(pending) != 1 {
-		t.Fatalf("len(pending) = %d, want 1", len(pending))
-	}
-	if pending[0].Key != msg.Key {
-		t.Errorf("key = %q, want %q", pending[0].Key, msg.Key)
+			var keys []string
+			for i, opts := range tt.sends {
+				msg, err := store.Send(t.Context(), opts)
+				if err != nil {
+					t.Fatalf("Send(%d) error = %v", i, err)
+				}
+				if msg.Key == "" {
+					t.Fatalf("Send(%d) Key = %q, want non-empty", i, msg.Key)
+				}
+				keys = append(keys, msg.Key)
+			}
+
+			for i := range keys {
+				for j := i + 1; j < len(keys); j++ {
+					sk := tt.sends[i].SourceKey
+					if sk != "" && sk == tt.sends[j].SourceKey && keys[i] != keys[j] {
+						t.Errorf("Send(%d) Key = %q, want %q (same source key %q)", j, keys[j], keys[i], sk)
+					}
+				}
+			}
+
+			pending, err := store.Pending(t.Context(), tt.consumer, 0)
+			if err != nil {
+				t.Fatalf("Pending(%q) error = %v", tt.consumer, err)
+			}
+			if len(pending) != len(tt.want) {
+				t.Fatalf("Pending(%q) returned %d messages, want %d", tt.consumer, len(pending), len(tt.want))
+			}
+			for i, idx := range tt.want {
+				if pending[i].Key != keys[idx] {
+					t.Errorf("Pending(%q)[%d].Key = %q, want %q", tt.consumer, i, pending[i].Key, keys[idx])
+				}
+			}
+		})
 	}
 }
 
-func TestDirectedMessage(t *testing.T) {
-	db := openTestDB(t)
-	store := New(func() *qwr.Manager { return db }, nil)
-	ctx := context.Background()
-
-	// Send directed to claude.
-	_, err := store.Send(ctx, SendOptions{
-		Type:       "direct",
-		Author:     "human",
-		Source:     "cli",
-		AssignedTo: "claude",
-	})
-	if err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-
-	// Claude sees it.
-	pending, err := store.Pending(ctx, "claude", 0)
-	if err != nil {
-		t.Fatalf("Pending (claude): %v", err)
-	}
-	if len(pending) != 1 {
-		t.Fatalf("claude pending = %d, want 1", len(pending))
-	}
-
-	// Gemini does not.
-	pending, err = store.Pending(ctx, "gemini", 0)
-	if err != nil {
-		t.Fatalf("Pending (gemini): %v", err)
-	}
-	if len(pending) != 0 {
-		t.Fatalf("gemini pending = %d, want 0", len(pending))
-	}
-}
-
+// TestAckOrdering is a sequential scenario: acknowledgements must be
+// made oldest-first, and the queue drains once both are acknowledged.
 func TestAckOrdering(t *testing.T) {
 	db := openTestDB(t)
 	store := New(func() *qwr.Manager { return db }, nil)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Send two messages.
-	first, _ := store.Send(ctx, SendOptions{Type: "a", Author: "x", Source: "cli"})
-	second, _ := store.Send(ctx, SendOptions{Type: "b", Author: "x", Source: "cli"})
+	first, err := store.Send(ctx, SendOptions{Type: "a", Author: "x", Source: "cli"})
+	if err != nil {
+		t.Fatalf("Send first: %v", err)
+	}
+	second, err := store.Send(ctx, SendOptions{Type: "b", Author: "x", Source: "cli"})
+	if err != nil {
+		t.Fatalf("Send second: %v", err)
+	}
 
 	// Acking the second one first should fail.
-	err := store.Ack(ctx, second.Key, "claude")
-	if err == nil {
-		t.Fatal("expected ErrOrderViolation, got nil")
+	if err := store.Ack(ctx, second.Key, "claude"); !errors.Is(err, ErrOrderViolation) {
+		t.Fatalf("Ack(second) error = %v, want %v", err, ErrOrderViolation)
 	}
 
 	// Ack the first one - should succeed.
@@ -120,42 +147,5 @@ func TestAckOrdering(t *testing.T) {
 	}
 	if len(pending) != 0 {
 		t.Fatalf("pending = %d, want 0", len(pending))
-	}
-}
-
-func TestDeduplication(t *testing.T) {
-	db := openTestDB(t)
-	store := New(func() *qwr.Manager { return db }, nil)
-	ctx := context.Background()
-
-	// Send with a source_key.
-	_, err := store.Send(ctx, SendOptions{
-		Type:      "task.created",
-		Author:    "human",
-		Source:    "cli",
-		SourceKey: "task.created:abc123",
-	})
-	if err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-
-	// Send again with the same source_key - should be silently ignored.
-	_, err = store.Send(ctx, SendOptions{
-		Type:      "task.created",
-		Author:    "poller",
-		Source:    "mcp",
-		SourceKey: "task.created:abc123",
-	})
-	if err != nil {
-		t.Fatalf("Send duplicate: %v", err)
-	}
-
-	// Only one message in the queue.
-	pending, err := store.Pending(ctx, "claude", 0)
-	if err != nil {
-		t.Fatalf("Pending: %v", err)
-	}
-	if len(pending) != 1 {
-		t.Fatalf("pending = %d, want 1", len(pending))
 	}
 }

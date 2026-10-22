@@ -5,7 +5,6 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
-	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 func testStore(t *testing.T) *llmd.Store {
@@ -14,10 +13,14 @@ func testStore(t *testing.T) *llmd.Store {
 	if err != nil {
 		t.Fatalf("OpenMemory() error = %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("closing store: %v", err)
+		}
+	})
 	return s
 }
 
 func testImportOpts() bulk.ImportOptions {
-	return bulk.ImportOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return bulk.ImportOptions{Author: "test", Source: "cli"}
 }

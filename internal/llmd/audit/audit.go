@@ -58,7 +58,7 @@ func (l *Log) Ensure() error {
 			l.err = fmt.Errorf("work database not available")
 			return
 		}
-		_, l.err = l.db.Query(Schema).Write()
+		_, l.err = l.db.Query(Schema).Exec()
 	})
 	return l.err
 }
@@ -139,7 +139,7 @@ func (l *Log) Record(ctx context.Context, actor, action, subject, oldValue, newV
 	_, err := l.db.Query(`
 		INSERT INTO history (timestamp, actor, action, subject, old_value, new_value)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, now, actor, action, subject, oldV, newV).WithContext(ctx).Execute()
+	`, now, actor, action, subject, oldV, newV).WithContext(ctx).Exec()
 	if err != nil {
 		return fmt.Errorf("audit: recording event: %w", err)
 	}

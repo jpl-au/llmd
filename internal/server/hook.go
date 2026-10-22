@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	errMissingAuthor = errors.New("Author header is required")
+	errMissingAuthor = errors.New("missing Author header")
 	errEmptyPayload  = errors.New("request body is empty")
 )
 

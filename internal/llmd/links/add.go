@@ -8,19 +8,22 @@ import (
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/pkg/events"
-	"github.com/jpl-au/llmd/pkg/model/core"
 	"github.com/jpl-au/llmd/pkg/model/link"
 )
 
 // Add creates a link between two documents.
 // from and to can be document paths or keys.
 func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.Link, error) {
-	relation, err := l.resolvePath(ctx, from)
-	if err != nil {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+
+	relation := l.resolvePath(ctx, from)
+	if err := l.requireDocument(ctx, relation); err != nil {
 		return nil, fmt.Errorf("resolving from: %w", err)
 	}
-	toPath, err := l.resolvePath(ctx, to)
-	if err != nil {
+	toPath := l.resolvePath(ctx, to)
+	if err := l.requireDocument(ctx, toPath); err != nil {
 		return nil, fmt.Errorf("resolving to: %w", err)
 	}
 
@@ -54,19 +57,17 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 	_, err = l.db.Query(`
 		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Execute()
+	`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, fmt.Errorf("inserting link: %w", err)
 	}
 
 	result := &link.Link{
-		Key:      k,
-		Relation: relation,
-		Value:    linkValue,
-		Origin: core.Origin{
-			Author: opts.Author,
-			Source: opts.Source,
-		},
+		Key:       k,
+		Relation:  relation,
+		Value:     linkValue,
+		Author:    opts.Author,
+		Source:    opts.Source,
 		CreatedAt: now,
 	}
 

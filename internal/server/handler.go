@@ -191,6 +191,8 @@ func writeDispatchError(w http.ResponseWriter, err error) {
 		code = http.StatusConflict
 	case errors.Is(err, sdk.ErrCycle):
 		code = http.StatusConflict
+	case errors.Is(err, sdk.ErrAgentRunning), errors.Is(err, sdk.ErrAgentNotRunning), errors.Is(err, sdk.ErrNotReady):
+		code = http.StatusConflict
 	}
 	writeError(w, code, err)
 }

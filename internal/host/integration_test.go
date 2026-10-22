@@ -9,7 +9,6 @@
 package host
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -26,7 +25,7 @@ import (
 // dispatch calls sdk.Dispatch and fails the test on error.
 func dispatch(t *testing.T, cmd string, args []string, author string, stdin []byte) sdk.Response {
 	t.Helper()
-	r, err := sdk.Dispatch(context.Background(), cmd, args, author, stdin, "")
+	r, err := sdk.Dispatch(t.Context(), cmd, args, author, stdin, "")
 	if err != nil {
 		t.Fatalf("dispatch %s %v: %v", cmd, args, err)
 	}
@@ -36,7 +35,7 @@ func dispatch(t *testing.T, cmd string, args []string, author string, stdin []by
 // dispatchErr calls sdk.Dispatch and returns the error.
 func dispatchErr(t *testing.T, cmd string, args []string, author string, stdin []byte) error {
 	t.Helper()
-	_, err := sdk.Dispatch(context.Background(), cmd, args, author, stdin, "")
+	_, err := sdk.Dispatch(t.Context(), cmd, args, author, stdin, "")
 	return err
 }
 
@@ -580,7 +579,7 @@ OAuth2 is the way.
 		// content line starts with a digit followed by ":".
 		out := md.Text
 		hasNumberedLine := false
-		for _, line := range strings.Split(out, "\n") {
+		for line := range strings.SplitSeq(out, "\n") {
 			if len(line) >= 3 && line[0] >= '0' && line[0] <= '9' {
 				if idx := strings.Index(line, ":"); idx > 0 && idx < 5 {
 					hasNumberedLine = true
@@ -638,7 +637,7 @@ OAuth2 is the way.
 			t.Fatalf("-c returned %T, want sdk.Result", r)
 		}
 		// Each line should be "path:N".
-		for _, line := range strings.Split(res.Text, "\n") {
+		for line := range strings.SplitSeq(res.Text, "\n") {
 			if !strings.Contains(line, ":") {
 				t.Errorf("-c line missing colon: %q", line)
 			}
@@ -772,51 +771,42 @@ func TestCatSlicing(t *testing.T) {
 // A heavily edited document would otherwise dump hundreds of rows into
 // an agent's context; the default of 10 keeps it bounded, and --all
 // is available for the rare case someone actually wants every version.
+//
+// Each case produces 15 versions of the same document so the default
+// limit kicks in, then reads the raw []sdk.Version from the Data
+// field (carried regardless of --json) instead of parsing the
+// lipgloss table text form.
 func TestHistoryDefaults(t *testing.T) {
-	testHost(t)
-
-	// Produce 15 versions of the same document so we can see the
-	// default limit kick in and --all override it.
-	for i := 1; i <= 15; i++ {
-		content := fmt.Sprintf("version %d", i)
-		dispatch(t, "write", []string{"churn/doc"}, "alice", []byte(content))
+	tests := []struct {
+		name string
+		args []string
+		want int
+	}{
+		{"default caps at 10 versions", []string{"churn/doc"}, 10},
+		{"-n overrides the default", []string{"-n", "3", "churn/doc"}, 3},
+		{"--all returns every version", []string{"--all", "churn/doc"}, 15},
 	}
 
-	t.Run("default caps at 10 versions", func(t *testing.T) {
-		r := dispatch(t, "history", []string{"churn/doc"}, "", nil)
-		// The Data field carries the raw []sdk.Version regardless
-		// of whether --json was set, so the test reads it directly
-		// instead of parsing the lipgloss table text form.
-		res, ok := r.(sdk.Result)
-		if !ok {
-			t.Fatalf("history returned %T, want sdk.Result", r)
-		}
-		versions, ok := res.Data.([]sdk.Version)
-		if !ok {
-			t.Fatalf("Data field = %T, want []sdk.Version", res.Data)
-		}
-		if len(versions) != 10 {
-			t.Errorf("default history returned %d versions, want 10", len(versions))
-		}
-	})
-
-	t.Run("-n overrides the default", func(t *testing.T) {
-		r := dispatch(t, "history", []string{"-n", "3", "churn/doc"}, "", nil)
-		res := r.(sdk.Result)
-		versions := res.Data.([]sdk.Version)
-		if len(versions) != 3 {
-			t.Errorf("-n 3 returned %d versions, want 3", len(versions))
-		}
-	})
-
-	t.Run("--all returns every version", func(t *testing.T) {
-		r := dispatch(t, "history", []string{"--all", "churn/doc"}, "", nil)
-		res := r.(sdk.Result)
-		versions := res.Data.([]sdk.Version)
-		if len(versions) != 15 {
-			t.Errorf("--all returned %d versions, want 15", len(versions))
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			for i := 1; i <= 15; i++ {
+				dispatch(t, "write", []string{"churn/doc"}, "alice", []byte(fmt.Sprintf("version %d", i)))
+			}
+			r := dispatch(t, "history", tt.args, "", nil)
+			res, ok := r.(sdk.Result)
+			if !ok {
+				t.Fatalf("history %v returned %T, want sdk.Result", tt.args, r)
+			}
+			versions, ok := res.Data.([]sdk.Version)
+			if !ok {
+				t.Fatalf("history %v Data = %T, want []sdk.Version", tt.args, res.Data)
+			}
+			if len(versions) != tt.want {
+				t.Errorf("history %v returned %d versions, want %d", tt.args, len(versions), tt.want)
+			}
+		})
+	}
 }
 
 // TestDiffTruncation exercises the default line cap on diff. A huge
@@ -880,41 +870,39 @@ func TestDiffTruncation(t *testing.T) {
 
 // TestQueueHistoryDefault verifies the default cap on queue history
 // so an agent pulling recent activity off a busy queue doesn't drown
-// in thousands of old messages.
+// in thousands of old messages. Each case sends 30 messages as alice
+// so she's the consumer in history.
 func TestQueueHistoryDefault(t *testing.T) {
-	testHost(t)
-
-	// Send 30 messages as alice so she's the consumer in history.
-	for i := 1; i <= 30; i++ {
-		dispatch(t, "queue", []string{"send", fmt.Sprintf("msg %d", i)}, "alice", nil)
+	tests := []struct {
+		name string
+		args []string
+		want int
+	}{
+		{"defaults to last 20 messages", []string{"history"}, 20},
+		{"-n overrides the default", []string{"history", "-n", "5"}, 5},
+		{"--all returns every message", []string{"history", "--all"}, 30},
 	}
 
-	t.Run("defaults to last 20 messages", func(t *testing.T) {
-		r := dispatch(t, "queue", []string{"history"}, "alice", nil)
-		res := r.(sdk.Result)
-		msgs := res.Data.([]sdk.Message)
-		if len(msgs) != 20 {
-			t.Errorf("default queue history returned %d messages, want 20", len(msgs))
-		}
-	})
-
-	t.Run("-n overrides the default", func(t *testing.T) {
-		r := dispatch(t, "queue", []string{"history", "-n", "5"}, "alice", nil)
-		res := r.(sdk.Result)
-		msgs := res.Data.([]sdk.Message)
-		if len(msgs) != 5 {
-			t.Errorf("-n 5 returned %d messages, want 5", len(msgs))
-		}
-	})
-
-	t.Run("--all returns every message", func(t *testing.T) {
-		r := dispatch(t, "queue", []string{"history", "--all"}, "alice", nil)
-		res := r.(sdk.Result)
-		msgs := res.Data.([]sdk.Message)
-		if len(msgs) != 30 {
-			t.Errorf("--all returned %d messages, want 30", len(msgs))
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			for i := 1; i <= 30; i++ {
+				dispatch(t, "queue", []string{"send", fmt.Sprintf("msg %d", i)}, "alice", nil)
+			}
+			r := dispatch(t, "queue", tt.args, "alice", nil)
+			res, ok := r.(sdk.Result)
+			if !ok {
+				t.Fatalf("queue %v returned %T, want sdk.Result", tt.args, r)
+			}
+			msgs, ok := res.Data.([]sdk.Message)
+			if !ok {
+				t.Fatalf("queue %v Data = %T, want []sdk.Message", tt.args, res.Data)
+			}
+			if len(msgs) != tt.want {
+				t.Errorf("queue %v returned %d messages, want %d", tt.args, len(msgs), tt.want)
+			}
+		})
+	}
 }
 
 // TestAuditShowTruncation exercises the cap on audit show. Long
@@ -1046,36 +1034,31 @@ func TestListCapping(t *testing.T) {
 	})
 }
 
+// TestErrorPaths checks that failures surface through sdk.Dispatch as
+// the matching SDK sentinel error.
 func TestErrorPaths(t *testing.T) {
-	testHost(t)
-
-	// Cat nonexistent document.
-	err := dispatchErr(t, "cat", []string{"nonexistent"}, "", nil)
-	if !errors.Is(err, sdk.ErrNotFound) {
-		t.Errorf("cat nonexistent: got %v, want ErrNotFound", err)
+	tests := []struct {
+		name    string
+		cmd     string
+		args    []string
+		author  string
+		stdin   []byte
+		wantErr error
+	}{
+		{"cat nonexistent", "cat", []string{"nonexistent"}, "", nil, sdk.ErrNotFound},
+		{"write with no path", "write", nil, "alice", []byte("content"), sdk.ErrMissingArg},
+		{"rm nonexistent", "rm", []string{"nonexistent"}, "alice", nil, sdk.ErrNotFound},
+		{"task move bad key", "task", []string{"move", "bad-key", "done"}, "alice", nil, sdk.ErrNotFound},
+		{"unknown command", "nonexistent-cmd", nil, "", nil, sdk.ErrUnknownCmd},
 	}
 
-	// Write with no path.
-	err = dispatchErr(t, "write", nil, "alice", []byte("content"))
-	if !errors.Is(err, sdk.ErrMissingArg) {
-		t.Errorf("write no path: got %v, want ErrMissingArg", err)
-	}
-
-	// Rm nonexistent.
-	err = dispatchErr(t, "rm", []string{"nonexistent"}, "alice", nil)
-	if !errors.Is(err, sdk.ErrNotFound) {
-		t.Errorf("rm nonexistent: got %v, want ErrNotFound", err)
-	}
-
-	// Task move with bad key.
-	err = dispatchErr(t, "task", []string{"move", "bad-key", "done"}, "alice", nil)
-	if !errors.Is(err, sdk.ErrNotFound) {
-		t.Errorf("task move bad-key: got %v, want ErrNotFound", err)
-	}
-
-	// Unknown command.
-	err = dispatchErr(t, "nonexistent-cmd", nil, "", nil)
-	if !errors.Is(err, sdk.ErrUnknownCmd) {
-		t.Errorf("unknown cmd: got %v, want ErrUnknownCmd", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHost(t)
+			err := dispatchErr(t, tt.cmd, tt.args, tt.author, tt.stdin)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("dispatch %s %v error = %v, want %v", tt.cmd, tt.args, err, tt.wantErr)
+			}
+		})
 	}
 }

@@ -1,51 +1,71 @@
 package documents_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 )
 
 func TestCopy(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	if _, err := s.Documents.Write(ctx, "docs/original", "content", testWriteOpts()); err != nil {
-		t.Fatalf("Write: %v", err)
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T, s *llmd.Store)
+		src     string
+		dst     string
+		want    string // content of both src and dst after the copy
+		wantErr error
+	}{
+		{
+			name:  "copies content to new path",
+			setup: func(t *testing.T, s *llmd.Store) { mustWrite(t, s, "docs/original", "content") },
+			src:   "docs/original",
+			dst:   "docs/copy",
+			want:  "content",
+		},
+		{
+			name:    "not found",
+			src:     "nonexistent",
+			dst:     "docs/copy",
+			wantErr: documents.ErrNotFound,
+		},
 	}
 
-	doc, err := s.Documents.Copy(ctx, "docs/original", "docs/copy", testCopyOpts())
-	if err != nil {
-		t.Fatalf("Copy() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			if tt.setup != nil {
+				tt.setup(t, s)
+			}
 
-	if doc.Content != "content" {
-		t.Errorf("Content = %q, want %q", doc.Content, "content")
-	}
-	if doc.Path != "docs/copy" {
-		t.Errorf("Path = %q, want %q", doc.Path, "docs/copy")
-	}
-	if doc.Version != 1 {
-		t.Errorf("Version = %d, want 1", doc.Version)
-	}
+			doc, err := s.Documents.Copy(ctx, tt.src, tt.dst, testCopyOpts())
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Copy(%q, %q) error = %v, want %v", tt.src, tt.dst, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
 
-	orig, err := s.Documents.Read(ctx, "docs/original")
-	if err != nil {
-		t.Fatalf("Read(original) error = %v", err)
-	}
-	if orig.Content != "content" {
-		t.Errorf("Original content = %q, want %q", orig.Content, "content")
-	}
-}
+			if doc.Content != tt.want {
+				t.Errorf("Copy(%q, %q).Content = %q, want %q", tt.src, tt.dst, doc.Content, tt.want)
+			}
+			if doc.Path != tt.dst {
+				t.Errorf("Copy(%q, %q).Path = %q, want %q", tt.src, tt.dst, doc.Path, tt.dst)
+			}
+			if doc.Version != 1 {
+				t.Errorf("Copy(%q, %q).Version = %d, want 1", tt.src, tt.dst, doc.Version)
+			}
 
-func TestCopy_NotFound(t *testing.T) {
-	s := testStore(t)
-	ctx := context.Background()
-
-	_, err := s.Documents.Copy(ctx, "nonexistent", "docs/copy", testCopyOpts())
-	if !errors.Is(err, documents.ErrNotFound) {
-		t.Errorf("Copy() error = %v, want ErrNotFound", err)
+			// The source must be left intact.
+			orig, err := s.Documents.Read(ctx, tt.src)
+			if err != nil {
+				t.Fatalf("Read(%q) after Copy error = %v", tt.src, err)
+			}
+			if orig.Content != tt.want {
+				t.Errorf("Read(%q) after Copy: Content = %q, want %q", tt.src, orig.Content, tt.want)
+			}
+		})
 	}
 }
