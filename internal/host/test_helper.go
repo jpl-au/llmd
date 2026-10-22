@@ -30,6 +30,18 @@ const (
 	TestWorkdir
 )
 
+// TestHome points the user's home directory at an empty temporary
+// directory for the rest of the test, so config.Load never sees the
+// global config of whoever runs the tests. It sets both HOME and
+// USERPROFILE because os.UserHomeDir reads the latter on Windows.
+func TestHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	return home
+}
+
 // TestSetup initialises a store and returns a Host over it, with
 // cleanup registered. Use h.Context(t.Context(), author) for the
 // sdk.Context a command would receive and h.Dir() for the directory

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -365,6 +366,9 @@ func TestAgentsStop(t *testing.T) {
 			var cmd *exec.Cmd
 			pid := 0
 			if tt.process {
+				if runtime.GOOS == "windows" {
+					t.Skip("the test child is the Unix sleep command")
+				}
 				arg := "60"
 				if tt.exited {
 					arg = "0"

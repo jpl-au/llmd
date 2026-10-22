@@ -37,7 +37,7 @@ func TestServe(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
+			host.TestHome(t)
 			h := host.TestSetup(t, host.TestWorkdir)
 			if err := os.WriteFile(filepath.Join(h.Dir(), ".llmd", "config.yaml"), []byte(tt.config), 0o644); err != nil {
 				t.Fatal(err)

@@ -18,7 +18,7 @@ import (
 // writes (if any) and never the developer's global config.
 func hookSetup(t *testing.T, localConfig string) sdk.Context {
 	t.Helper()
-	t.Setenv("HOME", t.TempDir())
+	host.TestHome(t)
 	h := host.TestSetup(t, host.TestWorkdir)
 	if localConfig != "" {
 		path := filepath.Join(h.Dir(), ".llmd", "config.yaml")

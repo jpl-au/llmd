@@ -17,7 +17,7 @@ import (
 // author resolution depends only on the flag and the terminal.
 func isolatedCwd(t *testing.T) string {
 	t.Helper()
-	t.Setenv("HOME", t.TempDir())
+	TestHome(t)
 	dir := t.TempDir()
 	orig, err := os.Getwd()
 	if err != nil {

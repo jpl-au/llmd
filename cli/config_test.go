@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/config"
+	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -16,7 +17,7 @@ import (
 // nor the global config of the developer running the tests leaks in.
 func metaConfigWorkdir(t *testing.T, author string) (sdk.Context, string) {
 	t.Helper()
-	t.Setenv("HOME", t.TempDir())
+	host.TestHome(t)
 	return metaWorkdir(t, author)
 }
 

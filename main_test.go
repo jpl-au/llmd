@@ -301,7 +301,7 @@ func TestHelp(t *testing.T) {
 // help shown when a command lacks its arguments, and the failures.
 func TestRun(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HOME", t.TempDir())
+	host.TestHome(t)
 	orig, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
