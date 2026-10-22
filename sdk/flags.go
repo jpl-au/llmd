@@ -85,12 +85,12 @@ func ParseArgs(flags []Flag, args []string) (FlagValues, []string, error) {
 			name, val, hasEq := strings.Cut(arg[2:], "=")
 			f, ok := byLong[name]
 			if !ok {
-				return fv, nil, fmt.Errorf("unknown flag: --%s", name)
+				return fv, nil, fmt.Errorf("%w: unknown flag: --%s", ErrInvalidArg, name)
 			}
 			if err := setFlag(&fv, f, val, hasEq, func() (string, error) {
 				i++
 				if i >= len(args) {
-					return "", fmt.Errorf("--%s requires a value", name)
+					return "", fmt.Errorf("%w: --%s requires a value", ErrInvalidArg, name)
 				}
 				return args[i], nil
 			}); err != nil {
@@ -106,7 +106,7 @@ func ParseArgs(flags []Flag, args []string) (FlagValues, []string, error) {
 				c := chars[j]
 				f, ok := byShort[c]
 				if !ok {
-					return fv, nil, fmt.Errorf("unknown flag: -%c", c)
+					return fv, nil, fmt.Errorf("%w: unknown flag: -%c", ErrInvalidArg, c)
 				}
 				if f.Type == "bool" {
 					fv.set[f.Name] = true
@@ -118,7 +118,7 @@ func ParseArgs(flags []Flag, args []string) (FlagValues, []string, error) {
 				if err := setFlag(&fv, f, rest, rest != "", func() (string, error) {
 					i++
 					if i >= len(args) {
-						return "", fmt.Errorf("-%c requires a value", c)
+						return "", fmt.Errorf("%w: -%c requires a value", ErrInvalidArg, c)
 					}
 					return args[i], nil
 				}); err != nil {
@@ -161,7 +161,7 @@ func setFlag(fv *FlagValues, f *Flag, val string, hasVal bool, nextArg func() (s
 		}
 		n, err := strconv.Atoi(val)
 		if err != nil {
-			return fmt.Errorf("--%s: invalid integer: %s", f.Name, val)
+			return fmt.Errorf("%w: --%s: invalid integer: %s", ErrInvalidArg, f.Name, val)
 		}
 		fv.ints[f.Name] = n
 	}

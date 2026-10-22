@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"errors"
 	"slices"
 	"testing"
 )
@@ -169,7 +170,8 @@ func TestParseArgs(t *testing.T) {
 	}
 }
 
-// TestParseArgs_Errors covers argument lists that must be rejected.
+// TestParseArgs_Errors covers argument lists that must be rejected,
+// always as sdk.ErrInvalidArg so callers and HTTP can classify them.
 func TestParseArgs_Errors(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -184,8 +186,8 @@ func TestParseArgs_Errors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, _, err := ParseArgs(tt.flags, tt.args); err == nil {
-				t.Errorf("ParseArgs(%v) error = nil, want error", tt.args)
+			if _, _, err := ParseArgs(tt.flags, tt.args); !errors.Is(err, ErrInvalidArg) {
+				t.Errorf("ParseArgs(%v) error = %v, want ErrInvalidArg", tt.args, err)
 			}
 		})
 	}
