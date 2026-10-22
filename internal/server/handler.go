@@ -1,7 +1,7 @@
 // handler.go builds HTTP handlers that dispatch to sdk commands.
 //
 // Each handler extracts the path from the URL, reads metadata from
-// headers, reads the body as stdin, and calls [sdk.Dispatch]. The
+// headers, reads the body as stdin, and dispatches through the runtime. The
 // response is written as JSON or plain text depending on the Output
 // header.
 
@@ -64,7 +64,7 @@ func (s *Server) handle(cmd string) http.HandlerFunc {
 			}
 		}
 
-		result, err := sdk.Dispatch(r.Context(), cmd, args, author, stdin, "")
+		result, err := s.rt.Dispatch(r.Context(), cmd, args, author, stdin, "")
 		telemetry.Emit(telemetry.Entry{
 			Source:  "http",
 			Command: cmd,

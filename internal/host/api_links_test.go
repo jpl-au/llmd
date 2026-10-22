@@ -71,13 +71,13 @@ func TestLinksAdd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, path := range tt.docs {
-				writeDoc(t, path, "x")
+				writeDoc(t, c, path, "x")
 			}
 			var err error
 			for i, l := range tt.adds {
-				err = sdk.Links.Add(l.From, l.To, l.Label, "alice")
+				err = c.Links.Add(l.From, l.To, l.Label, "alice")
 				if err != nil && i < len(tt.adds)-1 {
 					t.Fatalf("Add(%q, %q, %q) error = %v", l.From, l.To, l.Label, err)
 				}
@@ -86,7 +86,7 @@ func TestLinksAdd(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Add(%q, %q, %q) error = %v, want %v", last.From, last.To, last.Label, err, tt.wantErr)
 			}
-			got, err := sdk.Links.List(tt.path, "out")
+			got, err := c.Links.List(tt.path, "out")
 			if err != nil {
 				t.Fatalf("List(%q, out) error = %v", tt.path, err)
 			}
@@ -110,19 +110,19 @@ func TestLinksRemove(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			writeDoc(t, "a", "x")
-			writeDoc(t, "b", "x")
+			c := testHost(t)
+			writeDoc(t, c, "a", "x")
+			writeDoc(t, c, "b", "x")
 			if tt.linked {
-				if err := sdk.Links.Add("a", "b", "", "alice"); err != nil {
+				if err := c.Links.Add("a", "b", "", "alice"); err != nil {
 					t.Fatalf("Add(a, b) error = %v", err)
 				}
 			}
-			err := sdk.Links.Remove("a", "b", "alice")
+			err := c.Links.Remove("a", "b", "alice")
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Remove(a, b) error = %v, want %v", err, tt.wantErr)
 			}
-			got, err := sdk.Links.List("a", "out")
+			got, err := c.Links.List("a", "out")
 			if err != nil {
 				t.Fatalf("List(a, out) error = %v", err)
 			}
@@ -177,16 +177,16 @@ func TestLinksList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, path := range tt.docs {
-				writeDoc(t, path, "x")
+				writeDoc(t, c, path, "x")
 			}
 			for _, l := range tt.links {
-				if err := sdk.Links.Add(l.From, l.To, l.Label, "alice"); err != nil {
+				if err := c.Links.Add(l.From, l.To, l.Label, "alice"); err != nil {
 					t.Fatalf("Add(%q, %q) error = %v", l.From, l.To, err)
 				}
 			}
-			got, err := sdk.Links.List(tt.path, tt.dir)
+			got, err := c.Links.List(tt.path, tt.dir)
 			if err != nil {
 				t.Fatalf("List(%q, %q) error = %v", tt.path, tt.dir, err)
 			}

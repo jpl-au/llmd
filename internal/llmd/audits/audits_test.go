@@ -6,29 +6,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jpl-au/llmd/internal/sqlite/sqlitetest"
+
 	"github.com/jpl-au/qwr"
-	"github.com/jpl-au/qwr/profile"
 
 	_ "modernc.org/sqlite"
 )
 
 func openTestDB(t *testing.T) *qwr.Manager {
 	t.Helper()
-	rp := profile.ReadBalanced().WithForeignKeys(true)
-	wp := profile.WriteBalanced().WithForeignKeys(true)
-	db, err := qwr.New("file::memory:?cache=shared").Reader(rp).Writer(wp).Open()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("closing database: %v", err)
-		}
-	})
+	db := sqlitetest.Open(t, "work.db")
 	return db
 }
 
-// newTestStore opens a fresh in-memory database and returns an Audits
+// newTestStore opens a fresh on-disk database and returns an Audits
 // store backed by it.
 func newTestStore(t *testing.T) *Audits {
 	t.Helper()

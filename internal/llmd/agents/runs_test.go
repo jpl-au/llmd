@@ -5,8 +5,9 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jpl-au/llmd/internal/sqlite/sqlitetest"
+
 	"github.com/jpl-au/qwr"
-	"github.com/jpl-au/qwr/profile"
 
 	"github.com/jpl-au/llmd/internal/llmd/events"
 
@@ -15,17 +16,7 @@ import (
 
 func setup(t *testing.T) *Agents {
 	t.Helper()
-	rp := profile.ReadBalanced().WithForeignKeys(true)
-	wp := profile.WriteBalanced().WithForeignKeys(true)
-	db, err := qwr.New("file::memory:?cache=shared").Reader(rp).Writer(wp).Open()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("closing database: %v", err)
-		}
-	})
+	db := sqlitetest.Open(t, "work.db")
 
 	bus := events.New()
 	dbFn := func() *qwr.Manager { return db }

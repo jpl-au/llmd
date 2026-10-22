@@ -3,8 +3,9 @@
 // MCP server and call tools like "cat", "write", "grep", etc.
 //
 // The flow:
-//  1. Walk sdk.AllCommands(), skip any not marked MCP, register the rest
-//     as MCP tools with a single generic input schema (args + content).
+//  1. Walk the host's command table, skip any not marked MCP, register
+//     the rest as MCP tools with a single generic input schema (args +
+//     content).
 //  2. Block on server.Run reading JSON-RPC from stdin, writing to stdout.
 //
 // Every tool uses the same input shape (toolInput) because extensions
@@ -54,11 +55,11 @@ func mcpCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		Version: app.Tag,
 	}, nil)
 
-	for _, cmd := range sdk.AllCommands() {
+	for _, cmd := range ctx.Runtime.Commands() {
 		if !cmd.MCP {
 			continue
 		}
-		registerTool(server, cmd, author)
+		registerTool(server, ctx.Runtime, cmd, author)
 	}
 
 	telemetry.Emit(telemetry.Entry{
@@ -68,7 +69,9 @@ func mcpCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		Success: true,
 	})
 
-	err := server.Run(context.Background(), &mcp.StdioTransport{})
+	// Run on the command's context so cancellation from main (Ctrl+C)
+	// shuts the server down.
+	err := server.Run(ctx, &mcp.StdioTransport{})
 
 	telemetry.Emit(telemetry.Entry{
 		Source:  "mcp",
@@ -88,7 +91,7 @@ func mcpCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 // is cmd.MCPName if set (to avoid collisions like "grep" → "llmd_grep"),
 // otherwise cmd.Name. The description includes usage and flag docs so
 // the LLM knows how to call it.
-func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
+func registerTool(server *mcp.Server, rt sdk.Runtime, cmd *sdk.Command, author string) {
 	name := cmd.Name
 	if cmd.MCPName != "" {
 		name = cmd.MCPName
@@ -129,7 +132,7 @@ func registerTool(server *mcp.Server, cmd *sdk.Command, author string) {
 			a = author
 		}
 
-		result, err := sdk.Dispatch(ctx, cmdName, input.Args, a, stdin, "")
+		result, err := rt.Dispatch(ctx, cmdName, input.Args, a, stdin, "")
 		telemetry.Emit(telemetry.Entry{
 			Source:  "mcp",
 			Command: cmdName,

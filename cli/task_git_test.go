@@ -11,15 +11,11 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func testCtx(t *testing.T, author string) sdk.Context {
+// testCtx returns the sdk.Context a command receives from h, bound to
+// the test and acting as author.
+func testCtx(t *testing.T, h *host.Host, author string) sdk.Context {
 	t.Helper()
-	return sdk.Context{
-		Context:   t.Context(),
-		Author:    author,
-		Documents: sdk.Documents,
-		Tasks:     sdk.Tasks,
-		Git:       sdk.Git,
-	}
+	return h.Context(t.Context(), author)
 }
 
 // runGit runs a git command in dir and fails the test on error.
@@ -35,22 +31,23 @@ func runGit(t *testing.T, dir string, args ...string) {
 
 // testGitAndStore creates a disk-backed store and git repo in the same
 // temp directory, with the working directory set to it.
-func testGitAndStore(t *testing.T) string {
+func testGitAndStore(t *testing.T) *host.Host {
 	t.Helper()
 
-	dir := host.TestSetup(t, host.TestDisk)
+	h := host.TestSetup(t, host.TestWorkdir)
+	dir := h.Dir()
 	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@test.com")
 	runGit(t, dir, "config", "user.name", "Test")
 	runGit(t, dir, "commit", "--allow-empty", "-m", "initial")
 
-	return dir
+	return h
 }
 
 // addTask creates a task with a spec body so it can move out of backlog.
-func addTask(t *testing.T, title string) *sdk.Task {
+func addTask(t *testing.T, c sdk.Context, title string) *sdk.Task {
 	t.Helper()
-	task, err := sdk.Tasks.Add(title, []byte("# Spec\n\n"+title+"."), sdk.TaskAddOpts{Author: "alice"})
+	task, err := c.Tasks.Add(title, []byte("# Spec\n\n"+title+"."), sdk.TaskAddOpts{Author: "alice"})
 	if err != nil {
 		t.Fatalf("Add(%q): %v", title, err)
 	}
@@ -88,9 +85,9 @@ func TestTaskBranch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testGitAndStore(t)
-			task := addTask(t, tt.title)
-			ctx := testCtx(t, "alice")
+			h := testGitAndStore(t)
+			ctx := testCtx(t, h, "alice")
+			task := addTask(t, ctx, tt.title)
 			if tt.setup != nil {
 				tt.setup(t, ctx, task.Key)
 			}
@@ -108,7 +105,7 @@ func TestTaskBranch(t *testing.T) {
 			}
 
 			// Verify we're on the new branch.
-			branch, err := sdk.Git.Branch()
+			branch, err := ctx.Git.Branch()
 			if err != nil {
 				t.Fatalf("Git.Branch: %v", err)
 			}
@@ -117,7 +114,7 @@ func TestTaskBranch(t *testing.T) {
 			}
 
 			// Verify task was updated.
-			updated, err := sdk.Tasks.Read(task.Key)
+			updated, err := ctx.Tasks.Read(task.Key)
 			if err != nil {
 				t.Fatalf("Read: %v", err)
 			}
@@ -137,16 +134,16 @@ func TestTaskFinish(t *testing.T) {
 	tests := []struct {
 		name         string
 		git          bool
-		setup        func(t *testing.T, dir, key string)
+		setup        func(t *testing.T, c sdk.Context, dir, key string)
 		wantContains []string
 	}{
 		{
 			name: "with git branch and commit",
 			git:  true,
-			setup: func(t *testing.T, dir, key string) {
+			setup: func(t *testing.T, c sdk.Context, dir, key string) {
 				runGit(t, dir, "checkout", "-b", "feature/finish-test")
 				branch := "feature/finish-test"
-				if err := sdk.Tasks.Set(key, "alice", sdk.TaskSetOpts{Branch: &branch}); err != nil {
+				if err := c.Tasks.Set(key, "alice", sdk.TaskSetOpts{Branch: &branch}); err != nil {
 					t.Fatalf("Set: %v", err)
 				}
 				if err := os.WriteFile(filepath.Join(dir, "change.txt"), []byte("hello"), 0644); err != nil {
@@ -166,21 +163,22 @@ func TestTaskFinish(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var dir string
+			var h *host.Host
 			if tt.git {
-				dir = testGitAndStore(t)
+				h = testGitAndStore(t)
 			} else {
-				dir = host.TestSetup(t, host.TestDisk)
+				h = host.TestSetup(t, host.TestWorkdir)
 			}
-			task := addTask(t, "Finish me")
-			if err := sdk.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
+			c := testCtx(t, h, "alice")
+			task := addTask(t, c, "Finish me")
+			if err := c.Tasks.Move(task.Key, "in-progress", "alice"); err != nil {
 				t.Fatalf("Move: %v", err)
 			}
 			if tt.setup != nil {
-				tt.setup(t, dir, task.Key)
+				tt.setup(t, c, h.Dir(), task.Key)
 			}
 
-			resp, err := taskFinish(testCtx(t, "alice"), []string{task.Key})
+			resp, err := taskFinish(c, []string{task.Key})
 			if err != nil {
 				t.Fatalf("taskFinish(%q) error = %v", task.Key, err)
 			}
@@ -194,7 +192,7 @@ func TestTaskFinish(t *testing.T) {
 				}
 			}
 
-			updated, err := sdk.Tasks.Read(task.Key)
+			updated, err := c.Tasks.Read(task.Key)
 			if err != nil {
 				t.Fatalf("Read: %v", err)
 			}
@@ -208,19 +206,21 @@ func TestTaskFinish(t *testing.T) {
 // TestTaskCommits is a scenario test: a branch with two commits is
 // linked to a task and the command lists both.
 func TestTaskCommits(t *testing.T) {
-	dir := testGitAndStore(t)
+	h := testGitAndStore(t)
+	c := testCtx(t, h, "alice")
+	dir := h.Dir()
 
-	task := addTask(t, "Commits task")
+	task := addTask(t, c, "Commits task")
 	runGit(t, dir, "checkout", "-b", "feature/commits-test")
 	branch := "feature/commits-test"
-	if err := sdk.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Branch: &branch}); err != nil {
+	if err := c.Tasks.Set(task.Key, "alice", sdk.TaskSetOpts{Branch: &branch}); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
 	runGit(t, dir, "commit", "--allow-empty", "-m", "first")
 	runGit(t, dir, "commit", "--allow-empty", "-m", "second")
 
-	resp, err := taskCommits(testCtx(t, "alice"), []string{task.Key})
+	resp, err := taskCommits(c, []string{task.Key})
 	if err != nil {
 		t.Fatalf("taskCommits: %v", err)
 	}
@@ -251,9 +251,9 @@ func TestResolveTask(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testGitAndStore(t)
+			c := testCtx(t, testGitAndStore(t), "alice")
 
-			task, err := sdk.Tasks.Add("Resolve me", nil, sdk.TaskAddOpts{Author: "alice", Branch: tt.branch})
+			task, err := c.Tasks.Add("Resolve me", nil, sdk.TaskAddOpts{Author: "alice", Branch: tt.branch})
 			if err != nil {
 				t.Fatalf("Add: %v", err)
 			}
@@ -266,7 +266,7 @@ func TestResolveTask(t *testing.T) {
 				key = tt.key
 			}
 
-			found, err := resolveTask(testCtx(t, "alice"), "test", key)
+			found, err := resolveTask(c, "test", key)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("resolveTask(%q) error = %v, wantErr %v", key, err, tt.wantErr)
 			}
@@ -298,18 +298,20 @@ func TestTaskStart(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var h *host.Host
 			if tt.git {
-				testGitAndStore(t)
+				h = testGitAndStore(t)
 			} else {
-				host.TestSetup(t, host.TestDisk)
+				h = host.TestSetup(t, host.TestWorkdir)
 			}
-			task := addTask(t, "Start me")
+			c := testCtx(t, h, "alice")
+			task := addTask(t, c, "Start me")
 
 			var args []string
 			if !tt.noKey {
 				args = []string{task.Key}
 			}
-			resp, err := taskStart(testCtx(t, "alice"), args)
+			resp, err := taskStart(c, args)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("taskStart(%v) error = %v, wantErr %v", args, err, tt.wantErr)
 			}
@@ -322,7 +324,7 @@ func TestTaskStart(t *testing.T) {
 				t.Error("taskStart returned empty response")
 			}
 
-			updated, err := sdk.Tasks.Read(task.Key)
+			updated, err := c.Tasks.Read(task.Key)
 			if err != nil {
 				t.Fatalf("Read: %v", err)
 			}
@@ -339,19 +341,19 @@ func TestTaskStart(t *testing.T) {
 // TestListByBranch is a scenario test for the SDK's branch filter,
 // which backs auto-detection in the git-aware commands.
 func TestListByBranch(t *testing.T) {
-	testGitAndStore(t)
+	c := testCtx(t, testGitAndStore(t), "alice")
 
-	if _, err := sdk.Tasks.Add("On main", nil, sdk.TaskAddOpts{Author: "alice", Branch: "main"}); err != nil {
+	if _, err := c.Tasks.Add("On main", nil, sdk.TaskAddOpts{Author: "alice", Branch: "main"}); err != nil {
 		t.Fatalf("Add main: %v", err)
 	}
-	if _, err := sdk.Tasks.Add("On feature", nil, sdk.TaskAddOpts{Author: "alice", Branch: "feature/x"}); err != nil {
+	if _, err := c.Tasks.Add("On feature", nil, sdk.TaskAddOpts{Author: "alice", Branch: "feature/x"}); err != nil {
 		t.Fatalf("Add feature: %v", err)
 	}
-	if _, err := sdk.Tasks.Add("No branch", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
+	if _, err := c.Tasks.Add("No branch", nil, sdk.TaskAddOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Add no branch: %v", err)
 	}
 
-	tasks, err := sdk.Tasks.List(sdk.TaskListOpts{Branch: "main"})
+	tasks, err := c.Tasks.List(sdk.TaskListOpts{Branch: "main"})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}

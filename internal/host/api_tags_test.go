@@ -10,9 +10,9 @@ import (
 )
 
 // tagNames returns the sorted tag names on a document.
-func tagNames(t *testing.T, path string) []string {
+func tagNames(t *testing.T, c sdk.Context, path string) []string {
 	t.Helper()
-	tags, err := sdk.Tags.List(path)
+	tags, err := c.Tags.List(path)
 	if err != nil {
 		t.Fatalf("List(%q) error = %v", path, err)
 	}
@@ -40,11 +40,11 @@ func TestTagsAdd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			writeDoc(t, "doc", "x")
+			c := testHost(t)
+			writeDoc(t, c, "doc", "x")
 			var err error
 			for i, name := range tt.adds {
-				err = sdk.Tags.Add("doc", name, "alice")
+				err = c.Tags.Add("doc", name, "alice")
 				if err != nil && i < len(tt.adds)-1 {
 					t.Fatalf("Add(doc, %q) error = %v", name, err)
 				}
@@ -53,7 +53,7 @@ func TestTagsAdd(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Add(doc, %q) error = %v, want %v", last, err, tt.wantErr)
 			}
-			if got := tagNames(t, "doc"); !slices.Equal(got, tt.want) {
+			if got := tagNames(t, c, "doc"); !slices.Equal(got, tt.want) {
 				t.Errorf("List(doc) = %v, want %v", got, tt.want)
 			}
 		})
@@ -72,18 +72,18 @@ func TestTagsRemove(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			writeDoc(t, "doc", "x")
+			c := testHost(t)
+			writeDoc(t, c, "doc", "x")
 			if tt.tagged {
-				if err := sdk.Tags.Add("doc", "temp", "alice"); err != nil {
+				if err := c.Tags.Add("doc", "temp", "alice"); err != nil {
 					t.Fatalf("Add(doc, temp) error = %v", err)
 				}
 			}
-			err := sdk.Tags.Remove("doc", "temp", "alice")
+			err := c.Tags.Remove("doc", "temp", "alice")
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Remove(doc, temp) error = %v, want %v", err, tt.wantErr)
 			}
-			if got := tagNames(t, "doc"); len(got) != 0 {
+			if got := tagNames(t, c, "doc"); len(got) != 0 {
 				t.Errorf("List(doc) after Remove = %v, want none", got)
 			}
 		})
@@ -102,14 +102,14 @@ func TestTagsList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			writeDoc(t, "doc", "x")
+			c := testHost(t)
+			writeDoc(t, c, "doc", "x")
 			for _, name := range tt.tags {
-				if err := sdk.Tags.Add("doc", name, "alice"); err != nil {
+				if err := c.Tags.Add("doc", name, "alice"); err != nil {
 					t.Fatalf("Add(doc, %q) error = %v", name, err)
 				}
 			}
-			if got := tagNames(t, "doc"); !slices.Equal(got, tt.want) {
+			if got := tagNames(t, c, "doc"); !slices.Equal(got, tt.want) {
 				t.Errorf("List(doc) = %v, want %v", got, tt.want)
 			}
 		})
@@ -135,16 +135,16 @@ func TestTagsAll(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, tag := range tt.tags {
-				if ok, _ := sdk.Documents.Exists(tag.Path); !ok {
-					writeDoc(t, tag.Path, "x")
+				if ok, _ := c.Documents.Exists(tag.Path); !ok {
+					writeDoc(t, c, tag.Path, "x")
 				}
-				if err := sdk.Tags.Add(tag.Path, tag.Name, "alice"); err != nil {
+				if err := c.Tags.Add(tag.Path, tag.Name, "alice"); err != nil {
 					t.Fatalf("Add(%q, %q) error = %v", tag.Path, tag.Name, err)
 				}
 			}
-			got, err := sdk.Tags.All()
+			got, err := c.Tags.All()
 			if err != nil {
 				t.Fatalf("All() error = %v", err)
 			}
@@ -177,16 +177,16 @@ func TestTagsFind(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, tag := range tt.tags {
-				if ok, _ := sdk.Documents.Exists(tag.Path); !ok {
-					writeDoc(t, tag.Path, "x")
+				if ok, _ := c.Documents.Exists(tag.Path); !ok {
+					writeDoc(t, c, tag.Path, "x")
 				}
-				if err := sdk.Tags.Add(tag.Path, tag.Name, "alice"); err != nil {
+				if err := c.Tags.Add(tag.Path, tag.Name, "alice"); err != nil {
 					t.Fatalf("Add(%q, %q) error = %v", tag.Path, tag.Name, err)
 				}
 			}
-			got, err := sdk.Tags.Find(tt.query)
+			got, err := c.Tags.Find(tt.query)
 			if err != nil {
 				t.Fatalf("Find(%q) error = %v", tt.query, err)
 			}

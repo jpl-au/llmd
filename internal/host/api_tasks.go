@@ -23,12 +23,14 @@ type taskAPI struct {
 	ctx   context.Context
 	store *llmd.Store
 	lim   validate.Limits
+	git   sdk.GitStore
 }
 
-// newTaskAPI creates a task API bridge wrapping the given store.
-// The context controls cancellation and timeout for all store operations.
-func newTaskAPI(store *llmd.Store, lim validate.Limits, ctx context.Context) *taskAPI {
-	return &taskAPI{ctx: ctx, store: store, lim: lim}
+// newTaskAPI creates a task API bridge wrapping the given store. The
+// context controls cancellation and timeout for all store operations;
+// git backs the branch-aware task operations.
+func newTaskAPI(store *llmd.Store, lim validate.Limits, git sdk.GitStore, ctx context.Context) *taskAPI {
+	return &taskAPI{ctx: ctx, store: store, lim: lim, git: git}
 }
 
 // taskErr translates internal task errors to SDK sentinel errors.
@@ -228,7 +230,7 @@ func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, erro
 	}
 
 	// Best-effort: record current branch if git is available.
-	if branch, err := sdk.Git.Branch(); err == nil {
+	if branch, err := a.git.Branch(); err == nil {
 		if err := taskErr(a.store.Tasks.Set(a.ctx, key, author, tasks.SetOptions{
 			Branch: &branch,
 		})); err != nil {
@@ -246,7 +248,7 @@ func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, erro
 // StartBranch creates a git branch from the task title (or custom name),
 // records it on the task, and moves to a column.
 func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sdk.Task, error) {
-	if err := sdk.Git.Available(); err != nil {
+	if err := a.git.Available(); err != nil {
 		return nil, err
 	}
 
@@ -263,7 +265,7 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 		name = "task/" + branchSlug(t.Title)
 	}
 
-	if err := sdk.Git.CheckoutNew(name); err != nil {
+	if err := a.git.CheckoutNew(name); err != nil {
 		return nil, err
 	}
 
@@ -311,22 +313,22 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 	result := &sdk.FinishResult{Task: taskToSDK(t)}
 
 	// Git summary - best effort, skip if unavailable.
-	if t.Branch != "" && sdk.Git.Available() == nil {
+	if t.Branch != "" && a.git.Available() == nil {
 		base := opts.Base
 		if base == "" {
 			var err error
-			base, err = sdk.Git.DefaultBranch()
+			base, err = a.git.DefaultBranch()
 			if err != nil {
 				slog.Debug("detecting default branch", "error", err)
 			}
 		}
 		if base != "" {
-			if files, err := sdk.Git.Files(base, t.Branch); err != nil {
+			if files, err := a.git.Files(base, t.Branch); err != nil {
 				slog.Debug("listing changed files", "base", base, "branch", t.Branch, "error", err)
 			} else {
 				result.FilesChanged = len(files)
 			}
-			if commits, err := sdk.Git.Commits(base, t.Branch); err != nil {
+			if commits, err := a.git.Commits(base, t.Branch); err != nil {
 				slog.Debug("listing commits", "base", base, "branch", t.Branch, "error", err)
 			} else {
 				result.Commits = len(commits)
@@ -336,7 +338,7 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 
 	// Clean up agent worktree if one exists for this task.
 	if r, err := a.store.Agents.RunByTask(a.ctx, key); err == nil && r.Worktree != "" {
-		if err := sdk.Git.WorktreeRemove(r.Worktree); err != nil {
+		if err := a.git.WorktreeRemove(r.Worktree); err != nil {
 			slog.Debug("removing agent worktree on finish", "path", r.Worktree, "error", err)
 		}
 	}
@@ -367,7 +369,7 @@ func (a *taskAPI) CheckSpecs(tasks []*sdk.Task) (map[string]bool, error) {
 			continue
 		}
 		if _, checked := paths[t.Path]; !checked {
-			ok, err := sdk.Documents.Exists(t.Path)
+			ok, err := newDocumentAPI(a.store, a.lim, a.ctx).Exists(t.Path)
 			paths[t.Path] = err == nil && ok
 		}
 	}
@@ -390,7 +392,7 @@ func (a *taskAPI) Link(key, target, author string) error {
 	if t.Path == "" {
 		return fmt.Errorf("%w: task has no spec document", sdk.ErrNoSpec)
 	}
-	return sdk.Links.Add(t.Path, target, "", author)
+	return newLinkAPI(a.store, a.lim, a.ctx).Add(t.Path, target, "", author)
 }
 
 // Links returns links for a task's spec document.
@@ -402,7 +404,7 @@ func (a *taskAPI) Links(key, dir string) ([]sdk.Link, error) {
 	if t.Path == "" {
 		return nil, nil
 	}
-	links, err := sdk.Links.List(t.Path, dir)
+	links, err := newLinkAPI(a.store, a.lim, a.ctx).List(t.Path, dir)
 	if err != nil {
 		return nil, err
 	}

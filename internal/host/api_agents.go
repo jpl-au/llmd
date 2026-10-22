@@ -31,10 +31,11 @@ import (
 type agentAPI struct {
 	ctx   context.Context
 	store *llmd.Store
+	git   sdk.GitStore
 }
 
-func newAgentAPI(store *llmd.Store, ctx context.Context) *agentAPI {
-	return &agentAPI{ctx: ctx, store: store}
+func newAgentAPI(store *llmd.Store, git sdk.GitStore, ctx context.Context) *agentAPI {
+	return &agentAPI{ctx: ctx, store: store, git: git}
 }
 
 func agentErr(err error) error {
@@ -159,7 +160,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	}
 
 	// Ensure git is available - worktrees are required for agent isolation.
-	if err := sdk.Git.Available(); err != nil {
+	if err := a.git.Available(); err != nil {
 		return nil, fmt.Errorf("git required for agent spawn: %w", err)
 	}
 
@@ -196,7 +197,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 				return nil, fmt.Errorf("creating worktree parent: %w", err)
 			}
 			if needsBranch {
-				if err := sdk.Git.WorktreeCreate(absWorktree, branch); err != nil {
+				if err := a.git.WorktreeCreate(absWorktree, branch); err != nil {
 					return nil, fmt.Errorf("creating worktree: %w", err)
 				}
 				if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{
@@ -205,7 +206,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 					return nil, taskErr(err)
 				}
 			} else {
-				if err := sdk.Git.WorktreeAdd(absWorktree, branch); err != nil {
+				if err := a.git.WorktreeAdd(absWorktree, branch); err != nil {
 					return nil, fmt.Errorf("creating worktree: %w", err)
 				}
 			}
@@ -310,7 +311,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		OnFailure: opts.OnFailure,
 	}); err != nil {
 		if cfg.Role != "auditor" {
-			if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
+			if rmErr := a.git.WorktreeRemove(absWorktree); rmErr != nil {
 				slog.Warn("cleaning up worktree after config failure", "path", absWorktree, "error", rmErr)
 			}
 		}
@@ -338,7 +339,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 
 	if err := cmd.Start(); err != nil {
 		if cfg.Role != "auditor" {
-			if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
+			if rmErr := a.git.WorktreeRemove(absWorktree); rmErr != nil {
 				slog.Warn("cleaning up worktree after spawn failure", "path", absWorktree, "error", rmErr)
 			}
 		}
@@ -359,7 +360,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 			slog.Warn("killing agent after record failure", "pid", cmd.Process.Pid, "error", killErr)
 		}
 		if cfg.Role != "auditor" {
-			if rmErr := sdk.Git.WorktreeRemove(absWorktree); rmErr != nil {
+			if rmErr := a.git.WorktreeRemove(absWorktree); rmErr != nil {
 				slog.Warn("cleaning up worktree after record failure", "path", absWorktree, "error", rmErr)
 			}
 		}
@@ -500,7 +501,7 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 
 	// Clean up worktree.
 	if r.Worktree != "" {
-		if err := sdk.Git.WorktreeRemove(r.Worktree); err != nil {
+		if err := a.git.WorktreeRemove(r.Worktree); err != nil {
 			slog.Warn("removing worktree after stop", "path", r.Worktree, "error", err)
 		}
 	}

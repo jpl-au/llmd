@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jpl-au/llmd/internal/sqlite/sqlitetest"
+
 	"github.com/jpl-au/qwr"
-	"github.com/jpl-au/qwr/profile"
 
 	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
@@ -21,17 +22,7 @@ import (
 
 func setup(t *testing.T) *Tasks {
 	t.Helper()
-	rp := profile.ReadBalanced().WithForeignKeys(true)
-	wp := profile.WriteBalanced().WithForeignKeys(true)
-	db, err := qwr.New("file::memory:?cache=shared").Reader(rp).Writer(wp).Open()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("closing database: %v", err)
-		}
-	})
+	db := sqlitetest.Open(t, "work.db")
 
 	if err := intsql.Exec(db); err != nil {
 		t.Fatal(err)

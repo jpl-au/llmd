@@ -34,20 +34,25 @@
 //
 // # Accessing the Store
 //
-// Commands access the store through domain globals:
+// Commands access the store through the domain stores on the [Context]
+// they receive. Each is bound to the request's context, so cancellation
+// and timeouts propagate to every store operation:
 //
-//	content, err := sdk.Documents.Read("notes/todo.md", sdk.ReadOpts{})  // latest
+//	content, err := ctx.Documents.Read("notes/todo.md", sdk.ReadOpts{})  // latest
 //	if err != nil {
 //	    return nil, err
 //	}
 //
-//	err = sdk.Documents.Write("notes/new.md", []byte("# New"), sdk.WriteOpts{Author: ctx.Author, Message: "initial"})
+//	err = ctx.Documents.Write("notes/new.md", []byte("# New"), sdk.WriteOpts{Author: ctx.Author, Message: "initial"})
 //
-//	err = sdk.Tags.Add("notes/todo.md", "important", ctx.Author)
+//	err = ctx.Tags.Add("notes/todo.md", "important", ctx.Author)
 //
-//	err = sdk.Links.Add("notes/a", "notes/b", "related", ctx.Author)
+//	err = ctx.Links.Add("notes/a", "notes/b", "related", ctx.Author)
 //
-//	task, err := sdk.Tasks.Add("Fix auth bug", body, sdk.TaskAddOpts{Author: ctx.Author})
+//	task, err := ctx.Tasks.Add("Fix auth bug", body, sdk.TaskAddOpts{Author: ctx.Author})
+//
+// Commands that need the host itself (to dispatch another command, list
+// the command table, watch events, or create a store) use ctx.Runtime.
 //
 // # Returning Results
 //

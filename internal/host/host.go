@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"slices"
 
 	"github.com/jpl-au/llmd/extension"
@@ -22,12 +23,15 @@ import (
 
 // Host manages extensions and command execution. It is the central
 // orchestrator: it discovers compiled extensions, builds a unified
-// command table, and dispatches execution to the owning extension. The
-// Host also wires up the SDK domain globals (sdk.Documents, sdk.Tasks,
-// etc.) so that extensions can access the store without direct dependencies.
+// command table, and dispatches execution to the owning extension. For
+// each request it builds an [sdk.Context] carrying store bridges bound
+// to that request, so extensions access the store without direct
+// dependencies and without package-level state. Host implements
+// [sdk.Runtime] and hands itself to commands on the same context.
 type Host struct {
 	store      *llmd.Store
 	lim        validate.Limits
+	git        sdk.GitStore
 	commands   map[string]*cmdEntry
 	extensions []sdk.Extension
 }
@@ -39,8 +43,8 @@ type cmdEntry struct {
 }
 
 // New creates a Host without a store. The Host can enumerate commands
-// (for help/discovery) but cannot execute store operations - the SDK
-// domain globals remain nil.
+// (for help/discovery) but cannot execute store operations - the store
+// bridges on each [sdk.Context] remain nil.
 func New() *Host {
 	return setup(nil)
 }
@@ -62,6 +66,78 @@ func (h *Host) Close() error {
 		return h.store.Close()
 	}
 	return nil
+}
+
+// Dir returns the project directory that holds the .llmd store, or ""
+// for a storeless host.
+func (h *Host) Dir() string {
+	if h.store == nil {
+		return ""
+	}
+	return filepath.Dir(h.store.Dir())
+}
+
+// Dispatch implements [sdk.Runtime] by executing a command through
+// this host. It is Exec under the name commands see.
+func (h *Host) Dispatch(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
+	return h.Exec(ctx, cmd, args, author, stdin, dbPath)
+}
+
+// Subscribe implements [sdk.Runtime]. The callback receives every
+// store event synchronously on the emitting goroutine. A no-op when
+// the host has no store.
+func (h *Host) Subscribe(fn func(pkgevents.Event)) {
+	if h.store == nil {
+		return
+	}
+	h.store.Bus().Subscribe(&callbackHandler{fn: fn})
+}
+
+// Init implements [sdk.Runtime]. It creates a new store at dbPath (or
+// the default path when empty), writes the default .llmd/.gitignore,
+// and returns the path created.
+func (h *Host) Init(dbPath string) (string, error) {
+	store, err := llmd.Init(dbPath)
+	if err != nil {
+		return "", err
+	}
+	path := store.Path()
+	if err := store.Close(); err != nil {
+		return "", fmt.Errorf("closing store: %w", err)
+	}
+
+	// Create default .llmd/.gitignore for new stores.
+	if err := config.InitGitignore(); err != nil {
+		return "", fmt.Errorf("creating gitignore: %w", err)
+	}
+
+	return path, nil
+}
+
+// Context builds the [sdk.Context] a command receives: the caller's
+// context, the author, this host as the runtime, and store bridges
+// bound to ctx so cancellation and timeouts propagate to every store
+// operation. The bridges are nil on a storeless host.
+func (h *Host) Context(ctx context.Context, author string) sdk.Context {
+	sctx := sdk.Context{
+		Context: ctx,
+		Author:  author,
+		Runtime: h,
+		Git:     h.git,
+	}
+	if h.store != nil {
+		sctx.Documents = newDocumentAPI(h.store, h.lim, ctx)
+		sctx.Tasks = newTaskAPI(h.store, h.lim, h.git, ctx)
+		sctx.Links = newLinkAPI(h.store, h.lim, ctx)
+		sctx.Tags = newTagAPI(h.store, h.lim, ctx)
+		sctx.Audits = newAuditAPI(h.store, ctx)
+		sctx.Queue = newQueueAPI(h.store, ctx)
+		sctx.Activities = newActivityAPI(h.store, ctx)
+		sctx.Mirror = newMirrorAPI(h.store, ctx)
+		sctx.Agents = newAgentAPI(h.store, h.git, ctx)
+		sctx.Rules = newRuleAPI(h.store.Dir())
+	}
+	return sctx
 }
 
 // RunOpts carries the parameters for a single command invocation.
@@ -101,7 +177,10 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 
 	// Open a store if the command requires one. Streaming commands
 	// (mcp, serve) treat store errors as non-fatal so they can start
-	// and return per-call errors instead of failing to connect.
+	// and return per-call errors instead of failing to connect. The
+	// store is wired into a fresh host for this call; the receiver is
+	// left untouched so concurrent callers never see a half-built host.
+	target := h
 	if h.store == nil && !h.storeless(opts.Cmd) {
 		store, err := llmd.Open(opts.DB)
 		if err != nil {
@@ -124,20 +203,17 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 					slog.Warn("closing store", "err", cerr)
 				}
 			}()
-
-			// Re-setup with the store so SDK globals and bridges
-			// are wired before dispatch.
-			*h = *setup(store)
+			target = setup(store)
 		}
 	}
 
-	author, err := h.resolveAuthor(opts.Author, c.cmd.NeedsAuthor)
+	author, err := target.resolveAuthor(opts.Author, c.cmd.NeedsAuthor)
 	if err != nil {
 		emit(err)
 		return nil, err
 	}
 
-	resp, err := h.Exec(ctx, opts.Cmd, opts.Args, author, opts.Stdin, opts.DB)
+	resp, err := target.Exec(ctx, opts.Cmd, opts.Args, author, opts.Stdin, opts.DB)
 	emit(err)
 	return resp, err
 }
@@ -185,12 +261,9 @@ func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
 	return "", fmt.Errorf("%w: --author is required for non-interactive use", sdk.ErrMissingArg)
 }
 
-// setup wires up the SDK globals, loads extensions, and configures the
-// command table. Called by both New() and Open().
-//
-// When store is non-nil, it sets sdk.Documents, sdk.Tasks, sdk.Links,
-// sdk.Tags, and sdk.Activities so extensions can access the store. It also
-// bridges internal bus events to extension EventHandlers.
+// setup loads extensions and configures the command table. Called by
+// both New() and Open(). When store is non-nil it also bridges internal
+// bus events to extension EventHandlers and the pipeline handler.
 func setup(store *llmd.Store) *Host {
 	// Load validation limits from config.
 	cfg, err := config.Load()
@@ -202,35 +275,8 @@ func setup(store *llmd.Store) *Host {
 	h := &Host{
 		store:    store,
 		lim:      lim,
+		git:      igit.New(),
 		commands: make(map[string]*cmdEntry),
-	}
-
-	// Store-independent globals - always available.
-	sdk.Git = igit.New()
-
-	// Event subscription - allows consumers (e.g. HTTP server) to
-	// receive store events without importing internal packages.
-	if store != nil {
-		sdk.SubscribeEvents = func(fn func(pkgevents.Event)) {
-			store.Bus().Subscribe(&callbackHandler{fn: fn})
-		}
-	}
-
-	// Set domain globals with a background context. These are used
-	// by tests. CLI commands use per-request bridges from
-	// sdk.Context instead.
-	bg := context.Background()
-	if store != nil {
-		sdk.Documents = newDocumentAPI(store, lim, bg)
-		sdk.Tasks = newTaskAPI(store, lim, bg)
-		sdk.Links = newLinkAPI(store, lim, bg)
-		sdk.Tags = newTagAPI(store, lim, bg)
-		sdk.Audits = newAuditAPI(store, bg)
-		sdk.Queue = newQueueAPI(store, bg)
-		sdk.Activities = newActivityAPI(store, bg)
-		sdk.Mirror = newMirrorAPI(store, bg)
-		sdk.Agents = newAgentAPI(store, bg)
-		sdk.Rules = newRuleAPI(store.Dir())
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
@@ -243,7 +289,7 @@ func setup(store *llmd.Store) *Host {
 	if store != nil {
 		store.Bus().Subscribe(&pipelineHandler{
 			dir:   store.Dir(),
-			agent: newAgentAPI(store, bg),
+			agent: newAgentAPI(store, h.git, context.Background()),
 		})
 	}
 
@@ -261,29 +307,6 @@ func setup(store *llmd.Store) *Host {
 			store.Bus().Subscribe(&eventBridge{handlers: handlers, ctx: ctx})
 		}
 	}
-
-	// Set sdk function vars so commands can discover and dispatch.
-	sdk.Init = func(dbPath string) (string, error) {
-		store, err := llmd.Init(dbPath)
-		if err != nil {
-			return "", err
-		}
-		path := store.Path()
-		if err := store.Close(); err != nil {
-			return "", fmt.Errorf("closing store: %w", err)
-		}
-
-		// Create default .llmd/.gitignore for new stores.
-		if err := config.InitGitignore(); err != nil {
-			return "", fmt.Errorf("creating gitignore: %w", err)
-		}
-
-		return path, nil
-	}
-	sdk.Dispatch = func(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
-		return h.Exec(ctx, cmd, args, author, stdin, dbPath)
-	}
-	sdk.AllCommands = h.Commands
 
 	return h
 }
@@ -318,28 +341,9 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 		return nil, fmt.Errorf("store not initialised - run llmd init")
 	}
 
-	sctx := sdk.Context{
-		Context: ctx,
-		Author:  author,
-		Stdin:   stdin,
-		DBPath:  dbPath,
-		Git:     sdk.Git,
-	}
-
-	// Create per-request bridges bound to the caller's context so
-	// cancellation and timeouts propagate to store operations.
-	if h.store != nil {
-		sctx.Documents = newDocumentAPI(h.store, h.lim, ctx)
-		sctx.Tasks = newTaskAPI(h.store, h.lim, ctx)
-		sctx.Links = newLinkAPI(h.store, h.lim, ctx)
-		sctx.Tags = newTagAPI(h.store, h.lim, ctx)
-		sctx.Audits = newAuditAPI(h.store, ctx)
-		sctx.Queue = newQueueAPI(h.store, ctx)
-		sctx.Activities = newActivityAPI(h.store, ctx)
-		sctx.Mirror = newMirrorAPI(h.store, ctx)
-		sctx.Agents = newAgentAPI(h.store, ctx)
-		sctx.Rules = newRuleAPI(h.store.Dir())
-	}
+	sctx := h.Context(ctx, author)
+	sctx.Stdin = stdin
+	sctx.DBPath = dbPath
 
 	resp, err := entry.ext.Exec(sctx, cmd, args)
 
@@ -376,8 +380,8 @@ func (h *Host) Extensions() []sdk.Extension {
 }
 
 // callbackHandler adapts a plain function to the internal bus Handler
-// interface. Used by sdk.SubscribeEvents so consumers can subscribe
-// without importing internal packages.
+// interface. Used by Host.Subscribe so consumers can subscribe without
+// importing internal packages.
 type callbackHandler struct {
 	fn func(pkgevents.Event)
 }

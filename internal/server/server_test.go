@@ -15,35 +15,41 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jpl-au/llmd/pkg/events"
+
 	"github.com/jpl-au/llmd/internal/config"
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func stubSDK(t *testing.T) {
-	t.Helper()
+// stub is a fake sdk.Runtime: a fixed command table and a dispatch
+// function the test controls. Subscribe is a no-op and Init is
+// unsupported, matching a host without a store.
+type stub struct {
+	cmds     map[string]*sdk.Command
+	dispatch func(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error)
+}
 
-	origDispatch := sdk.Dispatch
-	origAllCmds := sdk.AllCommands
-	t.Cleanup(func() {
-		sdk.Dispatch = origDispatch
-		sdk.AllCommands = origAllCmds
-	})
-
-	sdk.AllCommands = func() map[string]*sdk.Command {
-		return map[string]*sdk.Command{
-			"ls": {Name: "ls", Desc: "list"},
-		}
-	}
-	sdk.Dispatch = func(_ context.Context, cmd string, _ []string, _ string, _ []byte, _ string) (sdk.Response, error) {
-		return sdk.Text("ok"), nil
+func stubRuntime() *stub {
+	return &stub{
+		cmds: map[string]*sdk.Command{"ls": {Name: "ls", Desc: "list"}},
+		dispatch: func(_ context.Context, _ string, _ []string, _ string, _ []byte, _ string) (sdk.Response, error) {
+			return sdk.Text("ok"), nil
+		},
 	}
 }
 
-// newTestServer builds a Server from the stubbed SDK and serves its
+func (s *stub) Dispatch(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
+	return s.dispatch(ctx, cmd, args, author, stdin, dbPath)
+}
+func (s *stub) Commands() map[string]*sdk.Command { return s.cmds }
+func (s *stub) Subscribe(func(events.Event))      {}
+func (s *stub) Init(string) (string, error)       { return "", errors.New("init not supported") }
+
+// newTestServer builds a Server over the stub runtime and serves its
 // mux over httptest. The server is closed on cleanup.
-func newTestServer(t *testing.T) *httptest.Server {
+func newTestServer(t *testing.T, rt sdk.Runtime) *httptest.Server {
 	t.Helper()
-	s := New(config.Config{Server: config.ServerConfig{Addr: "localhost:0"}, Author: "test"}, nil)
+	s := New(config.Config{Server: config.ServerConfig{Addr: "localhost:0"}, Author: "test"}, rt)
 	ts := httptest.NewServer(s.mux)
 	t.Cleanup(ts.Close)
 	return ts
@@ -64,9 +70,7 @@ func captureLog(t *testing.T) *bytes.Buffer {
 // TestListenAndServeShutdown is a lifecycle scenario: start, cancel,
 // confirm graceful shutdown within the deadline.
 func TestListenAndServeShutdown(t *testing.T) {
-	stubSDK(t)
-
-	s := New(config.Config{Server: config.ServerConfig{Addr: "localhost:0"}, Author: "test"}, nil)
+	s := New(config.Config{Server: config.ServerConfig{Addr: "localhost:0"}, Author: "test"}, stubRuntime())
 
 	ctx, cancel := context.WithCancel(t.Context())
 
@@ -104,15 +108,15 @@ func TestLogMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stubSDK(t)
-			sdk.Dispatch = func(_ context.Context, _ string, _ []string, _ string, _ []byte, _ string) (sdk.Response, error) {
+			rt := stubRuntime()
+			rt.dispatch = func(_ context.Context, _ string, _ []string, _ string, _ []byte, _ string) (sdk.Response, error) {
 				if tt.dispatch != nil {
 					return nil, tt.dispatch
 				}
 				return sdk.Text("ok"), nil
 			}
 			buf := captureLog(t)
-			ts := newTestServer(t)
+			ts := newTestServer(t, rt)
 
 			resp, err := http.Get(ts.URL + "/ls")
 			if err != nil {
@@ -155,11 +159,11 @@ func TestDispatchErrorStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stubSDK(t)
-			sdk.Dispatch = func(_ context.Context, _ string, _ []string, _ string, _ []byte, _ string) (sdk.Response, error) {
+			rt := stubRuntime()
+			rt.dispatch = func(_ context.Context, _ string, _ []string, _ string, _ []byte, _ string) (sdk.Response, error) {
 				return nil, tt.err
 			}
-			ts := newTestServer(t)
+			ts := newTestServer(t, rt)
 
 			resp, err := http.Get(ts.URL + "/ls")
 			if err != nil {
@@ -211,25 +215,23 @@ func TestRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stubSDK(t)
-			sdk.AllCommands = func() map[string]*sdk.Command {
-				return map[string]*sdk.Command{
-					"cat":  {Name: "cat"},
-					"edit": {Name: "edit", NeedsAuthor: true},
-					"task": {Name: "task"},
-					"mcp":  {Name: "mcp"},
-				}
+			rt := stubRuntime()
+			rt.cmds = map[string]*sdk.Command{
+				"cat":  {Name: "cat"},
+				"edit": {Name: "edit", NeedsAuthor: true},
+				"task": {Name: "task"},
+				"mcp":  {Name: "mcp"},
 			}
 			var mu sync.Mutex
 			var gotCmd string
 			var gotArgs []string
-			sdk.Dispatch = func(_ context.Context, cmd string, args []string, _ string, _ []byte, _ string) (sdk.Response, error) {
+			rt.dispatch = func(_ context.Context, cmd string, args []string, _ string, _ []byte, _ string) (sdk.Response, error) {
 				mu.Lock()
 				defer mu.Unlock()
 				gotCmd, gotArgs = cmd, args
 				return sdk.Text("ok"), nil
 			}
-			ts := newTestServer(t)
+			ts := newTestServer(t, rt)
 
 			req, err := http.NewRequestWithContext(t.Context(), tt.method, ts.URL+tt.path, nil)
 			if err != nil {

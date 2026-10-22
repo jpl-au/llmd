@@ -1,14 +1,15 @@
 // Package server provides an HTTP API for llmd.
 //
-// The server is a thin transport layer over [sdk.Dispatch], following
-// the same pattern as the MCP server. Each registered command becomes
+// The server is a thin transport layer over [sdk.Runtime.Dispatch],
+// following the same pattern as the MCP server. Each registered command becomes
 // an HTTP route: reads are GET, mutations are POST. The request body
 // carries document content (raw markdown), and headers carry metadata
 // (Author, Message, Source). Responses are JSON by default, or raw
 // content when appropriate.
 //
-// Commands are registered automatically by walking [sdk.AllCommands],
-// so extensions that register commands get HTTP routes for free.
+// Commands are registered automatically by walking the runtime's
+// command table, so extensions that register commands get HTTP routes
+// for free.
 //
 // The /events endpoint streams real-time store events via SSE. Agents
 // and external systems can subscribe to receive notifications when
@@ -25,27 +26,29 @@ import (
 	"github.com/jpl-au/chain"
 
 	"github.com/jpl-au/llmd/internal/config"
-	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/sdk"
 )
 
 // Server is an HTTP API server for llmd. It dispatches incoming
-// requests to sdk commands, using the same dispatch mechanism as
-// the MCP server. The SSE hub streams events to connected clients.
+// requests to sdk commands through the runtime, using the same
+// dispatch mechanism as the MCP server. The SSE hub streams events to
+// connected clients.
 type Server struct {
 	mux    *chain.Mux
+	rt     sdk.Runtime
 	addr   string
 	author string
 	sse    *sseHub
 }
 
-// New creates a server from the given config. If subscribe is
-// non-nil, the server registers an SSE hub that streams store
-// events to connected clients via GET /events, and a webhook hub
-// that POSTs events to configured endpoints.
-func New(cfg config.Config, subscribe func(func(events.Event))) *Server {
+// New creates a server from the given config and runtime. The server
+// registers an SSE hub that streams store events to connected clients
+// via GET /events, and a webhook hub that POSTs events to configured
+// endpoints; both receive events only while the runtime has a store.
+func New(cfg config.Config, rt sdk.Runtime) *Server {
 	s := &Server{
 		mux:    chain.New(),
+		rt:     rt,
 		addr:   cfg.Server.Addr,
 		author: cfg.Author,
 		sse:    newSSEHub(),
@@ -54,14 +57,12 @@ func New(cfg config.Config, subscribe func(func(events.Event))) *Server {
 	s.mux.HandleFunc("POST /hook", s.hookHandler())
 	s.register()
 
-	if subscribe != nil {
-		subscribe(s.sse.Broadcast)
-		s.mux.Handle("GET /events", s.sse)
+	rt.Subscribe(s.sse.Broadcast)
+	s.mux.Handle("GET /events", s.sse)
 
-		if wh := newWebhookHub(cfg.Webhook); wh != nil {
-			subscribe(wh.Broadcast)
-			slog.Info("webhook enabled", "endpoints", len(wh.endpoints))
-		}
+	if wh := newWebhookHub(cfg.Webhook); wh != nil {
+		rt.Subscribe(wh.Broadcast)
+		slog.Info("webhook enabled", "endpoints", len(wh.endpoints))
 	}
 
 	return s
@@ -122,7 +123,7 @@ var mixedCommands = map[string]bool{
 // for each one. Read commands are GET, mutation commands are POST.
 // Mixed commands (task, agent, audit, queue) get both methods.
 func (s *Server) register() {
-	for _, cmd := range sdk.AllCommands() {
+	for _, cmd := range s.rt.Commands() {
 		if skip(cmd.Name) {
 			continue
 		}

@@ -10,15 +10,17 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-func testHost(t *testing.T) {
+// testHost initialises an isolated store and returns an sdk.Context
+// bound to the test, exactly as a command would receive it.
+func testHost(t *testing.T) sdk.Context {
 	t.Helper()
-	TestSetup(t, TestMemory)
+	return TestSetup(t, TestIsolated).Context(t.Context(), "")
 }
 
 // writeDoc writes a document as alice and fails the test on error.
-func writeDoc(t *testing.T, path, content string) {
+func writeDoc(t *testing.T, c sdk.Context, path, content string) {
 	t.Helper()
-	if err := sdk.Documents.Write(path, []byte(content), sdk.WriteOpts{Author: "alice"}); err != nil {
+	if err := c.Documents.Write(path, []byte(content), sdk.WriteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Write(%q) error = %v", path, err)
 	}
 }
@@ -37,20 +39,20 @@ func TestDocumentsWrite(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, content := range tt.writes {
-				if err := sdk.Documents.Write("doc", []byte(content), sdk.WriteOpts{Author: "alice", Message: "first"}); err != nil {
+				if err := c.Documents.Write("doc", []byte(content), sdk.WriteOpts{Author: "alice", Message: "first"}); err != nil {
 					t.Fatalf("Write(%q) error = %v", content, err)
 				}
 			}
-			got, err := sdk.Documents.Read("doc", sdk.ReadOpts{})
+			got, err := c.Documents.Read("doc", sdk.ReadOpts{})
 			if err != nil {
 				t.Fatalf("Read(doc) error = %v", err)
 			}
 			if string(got) != tt.want {
 				t.Errorf("Read(doc) = %q, want %q", got, tt.want)
 			}
-			versions, err := sdk.Documents.History("doc", 0)
+			versions, err := c.Documents.History("doc", 0)
 			if err != nil {
 				t.Fatalf("History(doc) error = %v", err)
 			}
@@ -74,11 +76,11 @@ func TestDocumentsRead(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, content := range tt.versions {
-				writeDoc(t, "doc", content)
+				writeDoc(t, c, "doc", content)
 			}
-			got, err := sdk.Documents.Read("doc", tt.opts)
+			got, err := c.Documents.Read("doc", tt.opts)
 			if err != nil {
 				t.Fatalf("Read(doc, %+v) error = %v", tt.opts, err)
 			}
@@ -101,11 +103,11 @@ func TestDocumentsExists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			if tt.write {
-				writeDoc(t, "doc", "x")
+				writeDoc(t, c, "doc", "x")
 			}
-			got, err := sdk.Documents.Exists("doc")
+			got, err := c.Documents.Exists("doc")
 			if err != nil {
 				t.Fatalf("Exists(doc) error = %v", err)
 			}
@@ -117,44 +119,44 @@ func TestDocumentsExists(t *testing.T) {
 }
 
 func TestDocumentsDeleteRestore(t *testing.T) {
-	testHost(t)
+	c := testHost(t)
 
-	writeDoc(t, "doc", "content")
+	writeDoc(t, c, "doc", "content")
 
-	if err := sdk.Documents.Delete("doc", sdk.DeleteOpts{Author: "alice"}); err != nil {
+	if err := c.Documents.Delete("doc", sdk.DeleteOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
-	ok, _ := sdk.Documents.Exists("doc")
+	ok, _ := c.Documents.Exists("doc")
 	if ok {
 		t.Error("document still exists after Delete")
 	}
 
-	if err := sdk.Documents.Restore("doc", sdk.RestoreOpts{Author: "alice"}); err != nil {
+	if err := c.Documents.Restore("doc", sdk.RestoreOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
 
-	ok, _ = sdk.Documents.Exists("doc")
+	ok, _ = c.Documents.Exists("doc")
 	if !ok {
 		t.Error("document not found after Restore")
 	}
 }
 
 func TestDocumentsMove(t *testing.T) {
-	testHost(t)
+	c := testHost(t)
 
-	writeDoc(t, "old", "moved")
+	writeDoc(t, c, "old", "moved")
 
-	if err := sdk.Documents.Move("old", "new", sdk.MoveOpts{Author: "alice"}); err != nil {
+	if err := c.Documents.Move("old", "new", sdk.MoveOpts{Author: "alice"}); err != nil {
 		t.Fatalf("Move: %v", err)
 	}
 
-	ok, _ := sdk.Documents.Exists("old")
+	ok, _ := c.Documents.Exists("old")
 	if ok {
 		t.Error("old path still exists after Move")
 	}
 
-	content, err := sdk.Documents.Read("new", sdk.ReadOpts{})
+	content, err := c.Documents.Read("new", sdk.ReadOpts{})
 	if err != nil {
 		t.Fatalf("Read new: %v", err)
 	}
@@ -182,16 +184,16 @@ func TestDocumentsList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for i, path := range tt.docs {
-				writeDoc(t, path, string(rune('1'+i)))
+				writeDoc(t, c, path, string(rune('1'+i)))
 			}
 			for _, path := range tt.deleted {
-				if err := sdk.Documents.Delete(path, sdk.DeleteOpts{Author: "alice"}); err != nil {
+				if err := c.Documents.Delete(path, sdk.DeleteOpts{Author: "alice"}); err != nil {
 					t.Fatalf("Delete(%q) error = %v", path, err)
 				}
 			}
-			docs, err := sdk.Documents.List(tt.prefix, tt.opts)
+			docs, err := c.Documents.List(tt.prefix, tt.opts)
 			if err != nil {
 				t.Fatalf("List(%q, %+v) error = %v", tt.prefix, tt.opts, err)
 			}
@@ -225,13 +227,13 @@ func TestDocumentsEdit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			writeDoc(t, "doc", tt.content)
-			err := sdk.Documents.Edit("doc", tt.old, tt.new, tt.opts)
+			c := testHost(t)
+			writeDoc(t, c, "doc", tt.content)
+			err := c.Documents.Edit("doc", tt.old, tt.new, tt.opts)
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Edit(doc, %q, %q) error = %v, want %v", tt.old, tt.new, err, tt.wantErr)
 			}
-			got, err := sdk.Documents.Read("doc", sdk.ReadOpts{})
+			got, err := c.Documents.Read("doc", sdk.ReadOpts{})
 			if err != nil {
 				t.Fatalf("Read(doc) error = %v", err)
 			}
@@ -273,13 +275,13 @@ func TestDocumentsHistory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for i, opts := range tt.writes {
-				if err := sdk.Documents.Write("doc", []byte(string(rune('1'+i))), opts); err != nil {
+				if err := c.Documents.Write("doc", []byte(string(rune('1'+i))), opts); err != nil {
 					t.Fatalf("Write(doc) #%d error = %v", i+1, err)
 				}
 			}
-			versions, err := sdk.Documents.History("doc", tt.limit)
+			versions, err := c.Documents.History("doc", tt.limit)
 			if err != nil {
 				t.Fatalf("History(doc, %d) error = %v", tt.limit, err)
 			}
@@ -312,11 +314,11 @@ func TestDocumentsDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, content := range tt.versions {
-				writeDoc(t, "doc", content)
+				writeDoc(t, c, "doc", content)
 			}
-			diff, added, removed, err := sdk.Documents.Diff(tt.from, tt.to, 0)
+			diff, added, removed, err := c.Documents.Diff(tt.from, tt.to, 0)
 			if err != nil {
 				t.Fatalf("Diff(%q, %q) error = %v", tt.from, tt.to, err)
 			}
@@ -331,16 +333,16 @@ func TestDocumentsDiff(t *testing.T) {
 }
 
 func TestDocumentsRevert(t *testing.T) {
-	testHost(t)
+	c := testHost(t)
 
-	writeDoc(t, "doc", "original")
-	writeDoc(t, "doc", "changed")
+	writeDoc(t, c, "doc", "original")
+	writeDoc(t, c, "doc", "changed")
 
-	if err := sdk.Documents.Revert("doc", 1, sdk.RevertOpts{Author: "alice", Message: "revert"}); err != nil {
+	if err := c.Documents.Revert("doc", 1, sdk.RevertOpts{Author: "alice", Message: "revert"}); err != nil {
 		t.Fatalf("Revert: %v", err)
 	}
 
-	content, _ := sdk.Documents.Read("doc", sdk.ReadOpts{})
+	content, _ := c.Documents.Read("doc", sdk.ReadOpts{})
 	if string(content) != "original" {
 		t.Errorf("content = %q, want %q", content, "original")
 	}
@@ -359,11 +361,11 @@ func TestDocumentsGlob(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, path := range tt.docs {
-				writeDoc(t, path, "x")
+				writeDoc(t, c, path, "x")
 			}
-			got, err := sdk.Documents.Glob(tt.pattern)
+			got, err := c.Documents.Glob(tt.pattern)
 			if err != nil {
 				t.Fatalf("Glob(%q) error = %v", tt.pattern, err)
 			}
@@ -406,11 +408,11 @@ func TestDocumentsGrep(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, d := range tt.docs {
-				writeDoc(t, d.path, d.content)
+				writeDoc(t, c, d.path, d.content)
 			}
-			hits, err := sdk.Documents.Grep(tt.query, tt.opts)
+			hits, err := c.Documents.Grep(tt.query, tt.opts)
 			if err != nil {
 				t.Fatalf("Grep(%q, %+v) error = %v", tt.query, tt.opts, err)
 			}
@@ -464,9 +466,9 @@ func TestDocumentsGrepModes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			writeDoc(t, "doc", tt.content)
-			hits, err := sdk.Documents.Grep(tt.query, tt.opts)
+			c := testHost(t)
+			writeDoc(t, c, "doc", tt.content)
+			hits, err := c.Documents.Grep(tt.query, tt.opts)
 			if err != nil {
 				t.Fatalf("Grep(%q, %+v) error = %v", tt.query, tt.opts, err)
 			}
@@ -495,14 +497,14 @@ func TestDocumentsVacuum(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			if tt.deleted {
-				writeDoc(t, "doc", "x")
-				if err := sdk.Documents.Delete("doc", sdk.DeleteOpts{Author: "alice"}); err != nil {
+				writeDoc(t, c, "doc", "x")
+				if err := c.Documents.Delete("doc", sdk.DeleteOpts{Author: "alice"}); err != nil {
 					t.Fatalf("Delete(doc) error = %v", err)
 				}
 			}
-			result, err := sdk.Documents.Vacuum()
+			result, err := c.Documents.Vacuum()
 			if err != nil {
 				t.Fatalf("Vacuum() error = %v", err)
 			}
@@ -518,41 +520,41 @@ func TestDocumentsVacuum(t *testing.T) {
 func TestDocumentsNotFound(t *testing.T) {
 	tests := []struct {
 		name string
-		call func() error
+		call func(c sdk.Context) error
 	}{
-		{"Read", func() error {
-			_, err := sdk.Documents.Read("nonexistent", sdk.ReadOpts{})
+		{"Read", func(c sdk.Context) error {
+			_, err := c.Documents.Read("nonexistent", sdk.ReadOpts{})
 			return err
 		}},
-		{"Delete", func() error {
-			return sdk.Documents.Delete("nonexistent", sdk.DeleteOpts{Author: "alice"})
+		{"Delete", func(c sdk.Context) error {
+			return c.Documents.Delete("nonexistent", sdk.DeleteOpts{Author: "alice"})
 		}},
-		{"Restore", func() error {
-			return sdk.Documents.Restore("nonexistent", sdk.RestoreOpts{Author: "alice"})
+		{"Restore", func(c sdk.Context) error {
+			return c.Documents.Restore("nonexistent", sdk.RestoreOpts{Author: "alice"})
 		}},
-		{"Move", func() error {
-			return sdk.Documents.Move("nonexistent", "dest", sdk.MoveOpts{Author: "alice"})
+		{"Move", func(c sdk.Context) error {
+			return c.Documents.Move("nonexistent", "dest", sdk.MoveOpts{Author: "alice"})
 		}},
-		{"Edit", func() error {
-			return sdk.Documents.Edit("nonexistent", "old", "new", sdk.EditOpts{Author: "alice"})
+		{"Edit", func(c sdk.Context) error {
+			return c.Documents.Edit("nonexistent", "old", "new", sdk.EditOpts{Author: "alice"})
 		}},
-		{"History", func() error {
-			_, err := sdk.Documents.History("nonexistent", 0)
+		{"History", func(c sdk.Context) error {
+			_, err := c.Documents.History("nonexistent", 0)
 			return err
 		}},
-		{"Diff", func() error {
-			_, _, _, err := sdk.Documents.Diff("nonexistent", "nonexistent", 0)
+		{"Diff", func(c sdk.Context) error {
+			_, _, _, err := c.Documents.Diff("nonexistent", "nonexistent", 0)
 			return err
 		}},
-		{"Revert", func() error {
-			return sdk.Documents.Revert("nonexistent", 1, sdk.RevertOpts{Author: "alice"})
+		{"Revert", func(c sdk.Context) error {
+			return c.Documents.Revert("nonexistent", 1, sdk.RevertOpts{Author: "alice"})
 		}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			if err := tt.call(); !errors.Is(err, sdk.ErrNotFound) {
+			c := testHost(t)
+			if err := tt.call(c); !errors.Is(err, sdk.ErrNotFound) {
 				t.Errorf("%s(nonexistent) error = %v, want sdk.ErrNotFound", tt.name, err)
 			}
 		})
@@ -596,14 +598,14 @@ func TestDocumentsImport(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			dir := t.TempDir()
 			for name, content := range tt.files {
 				if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
 					t.Fatalf("WriteFile(%q) error = %v", name, err)
 				}
 			}
-			result, err := sdk.Documents.Import(dir, tt.opts)
+			result, err := c.Documents.Import(dir, tt.opts)
 			if err != nil {
 				t.Fatalf("Import(%+v) error = %v", tt.opts, err)
 			}
@@ -611,7 +613,7 @@ func TestDocumentsImport(t *testing.T) {
 				t.Errorf("Import(%+v) created %d, want %d", tt.opts, len(result.Created), tt.wantCreated)
 			}
 			for path, want := range tt.wantExists {
-				ok, err := sdk.Documents.Exists(path)
+				ok, err := c.Documents.Exists(path)
 				if err != nil {
 					t.Fatalf("Exists(%q) error = %v", path, err)
 				}
@@ -620,7 +622,7 @@ func TestDocumentsImport(t *testing.T) {
 				}
 			}
 			for path, want := range tt.wantContent {
-				got, err := sdk.Documents.Read(path, sdk.ReadOpts{})
+				got, err := c.Documents.Read(path, sdk.ReadOpts{})
 				if err != nil {
 					t.Fatalf("Read(%q) error = %v", path, err)
 				}
@@ -676,9 +678,9 @@ func TestDocumentsExport(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for path, content := range tt.docs {
-				writeDoc(t, path, content)
+				writeDoc(t, c, path, content)
 			}
 			dir := t.TempDir()
 			for name, content := range tt.existing {
@@ -686,7 +688,7 @@ func TestDocumentsExport(t *testing.T) {
 					t.Fatalf("WriteFile(%q) error = %v", name, err)
 				}
 			}
-			result, err := sdk.Documents.Export(tt.prefix, dir, tt.opts)
+			result, err := c.Documents.Export(tt.prefix, dir, tt.opts)
 			if err != nil {
 				t.Fatalf("Export(%q, %+v) error = %v", tt.prefix, tt.opts, err)
 			}

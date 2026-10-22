@@ -28,14 +28,15 @@
 //
 // # Store API
 //
-// The host sets domain-specific globals ([sdk.Documents], [sdk.Tasks],
-// [sdk.Links], [sdk.Tags]) that wrap the llmd store. This allows
-// extensions to access the store without direct dependencies:
+// For every request the host builds an [sdk.Context] carrying store
+// bridges ([sdk.DocumentStore], [sdk.TaskStore], [sdk.LinkStore],
+// [sdk.TagStore], ...) bound to that request's context. Extensions
+// access the store through it without direct dependencies:
 //
 //	// In an extension command:
-//	content, _ := sdk.Documents.Read("path/to/doc.md", sdk.ReadOpts{})
-//	sdk.Documents.Write("path/to/doc.md", content, sdk.WriteOpts{Author: author, Message: message})
-//	sdk.Tags.Add("path/to/doc.md", "important", author)
+//	content, _ := ctx.Documents.Read("path/to/doc.md", sdk.ReadOpts{})
+//	ctx.Documents.Write("path/to/doc.md", content, sdk.WriteOpts{Author: ctx.Author, Message: message})
+//	ctx.Tags.Add("path/to/doc.md", "important", ctx.Author)
 //
 // # Adding Extensions
 //

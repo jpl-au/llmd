@@ -31,7 +31,7 @@ it's in the wrong place.** Move it behind the SDK.
 ## Package Map
 
 ```
-sdk/                        API surface: interfaces, types, flag parsing, globals
+sdk/                        API surface: interfaces, types, flag parsing, sentinel errors
 app/                        Build-time metadata: version tag, commit, build time
 cli/                        Thin CLI dispatch: calls SDK, formats output
 extension/                  Caddy-style compile-time plugin registry
@@ -55,7 +55,7 @@ internal/git/               Git CLI wrapper: sdk.GitStore implementation (build-
 internal/config/            Configuration files and .llmd/.gitignore management
 internal/line/              Platform-aware line ending conversion (build-tagged)
 internal/validate/          Input validation: null bytes, path length, content size
-internal/server/            HTTP API server: thin transport over sdk.Dispatch
+internal/server/            HTTP API server: thin transport over sdk.Runtime.Dispatch
 internal/term/              Terminal detection and stdin reading utilities
 internal/sql/               Schema migrations for llmd.db
 pkg/model/core/             Core model types (Origin)
@@ -82,13 +82,13 @@ main.go → run()
   ↓ signal.NotifyContext - Ctrl+C cancellation
   ↓ check extension.Storeless - skip store for init, version, config
   ↓ host.Open(dbPath) or host.New() depending on needsStore
-  │   ├─ set sdk.Documents, sdk.Tasks, sdk.Links, sdk.Tags, sdk.Audits, sdk.Activities
   │   ├─ load compiled extensions via extension.All()
   │   └─ wire extension EventHandlers to internal bus
   ↓ resolve author (flag → config → term.Interactive() fallback)
   ↓ term.ReadStdin() - internal/term/
   ↓ host.Exec(ctx, cmd, args, author, stdin, dbPath)
-  │   └─ creates per-request bridge instances bound to ctx
+  │   └─ host.Context(ctx, author): per-request bridges bound to ctx,
+  │      plus the host itself as sdk.Runtime
   ↓ extension.Exec(sctx, cmd, args) → sdk.Response
   ↓ display(result, jsonOut) - output.go
 ```
@@ -160,23 +160,27 @@ translates SDK flat arguments into internal option structs, passing the
 bound context to every internal store call. All mutating operations stamp
 a `core.Origin{Source: "cli"}` for audit tracking.
 
-**Context-Bound Bridges:** `host.Exec` creates fresh bridge instances per
-command, each bound to the request's `context.Context`. This provides
-cancellation and timeout support without changing any SDK interface
-signatures. `sdk.Context` embeds `context.Context` and carries domain
-store fields (`Documents`, `Tasks`, `Links`, `Tags`, `Activities`,
-`Audits`, `Mirror`, `Git`, `Config`). CLI commands access stores via
-`ctx.Documents`, `ctx.Tasks`, `ctx.Audits` rather than package globals.
+**Context-Bound Bridges:** `host.Context(ctx, author)` builds the
+`sdk.Context` a command receives: fresh bridge instances bound to the
+request's `context.Context`, so cancellation and timeouts propagate
+without changing any SDK interface signatures. `sdk.Context` embeds
+`context.Context` and carries the domain store fields (`Documents`,
+`Tasks`, `Links`, `Tags`, `Activities`, `Audits`, `Queue`, `Mirror`,
+`Agents`, `Rules`, `Git`) plus `Runtime`. Commands access everything
+through the context; **the `sdk` package has no mutable package-level
+state**.
 
-Package globals (`sdk.Documents`, `sdk.Tasks`, `sdk.Audits`) remain wired with
-`context.Background()` in `setup()`. They are still used by `sdk.Git` and
-`sdk.Config` which have no per-request instances.
+`sdk.Runtime` is the host's own surface, implemented by `host.Host` and
+carried on every context. It is for commands that reach back into the
+host rather than into a domain: `Dispatch` (the MCP and HTTP servers),
+`Commands` (tool and route registration), `Subscribe` (SSE and
+webhooks) and `Init` (the `init` command). Tests get the same context a
+command would via `host.TestSetup(t, mode).Context(ctx, author)`.
 
-`sdk.GitStore` and `sdk.ConfigStore` have no host bridges - `internal/git.Git`
-and `internal/config.Store` implement their interfaces directly. Both are
-system utilities independent of the store, so bridges would add indirection
-without value. They are shared via `sdk.Git`/`sdk.Config` globals rather
-than per-request instances.
+`sdk.GitStore` has no host bridge - `internal/git.Git` implements it
+directly. It is a system utility independent of the store, so a bridge
+would add indirection without value. The host owns one instance and
+passes it to the task and agent bridges and onto the context.
 
 Bridge types also translate internal errors to SDK sentinels via per-domain
 helpers (`docErr`, `taskErr`, `linkErr`, `tagErr`). This prevents internal
@@ -259,14 +263,29 @@ collisions between concurrent processes starting in the same millisecond.
 go test ./...
 ```
 
-**Test setup** - `host.TestSetup(t, mode)` is the standard way to initialise
-a store and wire SDK globals for testing. Two modes:
+**Tests run against real stores on disk, never in-memory SQLite.** An
+in-memory database skips WAL files, checkpoints and the on-demand
+work.db, which are part of the behaviour under test. Three helpers cover
+every layer:
 
-- `host.TestMemory` - in-memory store, fast, no disk I/O
-- `host.TestDisk` - disk-backed store in a temp directory with chdir;
-  use when tests need a real filesystem (e.g. git operations)
+- `host.TestSetup(t, mode)` initialises a store, returns a `*host.Host`
+  over it and registers cleanup. `h.Context(t.Context(), author)` gives
+  the `sdk.Context` a command would receive; `h.Dir()` is the project
+  directory. `host.TestIsolated` creates the store in a temp directory
+  and leaves the working directory alone; `host.TestWorkdir` also changes
+  into that directory for cwd-relative behaviour (git, `.llmd/config`,
+  `.llmd/.gitignore`). Host tests use `TestIsolated`; CLI git tests use
+  `TestWorkdir`.
+- `llmdtest.Open(t)` (`internal/llmd/llmdtest`) returns an `*llmd.Store`
+  initialised under a temp directory, for package tests that go through
+  the store.
+- `sqlitetest.Open(t, name)` (`internal/sqlite/sqlitetest`) returns a
+  bare `*qwr.Manager` on a temp file with production settings, for
+  packages that are constructed directly from a database (tasks,
+  audits, messages, agents, sql).
 
-Host tests use `TestMemory`; CLI git tests use `TestDisk`.
+Database settings live in one place, `internal/sqlite.Open`, used by
+the store for llmd.db and work.db and by the test helpers.
 
 **Table-driven by default** - tests that exercise one operation with
 several inputs or expectations are written as a single `TestX` with a
@@ -279,8 +298,8 @@ subtests. See `sdk/flags_test.go`, `internal/path/path_test.go` and
 - A `setup func(t *testing.T, s *llmd.Store)` field when cases need
   different precondition state.
 - Every subtest opens its own store (`testStore(t)` or
-  `host.TestSetup`). Never add `t.Parallel()`: in-memory stores share a
-  SQLite shared-cache URI and host tests wire package globals.
+  `host.TestSetup`). `host.TestWorkdir` and the git tests change the
+  process working directory, so those must not use `t.Parallel()`.
 - Failure messages read `Func(args) = got, want %v`.
 - Use `t.Context()` rather than `context.Background()`.
 
@@ -310,7 +329,7 @@ Shared styles live in `cli/styles.go`: table styles (`tblHeader`, `tblCell`,
 `tblDim`, `tblBorder`) and diff colour styles (`diffAdded`, `diffRemoved`,
 `diffHunk`, `diffHeader`). View-specific styles are local to each command file.
 
-The `status` command uses a unified activity feed (`sdk.Activities.Recent()`)
+The `status` command uses a unified activity feed (`ctx.Activities.Recent()`)
 that queries documents, entities (tags/links), and task audit events in parallel,
 then merges by timestamp. The feed is defined as `sdk.ActivityStore` (in
 `sdk/activity.go`), implemented in `internal/llmd/activity.go`, bridged through
@@ -342,15 +361,15 @@ helper (title → git-safe branch name) is unexported in the same file.
 
 | Command | File | Description |
 |---------|------|-------------|
-| `task start <id>` | `cli/task_git.go` | Parse flags → `sdk.Tasks.Start()` → format text |
-| `task finish [id]` | `cli/task_git.go` | Parse flags → `sdk.Tasks.Finish()` → format summary |
-| `task branch <id>` | `cli/task_git.go` | Parse flags → `sdk.Tasks.StartBranch()` → format text |
-| `task diff [id]` | `cli/task_git.go` | Resolve task + `sdk.Git.Diff()` → coloured output |
-| `task files [id]` | `cli/task_git.go` | Resolve task + `sdk.Git.Files()` → file list |
-| `task commits [id]` | `cli/task_git.go` | Resolve task + `sdk.Git.Commits()` → commit list |
+| `task start <id>` | `cli/task_git.go` | Parse flags → `ctx.Tasks.Start()` → format text |
+| `task finish [id]` | `cli/task_git.go` | Parse flags → `ctx.Tasks.Finish()` → format summary |
+| `task branch <id>` | `cli/task_git.go` | Parse flags → `ctx.Tasks.StartBranch()` → format text |
+| `task diff [id]` | `cli/task_git.go` | Resolve task + `ctx.Git.Diff()` → coloured output |
+| `task files [id]` | `cli/task_git.go` | Resolve task + `ctx.Git.Files()` → file list |
+| `task commits [id]` | `cli/task_git.go` | Resolve task + `ctx.Git.Commits()` → commit list |
 
 Commands marked `[id]` auto-detect the task from the current git branch
-when no ID is given (`sdk.Tasks.ByBranch` via the current branch).
+when no ID is given (`ctx.Tasks.ByBranch` via the current branch).
 `task show` displays ahead/behind counts when the task has a branch
 and git is available.
 
@@ -509,8 +528,8 @@ operations succeed without an author.
 
 The HTTP server (`internal/server/`) exposes llmd commands as HTTP endpoints.
 It follows the same pattern as the MCP server - a thin transport layer over
-`sdk.Dispatch`. Commands are registered automatically by walking
-`sdk.AllCommands()`, so plugins get HTTP routes for free.
+`sdk.Runtime.Dispatch`. Commands are registered automatically by walking
+`sdk.Runtime.Commands()`, so plugins get HTTP routes for free.
 
 **Route structure:** URL paths mirror CLI commands. `/cat/docs/api` dispatches
 to the `cat` command with path `docs/api`. `/grep?q=hello` dispatches to
@@ -612,8 +631,8 @@ through context or structs.
 - **Export appends .md** - Exported files get a `.md` extension. For batch
   export, the prefix must end with `/` (e.g. `"docs/"` not `"docs"`).
 
-- **Remove returns errors for missing items** - `sdk.Links.Remove` and
-  `sdk.Tags.Remove` return errors when the target link/tag does not exist.
+- **Remove returns errors for missing items** - `ctx.Links.Remove` and
+  `ctx.Tags.Remove` return errors when the target link/tag does not exist.
   They are not idempotent.
 
 - **Task path deduplication** - When `task add` is given no `--path`, it
@@ -629,7 +648,7 @@ through context or structs.
   become dashes, consecutive dashes collapse, leading/trailing dashes trimmed)
   and rejected if they contain control characters, Windows-illegal characters
   (`< > : " | ? *`), or path traversal (`..`). Explicit paths skip sanitisation.
-  `sdk.Mirror.Directory()` returns the mirror directory for the active store.
+  `ctx.Mirror.Directory()` returns the mirror directory for the active store.
 
 - **Compiled extensions register in init()** - Missing a blank import in
   `main.go` silently omits all commands from that extension.

@@ -226,7 +226,7 @@ curl -X POST http://localhost:5563/audit/add/docs/spec \
 
 ## Notes
 
-- The server is a thin transport layer over `sdk.Dispatch`, the same
+- The server is a thin transport layer over the host dispatcher, the same
   dispatch mechanism used by the CLI and MCP server. Behaviour is
   identical across all three interfaces.
 - Plugin commands that register via the extension system get HTTP

@@ -63,22 +63,28 @@ var (
 	ErrNoOp = errors.New("old and new are identical")
 )
 
-// Domain stores. Each domain has its own focused interface with
-// unprefixed methods. Set by the host before command execution.
-// Nil when the host has no store (e.g. discovery-only mode).
-var (
-	Documents  DocumentStore
-	Tasks      TaskStore
-	Links      LinkStore
-	Tags       TagStore
-	Audits     AuditStore
-	Queue      QueueStore
-	Activities ActivityStore
-	Mirror     MirrorStore
-	Git        GitStore
-	Agents     AgentStore
-	Rules      RuleStore
-)
+// Runtime is the host's surface for commands that need to reach back
+// into it: dispatching another command (the MCP and HTTP servers),
+// listing the command table, watching store events, or creating a
+// store. It is carried on every [Context] so commands never depend on
+// package-level state.
+type Runtime interface {
+	// Dispatch executes a command by name. The context controls
+	// cancellation and timeout for the dispatched command.
+	Dispatch(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (Response, error)
+
+	// Commands returns all registered commands, keyed by name.
+	Commands() map[string]*Command
+
+	// Subscribe registers a callback that receives every store event.
+	// The callback runs synchronously on the emitting goroutine and
+	// must not block. A no-op when the host has no store.
+	Subscribe(fn func(events.Event))
+
+	// Init creates a new store at dbPath (or the default path when
+	// empty) and returns the path created.
+	Init(dbPath string) (string, error)
+}
 
 // Extension is the interface that command providers implement. The host
 // discovers extensions at startup (compiled extensions via init()),
@@ -122,20 +128,22 @@ type Command struct {
 // Context carries per-invocation data to commands. It embeds
 // [context.Context] for cancellation and timeout propagation, and
 // holds request-scoped domain store instances so commands access the
-// store through the context rather than package-level globals.
+// store through the context. There is no package-level state: a
+// command receives everything it may need here.
 //
 // Author is the configured user identity (required for write
 // operations). Stdin contains piped input when present, or nil for
-// interactive terminals.
+// interactive terminals. Runtime reaches back into the host.
 type Context struct {
 	context.Context
 
-	Author string
-	Stdin  []byte
-	DBPath string // Override database path (empty = default)
+	Author  string
+	Stdin   []byte
+	DBPath  string // Override database path (empty = default)
+	Runtime Runtime
 
-	// Domain stores bound to this request's lifecycle context.
-	// Commands should use these instead of the package-level globals.
+	// Domain stores bound to this request's lifecycle context. Nil
+	// when the host has no store (discovery-only mode).
 	Documents  DocumentStore
 	Tasks      TaskStore
 	Links      LinkStore
@@ -219,22 +227,3 @@ type Result struct {
 }
 
 func (Result) Response() {}
-
-// Init creates a new store at the given path (or the default path if
-// empty). Returns the path of the created store. Set by the host at
-// startup.
-var Init func(dbPath string) (string, error)
-
-// Dispatch executes a command by name through the host. Set by the host
-// at startup. Used by commands that need to invoke other commands (e.g.
-// MCP server dispatching tool calls). The context controls cancellation
-// and timeout for the dispatched command.
-var Dispatch func(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (Response, error)
-
-// AllCommands returns all registered commands. Set by the host at startup.
-var AllCommands func() map[string]*Command
-
-// SubscribeEvents registers a callback that receives all store events.
-// The callback is called synchronously on the emitting goroutine and
-// must not block. Set by the host at startup. Nil when no store is open.
-var SubscribeEvents func(func(events.Event))

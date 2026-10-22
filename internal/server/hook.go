@@ -91,7 +91,7 @@ func (s *Server) routeHook(r *http.Request, author string, event *platform.HookE
 	switch event.Event {
 	case "session.start":
 		// Return pending queue messages so the agent can act on them.
-		resp, err := sdk.Dispatch(r.Context(), "queue", []string{"ls"}, author, nil, "")
+		resp, err := s.rt.Dispatch(r.Context(), "queue", []string{"ls"}, author, nil, "")
 		if err != nil {
 			slog.Debug("hook: fetching queue on session.start", "error", err)
 			break
@@ -106,7 +106,7 @@ func (s *Server) routeHook(r *http.Request, author string, event *platform.HookE
 			content = "Session ended"
 		}
 		args := []string{"send", content}
-		if _, err := sdk.Dispatch(r.Context(), "queue", args, author, nil, ""); err != nil {
+		if _, err := s.rt.Dispatch(r.Context(), "queue", args, author, nil, ""); err != nil {
 			slog.Debug("hook: sending queue message on session.end", "error", err)
 			break
 		}
@@ -115,7 +115,7 @@ func (s *Server) routeHook(r *http.Request, author string, event *platform.HookE
 	case "task.completed":
 		// Move task to success column and notify.
 		if event.TaskID != "" {
-			if _, err := sdk.Dispatch(r.Context(), "task", []string{"finish", event.TaskID}, author, nil, ""); err != nil {
+			if _, err := s.rt.Dispatch(r.Context(), "task", []string{"finish", event.TaskID}, author, nil, ""); err != nil {
 				slog.Debug("hook: finishing task", "task", event.TaskID, "error", err)
 			} else {
 				result.Actions = append(result.Actions, "task.finish")
@@ -127,7 +127,7 @@ func (s *Server) routeHook(r *http.Request, author string, event *platform.HookE
 		}
 		if content != "" {
 			args := []string{"send", content}
-			if _, err := sdk.Dispatch(r.Context(), "queue", args, author, nil, ""); err != nil {
+			if _, err := s.rt.Dispatch(r.Context(), "queue", args, author, nil, ""); err != nil {
 				slog.Debug("hook: sending completion message", "error", err)
 			} else {
 				result.Actions = append(result.Actions, "queue.send")
@@ -137,7 +137,7 @@ func (s *Server) routeHook(r *http.Request, author string, event *platform.HookE
 	case "task.failed":
 		// Move task to failure column and alert.
 		if event.TaskID != "" {
-			if _, err := sdk.Dispatch(r.Context(), "task", []string{"move", event.TaskID, "blocked"}, author, nil, ""); err != nil {
+			if _, err := s.rt.Dispatch(r.Context(), "task", []string{"move", event.TaskID, "blocked"}, author, nil, ""); err != nil {
 				slog.Debug("hook: moving failed task to blocked", "task", event.TaskID, "error", err)
 			} else {
 				result.Actions = append(result.Actions, "task.move")
@@ -149,7 +149,7 @@ func (s *Server) routeHook(r *http.Request, author string, event *platform.HookE
 		}
 		if content != "" {
 			args := []string{"send", content}
-			if _, err := sdk.Dispatch(r.Context(), "queue", args, author, nil, ""); err != nil {
+			if _, err := s.rt.Dispatch(r.Context(), "queue", args, author, nil, ""); err != nil {
 				slog.Debug("hook: sending failure message", "error", err)
 			} else {
 				result.Actions = append(result.Actions, "queue.send")
@@ -160,7 +160,7 @@ func (s *Server) routeHook(r *http.Request, author string, event *platform.HookE
 		// Log significant tool calls as audit entries.
 		if event.TaskID != "" && event.Content != "" {
 			args := []string{"add", event.TaskID}
-			if _, err := sdk.Dispatch(r.Context(), "audit", args, author, []byte(event.Content), ""); err != nil {
+			if _, err := s.rt.Dispatch(r.Context(), "audit", args, author, []byte(event.Content), ""); err != nil {
 				slog.Debug("hook: adding audit for tool call", "task", event.TaskID, "error", err)
 			} else {
 				result.Actions = append(result.Actions, "audit.add")

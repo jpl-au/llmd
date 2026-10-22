@@ -3,22 +3,11 @@ package sql
 import (
 	"testing"
 
-	"github.com/jpl-au/qwr"
-	"github.com/jpl-au/qwr/profile"
-
-	_ "modernc.org/sqlite"
+	"github.com/jpl-au/llmd/internal/sqlite/sqlitetest"
 )
 
 func TestExec(t *testing.T) {
-	db, err := openTestDB()
-	if err != nil {
-		t.Fatalf("openTestDB() error = %v", err)
-	}
-	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
-			t.Errorf("closing database: %v", err)
-		}
-	})
+	db := sqlitetest.Open(t, "llmd.db")
 
 	if err := Exec(db); err != nil {
 		t.Fatalf("Exec() error = %v", err)
@@ -45,10 +34,4 @@ func TestExec(t *testing.T) {
 			}
 		})
 	}
-}
-
-func openTestDB() (*qwr.Manager, error) {
-	rp := profile.ReadBalanced().WithForeignKeys(true)
-	wp := profile.WriteBalanced().WithForeignKeys(true)
-	return qwr.New("file::memory:?cache=shared").Reader(rp).Writer(wp).Open()
 }

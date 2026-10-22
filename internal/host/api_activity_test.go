@@ -12,7 +12,7 @@ import (
 func TestActivitiesRecent(t *testing.T) {
 	tests := []struct {
 		name      string
-		setup     func(t *testing.T)
+		setup     func(t *testing.T, c sdk.Context)
 		limit     int
 		wantLen   int
 		wantEvent sdk.Activity // zero value skips the check
@@ -24,8 +24,8 @@ func TestActivitiesRecent(t *testing.T) {
 		},
 		{
 			name: "document write",
-			setup: func(t *testing.T) {
-				if err := sdk.Documents.Write("doc", []byte("hello"), sdk.WriteOpts{Author: "alice", Message: "first"}); err != nil {
+			setup: func(t *testing.T, c sdk.Context) {
+				if err := c.Documents.Write("doc", []byte("hello"), sdk.WriteOpts{Author: "alice", Message: "first"}); err != nil {
 					t.Fatalf("Write(doc) error = %v", err)
 				}
 			},
@@ -35,8 +35,8 @@ func TestActivitiesRecent(t *testing.T) {
 		},
 		{
 			name: "task add",
-			setup: func(t *testing.T) {
-				addTask(t, "test task", nil, sdk.TaskAddOpts{Author: "bob"})
+			setup: func(t *testing.T, c sdk.Context) {
+				addTask(t, c, "test task", nil, sdk.TaskAddOpts{Author: "bob"})
 			},
 			limit:     10,
 			wantLen:   1,
@@ -44,10 +44,10 @@ func TestActivitiesRecent(t *testing.T) {
 		},
 		{
 			name: "limit",
-			setup: func(t *testing.T) {
-				writeDoc(t, "a", "x")
-				writeDoc(t, "b", "x")
-				writeDoc(t, "c", "x")
+			setup: func(t *testing.T, c sdk.Context) {
+				writeDoc(t, c, "a", "x")
+				writeDoc(t, c, "b", "x")
+				writeDoc(t, c, "c", "x")
 			},
 			limit:   2,
 			wantLen: 2,
@@ -56,11 +56,11 @@ func TestActivitiesRecent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			if tt.setup != nil {
-				tt.setup(t)
+				tt.setup(t, c)
 			}
-			events, err := sdk.Activities.Recent(tt.limit)
+			events, err := c.Activities.Recent(tt.limit)
 			if err != nil {
 				t.Fatalf("Recent(%d) error = %v", tt.limit, err)
 			}

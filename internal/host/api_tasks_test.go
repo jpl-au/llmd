@@ -13,9 +13,9 @@ import (
 var spec = []byte("# Spec\n\nDo the thing.")
 
 // addTask creates a task and fails the test on error.
-func addTask(t *testing.T, title string, body []byte, opts sdk.TaskAddOpts) *sdk.Task {
+func addTask(t *testing.T, c sdk.Context, title string, body []byte, opts sdk.TaskAddOpts) *sdk.Task {
 	t.Helper()
-	task, err := sdk.Tasks.Add(title, body, opts)
+	task, err := c.Tasks.Add(title, body, opts)
 	if err != nil {
 		t.Fatalf("Add(%q) error = %v", title, err)
 	}
@@ -23,17 +23,17 @@ func addTask(t *testing.T, title string, body []byte, opts sdk.TaskAddOpts) *sdk
 }
 
 // moveTask moves a task and fails the test on error.
-func moveTask(t *testing.T, key, column string) {
+func moveTask(t *testing.T, c sdk.Context, key, column string) {
 	t.Helper()
-	if err := sdk.Tasks.Move(key, column, "alice"); err != nil {
+	if err := c.Tasks.Move(key, column, "alice"); err != nil {
 		t.Fatalf("Move(%q, %q) error = %v", key, column, err)
 	}
 }
 
 // readTask reads a task and fails the test on error.
-func readTask(t *testing.T, key string) *sdk.Task {
+func readTask(t *testing.T, c sdk.Context, key string) *sdk.Task {
 	t.Helper()
-	task, err := sdk.Tasks.Read(key)
+	task, err := c.Tasks.Read(key)
 	if err != nil {
 		t.Fatalf("Read(%q) error = %v", key, err)
 	}
@@ -81,14 +81,14 @@ func TestTasksStart(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			task := addTask(t, "Start me", tt.body, sdk.TaskAddOpts{Author: "alice"})
-			updated, err := sdk.Tasks.Start(task.Key, "alice", tt.opts)
+			c := testHost(t)
+			task := addTask(t, c, "Start me", tt.body, sdk.TaskAddOpts{Author: "alice"})
+			updated, err := c.Tasks.Start(task.Key, "alice", tt.opts)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Start(%+v) error = %v, want %v", tt.opts, err, tt.wantErr)
 			}
 			if err != nil {
-				updated = readTask(t, task.Key)
+				updated = readTask(t, c, task.Key)
 			}
 			if updated.Status != tt.wantStatus {
 				t.Errorf("Start(%+v) status = %q, want %q", tt.opts, updated.Status, tt.wantStatus)
@@ -109,10 +109,10 @@ func TestTasksFinish(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			task := addTask(t, "Finish me", spec, sdk.TaskAddOpts{Author: "alice"})
-			moveTask(t, task.Key, "in-progress")
-			result, err := sdk.Tasks.Finish(task.Key, "alice", tt.opts)
+			c := testHost(t)
+			task := addTask(t, c, "Finish me", spec, sdk.TaskAddOpts{Author: "alice"})
+			moveTask(t, c, task.Key, "in-progress")
+			result, err := c.Tasks.Finish(task.Key, "alice", tt.opts)
 			if err != nil {
 				t.Fatalf("Finish(%+v) error = %v", tt.opts, err)
 			}
@@ -124,11 +124,11 @@ func TestTasksFinish(t *testing.T) {
 }
 
 func TestTasksByBranch(t *testing.T) {
-	testHost(t)
+	c := testHost(t)
 
-	task := addTask(t, "Branched", nil, sdk.TaskAddOpts{Author: "alice", Branch: "feature/login"})
+	task := addTask(t, c, "Branched", nil, sdk.TaskAddOpts{Author: "alice", Branch: "feature/login"})
 
-	found, err := sdk.Tasks.ByBranch("feature/login")
+	found, err := c.Tasks.ByBranch("feature/login")
 	if err != nil {
 		t.Fatalf("ByBranch: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestTasksAdd(t *testing.T) {
 		title string
 		body  []byte
 		opts  sdk.TaskAddOpts
-		setup func(t *testing.T)
+		setup func(t *testing.T, c sdk.Context)
 		want  sdk.Task
 	}{
 		{
@@ -178,7 +178,7 @@ func TestTasksAdd(t *testing.T) {
 			name:  "with existing path",
 			title: "Auth work",
 			opts:  sdk.TaskAddOpts{Author: "alice", Path: "specs/auth"},
-			setup: func(t *testing.T) { writeDoc(t, "specs/auth", "# Auth Spec") },
+			setup: func(t *testing.T, c sdk.Context) { writeDoc(t, c, "specs/auth", "# Auth Spec") },
 			want:  sdk.Task{Title: "Auth work", Status: "backlog", Path: "specs/auth"},
 		},
 		{
@@ -197,11 +197,11 @@ func TestTasksAdd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			if tt.setup != nil {
-				tt.setup(t)
+				tt.setup(t, c)
 			}
-			task, err := sdk.Tasks.Add(tt.title, tt.body, tt.opts)
+			task, err := c.Tasks.Add(tt.title, tt.body, tt.opts)
 			if err != nil {
 				t.Fatalf("Add(%q, %+v) error = %v", tt.title, tt.opts, err)
 			}
@@ -214,7 +214,7 @@ func TestTasksAdd(t *testing.T) {
 			views := []struct {
 				label string
 				got   *sdk.Task
-			}{{"Add()", task}, {"Read()", readTask(t, task.Key)}}
+			}{{"Add()", task}, {"Read()", readTask(t, c, task.Key)}}
 			for _, v := range views {
 				label, got := v.label, v.got
 				if got.Title != tt.want.Title {
@@ -237,11 +237,11 @@ func TestTasksAdd(t *testing.T) {
 				}
 			}
 			if tt.body != nil {
-				ok, _ := sdk.Documents.Exists(task.Path)
+				ok, _ := c.Documents.Exists(task.Path)
 				if !ok {
 					t.Errorf("Exists(%q) = false, want spec document", task.Path)
 				}
-				content, _ := sdk.Documents.Read(task.Path, sdk.ReadOpts{})
+				content, _ := c.Documents.Read(task.Path, sdk.ReadOpts{})
 				if string(content) != string(tt.body) {
 					t.Errorf("Read(%q) = %q, want %q", task.Path, content, tt.body)
 				}
@@ -251,11 +251,11 @@ func TestTasksAdd(t *testing.T) {
 }
 
 func TestTasksRead(t *testing.T) {
-	testHost(t)
+	c := testHost(t)
 
-	created := addTask(t, "Read me", nil, sdk.TaskAddOpts{Author: "alice"})
+	created := addTask(t, c, "Read me", nil, sdk.TaskAddOpts{Author: "alice"})
 
-	task, err := sdk.Tasks.Read(created.Key)
+	task, err := c.Tasks.Read(created.Key)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
@@ -322,11 +322,11 @@ func TestTasksList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			for _, s := range tt.seed {
-				addTask(t, s.title, nil, s.opts)
+				addTask(t, c, s.title, nil, s.opts)
 			}
-			tasks, err := sdk.Tasks.List(tt.opts)
+			tasks, err := c.Tasks.List(tt.opts)
 			if err != nil {
 				t.Fatalf("List(%+v) error = %v", tt.opts, err)
 			}
@@ -361,19 +361,19 @@ func TestTasksMove(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			task := addTask(t, "Movable", tt.body, sdk.TaskAddOpts{Author: "alice"})
+			c := testHost(t)
+			task := addTask(t, c, "Movable", tt.body, sdk.TaskAddOpts{Author: "alice"})
 			var err error
 			var col string
 			for _, col = range tt.columns {
-				if err = sdk.Tasks.Move(task.Key, col, "alice"); err != nil {
+				if err = c.Tasks.Move(task.Key, col, "alice"); err != nil {
 					break
 				}
 			}
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("Move(%q, %q) error = %v, want %v", task.Key, col, err, tt.wantErr)
 			}
-			if got := readTask(t, task.Key).Status; got != tt.wantStatus {
+			if got := readTask(t, c, task.Key).Status; got != tt.wantStatus {
 				t.Errorf("Read(%q) status = %q, want %q", task.Key, got, tt.wantStatus)
 			}
 		})
@@ -423,14 +423,14 @@ func TestTasksSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			task := addTask(t, tt.title, nil, sdk.TaskAddOpts{Author: "alice"})
+			c := testHost(t)
+			task := addTask(t, c, tt.title, nil, sdk.TaskAddOpts{Author: "alice"})
 			for _, op := range tt.ops {
-				if err := sdk.Tasks.Set(task.Key, "alice", op); err != nil {
+				if err := c.Tasks.Set(task.Key, "alice", op); err != nil {
 					t.Fatalf("Set(%+v) error = %v", op, err)
 				}
 			}
-			got := readTask(t, task.Key)
+			got := readTask(t, c, task.Key)
 			if got.Title != tt.want.Title {
 				t.Errorf("title = %q, want %q", got.Title, tt.want.Title)
 			}
@@ -451,11 +451,11 @@ func TestTasksSet(t *testing.T) {
 }
 
 func TestTasksDeleteRestore(t *testing.T) {
-	testHost(t)
+	c := testHost(t)
 
-	task := addTask(t, "Deletable", nil, sdk.TaskAddOpts{Author: "alice"})
+	task := addTask(t, c, "Deletable", nil, sdk.TaskAddOpts{Author: "alice"})
 
-	deleted, err := sdk.Tasks.Delete(task.Key, "alice")
+	deleted, err := c.Tasks.Delete(task.Key, "alice")
 	if err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
@@ -464,12 +464,12 @@ func TestTasksDeleteRestore(t *testing.T) {
 	}
 
 	// Should not appear in list
-	tasks, _ := sdk.Tasks.List(sdk.TaskListOpts{})
+	tasks, _ := c.Tasks.List(sdk.TaskListOpts{})
 	if len(tasks) != 0 {
 		t.Errorf("List after delete: got %d, want 0", len(tasks))
 	}
 
-	restored, err := sdk.Tasks.Restore(task.Key, "alice")
+	restored, err := c.Tasks.Restore(task.Key, "alice")
 	if err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
@@ -477,7 +477,7 @@ func TestTasksDeleteRestore(t *testing.T) {
 		t.Errorf("restored title = %q, want %q", restored.Title, "Deletable")
 	}
 
-	tasks, _ = sdk.Tasks.List(sdk.TaskListOpts{})
+	tasks, _ = c.Tasks.List(sdk.TaskListOpts{})
 	if len(tasks) != 1 {
 		t.Errorf("List after restore: got %d, want 1", len(tasks))
 	}
@@ -489,7 +489,7 @@ func TestTasksColumns(t *testing.T) {
 	defaults := []string{"backlog", "up-next", "in-progress", "review", "approval", "done", "blocked"}
 	tests := []struct {
 		name  string
-		setup func(t *testing.T)
+		setup func(t *testing.T, c sdk.Context)
 		want  []string
 	}{
 		{
@@ -498,8 +498,8 @@ func TestTasksColumns(t *testing.T) {
 		},
 		{
 			name: "add after column",
-			setup: func(t *testing.T) {
-				if err := sdk.Tasks.AddColumn("staging", "in-progress", "alice"); err != nil {
+			setup: func(t *testing.T, c sdk.Context) {
+				if err := c.Tasks.AddColumn("staging", "in-progress", "alice"); err != nil {
 					t.Fatalf("AddColumn(staging, in-progress) error = %v", err)
 				}
 			},
@@ -507,11 +507,11 @@ func TestTasksColumns(t *testing.T) {
 		},
 		{
 			name: "add then remove",
-			setup: func(t *testing.T) {
-				if err := sdk.Tasks.AddColumn("temp", "", "alice"); err != nil {
+			setup: func(t *testing.T, c sdk.Context) {
+				if err := c.Tasks.AddColumn("temp", "", "alice"); err != nil {
 					t.Fatalf("AddColumn(temp) error = %v", err)
 				}
-				if err := sdk.Tasks.RemoveColumn("temp", "alice"); err != nil {
+				if err := c.Tasks.RemoveColumn("temp", "alice"); err != nil {
 					t.Fatalf("RemoveColumn(temp) error = %v", err)
 				}
 			},
@@ -519,11 +519,11 @@ func TestTasksColumns(t *testing.T) {
 		},
 		{
 			name: "add then move",
-			setup: func(t *testing.T) {
-				if err := sdk.Tasks.AddColumn("qa", "", "alice"); err != nil {
+			setup: func(t *testing.T, c sdk.Context) {
+				if err := c.Tasks.AddColumn("qa", "", "alice"); err != nil {
 					t.Fatalf("AddColumn(qa) error = %v", err)
 				}
-				if err := sdk.Tasks.MoveColumn("qa", "review", "alice"); err != nil {
+				if err := c.Tasks.MoveColumn("qa", "review", "alice"); err != nil {
 					t.Fatalf("MoveColumn(qa, review) error = %v", err)
 				}
 			},
@@ -533,11 +533,11 @@ func TestTasksColumns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
+			c := testHost(t)
 			if tt.setup != nil {
-				tt.setup(t)
+				tt.setup(t, c)
 			}
-			got, err := sdk.Tasks.Columns()
+			got, err := c.Tasks.Columns()
 			if err != nil {
 				t.Fatalf("Columns() error = %v", err)
 			}
@@ -575,12 +575,12 @@ func TestTasksLog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			task := addTask(t, "Logged", spec, sdk.TaskAddOpts{Author: "alice"})
+			c := testHost(t)
+			task := addTask(t, c, "Logged", spec, sdk.TaskAddOpts{Author: "alice"})
 			for _, col := range tt.moves {
-				moveTask(t, task.Key, col)
+				moveTask(t, c, task.Key, col)
 			}
-			events, err := sdk.Tasks.Log(task.Key, tt.limit)
+			events, err := c.Tasks.Log(task.Key, tt.limit)
 			if err != nil {
 				t.Fatalf("Log(%q, %d) error = %v", task.Key, tt.limit, err)
 			}
@@ -609,48 +609,48 @@ func TestTasksLog(t *testing.T) {
 func TestTasksNotFound(t *testing.T) {
 	tests := []struct {
 		name string
-		call func() error
+		call func(c sdk.Context) error
 	}{
-		{"Read", func() error {
-			_, err := sdk.Tasks.Read("nonexistent")
+		{"Read", func(c sdk.Context) error {
+			_, err := c.Tasks.Read("nonexistent")
 			return err
 		}},
-		{"Delete", func() error {
-			_, err := sdk.Tasks.Delete("nonexistent", "alice")
+		{"Delete", func(c sdk.Context) error {
+			_, err := c.Tasks.Delete("nonexistent", "alice")
 			return err
 		}},
-		{"Restore", func() error {
-			_, err := sdk.Tasks.Restore("nonexistent", "alice")
+		{"Restore", func(c sdk.Context) error {
+			_, err := c.Tasks.Restore("nonexistent", "alice")
 			return err
 		}},
-		{"Move", func() error {
-			return sdk.Tasks.Move("nonexistent", "done", "alice")
+		{"Move", func(c sdk.Context) error {
+			return c.Tasks.Move("nonexistent", "done", "alice")
 		}},
-		{"Set", func() error {
-			return sdk.Tasks.Set("nonexistent", "alice", sdk.TaskSetOpts{Title: ptr("x")})
+		{"Set", func(c sdk.Context) error {
+			return c.Tasks.Set("nonexistent", "alice", sdk.TaskSetOpts{Title: ptr("x")})
 		}},
-		{"Start", func() error {
-			_, err := sdk.Tasks.Start("nonexistent", "alice", sdk.StartOpts{})
+		{"Start", func(c sdk.Context) error {
+			_, err := c.Tasks.Start("nonexistent", "alice", sdk.StartOpts{})
 			return err
 		}},
-		{"Finish", func() error {
-			_, err := sdk.Tasks.Finish("nonexistent", "alice", sdk.FinishOpts{})
+		{"Finish", func(c sdk.Context) error {
+			_, err := c.Tasks.Finish("nonexistent", "alice", sdk.FinishOpts{})
 			return err
 		}},
-		{"ByBranch", func() error {
-			_, err := sdk.Tasks.ByBranch("nonexistent")
+		{"ByBranch", func(c sdk.Context) error {
+			_, err := c.Tasks.ByBranch("nonexistent")
 			return err
 		}},
-		{"Log", func() error {
-			_, err := sdk.Tasks.Log("nonexistent", 0)
+		{"Log", func(c sdk.Context) error {
+			_, err := c.Tasks.Log("nonexistent", 0)
 			return err
 		}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testHost(t)
-			if err := tt.call(); !errors.Is(err, sdk.ErrNotFound) {
+			c := testHost(t)
+			if err := tt.call(c); !errors.Is(err, sdk.ErrNotFound) {
 				t.Errorf("%s(nonexistent) error = %v, want sdk.ErrNotFound", tt.name, err)
 			}
 		})

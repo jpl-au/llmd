@@ -11,40 +11,49 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd"
 )
 
-// TestMode controls how TestSetup initialises the store.
+// TestMode controls how TestSetup initialises the store. Both modes
+// create a real on-disk store under a temporary directory; tests never
+// run against in-memory SQLite because WAL files, checkpoints and the
+// on-demand work.db are part of the behaviour under test.
 type TestMode int
 
 const (
-	// TestMemory uses an in-memory store. Fast, no disk I/O.
-	TestMemory TestMode = iota
+	// TestIsolated creates the store in a temporary directory and
+	// leaves the working directory alone. Use for everything that
+	// does not read files relative to the current directory.
+	TestIsolated TestMode = iota
 
-	// TestDisk creates a disk-backed store in a temporary directory
-	// and changes the working directory to it. Use when tests need
-	// a real filesystem (e.g. git operations alongside the store).
-	TestDisk
+	// TestWorkdir creates the store in a temporary directory and
+	// changes the working directory to it. Use when tests need
+	// cwd-relative behaviour (git operations, .llmd/config,
+	// .llmd/.gitignore).
+	TestWorkdir
 )
 
-// TestSetup initialises a store, wires SDK globals, and registers
-// cleanup. Returns the working directory (empty for TestMemory).
-func TestSetup(t *testing.T, mode TestMode) string {
+// TestSetup initialises a store and returns a Host over it, with
+// cleanup registered. Use h.Context(t.Context(), author) for the
+// sdk.Context a command would receive and h.Dir() for the directory
+// that holds the .llmd store.
+func TestSetup(t *testing.T, mode TestMode) *Host {
 	t.Helper()
 
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, ".llmd", "llmd.db")
+
 	switch mode {
-	case TestMemory:
-		store, err := llmd.OpenMemory()
+	case TestIsolated:
+		store, err := llmd.Init(dbPath)
 		if err != nil {
-			t.Fatalf("OpenMemory: %v", err)
+			t.Fatalf("llmd.Init: %v", err)
 		}
 		t.Cleanup(func() {
 			if err := store.Close(); err != nil {
 				t.Errorf("closing store: %v", err)
 			}
 		})
-		setup(store)
-		return ""
+		return setup(store)
 
-	case TestDisk:
-		dir := t.TempDir()
+	case TestWorkdir:
 		orig, err := os.Getwd()
 		if err != nil {
 			t.Fatal(err)
@@ -58,7 +67,6 @@ func TestSetup(t *testing.T, mode TestMode) string {
 			t.Fatal(err)
 		}
 
-		dbPath := filepath.Join(dir, ".llmd", "llmd.db")
 		store, err := llmd.Init(dbPath)
 		if err != nil {
 			t.Fatalf("llmd.Init: %v", err)
@@ -76,10 +84,10 @@ func TestSetup(t *testing.T, mode TestMode) string {
 				t.Errorf("closing host: %v", err)
 			}
 		})
-		return dir
+		return h
 
 	default:
 		t.Fatalf("unknown TestMode %d", mode)
-		return ""
+		return nil
 	}
 }

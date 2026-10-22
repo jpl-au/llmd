@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/llmdtest"
 )
 
 func BenchmarkNewHost(b *testing.B) {
@@ -14,15 +14,7 @@ func BenchmarkNewHost(b *testing.B) {
 }
 
 func BenchmarkNewHostWithStore(b *testing.B) {
-	store, err := llmd.OpenMemory()
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			b.Errorf("closing store: %v", err)
-		}
-	})
+	store := llmdtest.Open(b)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -31,15 +23,7 @@ func BenchmarkNewHostWithStore(b *testing.B) {
 }
 
 func BenchmarkExecLS(b *testing.B) {
-	store, err := llmd.OpenMemory()
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			b.Errorf("closing store: %v", err)
-		}
-	})
+	store := llmdtest.Open(b)
 
 	h := setup(store)
 
@@ -50,15 +34,7 @@ func BenchmarkExecLS(b *testing.B) {
 }
 
 func BenchmarkExecCat(b *testing.B) {
-	store, err := llmd.OpenMemory()
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			b.Errorf("closing store: %v", err)
-		}
-	})
+	store := llmdtest.Open(b)
 
 	h := setup(store)
 
@@ -72,15 +48,7 @@ func BenchmarkExecCat(b *testing.B) {
 }
 
 func BenchmarkExecWrite(b *testing.B) {
-	store, err := llmd.OpenMemory()
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			b.Errorf("closing store: %v", err)
-		}
-	})
+	store := llmdtest.Open(b)
 
 	h := setup(store)
 	content := []byte("# Benchmark Test\n\nThis is test content.")

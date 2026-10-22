@@ -26,9 +26,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jpl-au/llmd/internal/sqlite"
+
 	"github.com/jpl-au/qwr"
 	"github.com/jpl-au/qwr/checkpoint"
-	"github.com/jpl-au/qwr/profile"
 
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/internal/llmd/audit"
@@ -122,20 +123,11 @@ func Open(path string) (*Store, error) {
 	return open(path)
 }
 
-// open is the shared implementation for Init and Open. qwr manages
-// SQLite pragmas via profiles (WAL, busy_timeout, foreign_keys, etc.),
-// separate reader/writer connection pools, and serialised writes.
+// open is the shared implementation for Init and Open. Database
+// settings live in internal/sqlite so llmd.db and work.db are opened
+// identically.
 func open(path string) (*Store, error) {
-	// Foreign keys are not part of qwr's default profiles, so we
-	// clone the balanced profiles and enable them explicitly.
-	rp := profile.ReadBalanced().WithForeignKeys(true)
-	wp := profile.WriteBalanced().WithForeignKeys(true)
-
-	db, err := qwr.New(path).
-		Reader(rp).
-		Writer(wp).
-		Checkpoint(checkpoint.Truncate).
-		Open()
+	db, err := sqlite.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -154,49 +146,8 @@ func open(path string) (*Store, error) {
 	return s, nil
 }
 
-// OpenMemory opens an in-memory store for testing. Both the document
-// database and work database are created in memory and fully migrated
-// so all domains are available immediately.
-func OpenMemory() (*Store, error) {
-	rp := profile.ReadBalanced().WithForeignKeys(true)
-	wp := profile.WriteBalanced().WithForeignKeys(true)
-
-	db, err := qwr.New("file::memory:?cache=shared").
-		Reader(rp).
-		Writer(wp).
-		Open()
-	if err != nil {
-		return nil, fmt.Errorf("opening database: %w", err)
-	}
-
-	work, err := qwr.New("file:work?mode=memory&cache=shared").
-		Reader(rp).
-		Writer(wp).
-		Open()
-	if err != nil {
-		return nil, errors.Join(fmt.Errorf("opening work database: %w", err), db.Close())
-	}
-
-	s := &Store{
-		db:       db,
-		work:     work,
-		path:     ":memory:",
-		workPath: ":memory:",
-	}
-
-	if err := s.migrate(); err != nil {
-		return nil, errors.Join(fmt.Errorf("migrating schema: %w", err), work.Close(), db.Close())
-	}
-	if err := s.migrateWork(); err != nil {
-		return nil, errors.Join(fmt.Errorf("migrating work schema: %w", err), work.Close(), db.Close())
-	}
-
-	s.wire()
-	return s, nil
-}
-
 // wire initialises the event bus and all sub-package managers. Called
-// once after migration by both open() and OpenMemory().
+// once after migration by open().
 func (s *Store) wire() {
 	s.bus = events.New()
 
@@ -234,14 +185,7 @@ func (s *Store) WorkDB() *qwr.Manager {
 		return s.work
 	}
 
-	rp := profile.ReadBalanced().WithForeignKeys(true)
-	wp := profile.WriteBalanced().WithForeignKeys(true)
-
-	db, err := qwr.New(s.workPath).
-		Reader(rp).
-		Writer(wp).
-		Checkpoint(checkpoint.Truncate).
-		Open()
+	db, err := sqlite.Open(s.workPath)
 	if err != nil {
 		slog.Error("opening work database", "path", s.workPath, "err", err)
 		return nil
@@ -266,9 +210,6 @@ func (s *Store) WorkDB() *qwr.Manager {
 func (s *Store) workOpen() bool {
 	if s.work != nil {
 		return true
-	}
-	if s.workPath == ":memory:" {
-		return false
 	}
 	_, err := os.Stat(s.workPath)
 	return err == nil
@@ -320,15 +261,8 @@ func (s *Store) Path() string {
 	return s.path
 }
 
-// Dir returns the .llmd/ directory that contains the store. For
-// in-memory stores used in tests, returns a temporary directory.
-// All callers that need the .llmd/ path should use this instead of
-// filepath.Dir(store.Path()) to avoid scattering the :memory:
-// check everywhere.
+// Dir returns the .llmd/ directory that contains the store.
 func (s *Store) Dir() string {
-	if s.path == ":memory:" {
-		return filepath.Join(os.TempDir(), "llmd-memory-store")
-	}
 	return filepath.Dir(s.path)
 }
 
