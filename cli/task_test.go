@@ -211,7 +211,7 @@ func TestTaskList(t *testing.T) {
 		{
 			name:     "board view groups every column",
 			args:     []string{"list"},
-			wantText: []string{"BACKLOG", "UP-NEXT", "IN-PROGRESS", "REVIEW", "APPROVAL", "DONE", "BLOCKED", "Alpha", "Beta", "Gamma", "no tasks"},
+			wantText: []string{"BACKLOG (2)", "UP-NEXT (0)", "IN-PROGRESS (1)", "REVIEW (0)", "APPROVAL (0)", "DONE (0)", "BLOCKED (0)", "Alpha", "Beta", "Gamma"},
 			wantData: []string{"Alpha", "Beta", "Gamma"},
 		},
 		{
@@ -225,10 +225,11 @@ func TestTaskList(t *testing.T) {
 		{name: "ls alias", args: []string{"ls"}, wantText: []string{"Alpha"}, wantData: []string{"Alpha", "Beta", "Gamma"}},
 		{name: "board alias", args: []string{"board"}, wantText: []string{"Gamma"}, wantData: []string{"Alpha", "Beta", "Gamma"}},
 		{
-			name:       "positional column is a flat table",
+			// Piped, a column is one seven-field task line per task.
+			name:       "positional column is a flat list",
 			args:       []string{"list", "backlog"},
-			wantText:   []string{"Alpha", "Beta", "ID", "TITLE"},
-			wantAbsent: []string{"Gamma", "BACKLOG", "IN-PROGRESS"},
+			wantText:   []string{"\tAlpha\tbacklog\tP1\talice\t\ttasks/alpha\n", "\tBeta\tbacklog\tP2\t\t\t\n"},
+			wantAbsent: []string{"Gamma", "BACKLOG", "IN-PROGRESS", "│"},
 			wantData:   []string{"Alpha", "Beta"},
 		},
 		{
@@ -346,7 +347,7 @@ func TestTaskListSince(t *testing.T) {
 		{
 			name:       "cutoff at the second task excludes both",
 			since:      func(_, second *sdk.Task) string { return rfc(second) },
-			wantText:   []string{"no tasks"},
+			wantText:   []string{"BACKLOG (0)"},
 			wantAbsent: []string{"First", "Second"},
 			wantData:   []string{},
 		},

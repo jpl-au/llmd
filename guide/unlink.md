@@ -8,14 +8,19 @@ Remove a link between two documents.
 llmd unlink <from> <to>
 ```
 
+## Rules
+
+- An author is required: `--author` for agents and scripts.
+- Both the source and target paths must be given, in the direction the
+  link was made. The link must exist.
+
 ## Examples
 
 ```bash
 # Remove a link
-llmd unlink notes/meeting notes/action-items
+llmd --author alice unlink notes/meeting notes/action-items
 ```
 
 ## Notes
 
-- Both the source and target paths must be specified.
-- See `llmd guide link` for creating and listing links.
+See `guide link` for creating and listing links.

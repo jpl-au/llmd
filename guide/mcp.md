@@ -1,6 +1,7 @@
 # llmd mcp
 
-Start an MCP (Model Context Protocol) server over stdio.
+Run llmd as an MCP server over stdin and stdout, so an agent's client
+calls every llmd command as a tool.
 
 ## Usage
 
@@ -8,11 +9,32 @@ Start an MCP (Model Context Protocol) server over stdio.
 llmd mcp
 ```
 
+## Rules
+
+- Every tool takes the same three fields: `args`, the command-line
+  arguments as a list of strings; `content`, text that would have come
+  on stdin, such as a document body; and `author`, who is acting.
+- `author` is required on every call that changes something (write,
+  edit, rm, mv, tag, link, task, audit and so on). Reads need none.
+  A mutation with no author falls back to the author the server was
+  started with, and is rejected if there is none.
+- Tool names match command names, except four that would clash with an
+  agent's own tools: `llmd_grep`, `llmd_find`, `llmd_glob`, `llmd_init`.
+- Responses are the plain text a piped `llmd` prints: raw markdown from
+  `cat`, `guide` and `task show`, tab-separated lines from tables, one
+  seven-field line per task from `task list` and `review`.
+- The server talks only over stdin and stdout; the agent's client
+  starts it, not you.
+
 ## Examples
 
 ```bash
-# Start the MCP server
+# Start the MCP server (an MCP client does this for you)
 llmd mcp
+```
+
+```json
+{"author": "Claude", "args": ["notes/summary"], "content": "Meeting notes..."}
 ```
 
 ## What the agent sees
@@ -25,38 +47,21 @@ both cost context in every session, so both are kept short:
   and where to find help. The client shows them to the model once.
 - **The tool list** - one tool per command with a short description:
   a summary, the usage line, the flags and `Details: guide <command>`.
-  The prose that `llmd <command> --help` shows is left out; the model
-  calls `guide` when it needs it. The whole list is held under 12 KB
-  by a test.
+  The prose that `llmd <command> --help` shows a person at a terminal
+  is left out; the model calls `guide` when it needs it. The whole
+  list is held under 14 KB by a test.
 
-## Notes
-
-- Communicates over stdin/stdout using the MCP protocol.
-- Exposes llmd commands as MCP tools.
-- Tool names match command names, except: `grep` becomes `llmd_grep`,
-  `find` becomes `llmd_find`, `glob` becomes `llmd_glob`, `init` becomes
-  `llmd_init`.
-- `args`, `content` and `author` are all optional. Read-only tools need
-  no author; mutations without one fall back to the author the server
-  was started with.
+The tool description is the same text a model gets from `llmd
+<command> --help` when llmd is run in a shell and its output is piped:
+one agent help, two ways to read it.
 
 ## Tool input schema
-
-All tools accept a JSON input with the following fields:
 
 | Field | Description |
 |-------|-------------|
 | `args` | Command arguments (array of strings) |
 | `content` | Document content for write/edit (string) |
 | `author` | **Required for mutations.** Identifies the LLM or agent making the change. |
-
-Read-only tools (cat, ls, grep, etc.) do not require `author`. All mutation
-tools (write, edit, rm, mv, tag, link, task, audit, etc.) will reject calls that
-do not include `author`.
-
-```json
-{"author": "Claude", "args": ["notes/summary"], "content": "Meeting notes..."}
-```
 
 The `author` field exists so that changes made by LLMs are correctly
 attributed and distinguishable from human-authored changes in the version

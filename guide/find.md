@@ -1,19 +1,29 @@
 # llmd find
 
-Full-text search returning matching paths only.
+Full-text search that prints only the paths of matching documents.
 
 ## Usage
 
 ```
-llmd find [flags] <query> [<path>]
+llmd find <query> [<path>]      Paths of documents matching the query, under an optional prefix
 ```
 
 ## Flags
 
 | Flag | Description |
 |------|-------------|
-| `--limit N` | Maximum paths to return (default 500) |
+| `--limit <int>` | Maximum paths to return (default 500) |
 | `--all` | Return every match, no limit |
+
+## Rules
+
+- Reads need no author.
+- The query uses FTS5 syntax, the same as `llmd grep`: bare words are
+  an implicit AND, `OR` and `NOT` are operators, `"a phrase"` matches
+  exactly, `word*` matches a prefix.
+- At most 500 paths are returned unless `--limit N` or `--all`, so a
+  broad query on a large store stays bounded. No match prints nothing.
+- Output is one path per line, ready for piping.
 
 ## Examples
 
@@ -36,7 +46,6 @@ llmd find database notes/
 
 ## Notes
 
-- Uses the same FTS5 syntax as `llmd grep`. See `llmd guide grep` for query details.
-- Output is one path per line, suitable for piping.
-- Defaults to 500 matches so queries on large stores stay bounded.
-  Use `--all` or `--limit` to change the cap.
+find is `llmd grep -l` under another name, for when only the paths
+matter. See `guide grep` for the query syntax in full and for
+searching with content.

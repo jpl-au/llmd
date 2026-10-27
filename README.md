@@ -30,7 +30,12 @@ accessible even without llmd: just use SQLite3's command line interface.
 ### llmd teaches itself to your agents
 
 `llmd guide` provides full documentation with examples and workflows.
-AI agents are prompted to start there.
+AI agents are prompted to start there. Every guide page puts the rules
+and the syntax first and the explanation after, so a model that reads
+only the first screen still gets the call right. When output is piped,
+as it is for an agent in a shell, `llmd <command> --help` prints the
+same short form the MCP tool list carries, and tables come out as
+tab-separated lines.
 
 ```bash
 llmd guide              # Full guide with all commands

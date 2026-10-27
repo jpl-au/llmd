@@ -96,7 +96,11 @@ func review(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if !isTTY() {
-		text := plainReview(tasks)
+		specs, err := ctx.Tasks.CheckSpecs(tasks)
+		if err != nil {
+			slog.Debug("checking task specs for review", "error", err)
+		}
+		text := plainTaskLines(tasks, specs)
 		if note != "" {
 			text += note + "\n"
 		}
@@ -209,18 +213,4 @@ func linkedDocs(ctx sdk.Context, path string) []sdk.Link {
 		return nil
 	}
 	return links
-}
-
-// plainReview renders a tab-separated task listing for piped output.
-func plainReview(tasks []*sdk.Task) string {
-	var b strings.Builder
-	for _, t := range tasks {
-		fmt.Fprintf(&b, "%s\t%s\t%s\tP%d\t%s",
-			t.Key, t.Title, t.Status, t.Priority, t.AssignedTo)
-		if t.Flags != "" {
-			fmt.Fprintf(&b, "\t%s", t.Flags)
-		}
-		b.WriteByte('\n')
-	}
-	return b.String()
 }

@@ -47,20 +47,15 @@ func taskLog(ctx sdk.Context, args []string) (sdk.Response, error) {
 		headers = []string{"TIME", "TASK", "ACTOR", "ACTION", "OLD", "NEW"}
 	}
 
-	t := table.New().
-		Headers(headers...).
-		Border(lipgloss.RoundedBorder()).
-		BorderRow(false).
-		BorderStyle(tblBorder).
-		StyleFunc(func(row, col int) lipgloss.Style {
-			if row == table.HeaderRow {
-				return tblHeader
-			}
-			if col == 0 {
-				return tblDim
-			}
-			return tblCell
-		})
+	t := newTable(headers...).Style(func(row, col int) lipgloss.Style {
+		if row == table.HeaderRow {
+			return tblHeader
+		}
+		if col == 0 {
+			return tblDim
+		}
+		return tblCell
+	})
 
 	for _, e := range events {
 		ts := time.UnixMilli(e.Timestamp).Format("2006-01-02 15:04")

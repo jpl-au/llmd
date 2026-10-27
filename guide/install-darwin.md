@@ -1,5 +1,18 @@
 # Installing llmd on macOS
 
+How to put a downloaded `llmd` binary on your PATH on macOS and run
+it for the first time.
+
+## Quick reference
+
+```
+xattr -d com.apple.quarantine llmd      # clear the download quarantine
+sudo mv llmd /usr/local/bin/            # system-wide, or:
+mkdir -p ~/.local/bin && mv llmd ~/.local/bin/
+llmd version                            # verify
+llmd init && llmd config author "Your Name" && llmd guide
+```
+
 ## Remove quarantine
 
 macOS quarantines unsigned binaries downloaded from the internet. Clear

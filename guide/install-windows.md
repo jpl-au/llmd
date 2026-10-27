@@ -1,5 +1,18 @@
 # Installing llmd on Windows
 
+How to put a downloaded `llmd.exe` on your PATH on Windows and run it
+for the first time.
+
+## Quick reference
+
+```
+mkdir %USERPROFILE%\bin
+move llmd.exe %USERPROFILE%\bin\
+(add %USERPROFILE%\bin to your PATH, then open a new terminal)
+llmd version
+llmd init && llmd config author "Your Name" && llmd guide
+```
+
 ## Install
 
 1. Create a directory for the binary:

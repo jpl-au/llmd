@@ -329,7 +329,7 @@ literals, `min`/`max`, `for range n`).
 
 Three static terminal views provide human-friendly overviews. All use lipgloss
 v2 (`charm.land/lipgloss/v2`) for styled output in terminals and fall back to
-plain text when piped.
+plain text when piped (see "Two Audiences, One Source").
 
 | Command | File | Description |
 |---------|------|-------------|
@@ -537,6 +537,63 @@ a document.
 transaction to make audit records atomic with the surrounding operation.
 Use `audit.Record` only for standalone operations that do not share a
 transaction.
+
+## Two Audiences, One Source
+
+llmd is used by people at a terminal and by agents, through the same
+commands. The facts are the same for both; the shape differs. A person
+wants prose, colour and tables. A model pays for every word, cannot
+scan a table, and acts on error text. llmd serves both from one source
+rather than two command sets or two sets of documentation, which would
+drift apart.
+
+**Command help.** The fields on `sdk.Command` (`Desc`, `Usage`,
+`Flags`, and optionally `Brief`) are written once. Three renderings
+read them:
+
+| Rendering | Where | Built by |
+|-----------|-------|----------|
+| Terminal `--help` | `llmd <cmd> --help` at a TTY | `cmdHelp(c, true)` in `help.go`: whole `Desc`, usage, flags, global flags |
+| Agent `--help` | `llmd <cmd> --help` piped | `cmdHelp(c, false)`: `c.AgentHelp()` plus one line of global flags |
+| MCP tool list | every MCP session start | `registerTool` in `cli/mcp.go`: `c.AgentHelp()` |
+
+`Command.Summary()` is the first paragraph of `Desc`. `AgentHelp()` is
+`Summary` plus the flags and `Details: guide <name>`, or `Brief` alone
+when set. Set `Brief` on a command whose generated form would run long
+(subcommands, many flags) and keep it to a few lines; the MCP tool
+list is held under 14 KB by `TestMCPToolListBudget`. `mcpInstructions`
+in `cli/mcp.go` is the one message a model sees at connect time; the
+`guide` index page says the same things for a model in a shell.
+
+**Command output.** `isTTY()` (stdout is a character device) chooses
+the shape, not just the colour. Piped output is for a model or a
+script:
+
+- `newTable` returns a `grid` (`cli/styles.go`): a bordered lipgloss
+  table at a terminal, tab-separated lines with a header line when
+  piped. Every tabular command uses it; never call `table.New`
+  directly for a list.
+- Tasks print as `plainTaskLine` (`cli/task_board.go`): seven
+  tab-separated fields, `key title column P<n> assignee flags spec`,
+  shared by `task list` and `review`. `task list` groups them under
+  `COLUMN (count)` headings.
+- Markdown (`cat`, `guide`, `task show`) is rendered at a terminal and
+  raw when piped (`renderMarkdown` in `output.go`).
+- Output that grows without bound is capped and says so, with `--all`
+  to lift the cap: `ls` 500 documents, `diff` 500 lines, `task list`
+  the newest 10 done tasks, `review` leaves out done and human tasks.
+- Error text names the next command to run where there is one (spec
+  gating, `task next` with nothing ready).
+
+**Guides.** Every page in `guide/` is dense-first: a title, one plain
+sentence, `## Usage`, `## Flags`, `## Rules` (what is required, refused,
+capped, and what piped output looks like), `## Examples`, then prose.
+A model that reads only the first screen still makes the right call;
+a person reads on. `TestGuideShape` and `TestGuideFlagsExist` in
+`cli/guide_test.go` hold pages to the shape and to the command specs:
+every flag in a spec appears on its page, and every flag a page uses
+for its command exists. Per-subcommand flags are listed by hand in
+`subcommandFlags` there; add to it when a subcommand gains a flag.
 
 ## MCP Server
 

@@ -1,27 +1,46 @@
 # llmd review
 
-Review pending tasks with inline context. Shows task metadata, spec
-document previews, and linked documents - everything you need to pick
-up work or check on progress.
+List the tasks that are waiting for someone, each with its spec
+preview and linked documents, so you can pick up work or check
+progress.
 
 ## Usage
 
 ```
 llmd review [--column name] [-n limit] [--all]
+llmd review <column>                        Same as --column
 ```
 
 ## Flags
 
 | Flag | Description |
 |------|-------------|
-| `--column <name>` | Filter by column (e.g. `in-progress`) |
-| `-n N` | Maximum tasks to show |
+| `--column <name>` | Only this column (e.g. `in-progress`) |
+| `-n <limit>` | Maximum tasks to show |
 | `--all` | Include done tasks and tasks flagged `human` |
+
+## Rules
+
+- Read-only. No author is needed.
+- Without a column, done tasks and tasks flagged `human` are left out,
+  and a final line counts them: `(2 done, 1 human not shown; use
+  --all)`. Asking for a column, or passing `--all`, shows everything.
+- `--column` wins when a column is also given as an argument. `-n`
+  applies after the filtering above.
+- Piped, each task is one line of seven tab-separated fields: `key
+  title column P<priority> assignee flags spec`, where spec is the
+  document path when the spec document exists and empty otherwise. The
+  same line shape as `task list`.
+- At a terminal each task is a card: key, title and column, then
+  priority, assignee and flags, then the spec preview and the links.
+- `--json` returns, per task, the task, its spec preview and its links.
+- Spec previews skip the title heading and leading blank lines. A
+  task without a spec document shows metadata only.
 
 ## Examples
 
 ```bash
-# Review all tasks
+# Review what is pending
 llmd review
 
 # Just what's in progress
@@ -31,39 +50,22 @@ llmd review --column in-progress
 # Top 3 tasks only
 llmd review -n 3
 
+# Everything, done and human tasks included
+llmd review --all
+
 # Machine-readable
 llmd review --json
 ```
-
-## Output
-
-For each task, the review shows:
-
-- **Header** - task key, title, and column
-- **Metadata** - priority, assigned to, flags
-- **Spec preview** - first few lines of the task's spec document
-- **Links** - documents linked to the task
 
 ## Next steps
 
 After reviewing a task:
 
-- **Read the full spec** - `llmd task show <id>` for complete details.
-- **Flag an issue** - `llmd audit add <id> "description"` to open a
+- Read the full spec with `llmd task show <id>`.
+- Flag an issue with `llmd audit add <id> "description"` to open a
   review thread. Use `--assign` to direct it to the coder.
-- **Approve the work** - `llmd task finish <id>` to move it to done.
-- **Check for existing feedback** - `llmd audit list <id>` to see
-  whether there are already open threads on this task.
+- Approve the work with `llmd task finish <id>` to move it to done.
+- Check for existing feedback with `llmd audit list <id>`.
 
-See `guide workflow` for the full task lifecycle and review process.
-
-## Notes
-
-- Output is styled when run in a terminal. Piped output is plain
-  tab-separated text, suitable for scripts and LLMs.
-- Without a column, done tasks and tasks flagged `human` are left
-  out and a final line counts them. Asking for a column, or passing
-  `--all`, shows everything.
-- Spec previews skip the title heading and leading blank lines.
-- Tasks without a spec document show metadata only.
-- Use `llmd task show <id>` for the full spec body.
+See `guide workflow` for the full task lifecycle and review process,
+and `guide task` for the board itself.

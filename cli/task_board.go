@@ -43,14 +43,17 @@ var (
 			Padding(0, 1)
 )
 
-// formatBoard renders the board view grouped by column. hiddenDone is
-// how many done tasks were left out of tasks; when positive, the done
+// formatBoard renders the board grouped by column. At a terminal each
+// column is a styled table; piped, each is a heading with a count and
+// one plain task line per task (see plainTaskLine). hiddenDone is how
+// many done tasks were left out of tasks; when positive, the done
 // column ends with a line saying so.
 func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task, hiddenDone int) string {
 	specs, err := ctx.Tasks.CheckSpecs(tasks)
 	if err != nil {
 		slog.Debug("checking task specs for board", "error", err)
 	}
+	tty := isTTY()
 
 	byStatus := make(map[string][]*sdk.Task)
 	for _, t := range tasks {
@@ -59,22 +62,27 @@ func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task, hiddenDone i
 
 	var b strings.Builder
 	for i, col := range cols {
-		if i > 0 {
+		if i > 0 && tty {
 			b.WriteByte('\n')
 		}
 
 		tt := byStatus[col]
-		heading := colHeader.Render(strings.ToUpper(col)) +
-			" " + colCount.Render(fmt.Sprintf("(%d)", len(tt)))
-		b.WriteString(heading)
+		if tty {
+			b.WriteString(colHeader.Render(strings.ToUpper(col)) + " " + colCount.Render(fmt.Sprintf("(%d)", len(tt))))
+		} else {
+			fmt.Fprintf(&b, "%s (%d)", strings.ToUpper(col), len(tt))
+		}
 		b.WriteByte('\n')
 
-		if len(tt) == 0 {
+		switch {
+		case len(tt) == 0 && tty:
 			b.WriteString(emptyCol.Render("no tasks"))
 			b.WriteByte('\n')
-		} else {
+		case len(tt) > 0 && tty:
 			b.WriteString(taskTable(tt, specs))
 			b.WriteByte('\n')
+		case len(tt) > 0:
+			b.WriteString(plainTaskLines(tt, specs))
 		}
 		if col == "done" && hiddenDone > 0 {
 			b.WriteString(emptyCol.Render(fmt.Sprintf("%d more done; use --all or --column done", hiddenDone)))
@@ -84,7 +92,8 @@ func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task, hiddenDone i
 	return b.String()
 }
 
-// formatTaskTable renders a flat table of tasks.
+// formatTaskTable renders a flat list of tasks: a table at a terminal,
+// plain task lines piped.
 func formatTaskTable(ctx sdk.Context, tasks []*sdk.Task) string {
 	if len(tasks) == 0 {
 		return emptyCol.Render("no tasks")
@@ -93,7 +102,36 @@ func formatTaskTable(ctx sdk.Context, tasks []*sdk.Task) string {
 	if err != nil {
 		slog.Debug("checking task specs for table", "error", err)
 	}
+	if !isTTY() {
+		return plainTaskLines(tasks, specs)
+	}
 	return taskTable(tasks, specs)
+}
+
+// plainTaskLine is the one-line form of a task for piped output,
+// shared by task list and review so an agent learns it once. Seven
+// tab-separated fields, always present, empty when unset:
+//
+//	key  title  column  P<priority>  assignee  flags  spec
+//
+// spec is the document path when the spec document exists, else empty.
+func plainTaskLine(t *sdk.Task, hasSpec bool) string {
+	spec := ""
+	if hasSpec {
+		spec = t.Path
+	}
+	return fmt.Sprintf("%s\t%s\t%s\tP%d\t%s\t%s\t%s", t.Key, t.Title, t.Status, t.Priority, t.AssignedTo, t.Flags, spec)
+}
+
+// plainTaskLines renders one plainTaskLine per task, each ending in a
+// newline.
+func plainTaskLines(tasks []*sdk.Task, specs map[string]bool) string {
+	var b strings.Builder
+	for _, t := range tasks {
+		b.WriteString(plainTaskLine(t, specs[t.Key]))
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 // taskTable renders a terminal table using lipgloss.

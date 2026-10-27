@@ -1,5 +1,17 @@
 # Installing llmd on Linux
 
+How to put a downloaded `llmd` binary on your PATH on Linux and run it
+for the first time.
+
+## Quick reference
+
+```
+sudo mv llmd /usr/local/bin/            # system-wide, or:
+mkdir -p ~/.local/bin && mv llmd ~/.local/bin/
+llmd version                            # verify
+llmd init && llmd config author "Your Name" && llmd guide
+```
+
 ## Install
 
 Move the binary to a directory on your PATH:

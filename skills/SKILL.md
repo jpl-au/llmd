@@ -173,7 +173,8 @@ rule set <col> [flags]         configure automation (--agent, --role, --success,
 
 ```
 task add "Fix auth tokens"     create task with spec in content param
-task move <id> in-progress     claim the work
+task move <id> up-next         queue it
+task next                      claim the first ready task: moves it to in-progress, assigns it to you, returns the spec
 (do the work)
 task move <id> review          submit for review
 audit add <id> "Looks good"   leave review feedback

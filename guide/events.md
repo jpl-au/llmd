@@ -1,9 +1,15 @@
 # llmd events
 
-Real-time event system for reacting to store mutations. Every write,
-delete, move, tag, link, audit, and task operation emits an event.
+Every change to the store raises an event, which `llmd serve` streams
+to clients and which agents can also pick up by polling.
 
-## Event types
+## Quick reference
+
+```
+curl -N http://localhost:5563/events                         Stream all events (SSE)
+curl -N "http://localhost:5563/events?type=a,b"              Only these types
+llmd audit list --since 5m                                   Poll instead, from the CLI
+```
 
 All 19 event types across 6 domains:
 
@@ -28,6 +34,17 @@ All 19 event types across 6 domains:
 | Task     | `task.deleted`      | Task soft-deleted               |
 | Task     | `task.restored`     | Deleted task restored           |
 | Store    | `store.changed`     | Another process changed a database (see below) |
+
+Rules:
+
+- Typed events come from the process that made the change. `llmd
+  serve` sees its own; the command line, an MCP session and a spawned
+  agent are other processes, and their writes reach the server only
+  as `store.changed`.
+- `store.changed` names the file (`llmd.db` or `work.db`), nothing
+  more: reread what matters. It goes to SSE and webhook clients only.
+- Slow SSE clients have events dropped rather than block the server.
+- Webhooks retry on network errors and 5xx responses, not on 4xx.
 
 ## Event payload
 

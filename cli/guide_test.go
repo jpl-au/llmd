@@ -1,101 +1,141 @@
 package cli
 
 import (
-	"errors"
-	"runtime"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/host"
+	"github.com/jpl-au/llmd/guide"
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// TestGuide covers the overview, command and workflow topics, the
-// install alias, the unknown-topic error with its topic list, and
-// flag parsing. guide is storeless, so each case dispatches through
-// both a store-backed and a storeless host.
-func TestGuide(t *testing.T) {
-	tests := []struct {
-		name       string
-		args       []string
-		wantText   []string
-		wantAbsent []string
-		wantErr    error
-		wantErrMsg []string // substrings of the error message
-	}{
-		{
-			name:     "overview",
-			args:     nil,
-			wantText: []string{"# llmd guide", "## Commands", "`cat`", "`vacuum`"},
-		},
-		{
-			name:     "overview by name",
-			args:     []string{"guide"},
-			wantText: []string{"# llmd guide"},
-		},
-		{
-			name:       "command topic",
-			args:       []string{"cat"},
-			wantText:   []string{"# llmd cat", "## Usage"},
-			wantAbsent: []string{"# llmd guide"},
-		},
-		{
-			name:     "workflow topic",
-			args:     []string{"workflow"},
-			wantText: []string{"# "},
-		},
-		{
-			name:     "install resolves to the platform guide",
-			args:     []string{"install"},
-			wantText: []string{"# Installing llmd on " + platformName()},
-		},
-		{
-			name:       "unknown topic",
-			args:       []string{"nope"},
-			wantErr:    sdk.ErrNotFound,
-			wantErrMsg: []string{"nope", "Available:", "cat", "workflow"},
-		},
-		{
-			name:    "unknown flag",
-			args:    []string{"--bogus"},
-			wantErr: sdk.ErrInvalidArg,
-		},
+// guidePageFor maps a command to its guide page when the names differ.
+var guidePageFor = map[string]string{"hook": "hooks"}
+
+// TestGuideShape is the guard for the guide pages' dense-first shape:
+// a title, then one plain paragraph saying what the page covers, before
+// any heading, table or code. A command's page also has a Usage section
+// that shows the command, and names every flag the command's spec
+// declares, so the page cannot drift from the code.
+func TestGuideShape(t *testing.T) {
+	names, err := guide.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	names = append(names, "guide")
+	cmds := (&CLI{}).Commands()
+	pages := make(map[string]bool, len(names))
+	for _, name := range names {
+		pages[name] = true
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stored := newCLI(t, "alice")
-			storeless := host.New().Context(t.Context(), "")
-			for label, c := range map[string]sdk.Context{"store": stored, "storeless": storeless} {
-				if tt.wantErr != nil {
-					err := runErr(t, c, "guide", nil, tt.args...)
-					if !errors.Is(err, tt.wantErr) {
-						t.Errorf("[%s] guide %v error = %v, want %v", label, tt.args, err, tt.wantErr)
-					}
-					for _, want := range tt.wantErrMsg {
-						if err == nil || !strings.Contains(err.Error(), want) {
-							t.Errorf("[%s] guide %v error = %v, want to mention %q", label, tt.args, err, want)
-						}
+	for _, name := range names {
+		t.Run(name, func(t *testing.T) {
+			text, err := guide.Get(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines := strings.Split(text, "\n")
+			if !strings.HasPrefix(lines[0], "# ") {
+				t.Errorf("first line = %q, want a # title", lines[0])
+			}
+			summary := ""
+			for _, l := range lines[1:] {
+				if strings.TrimSpace(l) == "" {
+					if summary != "" {
+						break
 					}
 					continue
 				}
-				resp := run(t, c, "guide", nil, tt.args...)
-				md, ok := resp.(sdk.Markdown)
-				if !ok {
-					t.Errorf("[%s] guide %v response type = %T, want sdk.Markdown", label, tt.args, resp)
+				summary += l
+			}
+			switch {
+			case summary == "":
+				t.Error("no summary paragraph after the title")
+			case strings.HasPrefix(summary, "#"), strings.HasPrefix(summary, "|"), strings.HasPrefix(summary, "```"), strings.HasPrefix(summary, "- "):
+				t.Errorf("summary = %q, want a plain sentence before any heading, table, code or list", summary)
+			}
+		})
+	}
+
+	for _, cmd := range cmds {
+		page := cmd.Name
+		if p, ok := guidePageFor[page]; ok {
+			page = p
+		}
+		if !pages[page] {
+			continue
+		}
+		t.Run("command/"+cmd.Name, func(t *testing.T) {
+			text, err := guide.Get(page)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(text, "\n## Usage\n") {
+				t.Error("no ## Usage section")
+			}
+			if !strings.Contains(text, "llmd "+cmd.Name) {
+				t.Errorf("never shows `llmd %s`", cmd.Name)
+			}
+			for _, f := range cmd.Flags {
+				if !mentionsFlag(text, f) {
+					t.Errorf("flag --%s is in the spec but not on the page", f.Name)
 				}
-				if md.Data != nil {
-					t.Errorf("[%s] guide %v Data = %v, want nil (markdown is the payload)", label, tt.args, md.Data)
+			}
+		})
+	}
+}
+
+// mentionsFlag reports whether a page names the flag in any of its
+// spellings: --name, -s for a short form, or -x for a one-letter name.
+func mentionsFlag(text string, f sdk.Flag) bool {
+	if strings.Contains(text, "--"+f.Name) {
+		return true
+	}
+	if f.Short != "" && strings.Contains(text, "-"+f.Short) {
+		return true
+	}
+	return len(f.Name) == 1 && strings.Contains(text, "-"+f.Name)
+}
+
+// TestGuideFlagsExist is the other direction of TestGuideShape: a
+// long flag a command page documents for its own command must exist
+// in the spec, so a renamed or removed flag does not live on in the
+// guide. Flags inside bash blocks are checked too, since those are
+// the lines agents copy.
+func TestGuideFlagsExist(t *testing.T) {
+	flagRe := regexp.MustCompile(`--([a-z][a-z-]*)`)
+	for _, cmd := range (&CLI{}).Commands() {
+		page := cmd.Name
+		if p, ok := guidePageFor[page]; ok {
+			page = p
+		}
+		data, err := os.ReadFile(filepath.Join("..", "guide", page+".md"))
+		if err != nil {
+			continue // no page for this command
+		}
+		known := map[string]bool{"author": true, "json": true, "db": true, "help": true, "verbose": true, "global": true}
+		for _, f := range cmd.Flags {
+			known[f.Name] = true
+		}
+		for _, f := range subcommandFlags[cmd.Name] {
+			known[f] = true
+		}
+		t.Run(cmd.Name, func(t *testing.T) {
+			for line := range strings.SplitSeq(string(data), "\n") {
+				// Only lines that invoke this very command are the agent's
+				// copy source; other commands' flags may appear in prose.
+				if !strings.Contains(line, "llmd "+cmd.Name+" ") && !strings.Contains(line, "llmd --author") {
+					continue
 				}
-				got := text(resp)
-				for _, want := range tt.wantText {
-					if !strings.Contains(strings.ToLower(got), strings.ToLower(want)) {
-						t.Errorf("[%s] guide %v = %.80q..., want to contain %q", label, tt.args, got, want)
-					}
+				if !strings.Contains(line, " "+cmd.Name+" ") {
+					continue
 				}
-				for _, absent := range tt.wantAbsent {
-					if strings.Contains(got, absent) {
-						t.Errorf("[%s] guide %v must not contain %q", label, tt.args, absent)
+				for _, m := range flagRe.FindAllStringSubmatch(line, -1) {
+					if !known[m[1]] {
+						t.Errorf("line %q uses --%s, which %s does not have", line, m[1], cmd.Name)
 					}
 				}
 			}
@@ -103,34 +143,13 @@ func TestGuide(t *testing.T) {
 	}
 }
 
-// TestGuideCoversCommands checks that every registered command with
-// a guide page is reachable by name and that the overview mentions
-// each of the commands under test here.
-func TestGuideCoversCommands(t *testing.T) {
-	c := newCLI(t, "alice")
-	overview := text(run(t, c, "guide", nil))
-	for _, cmd := range []string{"tag", "link", "unlink", "import", "export", "mirror", "vacuum", "version", "config", "init", "guide", "status", "review"} {
-		if !strings.Contains(overview, "`"+cmd+"`") {
-			t.Errorf("guide overview does not mention `%s`", cmd)
-		}
-		if cmd == "version" {
-			continue // version has no guide page
-		}
-		got := text(run(t, c, "guide", nil, cmd))
-		if !strings.HasPrefix(got, "# llmd "+cmd) {
-			t.Errorf("guide %s = %.40q, want to start with %q", cmd, got, "# llmd "+cmd)
-		}
-	}
-}
-
-// platformName is how the install guides name the current platform.
-func platformName() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "macOS"
-	case "windows":
-		return "Windows"
-	default:
-		return "Linux"
-	}
+// subcommandFlags lists flags that belong to a subcommand rather than
+// the command's top-level spec, so pages may use them in examples. Kept
+// by hand from the per-subcommand flag lists in cli/<command>*.go.
+var subcommandFlags = map[string][]string{
+	"task":  {"column", "priority", "assign", "branch", "depends-on", "path", "file", "flag", "unflag", "position", "after", "base", "stat", "from", "to", "all", "title", "since", "budget", "name", "n"},
+	"audit": {"status", "assign", "file", "version", "by-author", "pending", "since", "all"},
+	"queue": {"assign", "limit", "since", "n", "all"},
+	"rule":  {"agent", "role", "success", "failure", "resume"},
+	"agent": {"command", "status", "task", "agent", "exit-code", "worktree"},
 }

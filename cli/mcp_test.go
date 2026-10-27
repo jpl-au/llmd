@@ -130,8 +130,8 @@ func TestMCPRegisterTool(t *testing.T) {
 		}
 		switch tool.Name {
 		case "queue":
-			// A command with an MCPDesc owns its text: no generated flags.
-			for _, want := range []string{queueSpec.MCPDesc, "\nUsage: llmd queue <subcommand> [options]", "\nDetails: guide queue"} {
+			// A command with an Brief owns its text: no generated flags.
+			for _, want := range []string{queueSpec.Brief, "\nUsage: llmd queue <subcommand> [options]", "\nDetails: guide queue"} {
 				if !strings.Contains(tool.Description, want) {
 					t.Errorf("queue tool description = %q, want to contain %q", tool.Description, want)
 				}
@@ -143,7 +143,7 @@ func TestMCPRegisterTool(t *testing.T) {
 			}
 		case "history":
 			// A command without one gets the first paragraph and its flags.
-			for _, want := range []string{firstParagraph(historySpec.Desc) + "\n", "\nUsage: llmd history", "\nFlags:", "\n  --n <int>  Maximum versions", "\n  --all  Show every version", "\nDetails: guide history"} {
+			for _, want := range []string{historySpec.Summary() + "\n", "\nUsage: llmd history", "\nFlags:", "\n  --n <int>  Maximum versions", "\n  --all  Show every version", "\nDetails: guide history"} {
 				if !strings.Contains(tool.Description, want) {
 					t.Errorf("history tool description = %q, want to contain %q", tool.Description, want)
 				}

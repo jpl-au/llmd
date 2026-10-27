@@ -288,11 +288,32 @@ func TestHelp(t *testing.T) {
 	}
 
 	cat := cmds["cat"]
-	out = capture(t, &os.Stdout, func() { printCmdHelp(cat) })
-	for _, want := range []string{"cat - ", "Usage:\n  llmd cat", "Flags:", "--version <int>", "--offset <int>", "    --n ", "Global Flags:", "--author <name>"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("cat help lacks %q:\n%s", want, out)
+	t.Run("terminal form", func(t *testing.T) {
+		out := cmdHelp(cat, true)
+		for _, want := range []string{"cat - " + cat.Desc, "Usage:\n  llmd cat", "Flags:", "--version <int>", "--offset <int>", "    --n ", "Global Flags:", "--author <name>"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("cat help lacks %q:\n%s", want, out)
+			}
 		}
+	})
+	t.Run("piped form is the agent help", func(t *testing.T) {
+		out := cmdHelp(cat, false)
+		if !strings.HasPrefix(out, cat.AgentHelp()+"\n") {
+			t.Errorf("piped cat help = %q, want to start with AgentHelp", out)
+		}
+		for _, want := range []string{"Details: guide cat", "--author <name>", "--json"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("piped cat help lacks %q:\n%s", want, out)
+			}
+		}
+		if strings.Contains(out, "Global Flags:") || strings.Contains(out, cat.Desc) {
+			t.Errorf("piped cat help carries the terminal form:\n%s", out)
+		}
+	})
+	// printCmdHelp picks the form from stdout; under test that is a pipe.
+	out = capture(t, &os.Stdout, func() { printCmdHelp(cat) })
+	if out != cmdHelp(cat, false) {
+		t.Errorf("printCmdHelp to a pipe = %q, want the piped form", out)
 	}
 }
 
@@ -327,7 +348,7 @@ func TestRun(t *testing.T) {
 	}{
 		{name: "no arguments shows help", args: nil, wantOut: []string{"Usage:", "Reading:"}},
 		{name: "version", args: []string{"version"}, wantOut: []string{"Build Tag:", "Go Version:"}},
-		{name: "command help", args: []string{"cat", "--help"}, wantOut: []string{"Usage:\n  llmd cat"}},
+		{name: "command help", args: []string{"cat", "--help"}, wantOut: []string{"Usage: llmd cat", "Details: guide cat"}},
 		{name: "help for an unknown command", args: []string{"nope", "--help"}, wantCode: 1, wantErr: []string{"unknown command: nope"}},
 		{name: "bad global flag", args: []string{"--db"}, wantCode: 1, wantErr: []string{"--db requires a path"}},
 		{name: "store missing", args: []string{"ls"}, wantCode: 1, wantErr: []string{"store not found"}},
@@ -335,8 +356,8 @@ func TestRun(t *testing.T) {
 		{name: "write from stdin", args: []string{"--author", "alice", "write", "docs/a"}, stdin: "# A\n", wantOut: []string{"Wrote docs/a"}},
 		{name: "cat", args: []string{"cat", "docs/a"}, wantOut: []string{"# A"}},
 		{name: "cat as json", args: []string{"--json", "cat", "docs/a"}, wantOut: []string{`"# A\n"`}},
-		{name: "missing argument shows command help", args: []string{"cat"}, wantCode: 1, wantOut: []string{"Usage:\n  llmd cat"}},
-		{name: "write without author", args: []string{"write", "docs/b"}, stdin: "x", wantCode: 1, wantOut: []string{"Usage:\n  llmd write"}},
+		{name: "missing argument shows command help", args: []string{"cat"}, wantCode: 1, wantOut: []string{"Usage: llmd cat"}},
+		{name: "write without author", args: []string{"write", "docs/b"}, stdin: "x", wantCode: 1, wantOut: []string{"Usage: llmd write", "--author <name>"}},
 		{name: "not found", args: []string{"cat", "docs/missing"}, wantCode: 1, wantErr: []string{"not found"}},
 		{name: "json error", args: []string{"--json", "cat", "docs/missing"}, wantCode: 1, wantErr: []string{`{"error":"`}},
 	}

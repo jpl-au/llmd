@@ -1,7 +1,38 @@
 # Workflow guide
 
-Best practices for using llmd as a working document store with
-agent orchestration.
+How to use llmd day to day: writing and versioning documents, moving
+tasks across the board, and letting agents and people share the work.
+
+## Quick reference
+
+```
+llmd config author "Alice"                 Set your author once (people only)
+llmd --author <name> <command>             Agents and scripts name themselves on every change
+echo "text" | llmd write notes/plan        Write a document; every write is a new version
+llmd edit notes/plan "old" "new"           Search and replace
+llmd history notes/plan                    Versions; diff, revert, cat --version to inspect or undo
+llmd task add "Title" < spec.md            Create a task with a spec
+llmd task move <id> up-next                Queue it for work
+llmd --author <agent> task next            Claim the first ready task and get its spec
+llmd --author <agent> task move <id> review   Hand the work over
+llmd --author <reviewer> audit add <id> "..." --assign <agent>   Give feedback
+llmd --author <reviewer> task finish <id>  Approve and close
+```
+
+Rules:
+
+- Every change carries an author. People set one with `config author`;
+  agents must pass `--author` instead and never change the configured
+  author.
+- Paths use forward slashes and no leading slash. A single word is a
+  fine path; add hierarchy only to group related documents.
+- A task cannot leave the backlog until its spec says more than its
+  title.
+- The default columns, in order: backlog, up-next, in-progress, review,
+  approval, done. Failed work goes to blocked for a person to look at.
+- Pick up work with `task next` rather than choosing from the board: it
+  is one write, so two workers never take the same task. Tasks flagged
+  `human` are for the user; `next` passes them over.
 
 ## Set up your author
 
@@ -133,7 +164,8 @@ title heading (spec gating).
 
 ```
 llmd task move a1b2c3d4e up-next        # ready to start
-llmd task move a1b2c3d4e in-progress    # claimed, work underway
+llmd --author claude-code task next     # claim the first ready task, get its spec
+llmd task move a1b2c3d4e in-progress    # or claim a chosen task by hand
 llmd task move a1b2c3d4e review         # work done, ready for review
 llmd task finish a1b2c3d4e              # approved, move to done
 ```

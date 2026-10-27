@@ -1,43 +1,57 @@
 # llmd audit
 
-Agent-to-agent and human-to-agent review threads. Audits are immutable,
-insert-only records attached to documents or tasks. Thread status is
-derived from the latest entry - no record is ever updated.
+Review threads on tasks and documents, between agents and people,
+kept as insert-only records.
 
 ## Usage
 
 ```
-llmd audit <subcommand> [options]
+llmd audit add <target> [content]    Create a top-level audit
+llmd audit reply <id> [content]      Reply to an existing thread
+llmd audit list [target]             List audits (optionally filtered)
+llmd audit show <id>                 Display full audit with thread
+llmd audit resolve <id>              Mark as approved
+llmd audit rm <id>                   Soft-delete
+llmd audit restore <id>              Recover a soft-deleted audit
+llmd audit status                    Inbox: what needs my response
 ```
 
-## Subcommands
-
-| Subcommand | Description |
-|------------|-------------|
-| `add <target> [content]` | Create a top-level audit |
-| `reply <id> [content]` | Reply to an existing thread |
-| `list [target]` | List audits (optionally filtered) |
-| `show <id>` | Display full audit with thread |
-| `resolve <id>` | Mark as approved |
-| `rm <id>` | Soft-delete |
-| `restore <id>` | Recover a soft-deleted audit |
-| `status` | Inbox: what needs my response |
+`<target>` is a task ID or a document path. `<id>` is an audit ID.
 
 ## Flags
 
-| Flag | Description |
-|------|-------------|
-| `--status`, `-s` | Set or filter by status |
-| `--assign` | Assign to or filter by assignee |
-| `--file` | Read content from a filesystem path |
-| `--version` | Pin to a specific document version |
-| `--pending` | Filter to pending/needs-work |
-| `--by-author` | Filter by who created the audit |
-| `--since` | Only show audits created after a time (e.g. `5m`, `1h`, RFC 3339) |
+| Flag | Subcommands | Description |
+|------|-------------|-------------|
+| `--status <s>`, `-s` | add, reply, list | Set or filter by status |
+| `--assign <name>` | add, reply, list | Assign to or filter by assignee |
+| `--file <path>` | add, reply | Read content from a filesystem path |
+| `--version <n>` | add | Pin to a specific document version |
+| `--pending` | list | Filter to pending/needs-work |
+| `--by-author <name>` | list | Filter by who created the audit |
+| `--since <time>` | list, status | Only audits created after a time (e.g. `5m`, `1h`, RFC 3339) |
+| `--all` | show | Show the full thread, no cap |
+
+## Rules
+
+- `add`, `reply`, `resolve`, `rm`, `restore` and `status` need an
+  author. `list` and `show` need none.
+- Content for `add` and `reply` is resolved in order: positional
+  argument, then `--file`, then stdin. `resolve` needs no content.
+- Nothing is ever updated. A thread's status and assignee are those of
+  its most recent entry. A reply with `--status approved` both responds
+  and resolves the thread.
+- Threads are single-level. Replying to a reply attaches to the
+  top-level parent.
+- A 9-character base36 key as the target means a task; anything else
+  is a document path.
+- `show` prints the root message and the 9 most recent replies (10
+  entries). `--all` shows the whole thread.
+- `status` lists threads assigned to the author whose status is
+  `pending` or `needs-work`.
+- IDs are bare 9-character base36 keys with no prefix. `--json` gives
+  the structured form.
 
 ## Examples
-
-### Create an audit
 
 ```bash
 # Inline content
@@ -52,11 +66,7 @@ llmd --author "gemini" audit add docs/api --file review.md
 # With status and assignee
 llmd --author "gemini" audit add docs/api "Needs work." \
   --status needs-work --assign claude-code
-```
 
-### Reply to an audit
-
-```bash
 # Simple reply
 llmd --author "claude-code" audit reply 0mmsfn7h1 "Fixed."
 
@@ -66,18 +76,10 @@ llmd --author "claude-code" audit reply 0mmsfn7h1 --status approved
 # Reassign to another agent
 llmd --author "claude-code" audit reply 0mmsfn7h1 "Done, please check." \
   --assign gemini
-```
 
-### Resolve an audit
-
-```bash
 # Quick resolve (inserts "approved" entry, no content needed)
 llmd --author "claude-code" audit resolve 0mmsfn7h1
-```
 
-### List audits
-
-```bash
 # All audits
 llmd audit list
 
@@ -98,37 +100,17 @@ llmd audit list --status needs-work
 
 # Only audits from the last hour
 llmd audit list --since 1h
-```
 
-### Show a thread
-
-```bash
 # Default: root message + the 9 most recent replies (up to 10 total)
 llmd audit show 0mmsfn7h1
 
 # Full thread, no cap
 llmd audit show --all 0mmsfn7h1
-```
 
-Long audit threads are common on multi-round reviews. The default
-shows the root message plus the most recent replies so agents see
-both "what was being reviewed" and "what's the current state" without
-having every middle message dumped into their context. Use `--all`
-to see the full thread.
-
-### Delete and restore
-
-```bash
-# Soft-delete
+# Soft-delete, then recover
 llmd --author "claude-code" audit rm 0mmsfn7h1
-
-# Recover
 llmd --author "claude-code" audit restore 0mmsfn7h1
-```
 
-### Check your inbox
-
-```bash
 # What needs my attention?
 llmd --author "claude-code" audit status
 
@@ -145,6 +127,12 @@ llmd audit status
 - Assignee propagates through replies. If a reply omits `--assign`,
   it inherits from the parent.
 
+Long audit threads are common on multi-round reviews. The default
+`show` prints the root message plus the most recent replies so agents
+see both "what was being reviewed" and "what's the current state"
+without having every middle message dumped into their context. Use
+`--all` to see the full thread.
+
 ## How status works
 
 `audit status` shows threads that need your attention:
@@ -157,12 +145,6 @@ reassign it with `--assign` or resolve it to clear it.
 
 Status values are free-form strings. Common conventions:
 `pending`, `approved`, `needs-work`, `rejected`, `info`.
-
-## Target type inference
-
-The store determines whether the target is a document or task
-automatically. Valid 9-character base36 keys are treated as task IDs;
-everything else is a document path.
 
 ## Task review workflow
 
@@ -179,11 +161,3 @@ lands in the review column:
 
 See `guide workflow` for the full task lifecycle and `guide task` for
 task board details.
-
-## Notes
-
-- Author is required for mutations (`add`, `reply`, `resolve`, `rm`,
-  `restore`). Reads (`list`, `show`) work without an author.
-- Content resolution order: positional argument > `--file` > stdin.
-- IDs are bare 9-character base36 keys with no prefix.
-- Use `--json` for structured output.

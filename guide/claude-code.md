@@ -1,9 +1,33 @@
 # Claude Code integration
 
-llmd runs as an MCP server inside Claude Code sessions, exposing its
-document store, task board, and agent orchestration as MCP tools. This
-guide covers how to compose llmd with Claude Code's built-in scheduling
-and monitoring to create autonomous workflows.
+How llmd works inside Claude Code: as an MCP server, with hooks, and
+alongside Claude Code's own `/schedule` and `/loop` commands.
+
+## Quick reference
+
+```
+"llmd": {"command": "llmd", "args": ["mcp"]}   MCP server entry for Claude Code settings (tools appear as mcp__llmd__<command>)
+llmd_init                              Initialise a store from inside a session
+llmd hook init claude                  Print the hooks section for .claude/settings.json
+/schedule "..."                        Recurring work on a cron, outside any session
+/loop 2m ...                           Repeat a prompt in the current session
+```
+
+| Mechanism | Fires on | Use for |
+|-----------|----------|---------|
+| Column rules | Task enters a column | Automated pipeline stages (build, test, review) |
+| `/schedule` | Cron schedule | Recurring maintenance (audits, stale checks, reports) |
+| `/loop` | Interval in active session | Real-time monitoring (agent runs, board changes) |
+| Queue messages | Manual or automated send | Cross-agent coordination and notifications |
+
+Rules:
+
+- Every MCP tool call that changes something carries `author`; the
+  server instructions and `guide` say how. See `guide mcp`.
+- `--json` on any tool gives structured output a scheduled agent can
+  parse.
+- Hooks run `llmd --author claude hook`; only session start prints
+  anything, so the agent's context stays small. See `guide hooks`.
 
 ## How it works
 
@@ -99,17 +123,11 @@ when there are new replies or resolutions.
 
 ## When to use what
 
-| Mechanism | Fires on | Use for |
-|-----------|----------|---------|
-| Column rules | Task enters a column | Automated pipeline stages (build, test, review) |
-| `/schedule` | Cron schedule | Recurring maintenance (audits, stale checks, reports) |
-| `/loop` | Interval in active session | Real-time monitoring (agent runs, board changes) |
-| Queue messages | Manual or automated send | Cross-agent coordination and notifications |
-
-These mechanisms compose naturally. A scheduled trigger might detect a
-stale task and send a queue message. A column rule might spawn an agent
-that writes an audit. A `/loop` monitor might surface a failed run for
-human intervention.
+Column rules, `/schedule`, `/loop` and queue messages compose
+naturally. A scheduled trigger might detect a stale task and send a
+queue message. A column rule might spawn an agent that writes an
+audit. A `/loop` monitor might surface a failed run for human
+intervention.
 
 ## Multi-agent workflow example
 
@@ -158,7 +176,7 @@ Each hook runs `llmd --author claude hook`, which reads Claude Code's
 payload and acts on it: session start prints pending queue messages
 into the context, task completion finishes the task and sends a
 message, and tool use on llmd's MCP tools is recorded as an audit.
-No server is needed. See `llmd guide hooks` for every event.
+No server is needed. See `guide hooks` for every event.
 
 ## Tips
 

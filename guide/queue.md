@@ -1,41 +1,50 @@
 # llmd queue
 
-Message queue for cross-consumer coordination. Domain events and direct
-messages land in a single ordered queue. Consumers poll, process front
-to back, and acknowledge each message.
+A single ordered message queue that agents and people read front to
+back and acknowledge, carrying both direct messages and store events.
 
 ## Usage
 
 ```
-llmd queue <subcommand> [options]
+llmd queue send <content>            Send a message (broadcast or directed)
+llmd queue ls [--limit N]            Pending messages, oldest first
+llmd queue peek                      Next unacknowledged message with payload
+llmd queue ack <key>                 Acknowledge oldest pending message
+llmd queue history [-n N | --all]    Recent messages including acknowledged
 ```
-
-All subcommands require `--author`. The queue binds acknowledgements
-to the caller's identity.
-
-## Subcommands
-
-| Subcommand | Description |
-|------------|-------------|
-| `send <content>` | Send a message (broadcast or directed) |
-| `ls [--limit N]` | Pending messages, oldest first |
-| `peek` | Next unacknowledged message with payload |
-| `ack <key>` | Acknowledge oldest pending message |
-| `history [-n N | --all]` | Recent messages including acknowledged |
 
 `ls` and `list` are aliases.
 
 ## Flags
 
-| Flag | Description |
-|------|-------------|
-| `--assign` | Direct a message to a specific consumer |
-| `--limit` | Maximum messages to return |
-| `--since` | Show messages after a time (e.g. `5m`, `1h`, RFC 3339) |
+| Flag | Subcommands | Description |
+|------|-------------|-------------|
+| `--assign <name>` | send | Direct a message to a specific consumer |
+| `--limit <n>` | ls | Maximum messages to return |
+| `--since <time>` | history | Show messages after a time (e.g. `5m`, `1h`, RFC 3339) |
+| `-n <n>` | history | Maximum messages to show (default 20) |
+| `--all` | history | Show every message, no limit |
+
+## Rules
+
+- Every subcommand needs an author, reads included. Acknowledgements
+  are bound to that identity, and each consumer has its own progress
+  through the queue.
+- The queue is strictly ordered by creation time. `ack` accepts only
+  the key of the author's oldest pending message; anything else fails.
+  There is no skipping ahead.
+- A message with `--assign` is seen only by that consumer. Without it
+  the message is a broadcast, and every consumer must acknowledge it
+  separately. Use `--assign` for work; broadcasts are for awareness.
+- Every store change (document written, task moved, audit created)
+  also lands in the queue as a domain event, with no action needed.
+  The same change detected twice is inserted once.
+- `history` shows the 20 most recent messages. `-n` changes the cap,
+  `--all` lifts it.
+- Content for `send` comes from the positional argument or stdin. IDs
+  are bare 9-character base36 keys. `--json` gives the structured form.
 
 ## Examples
-
-### Send a direct message
 
 ```bash
 # Direct to an agent
@@ -46,11 +55,7 @@ llmd --author jake queue send "deployment complete"
 
 # From stdin
 echo "detailed instructions" | llmd --author jake queue send --assign gemini
-```
 
-### Check pending messages
-
-```bash
 # All pending for me
 llmd --author claude-code queue ls
 
@@ -59,21 +64,10 @@ llmd --author claude-code queue ls --limit 5
 
 # Next single message with full payload
 llmd --author claude-code queue peek
-```
 
-### Acknowledge a message
-
-```bash
 # Must be the oldest pending message
 llmd --author claude-code queue ack a8f3k2m1n
-```
 
-Acknowledging out of order fails. The queue is strictly ordered  - 
-process front to back, no skipping.
-
-### View history
-
-```bash
 # Most recent 20 messages (default cap)
 llmd --author claude-code queue history
 
@@ -86,11 +80,6 @@ llmd --author claude-code queue history --since 1h
 # Every message, no cap
 llmd --author claude-code queue history --all
 ```
-
-A busy queue accumulates thousands of messages over time. `queue
-history` defaults to the 20 most recent so an agent pulling "recent
-activity" doesn't drown in old traffic. Use `-n` for a different cap
-or `--all` for the full log.
 
 ## How it works
 
@@ -108,8 +97,8 @@ complete."
 ### Directed vs broadcast
 
 Messages with `--assign` are directed - only the named consumer sees
-them in their pending queue. Messages without `--assign` are broadcast
- -  all consumers see them.
+them in their pending queue. Messages without `--assign` are broadcast:
+all consumers see them.
 
 Work assignments should always use `--assign`. Broadcasts are
 informational only (awareness, not action).
@@ -133,6 +122,10 @@ Domain events carry a source key derived from the event type and entity
 key. If multiple processes detect the same change (e.g. the event bus
 and a cross-process poller), the second insert is silently ignored.
 One mutation, one message.
+
+A busy queue accumulates thousands of messages over time. `queue
+history` defaults to the 20 most recent so an agent pulling "recent
+activity" doesn't drown in old traffic.
 
 ## Consumer loop
 
@@ -162,8 +155,5 @@ back to polling - the `message_acks` table is the cursor.
 
 ## Notes
 
-- Author is required for all queue commands.
-- IDs are bare 9-character base36 keys with no prefix.
 - Tables are created lazily on first queue operation.
 - Vacuum clears fully-acknowledged messages only.
-- Use `--json` for structured output.

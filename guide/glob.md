@@ -1,19 +1,30 @@
 # llmd glob
 
-Match document paths using shell-style glob patterns.
+List documents whose paths match a shell-style pattern.
 
 ## Usage
 
 ```
-llmd glob [flags] <pattern>
+llmd glob <pattern>
 ```
 
 ## Flags
 
 | Flag | Description |
 |------|-------------|
-| `--limit N` | Maximum paths to return (default 500) |
+| `--limit <int>` | Maximum paths to return (default 500) |
 | `--all` | Return every match, no limit |
+
+## Rules
+
+- Reads need no author.
+- `*` matches any characters within one path segment, `**` matches
+  across segments (zero or more levels), `?` matches one character.
+  Quote the pattern so the shell does not expand it first.
+- At most 500 paths are returned unless `--limit N` or `--all`, so a
+  pattern like `**/*` on a large store stays bounded. No match prints
+  nothing.
+- Output is one path per line.
 
 ## Examples
 
@@ -33,9 +44,6 @@ llmd glob '**/*-draft'
 
 ## Notes
 
-- `*` matches any characters within a single path segment.
-- `**` matches across path segments (zero or more levels).
-- `?` matches exactly one character.
-- Output is one path per line.
-- Defaults to 500 matches so patterns like `**/*` on large stores
-  stay bounded. Use `--all` or `--limit` to change the cap.
+glob matches paths only. To search by content use `llmd grep` or
+`llmd find`; to list everything under a prefix, `llmd ls <prefix>` is
+enough.

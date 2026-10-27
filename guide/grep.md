@@ -1,13 +1,7 @@
 # llmd grep
 
-Full-text search across document content using FTS5.
-
-llmd is an AI-first tool. The grep defaults are tuned so an agent
-searching a long document gets back the matching markdown **section**
-(bounded by headings), never the whole file. This keeps agent context
-windows under control without any flags. Humans get the same data
-glamour-rendered for the terminal; agents get raw markdown plus a
-structured `Data` field over `--json`/MCP.
+Full-text search across documents, returning the matching markdown
+section of each hit rather than the whole document.
 
 ## Usage
 
@@ -15,9 +9,9 @@ structured `Data` field over `--json`/MCP.
 llmd grep [flags] <query> [<path>]
 ```
 
-## Modes
+## Flags
 
-Mutually exclusive. `--sections` is the default.
+Modes are mutually exclusive; `--sections` is the default.
 
 | Flag | Description |
 |------|-------------|
@@ -26,37 +20,25 @@ Mutually exclusive. `--sections` is the default.
 | `--full` | Return the full document content per hit (use sparingly) |
 | `-l` | Print matching paths only, deduplicated |
 | `-c` | Print `path:count` per matching document |
-
-## Other flags
-
-| Flag | Description |
-|------|-------------|
 | `-n` | Show line numbers (only meaningful with `--lines`) |
-| `-C N` | Lines of context around each match (only meaningful with `--lines`) |
+| `-C <n>` | Lines of context around each match (only meaningful with `--lines`) |
 
-## Output format
+## Rules
 
-Each match prints the document path on its own line followed by `:`,
-then the match content underneath, with a blank line between matches:
-
-```
-notes/api:
-## Authentication
-
-OAuth2 with PKCE. Tokens expire after one hour.
-
-guides/setup:
-## Configuration
-
-Set OAUTH_SECRET in your env file.
-```
-
-On an interactive terminal the output is rendered as markdown via
-glamour. Pipes, redirects, `--json`, and MCP get raw markdown source.
-The structured `Data` field is always a `[]GrepHit` with `Path`,
-`Line`, `Column`, `Text`, `Before`, `After`, and `Section` populated -
-agents reading via `--json` or MCP get everything they need to act on
-each hit regardless of which mode produced it.
+- Queries are SQLite FTS5 syntax, not regular expressions. Bare words
+  are ANDed; uppercase `AND`, `OR`, `NOT` and `NEAR()` are operators;
+  `"exact phrase"` matches a sequence; `foo*` matches a prefix.
+- A query with punctuation and no FTS5 operator is quoted for you and
+  searched literally, so `foo-bar` and `"Authentication: OAuth2"` just
+  work. Include an operator, or quote it yourself, for raw FTS5 syntax.
+- Punctuation alone (`#`, `-`, `##`) matches nothing: the tokeniser
+  strips it from the index. Anchor the search with a word next to it.
+- A second argument restricts the search to documents under that path.
+- Hits never carry the whole document unless you pass `--full`.
+- At a terminal the output is rendered markdown. Piped, `--json` and
+  MCP get raw markdown; the structured `Data` is always a list of hits
+  with `Path`, `Line`, `Column`, `Text`, `Before`, `After` and
+  `Section`, whatever the mode.
 
 ## Examples
 
@@ -94,9 +76,37 @@ llmd grep 'postgres OR mysql'
 # Proximity search (words within 5 tokens of each other)
 llmd grep 'NEAR(deploy production)'
 
+# Both of these are searched literally - no escaping needed
+llmd grep foo-bar
+llmd grep "Authentication: OAuth2"
+
 # Structured JSON output for agents
 llmd --json grep authentication
 ```
+
+## Output format
+
+Each match prints the document path on its own line followed by `:`,
+then the match content underneath, with a blank line between matches:
+
+```
+notes/api:
+## Authentication
+
+OAuth2 with PKCE. Tokens expire after one hour.
+
+guides/setup:
+## Configuration
+
+Set OAUTH_SECRET in your env file.
+```
+
+On an interactive terminal the output is rendered as markdown via
+glamour. Pipes, redirects, `--json`, and MCP get raw markdown source.
+The structured `Data` field is always a `[]GrepHit` with `Path`,
+`Line`, `Column`, `Text`, `Before`, `After`, and `Section` populated -
+agents reading via `--json` or MCP get everything they need to act on
+each hit regardless of which mode produced it.
 
 ## Search syntax
 
@@ -112,18 +122,10 @@ Queries use SQLite FTS5 syntax, **not** regular expressions:
 
 Searches that contain punctuation but no FTS5 operators are
 auto-quoted as literal phrases by the host bridge, so the common case
-just works:
-
-```bash
-# Both of these are searched literally - no escaping needed
-llmd grep foo-bar
-llmd grep "Authentication: OAuth2"
-```
-
-The host detects that the query has no FTS5 operators (`AND`, `OR`,
-`NOT`, `NEAR(`, `*`, or pre-existing `"`) and wraps it as a phrase
-before sending it to FTS5. If you want raw FTS5 syntax, include any
-of those operators or quote the query yourself.
+just works. The host detects that the query has no FTS5 operators
+(`AND`, `OR`, `NOT`, `NEAR(`, `*`, or pre-existing `"`) and wraps it
+as a phrase before sending it to FTS5. If you want raw FTS5 syntax,
+include any of those operators or quote the query yourself.
 
 ### Limitation: pure punctuation
 
@@ -132,3 +134,12 @@ so searches for *only* punctuation - `grep #`, `grep -`, `grep ##` -
 cannot match anything. The tokens aren't in the index. Use any
 adjacent word to anchor the search: `grep "## Authentication"` works
 because `Authentication` is a real token.
+
+## Notes
+
+llmd is an AI-first tool. The grep defaults are tuned so an agent
+searching a long document gets back the matching markdown section
+(bounded by headings), never the whole file. This keeps agent context
+windows under control without any flags. Humans get the same data
+glamour-rendered for the terminal; agents get raw markdown plus a
+structured `Data` field over `--json`/MCP.

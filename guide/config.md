@@ -1,13 +1,17 @@
 # llmd config
 
-View or set configuration values.
+Read or set llmd's settings, and manage which files under `.llmd/` git
+commits.
 
 ## Usage
 
 ```
-llmd config
-llmd config <key>
-llmd config <key> <value>
+llmd config                          Show all settings
+llmd config <key>                    Show one setting
+llmd config <key> <value>            Set a setting
+llmd config git ls                   List .llmd/.gitignore rules (also: config git)
+llmd config git allow <pattern>      Allow a pattern to be committed
+llmd config git deny <pattern>       Stop allowing a pattern
 ```
 
 ## Flags
@@ -15,6 +19,20 @@ llmd config <key> <value>
 | Flag | Description |
 |------|-------------|
 | `--global` | Write to `~/.llmd/config.yaml` instead of `.llmd/config.yaml` |
+
+## Rules
+
+- Settings live in YAML: `.llmd/config.yaml` for the store, or
+  `~/.llmd/config.yaml` with `--global`. When a local file exists it is
+  used whole; nothing is merged from the global file.
+- Keys use dot notation for nested values, such as `server.addr`.
+- `config author` names the person at the terminal and is used for
+  their interactive commands only. Agents and scripts must not set it;
+  they pass `--author` on every change instead, so history shows who
+  did what. Over MCP, the `author` field of each call does the same.
+- `.llmd/.gitignore` is a whitelist: everything is ignored except the
+  patterns `allow` lets through. `allow` adds the `!` prefix for you;
+  `deny` removes that entry.
 
 ## Examples
 
@@ -36,11 +54,22 @@ llmd config server.addr "localhost:9090"
 
 # Set log level
 llmd config log.level debug
+
+# List current git rules
+llmd config git ls
+
+# Allow a file or pattern to be committed
+llmd config git allow "reports/"
+
+# Stop allowing a pattern
+llmd config git deny "reports/"
+
+# Allow a second database to be committed, then stop
+llmd config git allow "llmd-docs.db"
+llmd config git deny "llmd-docs.db"
 ```
 
 ## Configuration keys
-
-Keys use dot notation for nested values. The config file is YAML.
 
 | Key | Description |
 |-----|-------------|
@@ -53,12 +82,6 @@ Keys use dot notation for nested values. The config file is YAML.
 | `log.format` | Log format: `text`, `json` |
 | `limits.path_length` | Maximum document path length in bytes (default `1024`) |
 | `limits.content_size` | Maximum document content size in bytes (default `10485760`) |
-
-## Config file
-
-Configuration is stored as YAML in `.llmd/config.yaml` (local) or
-`~/.llmd/config.yaml` (global). If a local file exists, it is used
-entirely - there is no merge with the global file.
 
 Example config.yaml:
 
@@ -95,35 +118,6 @@ The default `.llmd/.gitignore` created by `llmd init`:
 Only database files and the gitignore itself are committed. Everything
 else is excluded.
 
-### Managing git rules
-
-```bash
-# List current rules
-llmd config git ls
-
-# Allow a file or pattern to be committed
-llmd config git allow "reports/"
-
-# Stop allowing a pattern
-llmd config git deny "reports/"
-```
-
-The `allow` command adds a `!` prefix automatically - you pass the bare
-pattern. `deny` removes the corresponding `!pattern` entry.
-
-### Examples
-
-```bash
-# Allow a second database to be committed
-llmd config git allow "llmd-docs.db"
-
-# See what rules are in place
-llmd config git ls
-
-# Stop committing a database
-llmd config git deny "llmd-docs.db"
-```
-
 ## Author and attribution
 
 The `config author` setting identifies the **human user** at the terminal.
@@ -142,4 +136,4 @@ llmd --author "Claude" write notes/summary
 ```
 
 When connected via MCP, the LLM must include `"author"` in every mutation
-tool call. See `llmd guide mcp` for details.
+tool call. See `guide mcp` for details.

@@ -1,6 +1,6 @@
 # llmd vacuum
 
-Permanently remove soft-deleted documents and the tags and links they
+Permanently remove soft-deleted documents, and the tags and links they
 leave orphaned, then reclaim disk space.
 
 ## Usage
@@ -9,36 +9,44 @@ leave orphaned, then reclaim disk space.
 llmd vacuum [--dry-run] [--older-than <age>]
 ```
 
+## Flags
+
 | Flag | Description |
 |------|-------------|
 | `-n`, `--dry-run` | Report what would be purged without changing anything |
-| `--older-than` | Only purge items deleted more than this long ago (`30d`, `12h`) or before an RFC 3339 time |
+| `--older-than <age>` | Only purge items deleted more than this long ago (`30d`, `12h`) or before an RFC 3339 time |
+
+## Rules
+
+- An author is required, like every other command that changes the
+  store: `--author`, or one set with `llmd config author`. Over HTTP,
+  vacuum is a POST request.
+- This cannot be undone. Documents soft-deleted with `llmd rm` are
+  removed with their full version history and can no longer be
+  restored. Preview first with `--dry-run`.
+- A soft-deleted document keeps its tags and links so that `llmd
+  restore` brings it back intact. Vacuum removes them only when it
+  purges the document. It also removes tags and links that were
+  themselves removed with `llmd tag -d` or `llmd unlink`.
+- `--older-than` keeps recent deletions restorable and purges the
+  rest.
+- The output lists the document paths purged, or `Would vacuum` them
+  with `--dry-run`, or `Nothing to vacuum`.
 
 ## Examples
 
 ```bash
 # See what a vacuum would remove
-llmd vacuum --dry-run
+llmd --author alice vacuum --dry-run
 
 # Purge only deletions older than thirty days, keeping recent ones restorable
-llmd vacuum --older-than 30d
+llmd --author alice vacuum --older-than 30d
 
 # Purge everything that has been deleted
-llmd vacuum
+llmd --author alice vacuum
 ```
 
 ## Notes
 
-- Vacuum needs an author, like every other command that changes the
-  store. Pass `--author`, or set one with `llmd config author`.
-- Over HTTP, vacuum is a POST request.
-- Permanently deletes documents that were soft-deleted with `llmd rm`,
-  including their full version history. They can no longer be restored.
-- A soft-deleted document keeps its tags and links so that `llmd restore`
-  brings it back intact. Vacuum removes them only when it purges the
-  document.
-- Also removes tags and links that were themselves removed with
-  `llmd tag -d` or `llmd unlink`.
-- Reclaims disk space in the database files.
-- `--dry-run` lists the document paths that would be purged. Without it,
-  the same list shows what was purged.
+Vacuum also reclaims disk space in the database files. See `guide rm`
+and `guide restore` for the soft-delete cycle it ends.

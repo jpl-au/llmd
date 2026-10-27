@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/jpl-au/llmd/app"
 	"github.com/jpl-au/llmd/internal/telemetry"
@@ -123,7 +122,7 @@ func registerTool(server *mcp.Server, rt sdk.Runtime, cmd *sdk.Command, author s
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        name,
-		Description: toolDescription(cmd),
+		Description: cmd.AgentHelp(),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input toolInput) (*mcp.CallToolResult, any, error) {
 		var stdin []byte
 		if input.Content != "" {
@@ -158,51 +157,6 @@ func registerTool(server *mcp.Server, rt sdk.Runtime, cmd *sdk.Command, author s
 			Content: []mcp.Content{&mcp.TextContent{Text: responseText(result)}},
 		}, nil, nil
 	})
-}
-
-// toolDescription is what the tool list says about a command. A
-// command with an MCPDesc wrote its own: that text, the usage line and
-// where the full documentation is. Any other command gets the first
-// paragraph of its Desc, the usage line, its flags one per line, and
-// the same pointer. Agents read every description at the start of a
-// session, so the prose of Desc that --help shows is left out.
-func toolDescription(cmd *sdk.Command) string {
-	var desc strings.Builder
-	if cmd.MCPDesc != "" {
-		desc.WriteString(cmd.MCPDesc)
-	} else {
-		desc.WriteString(firstParagraph(cmd.Desc))
-	}
-	if cmd.Usage != "" {
-		desc.WriteString("\nUsage: llmd " + cmd.Usage)
-	}
-	if cmd.MCPDesc == "" && len(cmd.Flags) > 0 {
-		desc.WriteString("\nFlags:")
-		for _, f := range cmd.Flags {
-			if f.Short != "" {
-				fmt.Fprintf(&desc, "\n  -%s, --%s", f.Short, f.Name)
-			} else {
-				fmt.Fprintf(&desc, "\n  --%s", f.Name)
-			}
-			if f.Type != "" && f.Type != "bool" {
-				desc.WriteString(" <" + f.Type + ">")
-			}
-			if f.Desc != "" {
-				desc.WriteString("  " + f.Desc)
-			}
-		}
-	}
-	fmt.Fprintf(&desc, "\nDetails: guide %s", cmd.Name)
-	return desc.String()
-}
-
-// firstParagraph returns text up to its first blank line, trimmed.
-func firstParagraph(text string) string {
-	text = strings.TrimSpace(text)
-	if i := strings.Index(text, "\n\n"); i >= 0 {
-		text = text[:i]
-	}
-	return strings.TrimSpace(text)
 }
 
 // responseText converts an sdk.Response to plain text for MCP TextContent.

@@ -1,7 +1,7 @@
 # llmd status
 
-Store overview dashboard. Shows recent documents, task board summary,
-and recent activity in a single screen.
+Show the store at a glance: recent documents, task counts per column,
+and the latest activity, on one screen.
 
 ## Usage
 
@@ -13,17 +13,19 @@ llmd status [-n limit]
 
 | Flag | Description |
 |------|-------------|
-| `-n N` | Items per section (default 5) |
+| `-n <limit>` | Items per section (default 5) |
 
-## Sections
+## Rules
 
-**Recent documents** - the most recently modified documents, showing
-path, version, author, and date.
-
-**Task board** - task counts per column at a glance.
-
-**Recent activity** - the latest changes across the store: document
-writes, tags, links and task events, showing what changed and when.
+- Read-only. No author is needed.
+- Three sections, each capped at `-n` items: recent documents (path,
+  version, author, date, newest first), the task board (a count per
+  column) and recent activity (document writes, tags, links and task
+  events, newest first).
+- At a terminal the sections are styled tables. Piped, they are plain
+  labelled sections: `Recent documents:`, `Task board:` and `Recent
+  activity:`, one indented line per item.
+- `--json` returns the same three sections as structured data.
 
 ## Examples
 
@@ -40,9 +42,7 @@ llmd status --json
 
 ## Notes
 
-- Output is styled with tables and colour when run in a terminal.
-- Piped output is plain text, suitable for scripts and LLMs.
 - Combine with `llmd review` for deeper task context.
-- Use `llmd audit status` to check your audit inbox - threads assigned
+- Use `llmd audit status` to check your audit inbox: threads assigned
   to you that need a response.
 - See `guide workflow` for the full task lifecycle.

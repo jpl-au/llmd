@@ -80,7 +80,7 @@ func TestReview(t *testing.T) {
 			name:      "all tasks",
 			author:    "alice",
 			args:      nil,
-			wantText:  []string{"\tFix login\tbacklog\tP2\tbob\n", "\tWrite docs\tbacklog\tP0\t\n", "\tDeploy\tin-progress\tP0\t\n"},
+			wantText:  []string{"\tFix login\tbacklog\tP2\tbob\t\ttasks/fix-login\n", "\tWrite docs\tbacklog\tP0\t\t\t\n", "\tDeploy\tin-progress\tP0\t\t\t\n"},
 			wantCount: 3,
 			wantJSON:  []string{`"task":{`, `"spec":"Users cannot log in.\nSee the error log.\n"`, `"links":[{`, `"To":"docs/ref"`, `"Label":"context"`},
 		},
@@ -187,13 +187,14 @@ func TestReview(t *testing.T) {
 				if lines := strings.Count(got, "\n"); lines != tt.wantCount {
 					t.Errorf("review %v = %d lines, want %d", tt.args, lines, tt.wantCount)
 				}
-				// Each plain line starts with a 9-character task key.
+				// Each plain line is the seven-field task line, starting
+				// with a 9-character task key.
 				for line := range strings.SplitSeq(strings.TrimRight(got, "\n"), "\n") {
 					if line == "" {
 						continue
 					}
-					if fields := strings.Split(line, "\t"); len(fields) < 5 || len(fields[0]) != 9 {
-						t.Errorf("review %v line %q, want key\\ttitle\\tcolumn\\tP<n>\\tassignee", tt.args, line)
+					if fields := strings.Split(line, "\t"); len(fields) != 7 || len(fields[0]) != 9 {
+						t.Errorf("review %v line %q, want key\\ttitle\\tcolumn\\tP<n>\\tassignee\\tflags\\tspec", tt.args, line)
 					}
 				}
 			} else if tt.wantCount > 1 && strings.Count(got, "────") < tt.wantCount-1 {

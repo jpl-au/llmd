@@ -1,18 +1,66 @@
 # llmd rule
 
-Rules define what happens when a task enters a board column. Each
-column can have a rule that specifies where the task goes on success
-or failure, and optionally which agent handles the work automatically.
-
-Rules are stored as YAML files in `.llmd/rules/`. The default rule
-set (`default.yaml`) is created when you run `llmd init`.
+Say what happens when a task enters a column: where it goes on success
+or failure, and which agent, if any, runs it.
 
 ## Usage
 
 ```
-llmd rule show                     Display all column rules (alias: list)
+llmd rule list                     Display all column rules (aliases: ls, show)
 llmd rule set <column> [flags]     Configure a column rule
 llmd rule unset <column>           Remove agent (keep transitions)
+```
+
+## Flags
+
+| Flag | Subcommands | Description |
+|------|-------------|-------------|
+| `--agent <name>` | set | Agent to auto-spawn (must be registered) |
+| `--role <role>` | set | Agent role: developer, tester, or auditor |
+| `--success <column>` | set | Column to move to on success |
+| `--failure <column>` | set | Column to move to on failure |
+| `--resume` | set | Resume previous session when auto-spawning |
+
+## Rules
+
+- `set` and `unset` change files under `.llmd/rules/`; `list` reads
+  them. Rules are read from disk on every task move, so an edit takes
+  effect at once.
+- `set` updates only the flags you pass and keeps the rest. `unset`
+  removes the agent and role but keeps the success and failure
+  columns.
+- A column with an agent is automated: the agent is spawned when a
+  task enters it. A column without one is manual: a person, or
+  `task start --assign`, triggers the work. Transitions apply either
+  way.
+- The agent named in `--agent` must be registered (`guide agent`).
+- Columns with no rule (backlog, up-next and done by default) have no
+  transitions: tasks stay until moved by hand.
+- `list` prints a styled tree of each column's agent and transitions;
+  `--json` gives the structured form.
+
+## Examples
+
+```bash
+# Automate a column
+llmd --author alice rule set code --agent claude-code --role developer
+
+# A full pipeline: developer, tester, auditor
+llmd --author alice rule set code --agent claude-code --role developer
+llmd --author alice rule set test --agent claude-code --role tester
+llmd --author alice rule set review --agent gemini --role auditor
+
+# Change the agent but keep the existing success/failure transitions
+llmd --author alice rule set code --agent gemini
+
+# Let a re-spawned agent continue its previous session
+llmd --author alice rule set code --agent claude-code --role developer --resume
+
+# Make a column manual again
+llmd --author alice rule unset code
+
+# See every rule
+llmd rule list
 ```
 
 ## How rules work
@@ -32,7 +80,7 @@ explicit `--assign` flag) triggers the work. The transitions still
 apply: `llmd agent run` reads success/failure from the rule
 regardless of whether the column is manual or automated.
 
-## Default rules
+### Default rules
 
 After `llmd init`, the default rule set looks like this:
 
@@ -60,6 +108,17 @@ investigate before retrying.
 Columns not listed (backlog, up-next, done) have no transitions -
 tasks stay there until moved manually.
 
+### Editing rules directly
+
+Rules are plain YAML files. You can edit them with any text editor:
+
+```bash
+vi .llmd/rules/default.yaml
+```
+
+Changes take effect immediately - rules are read from disk on every
+task move.
+
 ## Automating columns
 
 Add an agent to a column to make it automated:
@@ -73,24 +132,7 @@ automatically spawned to work on it. When claude finishes
 successfully, the task moves to "test" (the success transition).
 If it fails, the task goes to "blocked".
 
-## Setting up a full pipeline
-
-```bash
-# Developer writes code
-llmd rule set code --agent claude-code --role developer
-
-# Tester verifies the implementation
-llmd rule set test --agent claude-code --role tester
-
-# Auditor reviews the code
-llmd rule set review --agent gemini --role auditor
-```
-
-The pipeline emerges from the column order and their individual
-rules. Each column is independent - it only knows its own agent
-and transitions.
-
-## The pipeline in action
+### The pipeline in action
 
 ```bash
 # Create a task with a spec
@@ -108,6 +150,10 @@ llmd task move <key> code
 # 6. If approved: task moves to "done"
 # 7. If rejected: task moves back to "code", claude re-spawns
 ```
+
+The pipeline emerges from the column order and their individual
+rules. Each column is independent - it only knows its own agent
+and transitions.
 
 ## Review loops
 
@@ -166,45 +212,6 @@ manual stopping points. Use them for:
   intervention
 - **Triage**: the "backlog" and "up-next" columns where humans
   decide what to work on
-
-## Editing rules directly
-
-Rules are plain YAML files. You can edit them with any text editor:
-
-```bash
-vi .llmd/rules/default.yaml
-```
-
-Changes take effect immediately - rules are read from disk on every
-task move.
-
-## Rule set flags
-
-| Flag | Description |
-|------|-------------|
-| `--agent <name>` | Agent to auto-spawn (must be registered) |
-| `--role <role>` | Agent role: developer, tester, or auditor |
-| `--success <column>` | Column to move to on success |
-| `--failure <column>` | Column to move to on failure |
-| `--resume` | Resume previous session when auto-spawning |
-
-When using `rule set`, only the flags you provide are updated. Existing
-values are preserved. This lets you change just the agent without
-affecting the transitions:
-
-```bash
-# Change agent but keep existing success/failure transitions
-llmd rule set code --agent gemini
-```
-
-## Removing automation
-
-```bash
-llmd rule unset code
-```
-
-This removes the agent and role from the column's rule but keeps the
-success/failure transitions intact. The column becomes manual again.
 
 ## Notes
 

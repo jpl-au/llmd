@@ -1,12 +1,24 @@
 # llmd init
 
-Initialise a new llmd document store.
+Create a new store in the current directory.
 
 ## Usage
 
 ```
 llmd init
 ```
+
+## Rules
+
+- Creates `.llmd/llmd.db` in the current directory, plus a
+  `.llmd/.gitignore` that commits the database and ignores its
+  temporary files. Prints `Initialised llmd store at <path>`.
+- The global `--db <path>` flag creates the database at a different
+  path instead.
+- Safe to run where a store already exists: it does not overwrite
+  existing data.
+- Needs no author. Over MCP the tool is named `llmd_init`; `init` is
+  not available over HTTP.
 
 ## Examples
 
@@ -20,6 +32,6 @@ llmd --db /path/to/store.db init
 
 ## Notes
 
-- Creates `.llmd/llmd.db` in the current directory by default.
-- Use the global `--db` flag to create the database at a different path.
-- Safe to run in a directory that already has a store; it will not overwrite existing data.
+After `init`, set your author with `llmd config author "Your Name"`
+and read `llmd guide`. Agents do not set the configured author; they
+pass `--author` on every call instead. See `guide config`.

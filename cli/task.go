@@ -34,7 +34,7 @@ Subcommands (passed as first arg):
   ready <id>                check if dependencies are satisfied
   diff [id]                 show git diff for task's branch
   files [id]                list files changed on task's branch
-  commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", MCPDesc: `Task board. Columns: backlog, up-next, in-progress, review, approval, done, blocked.
+  commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", Brief: `Task board. Columns: backlog, up-next, in-progress, review, approval, done, blocked.
 Subcommands: list [--column c] [--all] (board; done shows its newest 10), show <id>, add <title> (spec via content; --column, --priority, --assign, --depends-on), next [--from c] [--to c] [--assign who] (claim the first ready task: move + assign in one write, returns its spec), move <id> <column>, set <id> (--title, --priority, --assign, --flag, --unflag, --depends-on, --branch), start <id>, finish [id], branch <id>, rm <id>, restore <id>, link <id> <path>, links <id>, log <id>, chain <id>, ready <id>, diff|files|commits [id], column list|add|rm|mv.
 Flags blocked and hold pause a task; human marks it for the user: leave those alone.`, Flags: []sdk.Flag{
 		{Name: "column", Type: "string", Desc: "Filter by column"},

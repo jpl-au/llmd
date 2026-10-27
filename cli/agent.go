@@ -33,8 +33,8 @@ Subcommands:
   stop <task-key>                  stop a running agent
 
 Built-in agents: claude-code, gemini, aider
-See "llmd guide agent" for full documentation.`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", MCPDesc: `Run AI agents on tasks in isolated git worktrees. Built-in: claude-code, gemini, aider.
-Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <name> <role>, spawn <task> <agent>, runs [--status s] [--task k], complete <task> --exit n, stop <task>. Or: task start <id> --assign <agent>.`, Flags: []sdk.Flag{
+See "llmd guide agent" for full documentation.`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Brief: `Run AI agents on tasks in isolated git worktrees. Built-in: claude-code, gemini, aider.
+Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <name> <role>, spawn <task> <agent>, runs [--status s] [--task k], complete <task> --exit-code n, stop <task>. Or: task start <id> --assign <agent>.`, Flags: []sdk.Flag{
 		{Name: "command", Type: "string", Desc: "Command to run (for custom agents)"},
 		{Name: "status", Type: "string", Desc: "Filter runs by status"},
 		{Name: "task", Type: "string", Desc: "Filter runs by task key"},

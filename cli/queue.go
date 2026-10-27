@@ -18,7 +18,7 @@ Subcommands (passed as first arg):
   ls [--limit N]             pending messages, oldest first
   peek                       next unacknowledged message
   ack <key>                  acknowledge oldest pending message
-  history [--since 5m]       all messages including acknowledged`, Usage: "queue <subcommand> [options]", MCP: true, MCPName: "queue", MCPDesc: `Message queue for coordination between agents and humans.
+  history [--since 5m]       all messages including acknowledged`, Usage: "queue <subcommand> [options]", MCP: true, MCPName: "queue", Brief: `Message queue for coordination between agents and humans.
 Subcommands: send <text> [--assign who], ls [--limit n], peek, ack <key>, history [--since 5m].`, Flags: []sdk.Flag{
 		{Name: "assign", Type: "string", Desc: "Direct message to a specific consumer"},
 		{Name: "limit", Type: "int", Desc: "Maximum messages to return"},

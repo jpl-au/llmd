@@ -22,7 +22,7 @@ Subcommands (passed as first arg):
   resolve <id>               mark as approved (no body needed)
   rm <id>                    soft-delete
   restore <id>               recover a deleted audit
-  status [--since 5m]        inbox: what needs my response`, Usage: "audit <subcommand> [options]", MCP: true, MCPName: "audit", MCPDesc: `Review threads on tasks and documents, between agents and humans.
+  status [--since 5m]        inbox: what needs my response`, Usage: "audit <subcommand> [options]", MCP: true, MCPName: "audit", Brief: `Review threads on tasks and documents, between agents and humans.
 Subcommands: add <target> [text] (body via content; --assign who, -s/--status s), reply <id> [text], list [target] [--pending] [--assign who] [--since 5m], show <id>, resolve <id>, rm <id>, restore <id>, status (threads waiting on me).`, Flags: []sdk.Flag{
 		{Name: "status", Short: "s", Type: "string", Desc: "Set or filter by status"},
 		{Name: "assign", Type: "string", Desc: "Assign to or filter by assigned person"},

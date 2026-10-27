@@ -139,13 +139,13 @@ type Command struct {
 	// built-in tools.
 	MCPName string
 
-	// MCPDesc is the tool description for the MCP tool list, which an
-	// agent reads at the start of every session. When empty, the first
-	// paragraph of Desc followed by the flags is used. A command that
-	// sets it owns the whole text, flags included, so commands with
-	// subcommands or many flags can say what matters in a few lines;
-	// the full Desc stays for --help.
-	MCPDesc string
+	// Brief is the command's description for an agent, hand-written
+	// for commands whose Desc and Flags would run long: a compact list
+	// of subcommands and the flags that matter. It is shown in the MCP
+	// tool list and in the --help of a piped llmd, where a model reads
+	// it (see AgentHelp). When empty, Summary and the flags are shown
+	// instead. The full Desc stays for a person's --help.
+	Brief string
 
 	NeedsAuthor bool
 	Streams     bool

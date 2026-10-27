@@ -1,8 +1,43 @@
 # llmd guide
 
-llmd is a versioned document store with task boards and agent orchestration.
-Documents are plain text, addressed by path, with automatic versioning and
-full-text search.
+llmd is a document store and task board for a project, kept in SQLite
+under `.llmd/`, used by people at a terminal and by agents through the
+same commands.
+
+## Usage
+
+```
+llmd guide              This overview
+llmd guide <topic>      One command or topic in full, e.g. guide task
+llmd <command> --help   Usage, flags and a pointer to the guide
+```
+
+## Rules
+
+- Changing anything needs an author. Agents and scripts pass
+  `--author <name>` on every call that writes; a person at a terminal
+  sets one once with `llmd config author`. Reads need no author. Never
+  change the configured author on someone else's behalf.
+- Document paths look like `notes/plan`: forward slashes, no leading
+  slash, no extension. A single word is a fine path.
+- Every write is a new version. `write` replaces a document, `edit`
+  does search-and-replace, `sed` substitutes, `rm` soft-deletes, and
+  `history`, `diff`, `revert` and `restore` undo any of it.
+- Tasks move through columns: backlog, up-next, in-progress, review,
+  approval, done, blocked. A task cannot leave the backlog until its
+  spec document says more than its title.
+- To pick up work, call `task next`: it claims the first ready task in
+  one write and returns its spec. Then work, then `task move <id>
+  review` or `task finish <id>`. Raise problems with `audit add <id>`.
+  Tasks flagged `human` are for the user: leave them alone.
+- Output that would grow without bound is capped and says so: `ls`
+  shows 500 documents, `diff` 500 lines, `task list` the newest 10 done
+  tasks, `review` leaves done and human tasks out. `--all` lifts each
+  cap. `--json` gives the structured form of any command.
+- Piped, output is plain: tables become tab-separated lines with a
+  header line, markdown comes out raw, and tasks print as one line of
+  seven tab-separated fields (`key title column P<n> assignee flags
+  spec`). At a terminal the same commands render tables and colour.
 
 ## Quick start
 
@@ -45,13 +80,14 @@ llmd grep hello                              # full-text search
 |-----------|------------------------------------|--------------------------------|
 | `history` | Show version log for a document    | `history [-n limit] <path>`    |
 | `diff`    | Compare document versions          | `diff <path>` or `diff a:1 b:2`|
+| `graph`   | How the store evolved over time    | `graph [path]`                 |
 
 ### Views
 
 | Command  | Description                        | Usage                            |
 |----------|------------------------------------|----------------------------------|
 | `status` | Store overview dashboard           | `status [-n limit]`              |
-| `review` | Review pending tasks with context  | `review [--column name] [-n N]`  |
+| `review` | Pending tasks with context         | `review [--column name] [-n N]`  |
 
 ### Tags and links
 
@@ -61,32 +97,29 @@ llmd grep hello                              # full-text search
 | `link`   | Create links between docs   | `link <from> <to>`                 |
 | `unlink` | Remove a link               | `unlink <from> <to>`               |
 
-### Tasks
+### Tasks, audits, queue
 
 | Command | Description                            | Usage                             |
 |---------|----------------------------------------|-----------------------------------|
 | `task`  | Manage tasks on the board              | `task <subcommand> [options]`     |
+| `audit` | Review threads on tasks and documents  | `audit <subcommand> [options]`    |
+| `queue` | Messages between agents and people     | `queue <subcommand> [options]`    |
 
-Subcommands: add, list, show, next, move, set, rm, restore, start,
-finish, branch, diff, files, column, link, links, log. `task next`
-claims the first ready task for the caller. See `llmd guide task`.
+Task subcommands: add, list, show, next, move, set, rm, restore,
+start, finish, branch, diff, files, commits, column, link, links, log,
+chain, ready. Audit: add, reply, list, show, resolve, rm, restore,
+status. Queue: send, ls, peek, ack, history. See `guide task`,
+`guide audit`, `guide queue`.
 
-### Audits
-
-| Command | Description                            | Usage                             |
-|---------|----------------------------------------|-----------------------------------|
-| `audit` | Agent-to-agent review threads          | `audit <subcommand> [options]`    |
-
-Subcommands: add, reply, list, show, resolve, rm, restore, status.
-See `llmd guide audit`.
-
-### Queue
+### Agents and automation
 
 | Command | Description                            | Usage                             |
 |---------|----------------------------------------|-----------------------------------|
-| `queue` | Message queue for coordination         | `queue <subcommand> [options]`    |
+| `agent` | Run agents on tasks in git worktrees   | `agent <subcommand> [options]`    |
+| `rule`  | What happens when a task enters a column | `rule <subcommand> [options]`   |
+| `hook`  | Handle an agent platform's session events | `hook [--task id]`, `hook init <platform>` |
 
-Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
+See `guide agent`, `guide rule`, `guide hooks` and `guide workflow`.
 
 ### Bulk operations
 
@@ -94,7 +127,7 @@ Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
 |----------|------------------------------------|------------------------------|
 | `import` | Import .md files from a directory  | `import [--prefix p] <dir>`  |
 | `export` | Export documents to the filesystem | `export <path> [dir]`        |
-| `mirror` | One-way snapshot to .llmd/<db>/    | `mirror [pull|push] [path]`  |
+| `mirror` | Sync documents with .llmd/<db>/    | `mirror [pull\|push] [path]` |
 
 ### Admin
 
@@ -111,11 +144,13 @@ Subcommands: send, ls, peek, ack, history. See `llmd guide queue`.
 
 ## Global flags
 
-- `--author <name>` - author for mutations (required for LLMs and scripts)
-- `--json` - output structured JSON instead of text
+- `--author <name>` - who is making the change; required for agents and scripts
+- `--json` - structured JSON instead of text
 - `--db <path>` - use a different database file
+- `--verbose` - debug logging on stderr
 
 ## More help
 
-- `llmd guide <topic>` - detailed help on a topic (workflow, task, agent, install, ...)
+- `llmd guide <topic>` - detailed help on a topic: any command name, plus
+  workflow, events, hooks, claude-code and install
 - `llmd <command> --help` - usage for a specific command

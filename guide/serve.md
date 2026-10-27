@@ -1,6 +1,7 @@
 # llmd serve
 
-Start an HTTP API server exposing llmd commands as REST endpoints.
+Serve every llmd command over HTTP, with store events streamed to
+clients.
 
 ## Usage
 
@@ -8,19 +9,35 @@ Start an HTTP API server exposing llmd commands as REST endpoints.
 llmd serve
 ```
 
-The server listens on `localhost:5563` by default. To change the address,
-set `server.addr` in your config:
+## Rules
 
-```
+- Listens on `localhost:5563`. Change it with `llmd config server.addr
+  "localhost:9090"`.
+- No authentication by default, which is fine on localhost. Before
+  listening anywhere else, set `llmd config server.token
+  "a-long-random-string"`; every request must then carry
+  `Authorization: Bearer <token>` or it gets `401`.
+- The URL mirrors the command line: `<METHOD> /<command>/<subcommand>/
+  <arguments>`. Reads are `GET`; anything that changes the store or
+  writes files is `POST`, or `DELETE` for removals. A `GET` never
+  changes anything.
+- The request body is the command's stdin. The `Author` header names
+  who is acting; mutations without one are rejected unless the server
+  has a default author. Query parameters become flags.
+- A document path is always the last part of the URL. Encode it as one
+  segment (`docs%2Fapi`) when a route needs it earlier.
+- `mcp`, `serve`, `init`, `config`, `version` and `extensions` are not
+  available over HTTP.
+- Responses are plain text for text commands and JSON for structured
+  ones; the `Output: json` header forces JSON. Errors are JSON with an
+  `error` field. `GET /events` streams events (see `guide events`).
+- Logs every request to stderr. Shuts down cleanly on SIGINT or
+  SIGTERM.
+
+## Examples
+
+```bash
 llmd config server.addr "localhost:9090"
-```
-
-The server has no authentication by default, which is fine on
-localhost. Before listening on any other address, set a token. Every
-request must then carry it in an `Authorization: Bearer <token>`
-header, and a request without it gets a `401` response:
-
-```
 llmd config server.token "a-long-random-string"
 curl -H "Authorization: Bearer a-long-random-string" http://localhost:5563/ls
 ```

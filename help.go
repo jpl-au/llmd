@@ -54,7 +54,7 @@ Global Flags:
 			if !ok {
 				continue
 			}
-			desc := c.Desc
+			desc := c.Summary()
 			if i := strings.IndexByte(desc, '\n'); i >= 0 {
 				desc = desc[:i]
 			}
@@ -66,15 +66,31 @@ Global Flags:
 	fmt.Println(`Use "llmd <command> --help" for more information about a command.`)
 }
 
-// printCmdHelp displays detailed help for a single command, including
-// its flags and global flags.
+// printCmdHelp displays help for a single command: the full form for
+// a person at a terminal, the agent form when stdout is a pipe, as it
+// is for a model running llmd in a shell.
 func printCmdHelp(c *sdk.Command) {
-	fmt.Printf("%s - %s\n\n", c.Name, c.Desc)
+	fmt.Print(cmdHelp(c, isTTY()))
+}
+
+// cmdHelp renders a command's help. For a terminal it is the whole
+// description, the usage line, the flags with their types, and the
+// global flags. For a pipe it is the command's AgentHelp, the same
+// text the MCP tool list carries, followed by the global flags an
+// agent on the command line needs.
+func cmdHelp(c *sdk.Command, tty bool) string {
+	var b strings.Builder
+	if !tty {
+		b.WriteString(c.AgentHelp())
+		b.WriteString("\nGlobal: --author <name> (required to change anything), --json (structured output), --db <path>\n")
+		return b.String()
+	}
+	fmt.Fprintf(&b, "%s - %s\n\n", c.Name, c.Desc)
 	if c.Usage != "" {
-		fmt.Printf("Usage:\n  llmd %s\n\n", c.Usage)
+		fmt.Fprintf(&b, "Usage:\n  llmd %s\n\n", c.Usage)
 	}
 	if len(c.Flags) > 0 {
-		fmt.Println("Flags:")
+		b.WriteString("Flags:\n")
 		for _, f := range c.Flags {
 			var flagStr string
 			if f.Short != "" {
@@ -88,13 +104,14 @@ func printCmdHelp(c *sdk.Command) {
 			case "int":
 				flagStr += " <int>"
 			}
-			fmt.Printf("  %-24s%s\n", flagStr, f.Desc)
+			fmt.Fprintf(&b, "  %-24s%s\n", flagStr, f.Desc)
 		}
-		fmt.Println()
+		b.WriteString("\n")
 	}
-	fmt.Println("Global Flags:")
-	fmt.Println("  --author <name>     Author for mutations (required for LLMs/scripts)")
-	fmt.Println("  --db <path>         Use a specific database file")
-	fmt.Println("  --json              Output as JSON")
-	fmt.Println("  --help              Show help")
+	b.WriteString("Global Flags:\n")
+	b.WriteString("  --author <name>     Author for mutations (required for LLMs/scripts)\n")
+	b.WriteString("  --db <path>         Use a specific database file\n")
+	b.WriteString("  --json              Output as JSON\n")
+	b.WriteString("  --help              Show help\n")
+	return b.String()
 }
