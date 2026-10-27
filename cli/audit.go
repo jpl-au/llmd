@@ -206,7 +206,7 @@ func auditList(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if len(audits) == 0 {
-		return sdk.Result{Text: "No audits found.", Data: audits}, nil
+		return sdk.Result{Text: "No audits", Data: audits}, nil
 	}
 
 	var b strings.Builder

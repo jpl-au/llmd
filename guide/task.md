@@ -6,7 +6,7 @@ spec document, and agents claim work with `task next`.
 ## Usage
 
 ```
-llmd task list [--column c] [--all]   Board view, or one column
+llmd task list [--column c] [--all]   Board view, or one column (ls, board: aliases)
 llmd task show <id>                   Metadata and spec body
 llmd task add <title>                 Create a task (spec on stdin)
 llmd task next [--from c] [--to c]    Claim the first ready task

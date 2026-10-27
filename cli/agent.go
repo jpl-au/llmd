@@ -30,7 +30,6 @@ Subcommands:
   complete <task-key> [--exit N]   record an agent's exit
   stop <task-key>                  stop a running agent
   run <task-key> --worktree <dir>  internal: run the agent process
-  stop <task-key>                  stop a running agent
 
 Built-in agents: claude-code, gemini, aider
 See "llmd guide agent" for full documentation.`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Brief: `Run AI agents on tasks in isolated git worktrees. Built-in: claude-code, gemini, aider.

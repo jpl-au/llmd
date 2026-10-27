@@ -51,7 +51,7 @@ func TestGraph(t *testing.T) {
 			name:      "empty store",
 			args:      nil,
 			empty:     true,
-			wantText:  "No events found",
+			wantText:  "No events",
 			wantPaths: []string{},
 			wantVers:  []int{},
 		},

@@ -313,8 +313,8 @@ func TestQueueLs(t *testing.T) {
 			got := text(resp)
 			msgs := queueMsgsOf(t, resp)
 			if tt.wantEmpty {
-				if got != "No pending messages." || len(msgs) != 0 {
-					t.Errorf("queue %v = %q (%d messages), want %q and none", args, got, len(msgs), "No pending messages.")
+				if got != "No pending messages" || len(msgs) != 0 {
+					t.Errorf("queue %v = %q (%d messages), want %q and none", args, got, len(msgs), "No pending messages")
 				}
 				return
 			}
@@ -347,8 +347,8 @@ func TestQueueLs(t *testing.T) {
 	t.Run("fresh queue is empty", func(t *testing.T) {
 		c := newCLI(t, "claude")
 		resp := run(t, c, "queue", nil, "ls")
-		if got := text(resp); got != "No pending messages." {
-			t.Errorf("queue ls = %q, want %q", got, "No pending messages.")
+		if got := text(resp); got != "No pending messages" {
+			t.Errorf("queue ls = %q, want %q", got, "No pending messages")
 		}
 		if msgs := queueMsgsOf(t, resp); len(msgs) != 0 {
 			t.Errorf("queue ls Data = %v, want none", msgs)
@@ -674,8 +674,8 @@ func TestQueueHistory(t *testing.T) {
 			got := text(resp)
 			msgs := queueMsgsOf(t, resp)
 			if tt.wantEmpty {
-				if got != "No messages." || len(msgs) != 0 {
-					t.Errorf("queue %v = %q (%d messages), want %q and none", args, got, len(msgs), "No messages.")
+				if got != "No messages" || len(msgs) != 0 {
+					t.Errorf("queue %v = %q (%d messages), want %q and none", args, got, len(msgs), "No messages")
 				}
 				return
 			}
@@ -703,8 +703,8 @@ func TestQueueHistory(t *testing.T) {
 	t.Run("fresh queue", func(t *testing.T) {
 		c := newCLI(t, "claude")
 		resp := run(t, c, "queue", nil, "history")
-		if got := text(resp); got != "No messages." {
-			t.Errorf("queue history = %q, want %q", got, "No messages.")
+		if got := text(resp); got != "No messages" {
+			t.Errorf("queue history = %q, want %q", got, "No messages")
 		}
 		if msgs := queueMsgsOf(t, resp); len(msgs) != 0 {
 			t.Errorf("queue history Data = %v, want none", msgs)

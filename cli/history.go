@@ -63,7 +63,7 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if len(versions) == 0 {
-		return sdk.Result{Text: "No history found", Data: []sdk.Version{}}, nil
+		return sdk.Result{Text: "No history", Data: []sdk.Version{}}, nil
 	}
 
 	t := newTable("VER", "AUTHOR", "DATE", "MESSAGE")

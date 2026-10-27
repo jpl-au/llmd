@@ -13,7 +13,7 @@ var taskSpec = sdk.Command{
 
 Subcommands (passed as first arg):
   add <title>               create task (body via content/stdin)
-  list [--since 5m] [--all]  board view (done shows its newest 10 unless --all)
+  list [--since 5m] [--all]  board view; ls and board are aliases (done shows its newest 10 unless --all)
   show <id>                 task metadata + spec body
   move <id> <column>        move task to column (needs spec to leave backlog)
   next [--from col] [--to col]  claim the first ready task: move + assign in one write

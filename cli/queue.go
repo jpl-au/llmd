@@ -107,7 +107,7 @@ func queueList(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if len(msgs) == 0 {
-		return sdk.Result{Text: "No pending messages.", Data: msgs}, nil
+		return sdk.Result{Text: "No pending messages", Data: msgs}, nil
 	}
 
 	var b strings.Builder
@@ -184,7 +184,7 @@ func queueHistory(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if len(msgs) == 0 {
-		return sdk.Result{Text: "No messages.", Data: msgs}, nil
+		return sdk.Result{Text: "No messages", Data: msgs}, nil
 	}
 
 	// Resolve the cap: --all beats --limit beats the default.

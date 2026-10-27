@@ -23,7 +23,7 @@ llmd history --all <path>      Every version
 - Only the 10 newest versions are shown unless `--limit` or `--all`, so a
   heavily edited document does not fill an agent's context.
 - Versions are numbered from 1, the oldest, upwards. A document with
-  no versions prints `No history found`.
+  no versions prints `No history`.
 - Piped, the output is tab-separated lines with a header line: VER,
   AUTHOR, DATE, MESSAGE. At a terminal it is a bordered table.
 

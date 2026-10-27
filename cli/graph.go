@@ -89,7 +89,7 @@ func graphTimeline(ctx sdk.Context) (sdk.Response, error) {
 	})
 
 	if len(events) == 0 {
-		return sdk.Result{Text: "No events found", Data: []graphEvent{}}, nil
+		return sdk.Result{Text: "No events", Data: []graphEvent{}}, nil
 	}
 
 	// Build structured data for JSON output.
@@ -126,7 +126,7 @@ func graphLineage(ctx sdk.Context, path string) (sdk.Response, error) {
 	}
 
 	if len(versions) == 0 {
-		return sdk.Result{Text: "No history found", Data: []sdk.Version{}}, nil
+		return sdk.Result{Text: "No history", Data: []sdk.Version{}}, nil
 	}
 
 	// The argument may be a key; report the resolved path.

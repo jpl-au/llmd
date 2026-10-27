@@ -553,8 +553,8 @@ func TestAuditList(t *testing.T) {
 			got := text(resp)
 			list := auditsOf(t, resp)
 			if tt.wantEmpty {
-				if got != "No audits found." || len(list) != 0 {
-					t.Errorf("audit %v = %q (%d audits), want %q and none", args, got, len(list), "No audits found.")
+				if got != "No audits" || len(list) != 0 {
+					t.Errorf("audit %v = %q (%d audits), want %q and none", args, got, len(list), "No audits")
 				}
 				return
 			}
