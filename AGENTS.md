@@ -366,13 +366,13 @@ dispatch on top.
 | `StartBranch(key, author, StartBranchOpts)` | Create branch from title slug, checkout, record, move to column |
 | `Finish(key, author, FinishOpts)` | Move to done + return `FinishResult` with git summary counts |
 | `Next(author, NextOpts)` | Claim the first ready task of a column: move + assign in one transaction (`internal/llmd/tasks/claim.go`) |
+| `ByBranch(branch)` | Find task linked to a branch name |
 
 Within a column, `List` and `Next` share one order (`internal/llmd/tasks/order.go`):
 by default priority first (1 is the highest, 0 is none, negatives are
 refused), then position; `task.order: position` in the config makes
 position the whole order. The host reads the key in `setup` and applies
 it on `attach` with `Tasks.SetOrder`; tests pass `host.WithTaskOrder`.
-| `ByBranch(branch)` | Find task linked to a branch name |
 
 Implementation lives in `internal/host/api_tasks.go`. The `branchSlug`
 helper (title → git-safe branch name) is unexported in the same file.
@@ -479,6 +479,13 @@ document-only stores skip queue writes silently. Wired in `Store.wire()`.
 
 **Strict ordering:** `Ack` rejects if the key does not match the consumer's
 oldest pending message (`ErrOrderViolation`).
+
+**Retention:** nothing removes a message except `Store.Vacuum`, which calls
+`Messages.Purge` for messages older than the store's queue retention
+(`queue.retention` in the config, default 30d; 0 keeps everything). The
+host reads the key in `setup` and applies it on `attach` with
+`SetQueueRetention`; tests pass `host.WithQueueRetention`. Age is the only
+test - a consumer that never acknowledges does not pin the table.
 
 **Directed vs broadcast:** Messages with `assigned_to` set are only visible
 to that consumer. NULL means broadcast - all consumers see it.

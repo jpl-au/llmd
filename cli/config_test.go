@@ -393,3 +393,21 @@ func TestConfigTaskOrder(t *testing.T) {
 		t.Errorf("config task.order random error = %v, want a message naming the valid values", err)
 	}
 }
+
+// TestConfigQueueRetention covers the queue.retention key: listed with
+// its default, settable to days, a duration or 0, and refused otherwise.
+func TestConfigQueueRetention(t *testing.T) {
+	c := taskWorkdirCLI(t, "alice")
+	if got := text(run(t, c, "config", nil)); !strings.Contains(got, "queue.retention=30d") {
+		t.Errorf("config = %q, want to list queue.retention=30d", got)
+	}
+	for _, v := range []string{"7d", "12h", "0"} {
+		run(t, c, "config", nil, "queue.retention", v)
+		if got := text(run(t, c, "config", nil, "queue.retention")); !strings.Contains(got, v) {
+			t.Errorf("config queue.retention = %q, want %s", got, v)
+		}
+	}
+	if err := runErr(t, c, "config", nil, "queue.retention", "soon"); err == nil || !strings.Contains(err.Error(), "30d") {
+		t.Errorf("config queue.retention soon error = %v, want a message showing the accepted forms", err)
+	}
+}

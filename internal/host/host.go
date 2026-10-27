@@ -33,16 +33,18 @@ import (
 // dependencies and without package-level state. Host implements
 // [sdk.Runtime] and hands itself to commands on the same context.
 type Host struct {
-	mu         sync.RWMutex // guards store, which attach may set once
-	store      *llmd.Store
-	lim        validate.Limits
-	limSet     bool
-	taskOrder  tasks.Order // ordering within a column; "" reads the config
-	git        sdk.GitStore
-	commands   map[string]*cmdEntry
-	extensions []sdk.Extension
-	opts       []Option                // reapplied to hosts built for a single call
-	subs       []func(pkgevents.Event) // Subscribe callbacks, for Watch and attach
+	mu           sync.RWMutex // guards store, which attach may set once
+	store        *llmd.Store
+	lim          validate.Limits
+	limSet       bool
+	taskOrder    tasks.Order   // ordering within a column; "" reads the config
+	retention    time.Duration // how long queue messages are kept; see retentionSet
+	retentionSet bool          // retention was set by an option, not the config
+	git          sdk.GitStore
+	commands     map[string]*cmdEntry
+	extensions   []sdk.Extension
+	opts         []Option                // reapplied to hosts built for a single call
+	subs         []func(pkgevents.Event) // Subscribe callbacks, for Watch and attach
 }
 
 // Option configures a Host. Options are applied by New and Open and
@@ -71,6 +73,16 @@ func WithLimits(l validate.Limits) Option {
 // the configuration file, which is priority.
 func WithTaskOrder(o tasks.Order) Option {
 	return func(h *Host) { h.taskOrder = o }
+}
+
+// WithQueueRetention sets how long queue messages are kept before
+// vacuum removes them; zero keeps them forever. The default comes from
+// the queue.retention key of the configuration file, which is 30 days.
+func WithQueueRetention(d time.Duration) Option {
+	return func(h *Host) {
+		h.retention = d
+		h.retentionSet = true
+	}
 }
 
 // cmdEntry maps a command to its owning extension.
@@ -131,6 +143,7 @@ func (h *Host) attach(store *llmd.Store) {
 	if err := store.Tasks.SetOrder(h.taskOrder); err != nil {
 		slog.Warn("task order", "order", h.taskOrder, "err", err)
 	}
+	store.SetQueueRetention(h.retention)
 
 	// Callbacks subscribed while the host had no store join the bus now.
 	for _, fn := range h.subs {
@@ -189,14 +202,25 @@ func (h *Host) Subscribe(fn func(pkgevents.Event)) {
 	store.Bus().Subscribe(&callbackHandler{fn: fn})
 }
 
-// Watch implements [sdk.Runtime]. Changes made by other processes are
+// Watch implements [sdk.Runtime]. A host without a store waits, polling
+// at the interval, for one to be attached: a server started before
+// "init" picks the store up and watches it from then on. Changes made
+// by other processes are
 // delivered to the Subscribe callbacks only, as store.changed events:
 // they never enter the internal bus, so the search index, the message
 // queue and extensions see only the typed events of this process.
 func (h *Host) Watch(ctx context.Context, interval time.Duration) error {
+	if interval <= 0 {
+		return fmt.Errorf("watch: interval must be positive")
+	}
 	store := h.current()
-	if store == nil {
-		return nil
+	for store == nil {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(interval):
+		}
+		store = h.current()
 	}
 	return store.Watch(ctx, interval, func(db string) {
 		e := pkgevents.Event{
@@ -399,7 +423,7 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 	if h.git == nil {
 		h.git = igit.New()
 	}
-	if !h.limSet || h.taskOrder == "" {
+	if !h.limSet || h.taskOrder == "" || !h.retentionSet {
 		cfg, err := config.Load()
 		if err != nil {
 			slog.Warn("loading config", "err", err)
@@ -409,6 +433,15 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 		}
 		if h.taskOrder == "" {
 			h.taskOrder = tasks.Order(cfg.Task.Order)
+		}
+		if !h.retentionSet {
+			d, err := config.Retention(cfg.Queue.Retention)
+			if err != nil {
+				slog.Warn("queue.retention", "value", cfg.Queue.Retention, "err", err)
+				d, _ = config.Retention(config.Defaults().Queue.Retention)
+			}
+			h.retention = d
+			h.retentionSet = true
 		}
 	}
 
@@ -442,7 +475,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 	}
 
 	if entry.cmd.NeedsAuthor && author == "" {
-		return nil, fmt.Errorf("%w: author not configured", sdk.ErrMissingArg)
+		return nil, fmt.Errorf("%w: author is required - pass --author, the MCP author field, or the HTTP Author header", sdk.ErrMissingArg)
 	}
 
 	// Commands that need a store get a clear error when none is open

@@ -83,6 +83,7 @@ llmd config git deny "llmd-docs.db"
 | `limits.path_length` | Maximum document path length in bytes (default `1024`) |
 | `limits.content_size` | Maximum document content size in bytes (default `10485760`) |
 | `task.order` | Order within a board column, for the board, `review` and `task next`: `priority` (default; priority 1 first, then board position) or `position` (board position only) |
+| `queue.retention` | How long `vacuum` keeps queue messages: a number of days such as `30d` (default), a duration such as `12h`, or `0` to keep every message |
 
 Example config.yaml:
 
@@ -102,6 +103,9 @@ limits:
 
 task:
   order: position
+
+queue:
+  retention: 7d
 ```
 
 ## Git integration

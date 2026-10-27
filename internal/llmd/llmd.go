@@ -25,6 +25,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/jpl-au/llmd/internal/sqlite"
 
@@ -78,6 +79,14 @@ type Store struct {
 	bus      *events.Bus
 	path     string // llmd.db path
 	workPath string // work.db path
+
+	queueRetention time.Duration // Vacuum removes queue messages older than this; 0 keeps them
+}
+
+// SetQueueRetention sets how long queue messages are kept: Vacuum
+// removes messages older than d. Zero keeps every message.
+func (s *Store) SetQueueRetention(d time.Duration) {
+	s.queueRetention = d
 }
 
 // Init creates a new store. Fails if it already exists.

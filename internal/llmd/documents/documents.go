@@ -26,7 +26,7 @@ import (
 // displaying metadata about soft-deleted items.
 var (
 	ErrNotFound = errors.New("document not found")
-	ErrDeleted  = errors.New("document is deleted")
+	ErrDeleted  = errors.New("document is deleted - restore brings it back")
 	ErrExists   = errors.New("destination already exists")
 )
 

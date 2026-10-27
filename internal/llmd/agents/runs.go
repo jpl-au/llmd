@@ -62,7 +62,7 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 		return nil, fmt.Errorf("checking running agents: %w", err)
 	}
 	if running {
-		return nil, fmt.Errorf("%w: %s", ErrRunning, opts.TaskKey)
+		return nil, fmt.Errorf("%w: %s - agent runs --task %s shows it, agent stop %s ends it", ErrRunning, opts.TaskKey, opts.TaskKey, opts.TaskKey)
 	}
 
 	k := key.Generate()

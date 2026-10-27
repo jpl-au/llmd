@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/internal/clock/clocktest"
+	"github.com/jpl-au/llmd/internal/host"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -278,5 +279,55 @@ func TestVacuumIdempotent(t *testing.T) {
 	r, _ := data(run(t, c, "vacuum", nil)).(sdk.VacuumResult)
 	if r.Documents+r.Tags+r.Links != 0 || len(r.Paths) != 0 {
 		t.Errorf("second vacuum Data = %+v, want zero counts", r)
+	}
+}
+
+// TestVacuumQueue covers the queue side of vacuum: messages older than
+// the configured retention go, newer ones and a dry run leave the
+// queue alone, and a zero retention keeps everything.
+func TestVacuumQueue(t *testing.T) {
+	const hour = int64(60 * 60 * 1000)
+	tests := []struct {
+		name      string
+		retention time.Duration
+		args      []string
+		wantText  string
+		wantMsgs  int64
+		wantLeft  int // messages still in history afterwards
+	}{
+		{"old messages go", time.Hour, nil, "Vacuumed 0 documents, 0 tags, 0 links, 2 queue messages", 2, 1},
+		{"dry run only counts", time.Hour, []string{"--dry-run"}, "Would vacuum 0 documents, 0 tags, 0 links, 2 queue messages", 2, 3},
+		{"zero retention keeps everything", 0, nil, "Nothing to vacuum", 0, 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := host.TestSetup(t, host.TestIsolated, host.WithQueueRetention(tt.retention))
+			c := h.Context(t.Context(), "alice")
+			// Two messages three and two hours ago, one just now.
+			for i, at := range []int64{metaVacuumT1, metaVacuumT1 + hour, metaVacuumT1 + 3*hour} {
+				clocktest.Fixed(t, at)
+				run(t, c, "queue", nil, "send", "message "+string(rune('a'+i)))
+			}
+			clocktest.Fixed(t, metaVacuumT1+3*hour)
+
+			resp := run(t, c, "vacuum", nil, tt.args...)
+			if got := text(resp); !strings.Contains(got, tt.wantText) {
+				t.Errorf("vacuum %v = %q, want to contain %q", tt.args, got, tt.wantText)
+			}
+			r, ok := data(resp).(sdk.VacuumResult)
+			if !ok {
+				t.Fatalf("vacuum %v Data = %T, want sdk.VacuumResult", tt.args, data(resp))
+			}
+			if r.Messages != tt.wantMsgs {
+				t.Errorf("vacuum %v Messages = %d, want %d", tt.args, r.Messages, tt.wantMsgs)
+			}
+			left, err := c.Queue.History(sdk.HistoryOpts{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(left) != tt.wantLeft {
+				t.Errorf("after vacuum %v, %d messages remain, want %d", tt.args, len(left), tt.wantLeft)
+			}
+		})
 	}
 }

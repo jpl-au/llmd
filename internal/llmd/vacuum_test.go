@@ -2,14 +2,18 @@ package llmd_test
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jpl-au/llmd/internal/clock/clocktest"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/llmdtest"
+	"github.com/jpl-au/llmd/internal/llmd/messages"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
 )
 
@@ -194,4 +198,89 @@ func withDryRun(r llmd.VacuumResult) llmd.VacuumResult {
 func equalResult(a, b llmd.VacuumResult) bool {
 	return a.Documents == b.Documents && a.Tags == b.Tags && a.Links == b.Links &&
 		a.DryRun == b.DryRun && slices.Equal(a.Paths, b.Paths)
+}
+
+// TestVacuumQueue covers the queue trim: with a retention set, messages
+// older than it go (acknowledged or not) and newer ones stay; a dry run
+// counts without deleting; without a retention nothing is touched; and
+// a store that never opened work.db does not create it just to look.
+func TestVacuumQueue(t *testing.T) {
+	const hour = int64(60 * 60 * 1000)
+	send := func(t *testing.T, s *llmd.Store, at int64, text string) string {
+		t.Helper()
+		clocktest.Fixed(t, at)
+		m, err := s.Messages.Send(t.Context(), messages.SendOptions{Type: "note", Payload: text, Author: "alice", Source: "test"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m.Key
+	}
+	remaining := func(t *testing.T, s *llmd.Store) int {
+		t.Helper()
+		msgs, err := s.Messages.History(t.Context(), "", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(msgs)
+	}
+
+	t.Run("older than the retention go", func(t *testing.T) {
+		s := testStore(t)
+		s.SetQueueRetention(time.Hour)
+		first := send(t, s, 1_000, "old and acknowledged")
+		send(t, s, 1_000+hour, "old")
+		send(t, s, 1_000+3*hour, "new")
+		if err := s.Messages.Ack(t.Context(), first, "claude"); err != nil {
+			t.Fatal(err)
+		}
+		clocktest.Fixed(t, 1_000+3*hour)
+
+		dry, err := s.Vacuum(t.Context(), llmd.VacuumOptions{DryRun: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dry.Messages != 2 || remaining(t, s) != 3 {
+			t.Errorf("dry run: Messages = %d, %d remain; want 2 counted and 3 remaining", dry.Messages, remaining(t, s))
+		}
+		r, err := s.Vacuum(t.Context(), llmd.VacuumOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Messages != 2 || r.Total() != 2 || remaining(t, s) != 1 {
+			t.Errorf("Messages = %d, Total = %d, %d remain; want 2, 2, 1", r.Messages, r.Total(), remaining(t, s))
+		}
+		// The acknowledgement went with its message: the consumer's
+		// pending list is just the message that stayed.
+		pending, err := s.Messages.Pending(t.Context(), "claude", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(pending) != 1 || pending[0].Payload != "new" {
+			t.Errorf("pending after vacuum = %+v, want only the new message", pending)
+		}
+	})
+
+	t.Run("no retention keeps everything", func(t *testing.T) {
+		s := testStore(t)
+		send(t, s, 1_000, "old")
+		clocktest.Fixed(t, 1_000+100*hour)
+		r, err := s.Vacuum(t.Context(), llmd.VacuumOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Messages != 0 || remaining(t, s) != 1 {
+			t.Errorf("Messages = %d, %d remain; want 0 and 1", r.Messages, remaining(t, s))
+		}
+	})
+
+	t.Run("no work.db is left alone", func(t *testing.T) {
+		s := testStore(t)
+		s.SetQueueRetention(time.Hour)
+		if _, err := s.Vacuum(t.Context(), llmd.VacuumOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(s.Dir(), "work.db")); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("work.db after vacuum: stat = %v, want it not to exist", err)
+		}
+	})
 }

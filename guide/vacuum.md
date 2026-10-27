@@ -1,7 +1,7 @@
 # llmd vacuum
 
-Permanently remove soft-deleted documents, and the tags and links they
-leave orphaned, then reclaim disk space.
+Permanently remove soft-deleted documents, the tags and links they
+leave orphaned, and old queue messages, then reclaim disk space.
 
 ## Usage
 
@@ -30,6 +30,10 @@ llmd vacuum [--dry-run] [--older-than <age>]
   themselves removed with `llmd tag -d` or `llmd unlink`.
 - `--older-than` keeps recent deletions restorable and purges the
   rest.
+- Queue messages older than the `queue.retention` setting are removed
+  in the same pass, acknowledged or not. The default is 30 days;
+  `llmd config queue.retention 0` keeps every message. `--older-than`
+  does not apply to them. Nothing is done when there is no work.db.
 - The output lists the document paths purged, or `Would vacuum` them
   with `--dry-run`, or `Nothing to vacuum`.
 
@@ -49,4 +53,5 @@ llmd --author alice vacuum
 ## Notes
 
 Vacuum also reclaims disk space in the database files. See `guide rm`
-and `guide restore` for the soft-delete cycle it ends.
+and `guide restore` for the soft-delete cycle it ends, and `guide
+queue` for why the queue needs trimming.

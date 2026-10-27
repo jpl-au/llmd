@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -23,7 +25,34 @@ type Config struct {
 	Log     LogConfig                `yaml:"log,omitempty"`
 	Limits  LimitConfig              `yaml:"limits,omitempty"`
 	Task    TaskConfig               `yaml:"task,omitempty"`
+	Queue   QueueConfig              `yaml:"queue,omitempty"`
 	Webhook map[string]WebhookConfig `yaml:"webhook,omitempty"`
+}
+
+// QueueConfig holds message queue settings.
+type QueueConfig struct {
+	// Retention is how long queue messages are kept before vacuum
+	// removes them: a number of days such as 30d, a duration such as
+	// 12h, or 0 to keep every message. See Retention.
+	Retention string `yaml:"retention,omitempty"`
+}
+
+// Retention parses a retention setting: a number of days such as 30d,
+// a duration such as 12h or 90m, or 0 (and "") for no limit.
+func Retention(s string) (time.Duration, error) {
+	if s == "" || s == "0" {
+		return 0, nil
+	}
+	if days, ok := strings.CutSuffix(s, "d"); ok {
+		if n, err := strconv.Atoi(days); err == nil && n >= 0 {
+			return time.Duration(n) * 24 * time.Hour, nil
+		}
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil || d < 0 {
+		return 0, fmt.Errorf("invalid retention %q: use a number of days (30d), a duration (12h), or 0 to keep everything", s)
+	}
+	return d, nil
 }
 
 // TaskConfig holds task board settings.
@@ -76,6 +105,9 @@ func Defaults() Config {
 		},
 		Task: TaskConfig{
 			Order: "priority",
+		},
+		Queue: QueueConfig{
+			Retention: "30d",
 		},
 	}
 }
@@ -168,6 +200,7 @@ func Keys() []string {
 		"limits.path_length",
 		"limits.content_size",
 		"task.order",
+		"queue.retention",
 	}
 }
 
@@ -202,6 +235,8 @@ func (c Config) Field(key string) (string, bool) {
 		return strconv.Itoa(c.Limits.ContentSize), true
 	case "task.order":
 		return c.Task.Order, c.Task.Order != ""
+	case "queue.retention":
+		return c.Queue.Retention, c.Queue.Retention != ""
 	default:
 		return "", false
 	}
@@ -243,6 +278,11 @@ func (c *Config) Set(key, value string) error {
 			return fmt.Errorf("task.order must be priority or position")
 		}
 		c.Task.Order = value
+	case "queue.retention":
+		if _, err := Retention(value); err != nil {
+			return fmt.Errorf("queue.retention must be a number of days (30d), a duration (12h), or 0 to keep every message")
+		}
+		c.Queue.Retention = value
 	case "log.format":
 		switch value {
 		case "text", "json":

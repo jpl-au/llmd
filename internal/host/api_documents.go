@@ -475,6 +475,7 @@ func (a *documentAPI) Vacuum(opts sdk.VacuumOpts) (sdk.VacuumResult, error) {
 		Documents: r.Documents,
 		Tags:      r.Tags,
 		Links:     r.Links,
+		Messages:  r.Messages,
 		Paths:     r.Paths,
 		DryRun:    r.DryRun,
 	}, nil

@@ -41,6 +41,10 @@ llmd queue history [-n N | --all]    Recent messages including acknowledged
   The same change detected twice is inserted once.
 - `history` shows the 20 most recent messages. `-n` changes the cap,
   `--all` lifts it.
+- Nothing leaves the queue on its own. `llmd vacuum` removes messages
+  older than the `queue.retention` setting (default `30d`), whether or
+  not every consumer acknowledged them; a consumer that never catches
+  up does not pin the table. `guide config` has the key.
 - Content for `send` comes from the positional argument or stdin. IDs
   are bare 9-character base36 keys. `--json` gives the structured form.
 
@@ -156,4 +160,7 @@ back to polling - the `message_acks` table is the cursor.
 ## Notes
 
 - Tables are created lazily on first queue operation.
-- Vacuum clears fully-acknowledged messages only.
+- A consumer name that has never acknowledged anything sees every
+  message within the retention window as pending, so a brand-new agent
+  starts with up to 30 days of history. Acknowledge through it or pick
+  a shorter `queue.retention`.

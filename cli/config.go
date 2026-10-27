@@ -35,6 +35,7 @@ Keys use dot notation for nested values:
   limits.path_length   Maximum document path length in bytes
   limits.content_size  Maximum document content size in bytes
   task.order        Order within a column: priority (default) or position
+  queue.retention   How long vacuum keeps queue messages: 30d (default), 12h, or 0 for ever
 
 The "config author" setting is for the human user only - LLMs and
 scripts must use --author on each command instead.`, Usage: "config [key] [value] | config git [allow|deny|ls] [pattern]", Flags: []sdk.Flag{

@@ -9,6 +9,10 @@
 // "restore" brings the document back intact. Purging a document is
 // final, so vacuum also removes the tags and links it leaves orphaned.
 //
+// Vacuum also trims the message queue: every store change lands there
+// as a message and nothing else removes one, so messages older than
+// the store's queue retention (SetQueueRetention) go in the same pass.
+//
 // This is an explicit user action (not automatic) because accidental
 // deletes should be recoverable until the user intentionally purges.
 
@@ -18,6 +22,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/clock"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/links"
 	"github.com/jpl-au/llmd/internal/llmd/tags"
@@ -36,19 +41,22 @@ type VacuumResult struct {
 	Documents int64    // Number of documents purged (all versions of each)
 	Tags      int64    // Number of tags purged
 	Links     int64    // Number of links purged
+	Messages  int64    // Number of queue messages purged (older than the retention)
 	Paths     []string // Paths of the purged documents, in path order
 	DryRun    bool     // Nothing was changed; counts are what would be purged
 }
 
 // Total returns the total number of items purged.
 func (r VacuumResult) Total() int64 {
-	return r.Documents + r.Tags + r.Links
+	return r.Documents + r.Tags + r.Links + r.Messages
 }
 
 // Vacuum permanently deletes soft-deleted documents, the tags and links
-// they orphan, and separately soft-deleted tags and links, then runs
-// SQLite VACUUM to reclaim disk space. With DryRun it only reports.
-// Outside a dry run this operation cannot be undone.
+// they orphan, and separately soft-deleted tags and links, removes
+// queue messages older than the queue retention when one is set and
+// work.db exists, then runs SQLite VACUUM to reclaim disk space. With
+// DryRun it only reports. Outside a dry run this operation cannot be
+// undone.
 func (s *Store) Vacuum(ctx context.Context, opts VacuumOptions) (*VacuumResult, error) {
 	result := VacuumResult{DryRun: opts.DryRun}
 
@@ -70,6 +78,14 @@ func (s *Store) Vacuum(ctx context.Context, opts VacuumOptions) (*VacuumResult, 
 		return nil, fmt.Errorf("purging links: %w", err)
 	}
 	result.Links = n
+
+	if s.queueRetention > 0 && s.workOpen() {
+		n, err = s.Messages.Purge(ctx, clock.Now()-s.queueRetention.Milliseconds(), opts.DryRun)
+		if err != nil {
+			return nil, fmt.Errorf("purging queue messages: %w", err)
+		}
+		result.Messages = n
+	}
 
 	if opts.DryRun {
 		return &result, nil

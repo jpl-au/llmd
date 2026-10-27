@@ -251,13 +251,16 @@ type VacuumResult struct {
 	Documents int64
 	Tags      int64
 	Links     int64
+	Messages  int64    // queue messages older than the configured retention
 	Paths     []string // documents purged, or that would be, in path order
 	DryRun    bool     // nothing was changed
 }
 
 // VacuumOpts narrows a vacuum. DryRun reports what would be purged
 // without changing anything. Before purges only items deleted before
-// that time; the zero time purges everything soft-deleted.
+// that time; the zero time purges everything soft-deleted. Queue
+// messages are governed by the store's retention (the queue.retention
+// configuration key), not by Before.
 type VacuumOpts struct {
 	DryRun bool
 	Before time.Time

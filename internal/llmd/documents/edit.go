@@ -51,7 +51,7 @@ func (d *Documents) Edit(ctx context.Context, path, old, new string, opts EditOp
 
 	count := strings.Count(doc.Content, old)
 	if count == 0 {
-		return nil, ErrNoMatch
+		return nil, fmt.Errorf("%w: the old text is not in the document - cat it and copy the text exactly", ErrNoMatch)
 	}
 
 	var result string

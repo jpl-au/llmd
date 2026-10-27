@@ -50,9 +50,9 @@ func taskErr(err error) error {
 	case errors.Is(err, tasks.ErrMissingTitle):
 		return fmt.Errorf("%w: %w", sdk.ErrMissingArg, err)
 	case errors.Is(err, tasks.ErrInvalidCol):
-		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+		return fmt.Errorf("%w: %w - task column list shows the columns", sdk.ErrInvalidArg, err)
 	case errors.Is(err, tasks.ErrColNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+		return fmt.Errorf("%w: %w - task column list shows the columns", sdk.ErrNotFound, err)
 	case errors.Is(err, tasks.ErrColExists):
 		return fmt.Errorf("%w: %w", sdk.ErrExists, err)
 	case errors.Is(err, tasks.ErrColNotEmpty):

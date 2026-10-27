@@ -11,9 +11,10 @@ var vacuumSpec = sdk.Command{
 	Name: "vacuum", Desc: `Permanently purge soft-deleted documents and reclaim space
 
 Removes documents deleted with rm, along with their version history,
-and the tags and links left orphaned by that removal. This cannot be
-undone, so preview first with --dry-run, and consider --older-than to
-keep recent deletions restorable.`, Usage: "vacuum [--dry-run] [--older-than <age>]",
+and the tags and links left orphaned by that removal, and queue
+messages older than the queue.retention setting (default 30 days).
+This cannot be undone, so preview first with --dry-run, and consider
+--older-than to keep recent deletions restorable.`, Usage: "vacuum [--dry-run] [--older-than <age>]",
 	NeedsAuthor: true,
 	Flags: []sdk.Flag{
 		{Name: "dry-run", Short: "n", Type: "bool", Desc: "Show what would be purged without changing anything"},
@@ -38,7 +39,7 @@ func vacuumCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("vacuum: %w", err)
 	}
 
-	total := result.Documents + result.Tags + result.Links
+	total := result.Documents + result.Tags + result.Links + result.Messages
 	if total == 0 {
 		return sdk.Result{Text: "Nothing to vacuum", Data: result}, nil
 	}
@@ -47,7 +48,7 @@ func vacuumCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if result.DryRun {
 		verb = "Would vacuum"
 	}
-	lines := []string{fmt.Sprintf("%s %d documents, %d tags, %d links", verb, result.Documents, result.Tags, result.Links)}
+	lines := []string{fmt.Sprintf("%s %d documents, %d tags, %d links, %d queue messages", verb, result.Documents, result.Tags, result.Links, result.Messages)}
 	for _, p := range result.Paths {
 		lines = append(lines, "  "+p)
 	}

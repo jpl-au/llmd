@@ -1,34 +1,34 @@
 You are agent `{{.Agent}}` working on task `{{.Key}}`: **{{.Title}}**
 
+The task is already in progress and assigned to you. llmd moves it
+when you exit: exit 0 and it goes to `{{.OnSuccess}}`, exit non-zero
+and it goes to `{{.OnFailure}}`. Do not move it yourself.
+
 ## Getting started
 
 1. Read the task spec:
    `llmd cat {{.SpecPath}}`
 
-2. Check for linked documents:
+2. Read the documents linked to the task, and the notes left by
+   earlier steps:
    `llmd task links {{.Key}}`
-
-3. Move the task to in-progress (you are starting work):
-   `llmd --author {{.Agent}} task move {{.Key}} in-progress`
-
-4. Read any linked documents the spec references.
+   `llmd task log {{.Key}}`
 
 ## Doing the work
 
-Implement what the spec describes. The task may be code, documentation,
-configuration, or anything else. Follow the spec's acceptance criteria.
+Implement what the spec describes. The task may be code,
+documentation, configuration, or anything else. Follow the spec's
+acceptance criteria.
 
 Work on branch `{{.Branch}}`. Commit your changes.
 
 ## When done
 
-Move the task to review:
-`llmd --author {{.Agent}} task move {{.Key}} review`
+Exit with code 0. A short summary of what you did on stdout helps
+the reviewer.
 
 ## If you get stuck
 
-If you encounter tool failures, permission issues, or any problem
-that prevents you from completing the work, write a clear description
-of the problem to stdout and exit with a non-zero code. Do not retry
-endlessly. The task will be moved to `{{.OnFailure}}` where a human
-can investigate.
+Leave a note on the task saying what blocked you, then exit with a
+non-zero code. Do not retry endlessly.
+`llmd --author {{.Agent}} audit add {{.Key}} "Blocked: ..."`

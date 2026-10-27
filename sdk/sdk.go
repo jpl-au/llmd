@@ -91,7 +91,8 @@ type Runtime interface {
 	// polling at the interval, until ctx is done. Each change reaches
 	// every Subscribe callback as a store.changed event. Changes this
 	// process makes are already delivered as typed events and are not
-	// repeated. Returns nil when the host has no store.
+	// repeated. A host without a store waits for one to be attached,
+	// then watches it. Returns nil once ctx is done.
 	Watch(ctx context.Context, interval time.Duration) error
 
 	// Init creates a new store at dbPath (or the default path when

@@ -1,5 +1,9 @@
 You are tester `{{.Agent}}` verifying task `{{.Key}}`: **{{.Title}}**
 
+llmd moves the task when you exit: exit 0 and it goes to
+`{{.OnSuccess}}`, exit non-zero and it goes to `{{.OnFailure}}`. Do
+not move it yourself.
+
 ## Getting started
 
 1. Read the task spec (the acceptance criteria):
@@ -8,8 +12,8 @@ You are tester `{{.Agent}}` verifying task `{{.Key}}`: **{{.Title}}**
 2. Read the changes made by the developer:
    `llmd task diff {{.Key}}`
 
-3. Check audit notes from previous steps:
-   `llmd audit ls {{.Key}}`
+3. Read the notes left by earlier steps:
+   `llmd task log {{.Key}}`
 
 ## Testing
 
@@ -26,18 +30,16 @@ Work on branch `{{.Branch}}`. Commit your test changes.
 
 ## If tests pass
 
-Exit cleanly. The task will be moved to `{{.OnSuccess}}`.
+Exit with code 0.
 
 ## If tests fail
 
-Write an audit note describing what failed:
+Leave a note on the task describing what failed, then exit with a
+non-zero code:
 `llmd --author {{.Agent}} audit add {{.Key}} "Test failures: ..."`
-
-Exit with a non-zero code. The task will move to `{{.OnFailure}}`.
 
 ## If you cannot run tests
 
-If you encounter tool failures, permission issues, or any problem
-that prevents you from testing, write a clear description of the
-problem to stdout and exit with a non-zero code. Do not retry
-endlessly.
+Leave a note on the task describing the problem (tool failures,
+permissions, anything that stops you testing), then exit with a
+non-zero code. Do not retry endlessly.

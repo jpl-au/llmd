@@ -116,7 +116,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, fmt.Errorf("checking readiness: %w", err)
 	}
 	if !ready {
-		return nil, fmt.Errorf("%w: %s", sdk.ErrNotReady, taskKey)
+		return nil, fmt.Errorf("%w: %s - task chain %s shows what it waits on", sdk.ErrNotReady, taskKey, taskKey)
 	}
 
 	// Look up agent configuration.

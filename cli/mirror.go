@@ -73,7 +73,7 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("mirror push: %w: author not configured", sdk.ErrMissingArg)
+		return nil, fmt.Errorf("mirror push: %w: --author is required", sdk.ErrMissingArg)
 	}
 
 	var prefix string
