@@ -18,9 +18,9 @@ var reviewSpec = sdk.Command{
 Shows task metadata, spec document previews, and linked documents
 for each task. Filter by column to focus on specific workflow stages.
 Without a column, done tasks and tasks flagged human are left out;
---all includes them.`, Usage: "review [--column name] [-n limit] [--all]", Flags: []sdk.Flag{
+--all includes them.`, Usage: "review [--column name] [--limit N] [--all]", Flags: []sdk.Flag{
 		{Name: "column", Type: "string", Desc: "Filter by column"},
-		{Name: "n", Type: "int", Desc: "Maximum tasks to show"},
+		{Name: "limit", Short: "n", Type: "int", Desc: "Maximum tasks to show"},
 		{Name: "all", Type: "bool", Desc: "Include done and human tasks"},
 	},
 }
@@ -53,7 +53,7 @@ func review(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("review: %w", err)
 	}
 	column := flags.String("column")
-	limit := flags.Int("n")
+	limit := flags.Int("limit")
 	if column == "" && len(positional) > 0 {
 		column = positional[0]
 	}

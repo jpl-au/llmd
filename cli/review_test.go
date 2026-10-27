@@ -117,7 +117,7 @@ func TestReview(t *testing.T) {
 		{
 			name:      "limit larger than the board",
 			author:    "alice",
-			args:      []string{"-n", "10"},
+			args:      []string{"--limit", "10"},
 			wantCount: 3,
 		},
 		{

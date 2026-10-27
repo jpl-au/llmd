@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -107,9 +108,12 @@ func TestWatch(t *testing.T) {
 		if _, err := other.Tasks.Add(ctx, "Again", []byte("# Again\n\nspec"), tasks.AddOptions{Origin: origin}); err != nil {
 			t.Fatal(err)
 		}
+		// A task add writes both files (the spec, then the task), and
+		// one poll may report them in either order, so look for work.db
+		// among the new changes rather than last.
 		got := waitFor(t, before+1)
-		if got[len(got)-1] != "work.db" {
-			t.Errorf("changes = %v, want work.db last", got)
+		if !slices.Contains(got[before:], "work.db") {
+			t.Errorf("new changes = %v, want work.db among them", got[before:])
 		}
 	})
 

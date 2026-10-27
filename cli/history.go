@@ -7,7 +7,7 @@ package cli
 //
 // The default limit is 10 versions so an agent running history on a
 // heavily-edited document doesn't dump hundreds of rows into its
-// context. Pass -n explicitly to cap at a different number, or
+// context. Pass --limit (-n) to cap at a different number, or
 // --all for the full history.
 
 import (
@@ -28,9 +28,9 @@ var historySpec = sdk.Command{
 
 Displays a table of recent versions with version number, author,
 date, and commit message. Newest versions are shown first. Defaults
-to the last 10 versions; use -n to change the limit or --all to show
-every version.`, Usage: "history [-n limit | --all] <path>", MCP: true, Flags: []sdk.Flag{
-		{Name: "n", Type: "int", Desc: "Maximum versions to show (default 10)"},
+to the last 10 versions; use --limit (-n) to change the cap or --all to
+show every version.`, Usage: "history [--limit N | --all] <path>", MCP: true, Flags: []sdk.Flag{
+		{Name: "limit", Short: "n", Type: "int", Desc: "Maximum versions to show (default 10)"},
 		{Name: "all", Type: "bool", Desc: "Show every version, no limit"},
 	},
 }
@@ -41,8 +41,8 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("history: %w", err)
 	}
 
-	// Resolve the effective limit. --all beats -n beats the default.
-	limit := flags.Int("n")
+	// Resolve the effective limit. --all beats --limit beats the default.
+	limit := flags.Int("limit")
 	if flags.Bool("all") {
 		limit = 0
 	} else if limit == 0 {

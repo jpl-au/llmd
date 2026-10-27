@@ -100,7 +100,7 @@ func TestStatus(t *testing.T) {
 		{
 			name:       "limit caps each section",
 			author:     "alice",
-			args:       []string{"-n", "2"},
+			args:       []string{"--limit", "2"},
 			wantText:   []string{"  docs/c v1 alice\n", "  docs/b v2 bob\n"},
 			wantAbsent: []string{"docs/a"},
 			wantDocs:   2,

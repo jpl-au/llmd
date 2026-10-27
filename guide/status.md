@@ -6,19 +6,19 @@ and the latest activity, on one screen.
 ## Usage
 
 ```
-llmd status [-n limit]
+llmd status [--limit N]
 ```
 
 ## Flags
 
 | Flag | Description |
 |------|-------------|
-| `-n <limit>` | Items per section (default 5) |
+| `-n`, `--limit <int>` | Items per section (default 5) |
 
 ## Rules
 
 - Read-only. No author is needed.
-- Three sections, each capped at `-n` items: recent documents (path,
+- Three sections, each capped at `--limit` items: recent documents (path,
   version, author, date, newest first), the task board (a count per
   column) and recent activity (document writes, tags, links and task
   events, newest first).
@@ -34,7 +34,7 @@ llmd status [-n limit]
 llmd status
 
 # Show more history
-llmd status -n 10
+llmd status --limit 10
 
 # Machine-readable
 llmd status --json

@@ -22,7 +22,7 @@ var findSpec = sdk.Command{
 Like grep, but prints only document paths - no content. Useful for
 piping or getting a quick overview of which documents match. Defaults
 to 500 matches; use --limit or --all to change the cap.`, Usage: "find [flags] <query> [path]", MCP: true, MCPName: "llmd_find", Flags: []sdk.Flag{
-		{Name: "limit", Type: "int", Desc: "Maximum paths to return (default 500)"},
+		{Name: "limit", Short: "n", Type: "int", Desc: "Maximum paths to return (default 500)"},
 		{Name: "all", Type: "bool", Desc: "Return every match, no limit"},
 	},
 }

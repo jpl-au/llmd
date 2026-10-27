@@ -6,7 +6,7 @@ Show the versions of a document, newest first.
 
 ```
 llmd history <path>            The 10 most recent versions
-llmd history -n N <path>       The N most recent versions
+llmd history --limit N <path>  The N most recent versions (-n for short)
 llmd history --all <path>      Every version
 ```
 
@@ -14,13 +14,13 @@ llmd history --all <path>      Every version
 
 | Flag | Description |
 |------|-------------|
-| `-n <int>` | Maximum versions to show (default 10) |
+| `-n`, `--limit <int>` | Maximum versions to show (default 10) |
 | `--all` | Show every version, no limit |
 
 ## Rules
 
 - Reads need no author.
-- Only the 10 newest versions are shown unless `-n` or `--all`, so a
+- Only the 10 newest versions are shown unless `--limit` or `--all`, so a
   heavily edited document does not fill an agent's context.
 - Versions are numbered from 1, the oldest, upwards. A document with
   no versions prints `No history found`.

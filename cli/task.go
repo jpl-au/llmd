@@ -26,7 +26,7 @@ Subcommands (passed as first arg):
   column mv <name> --after  reorder column
   link <id> <path>          link task to document
   links <id>                list linked documents
-  log <id> [-n limit]       audit history for a task
+  log <id> [--limit N]      audit history for a task
   start <id> [--assign who] [--agent name]  start task; --agent spawns that agent on it
   finish [id]               complete task (move to done, show summary)
   branch <id>               create git branch from task, checkout, start

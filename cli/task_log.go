@@ -14,9 +14,9 @@ import (
 
 // taskLog displays the audit history for a task (or all tasks if no key
 // is given). Renders a table of events showing timestamp, actor, action,
-// and old/new values. Supports -n to limit the number of events.
+// and old/new values. --limit (-n) caps the number of events.
 var taskLogFlags = []sdk.Flag{
-	{Name: "n", Type: "int"},
+	{Name: "limit", Short: "n", Type: "int"},
 }
 
 func taskLog(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -24,7 +24,7 @@ func taskLog(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("task log: %w", err)
 	}
-	limit := flags.Int("n")
+	limit := flags.Int("limit")
 	var key string
 	if len(positional) > 0 {
 		key = positional[0]

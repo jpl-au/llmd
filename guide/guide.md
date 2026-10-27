@@ -79,7 +79,7 @@ llmd grep hello                              # full-text search
 
 | Command   | Description                        | Usage                          |
 |-----------|------------------------------------|--------------------------------|
-| `history` | Show version log for a document    | `history [-n limit] <path>`    |
+| `history` | Show version log for a document    | `history [--limit N] <path>`    |
 | `diff`    | Compare document versions          | `diff <path>` or `diff a:1 b:2`|
 | `graph`   | How the store evolved over time    | `graph [path]`                 |
 
@@ -87,8 +87,8 @@ llmd grep hello                              # full-text search
 
 | Command  | Description                        | Usage                            |
 |----------|------------------------------------|----------------------------------|
-| `status` | Store overview dashboard           | `status [-n limit]`              |
-| `review` | Pending tasks with context         | `review [--column name] [-n N]`  |
+| `status` | Store overview dashboard           | `status [--limit N]`            |
+| `review` | Pending tasks with context         | `review [--column name] [--limit N]`  |
 
 ### Tags and links
 

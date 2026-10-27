@@ -64,6 +64,7 @@ with different meanings.
 | `--base <branch>` | diff, files, commits, finish | Base branch (default: main or master) |
 | `--stat` | diff | Diffstat only |
 | `--budget <usd>` | start | Spending limit for a spawned agent |
+| `-n`, `--limit <int>` | log | Most recent events to show |
 
 ## Rules
 

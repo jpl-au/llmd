@@ -19,8 +19,8 @@ var statusSpec = sdk.Command{
 	Name: "status", Desc: `Overview dashboard showing recent documents, tasks, and activity
 
 Shows recent documents, task board summary, and latest task events
-in a single view. Use -n to control how many items per section.`, Usage: "status [-n limit]", Flags: []sdk.Flag{
-		{Name: "n", Type: "int", Desc: "Items per section (default 5)"},
+in a single view. Use --limit (-n) to control how many items per section.`, Usage: "status [--limit N]", Flags: []sdk.Flag{
+		{Name: "limit", Short: "n", Type: "int", Desc: "Items per section (default 5)"},
 	},
 }
 
@@ -46,7 +46,7 @@ func status(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("status: %w", err)
 	}
-	limit := flags.Int("n")
+	limit := flags.Int("limit")
 	if limit == 0 {
 		limit = 5
 	}

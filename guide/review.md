@@ -7,7 +7,7 @@ progress.
 ## Usage
 
 ```
-llmd review [--column name] [-n limit] [--all]
+llmd review [--column name] [--limit N] [--all]
 llmd review <column>                        Same as --column
 ```
 
@@ -16,7 +16,7 @@ llmd review <column>                        Same as --column
 | Flag | Description |
 |------|-------------|
 | `--column <name>` | Only this column (e.g. `in-progress`) |
-| `-n <limit>` | Maximum tasks to show |
+| `-n`, `--limit <int>` | Maximum tasks to show |
 | `--all` | Include done tasks and tasks flagged `human` |
 
 ## Rules
@@ -25,7 +25,7 @@ llmd review <column>                        Same as --column
 - Without a column, done tasks and tasks flagged `human` are left out,
   and a final line counts them: `(2 done, 1 human not shown; use
   --all)`. Asking for a column, or passing `--all`, shows everything.
-- `--column` wins when a column is also given as an argument. `-n`
+- `--column` wins when a column is also given as an argument. `--limit`
   applies after the filtering above.
 - Piped, each task is one line of seven tab-separated fields: `key
   title column priority assignee flags spec`. Priority reads `P1`, `P2`
@@ -49,7 +49,7 @@ llmd review in-progress
 llmd review --column in-progress
 
 # Top 3 tasks only
-llmd review -n 3
+llmd review --limit 3
 
 # Everything, done and human tasks included
 llmd review --all

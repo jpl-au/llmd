@@ -43,7 +43,7 @@ different cap or --all to disable it.`, Usage: "ls [flags] [path]", MCP: true, B
 		{Name: "r", Type: "bool", Desc: "Reverse sort order"},
 		{Name: "t", Type: "bool", Desc: "Sort by time (newest first)"},
 		{Name: "tree", Type: "bool", Desc: "Render as directory tree"},
-		{Name: "limit", Type: "int", Desc: "Maximum documents to return (default 500)"},
+		{Name: "limit", Short: "n", Type: "int", Desc: "Maximum documents to return (default 500)"},
 		{Name: "all", Type: "bool", Desc: "Show every document, no limit"},
 		{Name: "since", Type: "string", Desc: "Show documents updated after (e.g. 5m, 1h, RFC 3339)"},
 	},

@@ -226,7 +226,7 @@ Query parameters are mapped to command flags automatically:
 GET /cat/docs/spec?version=3     -> cat --version 3 docs/spec
 GET /ls?l=true&t=true            -> ls -l -t
 GET /grep?q=budget&n=true        -> grep -n budget
-GET /history/docs/spec?n=5       -> history -n 5 docs/spec
+GET /history/docs/spec?limit=5   -> history --limit 5 docs/spec
 ```
 
 The `q` parameter is special: it becomes a positional argument (the

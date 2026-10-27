@@ -52,7 +52,7 @@ func TestHistory(t *testing.T) {
 		},
 		{
 			name:      "n after the path",
-			args:      []string{"churn/doc", "-n", "12"},
+			args:      []string{"churn/doc", "--limit", "12"},
 			wantLen:   12,
 			wantFirst: 15,
 		},

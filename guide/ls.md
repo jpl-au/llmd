@@ -19,7 +19,7 @@ llmd ls --tree [<path>]     Directory hierarchy (terminal only)
 | `-r` | Reverse sort order |
 | `-t` | Sort by time, newest first |
 | `--tree` | Render paths as a directory hierarchy |
-| `--limit <int>` | Maximum documents to return (default 500) |
+| `-n`, `--limit <int>` | Maximum documents to return (default 500) |
 | `--all` | Return every document, no limit |
 | `--since <string>` | Only documents updated after a time (`5m`, `1h`, RFC 3339) |
 

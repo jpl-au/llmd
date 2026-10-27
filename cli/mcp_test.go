@@ -143,7 +143,7 @@ func TestMCPRegisterTool(t *testing.T) {
 			}
 		case "history":
 			// A command without one gets the first paragraph and its flags.
-			for _, want := range []string{historySpec.Summary() + "\n", "\nUsage: llmd history", "\nFlags:", "\n  --n <int>  Maximum versions", "\n  --all  Show every version", "\nDetails: guide history"} {
+			for _, want := range []string{historySpec.Summary() + "\n", "\nUsage: llmd history", "\nFlags:", "\n  -n, --limit <int>  Maximum versions", "\n  --all  Show every version", "\nDetails: guide history"} {
 				if !strings.Contains(tool.Description, want) {
 					t.Errorf("history tool description = %q, want to contain %q", tool.Description, want)
 				}

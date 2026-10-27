@@ -584,10 +584,10 @@ func TestQueueHistory(t *testing.T) {
 			wantAbsent: []string{"{b}", "{d}"},
 		},
 		{
-			name:       "-n caps",
+			name:       "--limit caps",
 			author:     "claude",
 			extra:      3,
-			args:       []string{"history", "-n", "2"},
+			args:       []string{"history", "--limit", "2"},
 			wantLen:    2,
 			wantAbsent: []string{"{b}", "{d}"},
 		},
@@ -624,11 +624,11 @@ func TestQueueHistory(t *testing.T) {
 		{
 			name:    "unknown flag",
 			author:  "claude",
-			args:    []string{"history", "--limit", "1"},
+			args:    []string{"history", "--bogus", "1"},
 			wantErr: sdk.ErrInvalidArg,
 		},
 		{
-			name:    "-n must be an integer",
+			name:    "-n (short for --limit) must be an integer",
 			author:  "claude",
 			args:    []string{"history", "-n", "few"},
 			wantErr: sdk.ErrInvalidArg,

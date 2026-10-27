@@ -10,7 +10,7 @@ llmd queue send <content>            Send a message (broadcast or directed)
 llmd queue ls [--limit N]            Pending messages, oldest first
 llmd queue peek                      Next unacknowledged message with payload
 llmd queue ack <key>                 Acknowledge oldest pending message
-llmd queue history [-n N | --all]    Recent messages including acknowledged
+llmd queue history [--limit N | --all]  Recent messages including acknowledged
 ```
 
 `ls` and `list` are aliases.
@@ -22,7 +22,7 @@ llmd queue history [-n N | --all]    Recent messages including acknowledged
 | `--assign <name>` | send | Direct a message to a specific consumer |
 | `--limit <n>` | ls | Maximum messages to return |
 | `--since <time>` | history | Show messages after a time (e.g. `5m`, `1h`, RFC 3339) |
-| `-n <n>` | history | Maximum messages to show (default 20) |
+| `-n`, `--limit <n>` | ls, history | Maximum messages to show (history: default 20) |
 | `--all` | history | Show every message, no limit |
 
 ## Rules
@@ -39,7 +39,7 @@ llmd queue history [-n N | --all]    Recent messages including acknowledged
 - Every store change (document written, task moved, audit created)
   also lands in the queue as a domain event, with no action needed.
   The same change detected twice is inserted once.
-- `history` shows the 20 most recent messages. `-n` changes the cap,
+- `history` shows the 20 most recent messages. `--limit` changes the cap,
   `--all` lifts it.
 - Nothing leaves the queue on its own. `llmd vacuum` removes messages
   older than the `queue.retention` setting (default `30d`), whether or
@@ -76,7 +76,7 @@ llmd --author claude-code queue ack a8f3k2m1n
 llmd --author claude-code queue history
 
 # Last 5 only
-llmd --author claude-code queue history -n 5
+llmd --author claude-code queue history --limit 5
 
 # Last hour only
 llmd --author claude-code queue history --since 1h

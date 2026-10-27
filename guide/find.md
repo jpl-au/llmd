@@ -12,7 +12,7 @@ llmd find <query> [<path>]      Paths of documents matching the query, under an 
 
 | Flag | Description |
 |------|-------------|
-| `--limit <int>` | Maximum paths to return (default 500) |
+| `-n`, `--limit <int>` | Maximum paths to return (default 500) |
 | `--all` | Return every match, no limit |
 
 ## Rules

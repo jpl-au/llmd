@@ -147,9 +147,9 @@ func TestGuideFlagsExist(t *testing.T) {
 // the command's top-level spec, so pages may use them in examples. Kept
 // by hand from the per-subcommand flag lists in cli/<command>*.go.
 var subcommandFlags = map[string][]string{
-	"task":  {"column", "priority", "assign", "agent", "branch", "depends-on", "path", "file", "flag", "unflag", "position", "after", "base", "stat", "from", "to", "all", "title", "since", "budget", "name", "n"},
+	"task":  {"column", "priority", "assign", "agent", "branch", "depends-on", "path", "file", "flag", "unflag", "position", "after", "base", "stat", "from", "to", "all", "title", "since", "budget", "name", "limit"},
 	"audit": {"status", "assign", "file", "version", "by-author", "pending", "since", "all"},
-	"queue": {"assign", "limit", "since", "n", "all"},
+	"queue": {"assign", "limit", "since", "all"},
 	"rule":  {"agent", "role", "success", "failure", "resume"},
 	"agent": {"command", "status", "task", "agent", "exit-code", "worktree"},
 }

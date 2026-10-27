@@ -17,7 +17,7 @@ var globSpec = sdk.Command{
 Supports * (single level), ** (recursive), and ? (one character).
 Output is one path per line. Defaults to 500 matches; use --limit
 or --all to change the cap.`, Usage: "glob [flags] <pattern>", MCP: true, MCPName: "llmd_glob", Flags: []sdk.Flag{
-		{Name: "limit", Type: "int", Desc: "Maximum paths to return (default 500)"},
+		{Name: "limit", Short: "n", Type: "int", Desc: "Maximum paths to return (default 500)"},
 		{Name: "all", Type: "bool", Desc: "Return every match, no limit"},
 	},
 }

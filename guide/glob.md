@@ -12,7 +12,7 @@ llmd glob <pattern>
 
 | Flag | Description |
 |------|-------------|
-| `--limit <int>` | Maximum paths to return (default 500) |
+| `-n`, `--limit <int>` | Maximum paths to return (default 500) |
 | `--all` | Return every match, no limit |
 
 ## Rules

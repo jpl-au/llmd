@@ -17,11 +17,11 @@ Subcommands (passed as first arg):
   send <content>             send a message (broadcast or directed)
   ls [--limit N]             pending messages, oldest first
   peek                       next unacknowledged message
-  ack <key>                  acknowledge oldest pending message
-  history [--since 5m]       all messages including acknowledged`, Usage: "queue <subcommand> [options]", MCP: true, MCPName: "queue", Brief: `Message queue for coordination between agents and humans.
-Subcommands: send <text> [--assign who], ls [--limit n], peek, ack <key>, history [--since 5m].`, Flags: []sdk.Flag{
+  ack <key>                  acknowledge the message with that key
+  history [--since 5m] [--limit N | --all]  recent messages including acknowledged (20 by default)`, Usage: "queue <subcommand> [options]", MCP: true, MCPName: "queue", Brief: `Message queue for coordination between agents and humans.
+Subcommands: send <text> [--assign who], ls [--limit n], peek, ack <key>, history [--since 5m] [--limit n | --all] (newest 20 by default).`, Flags: []sdk.Flag{
 		{Name: "assign", Type: "string", Desc: "Direct message to a specific consumer"},
-		{Name: "limit", Type: "int", Desc: "Maximum messages to return"},
+		{Name: "limit", Short: "n", Type: "int", Desc: "Maximum messages to return"},
 		{Name: "since", Type: "string", Desc: "Show messages after (e.g. 5m, 1h, RFC 3339)"},
 	},
 }
@@ -92,7 +92,7 @@ func queueSend(ctx sdk.Context, args []string) (sdk.Response, error) {
 }
 
 var queueListFlags = []sdk.Flag{
-	{Name: "limit", Type: "int"},
+	{Name: "limit", Short: "n", Type: "int"},
 }
 
 func queueList(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -155,7 +155,7 @@ const defaultQueueHistoryLimit = 20
 
 var queueHistoryFlags = []sdk.Flag{
 	{Name: "since", Type: "string"},
-	{Name: "n", Type: "int", Desc: "Maximum messages to show (default 20)"},
+	{Name: "limit", Short: "n", Type: "int", Desc: "Maximum messages to show (default 20)"},
 	{Name: "all", Type: "bool", Desc: "Show every message, no limit"},
 }
 
@@ -187,8 +187,8 @@ func queueHistory(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Result{Text: "No messages.", Data: msgs}, nil
 	}
 
-	// Resolve the cap: --all beats -n beats the default.
-	limit := flags.Int("n")
+	// Resolve the cap: --all beats --limit beats the default.
+	limit := flags.Int("limit")
 	if flags.Bool("all") {
 		limit = 0
 	} else if limit == 0 {
