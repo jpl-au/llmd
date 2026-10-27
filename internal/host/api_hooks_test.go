@@ -227,3 +227,41 @@ func TestHooksHandle(t *testing.T) {
 		})
 	}
 }
+
+// TestPendingSummary covers the session-start text: nothing for an
+// empty queue, every message within the limit, and a count with only
+// the newest messages beyond it.
+func TestPendingSummary(t *testing.T) {
+	msgs := []sdk.Message{{Key: "k1", Payload: "one"}, {Key: "k2", Payload: "two"}, {Key: "k3", Payload: "three"}}
+	tests := []struct {
+		name       string
+		msgs       []sdk.Message
+		limit      int
+		wantLines  int
+		wantText   []string
+		wantAbsent []string
+	}{
+		{name: "empty queue", msgs: nil, limit: 10},
+		{name: "within the limit", msgs: msgs, limit: 10, wantLines: 4, wantText: []string{"3 pending queue messages", "k1  one", "k3  three"}},
+		{name: "no limit", msgs: msgs, limit: 0, wantLines: 4, wantText: []string{"k1  one"}},
+		{name: "beyond the limit", msgs: msgs, limit: 2, wantLines: 3, wantText: []string{"3 pending queue messages, newest 2 shown", "queue ls", "k2  two", "k3  three"}, wantAbsent: []string{"k1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pendingSummary(tt.msgs, tt.limit)
+			if lines := len(strings.Split(got, "\n")); got != "" && lines != tt.wantLines || got == "" && tt.wantLines != 0 {
+				t.Errorf("pendingSummary = %q, want %d lines", got, tt.wantLines)
+			}
+			for _, w := range tt.wantText {
+				if !strings.Contains(got, w) {
+					t.Errorf("pendingSummary = %q, want to contain %q", got, w)
+				}
+			}
+			for _, a := range tt.wantAbsent {
+				if strings.Contains(got, a) {
+					t.Errorf("pendingSummary = %q, must not contain %q", got, a)
+				}
+			}
+		})
+	}
+}

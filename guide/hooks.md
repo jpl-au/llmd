@@ -12,7 +12,7 @@ llmd hook init <platform>                  Print hook configuration: claude, gem
 
 | Event | What llmd does |
 |-------|----------------|
-| Session start | Prints the author's pending queue messages, so the agent sees what needs attention as it begins |
+| Session start | Prints how many queue messages await the author and the newest few, so the agent sees what needs attention as it begins |
 | Session end or stop | Sends a queue message saying the session ended |
 | Task completed | Finishes the task and sends a queue message |
 | Task failed | Moves the task to `blocked` and sends a queue message |
@@ -47,6 +47,10 @@ llmd hook init generic
 - Only session start prints anything. Keep it that way: platforms
   inject hook output into the agent's context, so quiet hooks keep the
   context small.
+- Session start prints a count and the newest 10 pending messages, one
+  per line as key and payload; `queue ls` lists the rest. The number is
+  the `hook.limit` config key; `0` prints every message. Nothing is
+  printed when the queue is empty.
 - llmd finds its store under `.llmd/` in the current directory. If an
   agent runs elsewhere, prefix the command with `cd` to the project.
 - The same handler sits behind every way of reaching llmd: the command

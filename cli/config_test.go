@@ -396,6 +396,24 @@ func TestConfigTaskOrder(t *testing.T) {
 
 // TestConfigQueueRetention covers the queue.retention key: listed with
 // its default, settable to days, a duration or 0, and refused otherwise.
+// TestConfigHookLimit covers the hook.limit key: its default, setting
+// a count and 0, and the error for anything else.
+func TestConfigHookLimit(t *testing.T) {
+	c := taskWorkdirCLI(t, "alice")
+	if got := text(run(t, c, "config", nil)); !strings.Contains(got, "hook.limit=10") {
+		t.Errorf("config = %q, want to list hook.limit=10", got)
+	}
+	for _, v := range []string{"3", "0"} {
+		run(t, c, "config", nil, "hook.limit", v)
+		if got := text(run(t, c, "config", nil, "hook.limit")); !strings.Contains(got, v) {
+			t.Errorf("config hook.limit = %q, want %s", got, v)
+		}
+	}
+	if err := runErr(t, c, "config", nil, "hook.limit", "many"); err == nil || !strings.Contains(err.Error(), "whole number") {
+		t.Errorf("config hook.limit many error = %v, want a message naming the accepted values", err)
+	}
+}
+
 func TestConfigQueueRetention(t *testing.T) {
 	c := taskWorkdirCLI(t, "alice")
 	if got := text(run(t, c, "config", nil)); !strings.Contains(got, "queue.retention=30d") {

@@ -40,6 +40,8 @@ type Host struct {
 	taskOrder    tasks.Order   // ordering within a column; "" reads the config
 	retention    time.Duration // how long queue messages are kept; see retentionSet
 	retentionSet bool          // retention was set by an option, not the config
+	hookLimit    int           // most pending messages the session-start hook prints; see hookLimitSet
+	hookLimitSet bool          // hookLimit was set by an option, not the config
 	git          sdk.GitStore
 	commands     map[string]*cmdEntry
 	extensions   []sdk.Extension
@@ -82,6 +84,17 @@ func WithQueueRetention(d time.Duration) Option {
 	return func(h *Host) {
 		h.retention = d
 		h.retentionSet = true
+	}
+}
+
+// WithHookLimit sets how many pending queue messages the session-start
+// hook prints into an agent's context; zero prints them all. The
+// default comes from the hook.limit key of the configuration file,
+// which is 10.
+func WithHookLimit(n int) Option {
+	return func(h *Host) {
+		h.hookLimit = n
+		h.hookLimitSet = true
 	}
 }
 
@@ -280,7 +293,7 @@ func (h *Host) Context(ctx context.Context, author string) sdk.Context {
 		sctx.Mirror = newMirrorAPI(store, ctx)
 		sctx.Agents = newAgentAPI(store, h.git, ctx)
 		sctx.Rules = newRuleAPI(store.Dir())
-		sctx.Hooks = newHookAPI(store, h.lim, h.git, ctx)
+		sctx.Hooks = newHookAPI(store, h.lim, h.git, h.hookLimit, ctx)
 	}
 	return sctx
 }
@@ -423,7 +436,7 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 	if h.git == nil {
 		h.git = igit.New()
 	}
-	if !h.limSet || h.taskOrder == "" || !h.retentionSet {
+	if !h.limSet || h.taskOrder == "" || !h.retentionSet || !h.hookLimitSet {
 		cfg, err := config.Load()
 		if err != nil {
 			slog.Warn("loading config", "err", err)
@@ -442,6 +455,10 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 			}
 			h.retention = d
 			h.retentionSet = true
+		}
+		if !h.hookLimitSet {
+			h.hookLimit = cfg.HookLimit()
+			h.hookLimitSet = true
 		}
 	}
 

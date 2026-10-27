@@ -84,6 +84,7 @@ llmd config git deny "llmd-docs.db"
 | `limits.content_size` | Maximum document content size in bytes (default `10485760`) |
 | `task.order` | Order within a board column, for the board, `review` and `task next`: `priority` (default; priority 1 first, then board position) or `position` (board position only) |
 | `queue.retention` | How long `vacuum` keeps queue messages: a number of days such as `30d` (default), a duration such as `12h`, or `0` to keep every message |
+| `hook.limit` | Pending queue messages the session-start hook prints into an agent's context: `10` (default), or `0` for all of them |
 
 Example config.yaml:
 
@@ -106,6 +107,9 @@ task:
 
 queue:
   retention: 7d
+
+hook:
+  limit: 5
 ```
 
 ## Git integration

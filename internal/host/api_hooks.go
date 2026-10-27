@@ -20,14 +20,16 @@ type hookAPI struct {
 	queue *queueAPI
 	tasks *taskAPI
 	audit *auditAPI
+	limit int // most pending messages session start prints; 0 for all
 }
 
-func newHookAPI(store *llmd.Store, lim validate.Limits, git sdk.GitStore, ctx context.Context) *hookAPI {
+func newHookAPI(store *llmd.Store, lim validate.Limits, git sdk.GitStore, limit int, ctx context.Context) *hookAPI {
 	return &hookAPI{
 		ctx:   ctx,
 		queue: newQueueAPI(store, ctx),
 		tasks: newTaskAPI(store, lim, git, ctx),
 		audit: newAuditAPI(store, ctx),
+		limit: limit,
 	}
 }
 
@@ -74,11 +76,7 @@ func (h *hookAPI) Handle(author string, payload []byte, opts sdk.HookOpts) (*sdk
 			break
 		}
 		did("queue.ls")
-		lines := make([]string, 0, len(msgs))
-		for _, m := range msgs {
-			lines = append(lines, m.Key+"  "+m.Payload)
-		}
-		result.Content = strings.Join(lines, "\n")
+		result.Content = pendingSummary(msgs, h.limit)
 
 	case "session.end", "session.stop":
 		send(about("Session ended"))
@@ -121,4 +119,27 @@ func (h *hookAPI) Handle(author string, payload []byte, opts sdk.HookOpts) (*sdk
 	}
 
 	return result, nil
+}
+
+// pendingSummary is what a starting agent reads about its queue: a
+// count, then the newest messages up to limit, one per line as key and
+// payload. Hook output lands in the agent's context, so a long backlog
+// is counted rather than printed. Nothing is printed when the queue is
+// empty.
+func pendingSummary(msgs []sdk.Message, limit int) string {
+	if len(msgs) == 0 {
+		return ""
+	}
+	shown := msgs
+	header := fmt.Sprintf("%d pending queue messages (queue ack <key> clears one):", len(msgs))
+	if limit > 0 && len(msgs) > limit {
+		shown = msgs[len(msgs)-limit:]
+		header = fmt.Sprintf("%d pending queue messages, newest %d shown (queue ls lists all, queue ack <key> clears one):", len(msgs), limit)
+	}
+	lines := make([]string, 0, len(shown)+1)
+	lines = append(lines, header)
+	for _, m := range shown {
+		lines = append(lines, m.Key+"  "+m.Payload)
+	}
+	return strings.Join(lines, "\n")
 }

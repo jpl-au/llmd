@@ -36,6 +36,7 @@ Keys use dot notation for nested values:
   limits.content_size  Maximum document content size in bytes
   task.order        Order within a column: priority (default) or position
   queue.retention   How long vacuum keeps queue messages: 30d (default), 12h, or 0 for ever
+  hook.limit        Pending messages the session-start hook prints: 10 (default), or 0 for all
 
 The "config author" setting is for the human user only - LLMs and
 scripts must use --author on each command instead.`, Usage: "config [key] [value] | config git [allow|deny|ls] [pattern]", Flags: []sdk.Flag{

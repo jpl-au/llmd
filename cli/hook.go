@@ -28,7 +28,7 @@ var hookSpec = sdk.Command{
 
 Reads an agent platform's hook payload on stdin and acts on it:
 
-  session start      prints the author's pending queue messages
+  session start      prints the author's newest pending queue messages (hook.limit, default 10)
   session end/stop   sends a queue message that the session ended
   task completed     finishes the task and sends a queue message
   task failed        moves the task to blocked and sends a queue message

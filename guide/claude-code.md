@@ -27,7 +27,8 @@ Rules:
 - `--json` on any tool gives structured output a scheduled agent can
   parse.
 - Hooks run `llmd --author claude hook`; only session start prints
-  anything, so the agent's context stays small. See `guide hooks`.
+  anything, a count and the newest pending queue messages, so the
+  agent's context stays small. See `guide hooks`.
 
 ## How it works
 
@@ -173,9 +174,10 @@ llmd hook init claude
 ```
 
 Each hook runs `llmd --author claude hook`, which reads Claude Code's
-payload and acts on it: session start prints pending queue messages
-into the context, task completion finishes the task and sends a
-message, and tool use on llmd's MCP tools is recorded as an audit.
+payload and acts on it: session start prints a count and the newest
+pending queue messages into the context (`hook.limit`, default 10),
+task completion finishes the task and sends a message, and tool use on
+llmd's MCP tools is recorded as an audit.
 No server is needed. See `guide hooks` for every event.
 
 ## Tips

@@ -26,7 +26,25 @@ type Config struct {
 	Limits  LimitConfig              `yaml:"limits,omitempty"`
 	Task    TaskConfig               `yaml:"task,omitempty"`
 	Queue   QueueConfig              `yaml:"queue,omitempty"`
+	Hook    HookConfig               `yaml:"hook,omitempty"`
 	Webhook map[string]WebhookConfig `yaml:"webhook,omitempty"`
+}
+
+// HookConfig holds agent hook settings.
+type HookConfig struct {
+	// Limit is the most pending queue messages the session-start hook
+	// prints into an agent's context; older ones are counted, not
+	// shown. 0 prints every message. A pointer so that an explicit 0
+	// survives the round trip through the file.
+	Limit *int `yaml:"limit,omitempty"`
+}
+
+// HookLimit returns the configured limit, or the default when unset.
+func (c Config) HookLimit() int {
+	if c.Hook.Limit == nil {
+		return *Defaults().Hook.Limit
+	}
+	return *c.Hook.Limit
 }
 
 // QueueConfig holds message queue settings.
@@ -108,6 +126,9 @@ func Defaults() Config {
 		},
 		Queue: QueueConfig{
 			Retention: "30d",
+		},
+		Hook: HookConfig{
+			Limit: new(10),
 		},
 	}
 }
@@ -201,6 +222,7 @@ func Keys() []string {
 		"limits.content_size",
 		"task.order",
 		"queue.retention",
+		"hook.limit",
 	}
 }
 
@@ -237,6 +259,11 @@ func (c Config) Field(key string) (string, bool) {
 		return c.Task.Order, c.Task.Order != ""
 	case "queue.retention":
 		return c.Queue.Retention, c.Queue.Retention != ""
+	case "hook.limit":
+		if c.Hook.Limit == nil {
+			return "", false
+		}
+		return strconv.Itoa(*c.Hook.Limit), true
 	default:
 		return "", false
 	}
@@ -283,6 +310,12 @@ func (c *Config) Set(key, value string) error {
 			return fmt.Errorf("queue.retention must be a number of days (30d), a duration (12h), or 0 to keep every message")
 		}
 		c.Queue.Retention = value
+	case "hook.limit":
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 0 {
+			return fmt.Errorf("hook.limit must be a whole number of messages, or 0 to print every pending message")
+		}
+		c.Hook.Limit = &n
 	case "log.format":
 		switch value {
 		case "text", "json":

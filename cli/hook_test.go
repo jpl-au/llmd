@@ -159,12 +159,14 @@ func TestHook(t *testing.T) {
 	tests := []struct {
 		name        string
 		author      string
+		limit       int // hook.limit; 0 is the test default of showing everything
 		seed        func(t *testing.T, c sdk.Context)
 		args        []string
 		payload     string
 		wantEvent   string
 		wantActions []string
 		wantText    []string // substrings of the response text
+		wantAbsent  []string // substrings the response text must not have
 		wantStatus  string   // task status afterwards, when set
 		wantMessage string   // a queue message every consumer can see afterwards
 		wantAudit   string   // audit content recorded against the task
@@ -180,6 +182,21 @@ func TestHook(t *testing.T) {
 			wantEvent:   "session.start",
 			wantActions: []string{"queue.ls"},
 			wantText:    []string{"hello hook"},
+		},
+		{
+			name:   "session start counts a long backlog and shows the newest",
+			author: "claude",
+			limit:  2,
+			seed: func(t *testing.T, c sdk.Context) {
+				for _, m := range []string{"first", "second", "third", "fourth"} {
+					run(t, c, "queue", nil, "send", m, "--assign", "claude")
+				}
+			},
+			payload:     `{"hook_event_name":"SessionStart","session_id":"s1"}`,
+			wantEvent:   "session.start",
+			wantActions: []string{"queue.ls"},
+			wantText:    []string{"pending queue messages, newest 2 shown", "third", "fourth"},
+			wantAbsent:  []string{"first", "second"},
 		},
 		{
 			name:        "claude session end sends a message",
@@ -245,7 +262,7 @@ func TestHook(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := newCLI(t, tt.author)
+			c := host.TestSetup(t, host.TestIsolated, host.WithHookLimit(tt.limit)).Context(t.Context(), tt.author)
 			seedCtx := c
 			if tt.author == "" {
 				seedCtx = newCLI(t, "alice")
@@ -286,6 +303,11 @@ func TestHook(t *testing.T) {
 			for _, want := range tt.wantText {
 				if !strings.Contains(got, want) {
 					t.Errorf("hook text = %q, want to contain %q", got, want)
+				}
+			}
+			for _, absent := range tt.wantAbsent {
+				if strings.Contains(got, absent) {
+					t.Errorf("hook text = %q, must not contain %q", got, absent)
 				}
 			}
 			if tt.wantStatus != "" {
