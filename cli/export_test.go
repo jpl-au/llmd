@@ -103,7 +103,7 @@ func TestExport(t *testing.T) {
 			name:   "existing file is skipped",
 			author: "alice",
 			seed: func(t *testing.T, c sdk.Context, dir string) {
-				metaWriteFile(t, filepath.Join(dir, "a.md"), "local edit\n")
+				metaWriteFile(t, filepath.Join(dir, "a.md"), line.Native("local edit\n"))
 			},
 			args:       []string{"docs/a", "{dir}"},
 			wantText:   []string{"skipped 1 existing"},
@@ -119,7 +119,7 @@ func TestExport(t *testing.T) {
 			name:   "overwrite replaces existing file",
 			author: "alice",
 			seed: func(t *testing.T, c sdk.Context, dir string) {
-				metaWriteFile(t, filepath.Join(dir, "a.md"), "local edit\n")
+				metaWriteFile(t, filepath.Join(dir, "a.md"), line.Native("local edit\n"))
 			},
 			args:       []string{"--overwrite", "docs/a", "{dir}"},
 			wantText:   []string{"exported {dir}/a.md"},
@@ -130,7 +130,7 @@ func TestExport(t *testing.T) {
 			name:   "prefix skips existing and exports the rest",
 			author: "alice",
 			seed: func(t *testing.T, c sdk.Context, dir string) {
-				metaWriteFile(t, filepath.Join(dir, "a.md"), "local edit\n")
+				metaWriteFile(t, filepath.Join(dir, "a.md"), line.Native("local edit\n"))
 			},
 			args:      []string{"docs/", "{dir}"},
 			wantText:  []string{"exported {dir}/sub/b.md", "skipped 1 existing"},
