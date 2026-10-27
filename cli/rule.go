@@ -24,7 +24,8 @@ Subcommands:
   unset <column>              remove agent (keep transitions)
 
 Rules are stored in .llmd/rules/default.yaml.
-See "llmd guide rule" for full documentation.`, Usage: "rule <subcommand> [options]", MCP: true, Flags: []sdk.Flag{
+See "llmd guide rule" for full documentation.`, Usage: "rule <subcommand> [options]", MCP: true, MCPDesc: `Column rules: where a task goes on success or failure, and which agent, if any, runs it when it enters the column.
+Subcommands: list, set <column> [--success c] [--failure c] [--agent a] [--role r], unset <column>. --resume keeps the previous agent session.`, Flags: []sdk.Flag{
 		{Name: "agent", Type: "string", Desc: "Agent to auto-spawn"},
 		{Name: "role", Type: "string", Desc: "Agent role (developer, tester, auditor)"},
 		{Name: "success", Type: "string", Desc: "Column on success"},

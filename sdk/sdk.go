@@ -4,6 +4,7 @@ package sdk
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -27,6 +28,11 @@ var (
 
 	// ErrNotFound means the requested resource does not exist.
 	ErrNotFound = errors.New("not found")
+
+	// ErrNoneReady means no task in the column can be claimed: every
+	// task is flagged human, hold or blocked, waits on a dependency, or
+	// sits in the backlog without a spec.
+	ErrNoneReady = errors.New("no task ready")
 
 	// ErrNoSpec means a task's spec document is missing or has no
 	// content beyond the title heading. Tasks cannot leave the
@@ -81,6 +87,13 @@ type Runtime interface {
 	// must not block. A no-op when the host has no store.
 	Subscribe(fn func(events.Event))
 
+	// Watch reports changes other processes make to the store, by
+	// polling at the interval, until ctx is done. Each change reaches
+	// every Subscribe callback as a store.changed event. Changes this
+	// process makes are already delivered as typed events and are not
+	// repeated. Returns nil when the host has no store.
+	Watch(ctx context.Context, interval time.Duration) error
+
 	// Init creates a new store at dbPath (or the default path when
 	// empty) and returns the path created.
 	Init(dbPath string) (string, error)
@@ -115,12 +128,25 @@ type Extension interface {
 // for their own protocol. The host must not pre-read stdin for these
 // commands. Examples: mcp (JSON-RPC over stdio), serve (HTTP).
 type Command struct {
-	Name        string
-	Desc        string
-	Usage       string
-	Flags       []Flag
-	MCP         bool
-	MCPName     string
+	Name  string
+	Desc  string
+	Usage string
+	Flags []Flag
+	MCP   bool
+
+	// MCPName is the tool name when it must differ from Name, as for
+	// grep, find, glob and init, whose names clash with an agent's
+	// built-in tools.
+	MCPName string
+
+	// MCPDesc is the tool description for the MCP tool list, which an
+	// agent reads at the start of every session. When empty, the first
+	// paragraph of Desc followed by the flags is used. A command that
+	// sets it owns the whole text, flags included, so commands with
+	// subcommands or many flags can say what matters in a few lines;
+	// the full Desc stays for --help.
+	MCPDesc string
+
 	NeedsAuthor bool
 	Streams     bool
 

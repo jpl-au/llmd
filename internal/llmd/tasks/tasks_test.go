@@ -37,10 +37,6 @@ func setup(t *testing.T) *Tasks {
 	return New(dbFn, docs, aud, bus)
 }
 
-// ptr returns a pointer to v, for SetOptions fields that distinguish
-// "unset" from "set to the zero value".
-func ptr[T any](v T) *T { return &v }
-
 // TestAdd covers task creation: option handling, the generated spec
 // path, whether a spec document is written, and the validation errors.
 // Every successful case is checked twice, on the returned task and on
@@ -414,39 +410,39 @@ func TestSet(t *testing.T) {
 		},
 		{
 			name: "set branch",
-			opts: SetOptions{Branch: ptr("feature-xyz")},
+			opts: SetOptions{Branch: new("feature-xyz")},
 			want: task.Task{Title: title, Branch: "feature-xyz"},
 		},
 		{
 			name: "clear branch",
 			add:  AddOptions{Branch: "old-branch"},
-			opts: SetOptions{Branch: ptr("")},
+			opts: SetOptions{Branch: new("")},
 			want: task.Task{Title: title},
 		},
 		{
 			name: "set title",
-			opts: SetOptions{Title: ptr("Renamed")},
+			opts: SetOptions{Title: new("Renamed")},
 			want: task.Task{Title: "Renamed"},
 		},
 		{
 			name: "set priority",
-			opts: SetOptions{Priority: ptr(3)},
+			opts: SetOptions{Priority: new(3)},
 			want: task.Task{Title: title, Priority: 3},
 		},
 		{
 			name: "set assignee",
-			opts: SetOptions{AssignedTo: ptr("bob")},
+			opts: SetOptions{AssignedTo: new("bob")},
 			want: task.Task{Title: title, AssignedTo: "bob"},
 		},
 		{
 			name: "clear assignee",
 			add:  AddOptions{AssignedTo: "bob"},
-			opts: SetOptions{AssignedTo: ptr("")},
+			opts: SetOptions{AssignedTo: new("")},
 			want: task.Task{Title: title},
 		},
 		{
 			name: "several fields at once",
-			opts: SetOptions{Title: ptr("Renamed"), Priority: ptr(2), Flag: "blocked"},
+			opts: SetOptions{Title: new("Renamed"), Priority: new(2), Flag: "blocked"},
 			want: task.Task{Title: "Renamed", Priority: 2, Flags: "blocked"},
 		},
 	}
@@ -528,7 +524,7 @@ func TestPosition(t *testing.T) {
 				keys = append(keys, tsk.Key)
 			}
 
-			if err := ts.Set(ctx, keys[tt.move], "alice", SetOptions{Position: ptr(tt.pos)}); err != nil {
+			if err := ts.Set(ctx, keys[tt.move], "alice", SetOptions{Position: new(tt.pos)}); err != nil {
 				t.Fatalf("Set(Position=%d) error = %v", tt.pos, err)
 			}
 

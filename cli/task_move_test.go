@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"maps"
 	"strings"
 	"testing"
 
@@ -315,9 +316,7 @@ func TestTaskSet(t *testing.T) {
 			seed := taskSeed(t, c, "Alpha", nil)
 			vars := taskVars{"key": seed.Key}
 			if tt.setup != nil {
-				for k, v := range tt.setup(t, c, seed) {
-					vars[k] = v
-				}
+				maps.Copy(vars, tt.setup(t, c, seed))
 			}
 			if tt.noAuthor {
 				c.Author = ""

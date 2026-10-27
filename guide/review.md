@@ -7,7 +7,7 @@ up work or check on progress.
 ## Usage
 
 ```
-llmd review [--column name] [-n limit]
+llmd review [--column name] [-n limit] [--all]
 ```
 
 ## Flags
@@ -16,6 +16,7 @@ llmd review [--column name] [-n limit]
 |------|-------------|
 | `--column <name>` | Filter by column (e.g. `in-progress`) |
 | `-n N` | Maximum tasks to show |
+| `--all` | Include done tasks and tasks flagged `human` |
 
 ## Examples
 
@@ -60,6 +61,9 @@ See `guide workflow` for the full task lifecycle and review process.
 
 - Output is styled when run in a terminal. Piped output is plain
   tab-separated text, suitable for scripts and LLMs.
+- Without a column, done tasks and tasks flagged `human` are left
+  out and a final line counts them. Asking for a column, or passing
+  `--all`, shows everything.
 - Spec previews skip the title heading and leading blank lines.
 - Tasks without a spec document show metadata only.
 - Use `llmd task show <id>` for the full spec body.

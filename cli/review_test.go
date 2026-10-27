@@ -188,7 +188,7 @@ func TestReview(t *testing.T) {
 					t.Errorf("review %v = %d lines, want %d", tt.args, lines, tt.wantCount)
 				}
 				// Each plain line starts with a 9-character task key.
-				for _, line := range strings.Split(strings.TrimRight(got, "\n"), "\n") {
+				for line := range strings.SplitSeq(strings.TrimRight(got, "\n"), "\n") {
 					if line == "" {
 						continue
 					}
@@ -235,6 +235,79 @@ func TestReviewErrors(t *testing.T) {
 			c := newCLI(t, "alice")
 			if err := runErr(t, c, "review", nil, tt.args...); !errors.Is(err, tt.wantErr) {
 				t.Errorf("review %v error = %v, want %v", tt.args, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestReviewPending checks what review leaves out by default: done
+// tasks and tasks flagged human, with a note counting them. --all and
+// an explicit column show everything. Each case starts with a task in
+// progress, one done, and one in up-next flagged human.
+func TestReviewPending(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantText   []string
+		wantAbsent []string
+		wantCount  int
+	}{
+		{
+			name:       "done and human are left out with a note",
+			args:       nil,
+			wantText:   []string{"Deploy", "(1 done, 1 human not shown; use --all)"},
+			wantAbsent: []string{"Shipped", "Decide"},
+			wantCount:  1,
+		},
+		{
+			name:       "--all shows everything",
+			args:       []string{"--all"},
+			wantText:   []string{"Deploy", "Shipped", "Decide"},
+			wantAbsent: []string{"not shown"},
+			wantCount:  3,
+		},
+		{
+			name:       "an explicit column is shown in full",
+			args:       []string{"--column", "done"},
+			wantText:   []string{"Shipped"},
+			wantAbsent: []string{"not shown", "Deploy"},
+			wantCount:  1,
+		},
+		{
+			name:       "a human task in the asked-for column is shown",
+			args:       []string{"up-next"},
+			wantText:   []string{"Decide", "human"},
+			wantAbsent: []string{"not shown"},
+			wantCount:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newCLI(t, "alice")
+			metaAddTask(t, c, "# Deploy\n\nShip it.", "Deploy", "--column", "in-progress")
+			metaAddTask(t, c, "# Shipped\n\nDone.", "Shipped", "--column", "done")
+			decide := metaAddTask(t, c, "# Decide\n\nYour call.", "Decide", "--column", "up-next")
+			run(t, c, "task", nil, "set", decide.Key, "--flag", "human")
+
+			resp := run(t, c, "review", nil, tt.args...)
+			got := text(resp)
+			for _, want := range tt.wantText {
+				if !strings.Contains(got, want) {
+					t.Errorf("review %v = %q, want to contain %q", tt.args, got, want)
+				}
+			}
+			for _, absent := range tt.wantAbsent {
+				if strings.Contains(got, absent) {
+					t.Errorf("review %v = %q, must not contain %q", tt.args, got, absent)
+				}
+			}
+			b, err := json.Marshal(data(resp))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if n := strings.Count(string(b), `"task":{`); n != tt.wantCount {
+				t.Errorf("review %v payload has %d entries, want %d", tt.args, n, tt.wantCount)
 			}
 		})
 	}

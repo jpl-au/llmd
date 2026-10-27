@@ -18,15 +18,13 @@ import (
 // transports. author is the server-level fallback author.
 func mcpSession(t *testing.T, c sdk.Context, author string, names ...string) *mcp.ClientSession {
 	t.Helper()
-	server := mcp.NewServer(&mcp.Implementation{Name: "llmd-test", Version: "test"}, nil)
-	cmds := c.Runtime.Commands()
+	var server *mcp.Server
 	if len(names) == 0 {
-		for _, cmd := range cmds {
-			if cmd.MCP {
-				registerTool(server, c.Runtime, cmd, author)
-			}
-		}
+		server = newMCPServer(c.Runtime, author)
+	} else {
+		server = mcp.NewServer(&mcp.Implementation{Name: "llmd-test", Version: "test"}, &mcp.ServerOptions{Instructions: mcpInstructions})
 	}
+	cmds := c.Runtime.Commands()
 	for _, name := range names {
 		cmd, ok := cmds[name]
 		if !ok {
@@ -90,11 +88,16 @@ func mcpCall(t *testing.T, cs *mcp.ClientSession, tool string, input map[string]
 
 // TestMCPRegisterTool covers what the MCP server exposes: only commands
 // marked MCP, under their MCPName when set, with a description that
-// carries the usage line and every flag.
+// carries the summary, the usage line, every flag and a pointer to the
+// guide, and with the session instructions.
 func TestMCPRegisterTool(t *testing.T) {
 	c := newCLI(t, "")
 	cs := mcpSession(t, c, "")
 	names := mcpToolNames(t, cs)
+
+	if got := cs.InitializeResult().Instructions; got != mcpInstructions || !strings.Contains(got, "author") {
+		t.Errorf("Instructions = %q, want mcpInstructions mentioning author", got)
+	}
 
 	for _, want := range []string{"cat", "write", "audit", "queue", "agent", "task", "llmd_grep", "llmd_find", "llmd_glob", "llmd_init"} {
 		if !slices.Contains(names, want) {
@@ -122,32 +125,65 @@ func TestMCPRegisterTool(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tool := range res.Tools {
-		if tool.Name != "queue" {
-			continue
+		if tool.InputSchema == nil {
+			t.Errorf("%s tool has no input schema", tool.Name)
 		}
-		for _, want := range []string{queueSpec.Desc, "Usage: llmd queue <subcommand> [options]", "Flags:", "--assign  Direct message", "--limit  Maximum messages", "--since  Show messages"} {
-			if !strings.Contains(tool.Description, want) {
-				t.Errorf("queue tool description = %q, want to contain %q", tool.Description, want)
+		switch tool.Name {
+		case "queue":
+			// A command with an MCPDesc owns its text: no generated flags.
+			for _, want := range []string{queueSpec.MCPDesc, "\nUsage: llmd queue <subcommand> [options]", "\nDetails: guide queue"} {
+				if !strings.Contains(tool.Description, want) {
+					t.Errorf("queue tool description = %q, want to contain %q", tool.Description, want)
+				}
+			}
+			for _, absent := range []string{"Subcommands (passed as first arg)", "Flags:", "--limit <int>"} {
+				if strings.Contains(tool.Description, absent) {
+					t.Errorf("queue tool description = %q, must not contain %q", tool.Description, absent)
+				}
+			}
+		case "history":
+			// A command without one gets the first paragraph and its flags.
+			for _, want := range []string{firstParagraph(historySpec.Desc) + "\n", "\nUsage: llmd history", "\nFlags:", "\n  --n <int>  Maximum versions", "\n  --all  Show every version", "\nDetails: guide history"} {
+				if !strings.Contains(tool.Description, want) {
+					t.Errorf("history tool description = %q, want to contain %q", tool.Description, want)
+				}
+			}
+			if strings.Contains(tool.Description, "Newest versions are shown first") {
+				t.Errorf("history tool description = %q, carries the rest of Desc", tool.Description)
+			}
+		case "tag":
+			// Short flags are listed with their long form.
+			if !strings.Contains(tool.Description, "\n  -d, --delete  Remove a tag") {
+				t.Errorf("tag tool description = %q, want the short flag form", tool.Description)
 			}
 		}
-		if tool.InputSchema == nil {
-			t.Errorf("queue tool has no input schema")
+	}
+}
+
+// TestMCPToolListBudget keeps the tool list, which every session reads
+// before its first call, within a byte budget. The list once came to
+// 23 KB and is about 12 KB now; the budget leaves room for a command
+// or two and catches the descriptions growing back into prose.
+func TestMCPToolListBudget(t *testing.T) {
+	const budget = 14 * 1024
+	c := newCLI(t, "")
+	cs := mcpSession(t, c, "")
+	res, err := cs.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(b) > budget {
+		t.Errorf("tool list is %d bytes, want at most %d", len(b), budget)
+	}
+	for _, tool := range res.Tools {
+		if !strings.Contains(tool.Description, "Details: guide "+strings.TrimPrefix(tool.Name, "llmd_")) {
+			t.Errorf("%s description does not point at its guide: %q", tool.Name, tool.Description)
 		}
 	}
-
-	t.Run("short flags are listed with their long form", func(t *testing.T) {
-		cs := mcpSession(t, c, "", "audit")
-		res, err := cs.ListTools(t.Context(), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(res.Tools) != 1 || res.Tools[0].Name != "audit" {
-			t.Fatalf("tools = %v, want just audit", res.Tools)
-		}
-		if desc := res.Tools[0].Description; !strings.Contains(desc, "-s, --status  Set or filter by status") {
-			t.Errorf("audit tool description = %q, want the short flag form", desc)
-		}
-	})
 }
 
 // TestMCPCallTool covers tool calls end to end over the protocol: args

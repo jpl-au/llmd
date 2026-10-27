@@ -37,7 +37,7 @@ source.
 Use --offset and --limit to read a line range of a long document
 without loading the whole file. This is the read half of the
 grep+read workflow: grep narrows down where a match lives, cat
-fetches just that slice.`, Usage: "cat [options] <path>...", MCP: true, Flags: []sdk.Flag{
+fetches just that slice.`, Usage: "cat [options] <path>...", MCP: true, MCPDesc: `Read one or more documents as raw markdown. --offset and --limit read a line range of a long document, for example around a grep hit; --version N reads an old version; -n numbers lines.`, Flags: []sdk.Flag{
 		{Name: "version", Type: "int", Desc: "Read specific version"},
 		{Name: "offset", Type: "int", Desc: "Start reading from this 1-indexed line"},
 		{Name: "limit", Type: "int", Desc: "Maximum number of lines to return"},

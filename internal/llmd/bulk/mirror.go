@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
@@ -142,8 +143,8 @@ func cleanStale(root *os.Root, keep map[string]bool, scope string) (int, error) 
 	if err != nil {
 		return removed, err
 	}
-	for i := len(dirs) - 1; i >= 0; i-- {
-		_ = root.Remove(dirs[i])
+	for _, dir := range slices.Backward(dirs) {
+		_ = root.Remove(dir)
 	}
 
 	return removed, nil

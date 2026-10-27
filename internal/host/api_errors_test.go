@@ -67,7 +67,7 @@ var notFoundCases = []notFoundCase{
 		return c.Tasks.Move("missing", "done", "alice")
 	}},
 	{"TaskStore", "Set", func(c sdk.Context) error {
-		return c.Tasks.Set("missing", "alice", sdk.TaskSetOpts{Title: ptr("x")})
+		return c.Tasks.Set("missing", "alice", sdk.TaskSetOpts{Title: new("x")})
 	}},
 	{"TaskStore", "Delete", func(c sdk.Context) error {
 		_, err := c.Tasks.Delete("missing", "alice")
@@ -226,6 +226,7 @@ var notFoundExempt = map[string]map[string]string{
 		"Import": "reads the filesystem",
 	},
 	"TaskStore": {
+		"Next":       "picks from a column; an unknown column is sdk.ErrInvalidArg, an empty one sdk.ErrNoneReady",
 		"Add":        "creates the task",
 		"List":       "returns an empty list",
 		"Columns":    "store-wide",
@@ -276,17 +277,17 @@ var notFoundExempt = map[string]map[string]string{
 // notFoundStores maps interface names to their reflect types so the
 // exemption check can enumerate every method.
 var notFoundStores = map[string]reflect.Type{
-	"DocumentStore": reflect.TypeOf((*sdk.DocumentStore)(nil)).Elem(),
-	"TaskStore":     reflect.TypeOf((*sdk.TaskStore)(nil)).Elem(),
-	"TagStore":      reflect.TypeOf((*sdk.TagStore)(nil)).Elem(),
-	"LinkStore":     reflect.TypeOf((*sdk.LinkStore)(nil)).Elem(),
-	"AuditStore":    reflect.TypeOf((*sdk.AuditStore)(nil)).Elem(),
-	"QueueStore":    reflect.TypeOf((*sdk.QueueStore)(nil)).Elem(),
-	"AgentStore":    reflect.TypeOf((*sdk.AgentStore)(nil)).Elem(),
-	"ActivityStore": reflect.TypeOf((*sdk.ActivityStore)(nil)).Elem(),
-	"MirrorStore":   reflect.TypeOf((*sdk.MirrorStore)(nil)).Elem(),
-	"RuleStore":     reflect.TypeOf((*sdk.RuleStore)(nil)).Elem(),
-	"HookStore":     reflect.TypeOf((*sdk.HookStore)(nil)).Elem(),
+	"DocumentStore": reflect.TypeFor[sdk.DocumentStore](),
+	"TaskStore":     reflect.TypeFor[sdk.TaskStore](),
+	"TagStore":      reflect.TypeFor[sdk.TagStore](),
+	"LinkStore":     reflect.TypeFor[sdk.LinkStore](),
+	"AuditStore":    reflect.TypeFor[sdk.AuditStore](),
+	"QueueStore":    reflect.TypeFor[sdk.QueueStore](),
+	"AgentStore":    reflect.TypeFor[sdk.AgentStore](),
+	"ActivityStore": reflect.TypeFor[sdk.ActivityStore](),
+	"MirrorStore":   reflect.TypeFor[sdk.MirrorStore](),
+	"RuleStore":     reflect.TypeFor[sdk.RuleStore](),
+	"HookStore":     reflect.TypeFor[sdk.HookStore](),
 }
 
 // TestNotFound is the guard for the SDK error contract: every store
@@ -310,8 +311,8 @@ func TestNotFound(t *testing.T) {
 
 	t.Run("every method is accounted for", func(t *testing.T) {
 		for name, typ := range notFoundStores {
-			for i := range typ.NumMethod() {
-				m := typ.Method(i).Name
+			for method := range typ.Methods() {
+				m := method.Name
 				if covered[name][m] || notFoundExempt[name][m] != "" {
 					continue
 				}

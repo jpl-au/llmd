@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/jpl-au/llmd/extension"
+	"github.com/jpl-au/llmd/internal/clock"
 	"github.com/jpl-au/llmd/internal/config"
 	igit "github.com/jpl-au/llmd/internal/git"
 	"github.com/jpl-au/llmd/internal/llmd"
@@ -37,7 +39,8 @@ type Host struct {
 	git        sdk.GitStore
 	commands   map[string]*cmdEntry
 	extensions []sdk.Extension
-	opts       []Option // reapplied to hosts built for a single call
+	opts       []Option                // reapplied to hosts built for a single call
+	subs       []func(pkgevents.Event) // Subscribe callbacks, for Watch and attach
 }
 
 // Option configures a Host. Options are applied by New and Open and
@@ -115,6 +118,11 @@ func (h *Host) attach(store *llmd.Store) {
 	}
 	h.store = store
 
+	// Callbacks subscribed while the host had no store join the bus now.
+	for _, fn := range h.subs {
+		store.Bus().Subscribe(&callbackHandler{fn: fn})
+	}
+
 	// Pipeline handler: auto-spawn agents when tasks enter columns
 	// with pipeline configuration.
 	store.Bus().Subscribe(&pipelineHandler{
@@ -153,14 +161,42 @@ func (h *Host) Dispatch(ctx context.Context, cmd string, args []string, author s
 }
 
 // Subscribe implements [sdk.Runtime]. The callback receives every
-// store event synchronously on the emitting goroutine. A no-op when
-// the host has no store.
+// store event synchronously on the emitting goroutine, and every
+// store.changed event Watch raises. A callback subscribed before the
+// host has a store joins the bus when one is attached.
 func (h *Host) Subscribe(fn func(pkgevents.Event)) {
-	store := h.current()
+	h.mu.Lock()
+	h.subs = append(h.subs, fn)
+	store := h.store
+	h.mu.Unlock()
 	if store == nil {
 		return
 	}
 	store.Bus().Subscribe(&callbackHandler{fn: fn})
+}
+
+// Watch implements [sdk.Runtime]. Changes made by other processes are
+// delivered to the Subscribe callbacks only, as store.changed events:
+// they never enter the internal bus, so the search index, the message
+// queue and extensions see only the typed events of this process.
+func (h *Host) Watch(ctx context.Context, interval time.Duration) error {
+	store := h.current()
+	if store == nil {
+		return nil
+	}
+	return store.Watch(ctx, interval, func(db string) {
+		e := pkgevents.Event{
+			Type:      pkgevents.StoreChanged,
+			Timestamp: clock.Now(),
+			Metadata:  map[string]any{"db": db},
+		}
+		h.mu.RLock()
+		subs := slices.Clone(h.subs)
+		h.mu.RUnlock()
+		for _, fn := range subs {
+			fn(e)
+		}
+	})
 }
 
 // Init implements [sdk.Runtime]. It creates a new store at dbPath (or

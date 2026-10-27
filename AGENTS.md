@@ -176,7 +176,8 @@ state**.
 carried on every context. It is for commands that reach back into the
 host rather than into a domain: `Dispatch` (the MCP and HTTP servers),
 `Commands` (tool and route registration), `Subscribe` (SSE and
-webhooks) and `Init` (the `init` command). Tests get the same context a
+webhooks), `Watch` (changes made by other processes, for the server)
+and `Init` (the `init` command). Tests get the same context a
 command would via `host.TestSetup(t, mode).Context(ctx, author)`.
 
 `sdk.GitStore` has no host bridge - `internal/git.Git` implements it
@@ -244,6 +245,13 @@ Three separate event mechanisms serve different layers:
 2. **Shared event types** (`pkg/events/`) - struct definitions for
    `document.written`, `document.deleted`, `document.restored`,
    `document.moved`. Consumed by the internal bus.
+
+   The bus is in-process: it sees only this process's mutations. For
+   mutations by other processes, `sdk.Runtime.Watch` polls SQLite's
+   `data_version` on each database (`internal/llmd/watch.go`) and hands
+   the host's Subscribe callbacks a `store.changed` event. That event
+   deliberately bypasses the bus, so the search index, message queue
+   and extensions never see it; `llmd serve` starts the watcher.
 
 3. **Extension events** (`extension/events.go`) - fire-and-forget notifications
    for extensions. Eight event types: document write/delete/restore/move, tag
@@ -357,6 +365,7 @@ dispatch on top.
 | `Start(key, author, StartOpts)` | Move to column + record current git branch (git optional) |
 | `StartBranch(key, author, StartBranchOpts)` | Create branch from title slug, checkout, record, move to column |
 | `Finish(key, author, FinishOpts)` | Move to done + return `FinishResult` with git summary counts |
+| `Next(author, NextOpts)` | Claim the first ready task of a column: move + assign in one transaction (`internal/llmd/tasks/claim.go`) |
 | `ByBranch(branch)` | Find task linked to a branch name |
 
 Implementation lives in `internal/host/api_tasks.go`. The `branchSlug`

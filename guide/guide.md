@@ -67,8 +67,9 @@ llmd grep hello                              # full-text search
 |---------|----------------------------------------|-----------------------------------|
 | `task`  | Manage tasks on the board              | `task <subcommand> [options]`     |
 
-Subcommands: add, list, show, move, set, rm, restore, start, diff,
-files, column, link, links, log. See `llmd guide task`.
+Subcommands: add, list, show, next, move, set, rm, restore, start,
+finish, branch, diff, files, column, link, links, log. `task next`
+claims the first ready task for the caller. See `llmd guide task`.
 
 ### Audits
 

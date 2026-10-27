@@ -7,7 +7,6 @@ import (
 	"github.com/jpl-au/llmd/internal/clock/clocktest"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
-	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 // taskKey is the Subject placeholder for task events in activity
@@ -16,7 +15,7 @@ import (
 const taskKey = "<task>"
 
 func testTaskOpts() tasks.AddOptions {
-	return tasks.AddOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return tasks.AddOptions{Author: "test", Source: "cli"}
 }
 
 // addTask creates a task with a real spec so it can leave the backlog.

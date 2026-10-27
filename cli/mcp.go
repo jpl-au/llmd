@@ -38,29 +38,53 @@ var mcpSpec = sdk.Command{
 // Args are passed directly to the extension's Exec as command-line arguments.
 // Content, when non-empty, is delivered as stdin (used by write, edit).
 // Author identifies who is making the change - the LLM or agent should
-// supply this so mutations are attributed correctly.
+// supply this so mutations are attributed correctly. The schema is
+// repeated for every tool in the list an agent reads each session, so
+// the fields carry no descriptions here: the server instructions
+// explain the three of them once.
 type toolInput struct {
-	Args    []string `json:"args,omitempty"    jsonschema:"command arguments"`
-	Content string   `json:"content,omitempty" jsonschema:"document content (for write/edit)"`
-	Author  string   `json:"author,omitempty"  jsonschema:"author name for attributing changes"`
+	Args    []string `json:"args,omitempty"`
+	Content string   `json:"content,omitempty"`
+	Author  string   `json:"author,omitempty"`
+}
+
+// mcpInstructions is what an MCP client shows its model once, when the
+// session starts. It carries the conventions every call relies on and
+// the working loop for tasks; the tool list carries the rest, and
+// guide has the detail.
+const mcpInstructions = `llmd is this project's document store and task board, shared by humans and agents.
+
+Calls: every tool takes {args: [...] as on the command line, content: stdin text, author: your name}. Pass author on every call that changes something; reads need none. Never change the configured author.
+
+Documents: paths like notes/plan, no leading slash. write replaces a document (content), edit does search-and-replace, sed substitutes, cat reads, llmd_grep searches. Every write is a new version.
+
+Tasks: "task next" claims the first ready task of up-next (moves it to in-progress, assigns it to you) and returns its spec. Do the work, then "task move <id> review" or "task finish <id>". Raise problems with "audit add <id> <text>". Tasks flagged human are for the user: leave them alone.
+
+Help: guide for the overview, guide <command> for flags and examples.`
+
+// newMCPServer builds the server mcpCmd runs: every command marked MCP
+// as a tool, under its MCPName when set, plus the session
+// instructions. author is the fallback for calls that name none.
+func newMCPServer(rt sdk.Runtime, author string) *mcp.Server {
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:    "llmd",
+		Version: app.Tag,
+	}, &mcp.ServerOptions{Instructions: mcpInstructions})
+
+	for _, cmd := range rt.Commands() {
+		if !cmd.MCP {
+			continue
+		}
+		registerTool(server, rt, cmd, author)
+	}
+	return server
 }
 
 // mcpCmd starts an MCP server on stdin/stdout and blocks until the
 // connection closes (client disconnects or stdin reaches EOF).
 func mcpCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	author := ctx.Author
-
-	server := mcp.NewServer(&mcp.Implementation{
-		Name:    "llmd",
-		Version: app.Tag,
-	}, nil)
-
-	for _, cmd := range ctx.Runtime.Commands() {
-		if !cmd.MCP {
-			continue
-		}
-		registerTool(server, ctx.Runtime, cmd, author)
-	}
+	server := newMCPServer(ctx.Runtime, author)
 
 	telemetry.Emit(telemetry.Entry{
 		Source:  "mcp",
@@ -89,35 +113,17 @@ func mcpCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 // registerTool adds a single llmd command as an MCP tool. The tool name
 // is cmd.MCPName if set (to avoid collisions like "grep" → "llmd_grep"),
-// otherwise cmd.Name. The description includes usage and flag docs so
-// the LLM knows how to call it.
+// otherwise cmd.Name.
 func registerTool(server *mcp.Server, rt sdk.Runtime, cmd *sdk.Command, author string) {
 	name := cmd.Name
 	if cmd.MCPName != "" {
 		name = cmd.MCPName
 	}
-
-	var desc strings.Builder
-	desc.WriteString(cmd.Desc)
-	if cmd.Usage != "" {
-		desc.WriteString("\n\nUsage: llmd " + cmd.Usage)
-	}
-	if len(cmd.Flags) > 0 {
-		desc.WriteString("\n\nFlags:")
-		for _, f := range cmd.Flags {
-			if f.Short != "" {
-				fmt.Fprintf(&desc, "\n  -%s, --%s  %s", f.Short, f.Name, f.Desc)
-			} else {
-				fmt.Fprintf(&desc, "\n  --%s  %s", f.Name, f.Desc)
-			}
-		}
-	}
-
 	cmdName := cmd.Name
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        name,
-		Description: desc.String(),
+		Description: toolDescription(cmd),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input toolInput) (*mcp.CallToolResult, any, error) {
 		var stdin []byte
 		if input.Content != "" {
@@ -152,6 +158,51 @@ func registerTool(server *mcp.Server, rt sdk.Runtime, cmd *sdk.Command, author s
 			Content: []mcp.Content{&mcp.TextContent{Text: responseText(result)}},
 		}, nil, nil
 	})
+}
+
+// toolDescription is what the tool list says about a command. A
+// command with an MCPDesc wrote its own: that text, the usage line and
+// where the full documentation is. Any other command gets the first
+// paragraph of its Desc, the usage line, its flags one per line, and
+// the same pointer. Agents read every description at the start of a
+// session, so the prose of Desc that --help shows is left out.
+func toolDescription(cmd *sdk.Command) string {
+	var desc strings.Builder
+	if cmd.MCPDesc != "" {
+		desc.WriteString(cmd.MCPDesc)
+	} else {
+		desc.WriteString(firstParagraph(cmd.Desc))
+	}
+	if cmd.Usage != "" {
+		desc.WriteString("\nUsage: llmd " + cmd.Usage)
+	}
+	if cmd.MCPDesc == "" && len(cmd.Flags) > 0 {
+		desc.WriteString("\nFlags:")
+		for _, f := range cmd.Flags {
+			if f.Short != "" {
+				fmt.Fprintf(&desc, "\n  -%s, --%s", f.Short, f.Name)
+			} else {
+				fmt.Fprintf(&desc, "\n  --%s", f.Name)
+			}
+			if f.Type != "" && f.Type != "bool" {
+				desc.WriteString(" <" + f.Type + ">")
+			}
+			if f.Desc != "" {
+				desc.WriteString("  " + f.Desc)
+			}
+		}
+	}
+	fmt.Fprintf(&desc, "\nDetails: guide %s", cmd.Name)
+	return desc.String()
+}
+
+// firstParagraph returns text up to its first blank line, trimmed.
+func firstParagraph(text string) string {
+	text = strings.TrimSpace(text)
+	if i := strings.Index(text, "\n\n"); i >= 0 {
+		text = text[:i]
+	}
+	return strings.TrimSpace(text)
 }
 
 // responseText converts an sdk.Response to plain text for MCP TextContent.

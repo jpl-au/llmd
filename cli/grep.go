@@ -42,7 +42,7 @@ ripgrep-style line snippets, --full for whole documents (rare),
 Search syntax is FTS5: bare words match implicit AND; uppercase
 AND/OR/NOT and NEAR() are operators; "exact phrase" for phrases;
 foo* for prefix matching. Literal punctuation searches like
-foo-bar or "Authentication: OAuth2" are auto-quoted by the host.`, Usage: "grep [options] <pattern> [path]", MCP: true, MCPName: "llmd_grep", Flags: []sdk.Flag{
+foo-bar or "Authentication: OAuth2" are auto-quoted by the host.`, Usage: "grep [options] <pattern> [path]", MCP: true, MCPName: "llmd_grep", MCPDesc: `Full-text search (FTS5: words AND by default, OR, NOT, "phrase", prefix*). Returns the matching section of each document, never the whole document; --lines for line snippets, --full for whole documents, -l paths only, -c counts, -n <max> hits.`, Flags: []sdk.Flag{
 		{Name: "sections", Type: "bool", Desc: "Return matching markdown sections (default)"},
 		{Name: "lines", Type: "bool", Desc: "Return matching lines with optional context"},
 		{Name: "full", Type: "bool", Desc: "Return full document content per hit"},

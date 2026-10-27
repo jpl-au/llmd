@@ -43,7 +43,7 @@ func TestVersion(t *testing.T) {
 						t.Errorf("[%s] version %v = %q, want to contain %q", label, tt.args, got, want)
 					}
 				}
-				for _, line := range strings.Split(strings.TrimRight(got, "\n"), "\n") {
+				for line := range strings.SplitSeq(strings.TrimRight(got, "\n"), "\n") {
 					if !strings.Contains(line, ":") {
 						t.Errorf("[%s] version %v has malformed line %q", label, tt.args, line)
 					}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/host"
@@ -90,9 +91,7 @@ func TestTaskShow(t *testing.T) {
 			seed := taskSeed(t, c, "Alpha", body)
 			vars := taskVars{"key": seed.Key}
 			if tt.setup != nil {
-				for k, v := range tt.setup(t, c, seed) {
-					vars[k] = v
-				}
+				maps.Copy(vars, tt.setup(t, c, seed))
 			}
 			if tt.noAuthor {
 				c = h.Context(t.Context(), "")

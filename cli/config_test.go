@@ -50,7 +50,7 @@ func TestConfig(t *testing.T) {
 		{
 			name:      "show default key",
 			args:      []string{"server.addr"},
-			wantExact: metaPtr("localhost:5563"),
+			wantExact: new("localhost:5563"),
 		},
 		{
 			name:      "show unknown key is empty",
@@ -68,7 +68,7 @@ func TestConfig(t *testing.T) {
 				run(t, c, "config", nil, "author", "Alice")
 			},
 			args:      []string{"author"},
-			wantExact: metaPtr("Alice"),
+			wantExact: new("Alice"),
 		},
 		{
 			name: "set then show all",
@@ -94,7 +94,7 @@ func TestConfig(t *testing.T) {
 				run(t, c, "config", nil, "server.token", "s3cret")
 			},
 			args:      []string{"server.token"},
-			wantExact: metaPtr("s3cret"),
+			wantExact: new("s3cret"),
 		},
 		{
 			name: "set webhook workers then show key",
@@ -102,7 +102,7 @@ func TestConfig(t *testing.T) {
 				run(t, c, "config", nil, "server.webhook_workers", "8")
 			},
 			args:      []string{"server.webhook_workers"},
-			wantExact: metaPtr("8"),
+			wantExact: new("8"),
 		},
 		{
 			name:       "webhook queue must be positive",
@@ -120,7 +120,7 @@ func TestConfig(t *testing.T) {
 				run(t, c, "config", nil, "--global", "author", "Bob")
 			},
 			args:      []string{"author"},
-			wantExact: metaPtr("Bob"),
+			wantExact: new("Bob"),
 		},
 		{
 			name: "local file wins over global",
@@ -129,7 +129,7 @@ func TestConfig(t *testing.T) {
 				run(t, c, "config", nil, "author", "Alice")
 			},
 			args:      []string{"author"},
-			wantExact: metaPtr("Alice"),
+			wantExact: new("Alice"),
 		},
 		{
 			name:       "unknown key cannot be set",
@@ -198,9 +198,6 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-// metaPtr returns a pointer to s, for exact-text expectations.
-func metaPtr(s string) *string { return &s }
-
 // TestConfigGit covers the git subcommand: listing the whitelist,
 // allowing and denying patterns (including idempotence), and the
 // error cases. Each case runs in a fresh store directory; seedDefault
@@ -257,7 +254,7 @@ func TestConfigGit(t *testing.T) {
 			author:    "alice",
 			seed:      seedDefault,
 			args:      []string{"git", "allow", "reports/"},
-			wantExact: metaPtr("Allowed reports/ in .llmd/.gitignore"),
+			wantExact: new("Allowed reports/ in .llmd/.gitignore"),
 			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/"},
 		},
 		{
@@ -284,7 +281,7 @@ func TestConfigGit(t *testing.T) {
 				run(t, c, "config", nil, "git", "allow", "reports/")
 			},
 			args:      []string{"git", "deny", "reports/"},
-			wantExact: metaPtr("Denied reports/ in .llmd/.gitignore"),
+			wantExact: new("Denied reports/ in .llmd/.gitignore"),
 			wantRules: []string{"*", "!llmd.db", "!.gitignore"},
 		},
 		{

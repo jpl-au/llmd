@@ -13,9 +13,10 @@ var taskSpec = sdk.Command{
 
 Subcommands (passed as first arg):
   add <title>               create task (body via content/stdin)
-  list [--since 5m]          board view (all columns)
+  list [--since 5m] [--all]  board view (done shows its newest 10 unless --all)
   show <id>                 task metadata + spec body
   move <id> <column>        move task to column (needs spec to leave backlog)
+  next [--from col] [--to col]  claim the first ready task: move + assign in one write
   set <id> [flags]          update metadata
   rm <id>                   soft-delete task
   restore <id>              restore deleted task
@@ -33,7 +34,9 @@ Subcommands (passed as first arg):
   ready <id>                check if dependencies are satisfied
   diff [id]                 show git diff for task's branch
   files [id]                list files changed on task's branch
-  commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", Flags: []sdk.Flag{
+  commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", MCPDesc: `Task board. Columns: backlog, up-next, in-progress, review, approval, done, blocked.
+Subcommands: list [--column c] [--all] (board; done shows its newest 10), show <id>, add <title> (spec via content; --column, --priority, --assign, --depends-on), next [--from c] [--to c] [--assign who] (claim the first ready task: move + assign in one write, returns its spec), move <id> <column>, set <id> (--title, --priority, --assign, --flag, --unflag, --depends-on, --branch), start <id>, finish [id], branch <id>, rm <id>, restore <id>, link <id> <path>, links <id>, log <id>, chain <id>, ready <id>, diff|files|commits [id], column list|add|rm|mv.
+Flags blocked and hold pause a task; human marks it for the user: leave those alone.`, Flags: []sdk.Flag{
 		{Name: "column", Type: "string", Desc: "Filter by column"},
 		{Name: "priority", Type: "int", Desc: "Filter or set priority"},
 		{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},
@@ -41,12 +44,15 @@ Subcommands (passed as first arg):
 		{Name: "depends-on", Type: "string", Desc: "Task key this task depends on"},
 		{Name: "path", Type: "string", Desc: "Use existing store document as spec"},
 		{Name: "file", Type: "string", Desc: "Read spec from filesystem path"},
-		{Name: "flag", Type: "string", Desc: "Set a flag (blocked, hold)"},
+		{Name: "flag", Type: "string", Desc: "Set a flag (blocked, hold, human)"},
 		{Name: "unflag", Type: "string", Desc: "Remove a flag"},
 		{Name: "position", Type: "int", Desc: "Set position within column"},
 		{Name: "after", Type: "string", Desc: "Insert/move column after this one"},
 		{Name: "base", Type: "string", Desc: "Base branch for diff (default: main/master)"},
 		{Name: "stat", Type: "bool", Desc: "Show diffstat instead of full diff"},
+		{Name: "from", Type: "string", Desc: "Column next takes from (default up-next)"},
+		{Name: "to", Type: "string", Desc: "Column next moves to (default in-progress)"},
+		{Name: "all", Type: "bool", Desc: "List every done task"},
 	},
 }
 
@@ -64,7 +70,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// Checked here, not via NeedsAuthor - reads don't need an author.
 	switch sub {
-	case "add", "move", "set", "rm", "restore", "link", "start", "finish", "branch":
+	case "add", "move", "next", "set", "rm", "restore", "link", "start", "finish", "branch":
 		if ctx.Author == "" {
 			return nil, fmt.Errorf("task %s: %w: author required for mutations", sub, sdk.ErrMissingArg)
 		}
@@ -88,6 +94,8 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return taskShow(ctx, args)
 	case "move":
 		return taskMove(ctx, args)
+	case "next":
+		return taskNext(ctx, args)
 	case "set":
 		return taskSet(ctx, args)
 	case "rm":
@@ -147,6 +155,40 @@ var taskListFlags = []sdk.Flag{
 	{Name: "assign", Type: "string"},
 	{Name: "priority", Type: "int"},
 	{Name: "since", Type: "string", Desc: "Show tasks created after (e.g. 5m, 1h, RFC 3339)"},
+	{Name: "all", Type: "bool", Desc: "List every done task"},
+}
+
+// doneShown is how many done tasks the board view lists without --all.
+// Done is the one column that only grows, so an old board would
+// otherwise spend most of its output, and an agent's context, on
+// finished work.
+const doneShown = 10
+
+// trimDone keeps the newest keep tasks of the done column and every
+// task of every other column. Tasks arrive in board order, where the
+// newest done task is last. Returns the tasks kept and how many done
+// tasks were left out.
+func trimDone(tasks []*sdk.Task, keep int) ([]*sdk.Task, int) {
+	var done int
+	for _, t := range tasks {
+		if t.Status == "done" {
+			done++
+		}
+	}
+	hidden := done - keep
+	if hidden <= 0 {
+		return tasks, 0
+	}
+	out := make([]*sdk.Task, 0, len(tasks)-hidden)
+	skip := hidden
+	for _, t := range tasks {
+		if t.Status == "done" && skip > 0 {
+			skip--
+			continue
+		}
+		out = append(out, t)
+	}
+	return out, hidden
 }
 
 func taskList(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -185,6 +227,10 @@ func taskList(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task list: %w", err)
 	}
 
-	text := formatBoard(ctx, cols, tasks)
+	var hidden int
+	if !flags.Bool("all") {
+		tasks, hidden = trimDone(tasks, doneShown)
+	}
+	text := formatBoard(ctx, cols, tasks, hidden)
 	return sdk.Result{Text: text, Data: tasks}, nil
 }

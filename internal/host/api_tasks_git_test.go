@@ -459,7 +459,7 @@ func TestTasksDeps(t *testing.T) {
 	})
 
 	t.Run("cycle", func(t *testing.T) {
-		if err := c.Tasks.Set(a.Key, "alice", sdk.TaskSetOpts{DependsOn: ptr(cc.Key)}); !errors.Is(err, sdk.ErrCycle) {
+		if err := c.Tasks.Set(a.Key, "alice", sdk.TaskSetOpts{DependsOn: new(cc.Key)}); !errors.Is(err, sdk.ErrCycle) {
 			t.Errorf("Set(a depends on c) error = %v, want %v", err, sdk.ErrCycle)
 		}
 	})

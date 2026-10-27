@@ -22,7 +22,7 @@ accessible even without llmd: just use SQLite3's command line interface.
 - **Author tracking** - See what the LLM changed vs what you changed.
 - **Full-text search** - Search with `llmd find` or `llmd grep`.
 - **Soft delete** - Nothing is ever lost. Restore with `llmd restore`.
-- **Task board** - Track work with columns, priorities, and git branch integration.
+- **Task board** - Track work with columns, priorities, and git branch integration. Agents claim work with `task next`.
 - **Audit threads** - Agent-to-agent and human-to-agent review threads on documents and tasks.
 - **MCP server** - Native integration with Claude Code, Cursor, and other MCP clients.
 - **HTTP API** - REST interface for programmatic access.

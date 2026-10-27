@@ -47,7 +47,11 @@ func (s *stub) Dispatch(ctx context.Context, cmd string, args []string, author s
 	return s.dispatch(ctx, cmd, args, author, stdin, dbPath)
 }
 func (s *stub) Commands() map[string]*sdk.Command { return s.cmds }
-func (s *stub) Init(string) (string, error)       { return "", errors.New("init not supported") }
+func (s *stub) Watch(ctx context.Context, _ time.Duration) error {
+	<-ctx.Done()
+	return nil
+}
+func (s *stub) Init(string) (string, error) { return "", errors.New("init not supported") }
 
 func (s *stub) Subscribe(fn func(events.Event)) {
 	s.mu.Lock()

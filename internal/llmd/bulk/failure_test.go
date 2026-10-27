@@ -169,8 +169,7 @@ func TestMirrorDirectoryIsFile(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "mirror directory") {
 		t.Errorf("Mirror(file) error = %v, want a creating mirror directory error", err)
 	}
-	var pathErr *os.PathError
-	if !errors.As(err, &pathErr) {
+	if _, ok := errors.AsType[*os.PathError](err); !ok {
 		t.Errorf("Mirror(file) error = %v, want to wrap the os error", err)
 	}
 }

@@ -15,6 +15,20 @@ llmd mcp
 llmd mcp
 ```
 
+## What the agent sees
+
+An MCP client reads two things from llmd when a session starts, and
+both cost context in every session, so both are kept short:
+
+- **Instructions** - a few lines on the calling convention, document
+  paths, the task loop (`task next`, work, `task move <id> review`)
+  and where to find help. The client shows them to the model once.
+- **The tool list** - one tool per command with a short description:
+  a summary, the usage line, the flags and `Details: guide <command>`.
+  The prose that `llmd <command> --help` shows is left out; the model
+  calls `guide` when it needs it. The whole list is held under 12 KB
+  by a test.
+
 ## Notes
 
 - Communicates over stdin/stdout using the MCP protocol.

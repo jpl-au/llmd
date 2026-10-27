@@ -11,6 +11,7 @@ automate agent spawning - see `guide rule`.
 llmd task add <title>                Create a task
 llmd task list                       Board view (all columns)
 llmd task show <id>                  Show task metadata + spec
+llmd task next                       Claim the first ready task in up-next
 llmd task move <id> <column>         Move task to a column
 llmd task set <id> [flags]           Update task metadata
 llmd task rm <id>                    Soft-delete task
@@ -94,7 +95,7 @@ If a task has no document at all, write one with
 | `--priority <n>` | Change priority |
 | `--assign <name>` | Reassign |
 | `--position <n>` | Reorder within column |
-| `--flag <name>` | Set a flag (blocked, hold) |
+| `--flag <name>` | Set a flag (blocked, hold, human) |
 | `--unflag <name>` | Remove a flag |
 | `--branch <name>` | Set git branch manually |
 | `--depends-on <id>` | Set or clear (empty value) the task this one depends on |
@@ -107,6 +108,44 @@ If a task has no document at all, write one with
 | `--assign <name>` | Filter by assigned to |
 | `--priority <n>` | Filter by priority |
 | `--since <time>` | Only tasks created after (e.g. `5m`, `1h`, RFC 3339) |
+| `--all` | List every done task |
+
+The board view shows the newest 10 done tasks and says how many more
+there are. Done is the one column that only grows, and an agent that
+lists the board should not pay for finished work. Use `--all`, or
+`--column done`, to see them all.
+
+## Claiming work
+
+`task next` is how a worker, human or agent, picks up the next piece
+of work without choosing it:
+
+```bash
+llmd --author claude-code task next
+```
+
+In one write it takes the first ready task of `up-next`, moves it to
+`in-progress`, assigns it to the author and prints the task with its
+spec. Two workers calling `next` at the same moment never get the same
+task. A task is passed over when it is flagged `human`, `hold` or
+`blocked`, when a task it depends on is not done, or, when taking from
+the backlog, when it has no spec.
+
+| Flag | Description |
+|------|-------------|
+| `--from <col>` | Column to take from (default `up-next`) |
+| `--to <col>` | Column to move to (default `in-progress`) |
+| `--assign <name>` | Assignee (default: the author) |
+
+When nothing is ready the command fails with "no task ready", so a
+loop can stop on it. Unlike `task start`, `next` records no git
+branch: follow it with `task branch <id>` to work on a branch of its
+own.
+
+```bash
+# A reviewer takes the next task waiting for review
+llmd --author reviewer task next --from review --to approval
+```
 
 ## Examples
 
@@ -137,6 +176,9 @@ llmd edit tasks/fix-auth-tokens "old text" "new text"
 
 # Mark blocked
 llmd task set a1b2c3d4e --flag blocked
+
+# Keep a task for yourself: agents pass it over and review hides it
+llmd task set a1b2c3d4e --flag human
 
 # Unblock and move to review
 llmd task set a1b2c3d4e --unflag blocked
@@ -231,8 +273,10 @@ collaboration patterns.
   is never touched. Use `llmd rm <path>` separately if needed.
 - Spec gating: tasks cannot leave the backlog until their document has
   content beyond the title heading. See "Spec gating" above.
-- Flags (`blocked`, `hold`) are metadata on the task, not columns. A
-  flagged task stays in its current column.
+- Flags (`blocked`, `hold`, `human`) are metadata on the task, not
+  columns. A flagged task stays in its current column. `task next`
+  passes over all three; `human` marks work for the user, which
+  `review` leaves out unless asked for.
 - All state changes are recorded in the history table for observability.
 - The board view shows styled terminal tables grouped by column.
 - Default columns: backlog, up-next, in-progress, review, approval, done, blocked.

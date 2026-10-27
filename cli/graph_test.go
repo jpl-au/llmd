@@ -109,7 +109,7 @@ func TestGraph(t *testing.T) {
 			got := text(resp)
 			if strings.Contains(tt.wantText, "{ts}") {
 				var lines []string
-				for _, line := range strings.Split(got, "\n") {
+				for line := range strings.SplitSeq(got, "\n") {
 					f := strings.Fields(line)
 					if len(f) != 6 {
 						t.Fatalf("graph %v line %q, want \"(vN) DD Mon YYYY HH:MM author\"", args, line)

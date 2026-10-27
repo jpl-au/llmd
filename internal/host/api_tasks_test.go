@@ -40,8 +40,6 @@ func readTask(t *testing.T, c sdk.Context, key string) *sdk.Task {
 	return task
 }
 
-func ptr[T any](v T) *T { return &v }
-
 func TestBranchSlug(t *testing.T) {
 	tests := []struct {
 		title string
@@ -392,19 +390,19 @@ func TestTasksSet(t *testing.T) {
 		{
 			name:  "title and priority",
 			title: "Original",
-			ops:   []sdk.TaskSetOpts{{Title: ptr("Updated"), Priority: ptr(1)}},
+			ops:   []sdk.TaskSetOpts{{Title: new("Updated"), Priority: new(1)}},
 			want:  sdk.Task{Title: "Updated", Priority: 1},
 		},
 		{
 			name:  "assignee",
 			title: "Assign me",
-			ops:   []sdk.TaskSetOpts{{AssignedTo: ptr("bob")}},
+			ops:   []sdk.TaskSetOpts{{AssignedTo: new("bob")}},
 			want:  sdk.Task{Title: "Assign me", AssignedTo: "bob"},
 		},
 		{
 			name:  "branch",
 			title: "Set branch",
-			ops:   []sdk.TaskSetOpts{{Branch: ptr("feature-new")}},
+			ops:   []sdk.TaskSetOpts{{Branch: new("feature-new")}},
 			want:  sdk.Task{Title: "Set branch", Branch: "feature-new"},
 		},
 		{

@@ -47,6 +47,7 @@ func init() {
 		{Method: "GET", Pattern: "/task/column", Args: []string{"column", "list"}},
 		{Method: "POST", Pattern: "/task/add/{title...}", Args: []string{"add", "{title}"}},
 		{Method: "POST", Pattern: "/task/move/{id}/{column}", Args: []string{"move", "{id}", "{column}"}},
+		{Method: "POST", Pattern: "/task/next", Args: []string{"next"}},
 		{Method: "POST", Pattern: "/task/set/{id}", Args: []string{"set", "{id}"}},
 		{Method: "POST", Pattern: "/task/restore/{id}", Args: []string{"restore", "{id}"}},
 		{Method: "POST", Pattern: "/task/link/{id}/{path...}", Args: []string{"link", "{id}", "{path}"}},

@@ -5,7 +5,7 @@ delete, move, tag, link, audit, and task operation emits an event.
 
 ## Event types
 
-All 18 event types across 5 domains:
+All 19 event types across 6 domains:
 
 | Domain   | Event               | Fires when                      |
 |----------|---------------------|---------------------------------|
@@ -27,6 +27,7 @@ All 18 event types across 5 domains:
 | Task     | `task.updated`      | Task metadata changed           |
 | Task     | `task.deleted`      | Task soft-deleted               |
 | Task     | `task.restored`     | Deleted task restored           |
+| Store    | `store.changed`     | Another process changed a database (see below) |
 
 ## Event payload
 
@@ -55,6 +56,24 @@ Every event is a JSON object:
 - `timestamp` - Unix milliseconds
 - `metadata` - domain-specific data (tag name, link target, audit
   status, task column, etc.)
+
+### Changes made by other processes
+
+The typed events above are raised by the process that makes the
+change. `llmd serve` is one process; the command line, an MCP session
+and a spawned agent are others, and their writes raise no event inside
+the server. So the server also watches the database files, once a
+second, and streams a `store.changed` event when another process has
+committed to one:
+
+```json
+{"type":"store.changed","timestamp":1773700800000,"metadata":{"db":"work.db"}}
+```
+
+It says only which file changed, `llmd.db` (documents) or `work.db`
+(tasks, audits, messages); reread what matters. Changes the server
+made itself are not repeated this way. `store.changed` reaches SSE and
+webhook consumers only; it is never queued or handed to extensions.
 
 ## Delivery mechanisms
 
@@ -144,8 +163,10 @@ how to wire this into agent session start.
 
 ## Notes
 
-- SSE and webhook delivery only cover mutations that happen through
-  `llmd serve`. CLI mutations are consumed by polling.
+- SSE and webhooks carry typed events for mutations made through
+  `llmd serve`, and a `store.changed` event for mutations made by any
+  other process. Polling with `--since` remains the way to learn what
+  changed outside the server.
 - The event bus is in-process and synchronous - handlers are called
   in subscription order before returning to the caller.
 - Extensions can subscribe to events via the extension event handler

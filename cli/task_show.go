@@ -25,6 +25,12 @@ func taskShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task show: %w", err)
 	}
 
+	return sdk.Markdown{Text: taskDetail(ctx, t), Data: t}, nil
+}
+
+// taskDetail renders a task as markdown: a heading, a metadata table
+// and the spec body when the document exists. Shared by show and next.
+func taskDetail(ctx sdk.Context, t *sdk.Task) string {
 	// Read the document body
 	body, err := ctx.Documents.Read(t.Path, sdk.ReadOpts{})
 	if err != nil {
@@ -65,5 +71,5 @@ func taskShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 		b.Write(body)
 	}
 
-	return sdk.Markdown{Text: b.String(), Data: t}, nil
+	return b.String()
 }

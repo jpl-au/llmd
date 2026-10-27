@@ -117,4 +117,12 @@ const (
 
 	// AgentStopped fires when an agent process is manually terminated.
 	AgentStopped = "agent.stopped"
+
+	// StoreChanged fires when another process committed a change to
+	// one of the store's databases. It is raised by a watching runtime
+	// (llmd serve) for its subscribers, never on the internal bus, and
+	// says only that something changed: Metadata["db"] names the file,
+	// llmd.db or work.db. Reread what matters rather than expect a
+	// typed event to follow.
+	StoreChanged = "store.changed"
 )

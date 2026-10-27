@@ -112,9 +112,10 @@ unlink <from> <to>             remove a link
 Tasks flow through board columns: backlog, up-next, in-progress, review, approval, done, blocked.
 
 ```
-task list                      board view (all columns)
+task list [--all]              board view (done shows its newest 10)
 task add <title>               create task (spec body via content param)
 task show <id>                 metadata + spec body
+task next                      claim the first ready task of up-next: moves it to in-progress, assigns it to you, returns the spec
 task move <id> <column>        move to column
 task set <id> [flags]          update metadata (--priority, --assign, --flag, --unflag)
 task start <id>                start work (records git branch, moves to in-progress)
@@ -128,6 +129,10 @@ task column add <name>         add column
 ```
 
 Tasks cannot leave backlog until their spec document has content beyond the title (spec gating).
+
+To pick up work, call `task next` rather than choosing from the board: it is atomic, so
+parallel agents never take the same task. Tasks flagged `human` are for the user; `next`
+passes them over and you should leave them alone.
 
 ### Audits (review threads)
 

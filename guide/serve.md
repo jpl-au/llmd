@@ -107,6 +107,7 @@ These commands are not available over HTTP: `mcp`, `serve`, `init`,
 | `GET /task/column`                  | List board columns                 |
 | `POST /task/add/<title>`            | Create a task (body is the spec)   |
 | `POST /task/move/<id>/<column>`     | Move a task to a column            |
+| `POST /task/next`                   | Claim the first ready task (`?from=`, `?to=`, `?assign=`) |
 | `POST /task/set/<id>`               | Update task fields (as queries)    |
 | `POST /task/restore/<id>`           | Restore a deleted task             |
 | `POST /task/link/<id>/<path>`       | Link a task to a document          |

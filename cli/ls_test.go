@@ -218,7 +218,7 @@ func TestLs(t *testing.T) {
 			if tt.wantOrder != nil {
 				var paths []string
 				if got != "" {
-					for _, line := range strings.Split(got, "\n") {
+					for line := range strings.SplitSeq(got, "\n") {
 						key, path, ok := strings.Cut(line, " ")
 						if !ok || len(key) != 9 {
 							t.Errorf("ls %v line %q, want \"<9-char key> <path>\"", args, line)

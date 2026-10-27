@@ -59,6 +59,8 @@ func taskErr(err error) error {
 		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
 	case errors.Is(err, tasks.ErrCycle):
 		return fmt.Errorf("%w: %w", sdk.ErrCycle, err)
+	case errors.Is(err, tasks.ErrNoneReady):
+		return fmt.Errorf("%w: %w", sdk.ErrNoneReady, err)
 	default:
 		return err
 	}
@@ -364,6 +366,21 @@ func (a *taskAPI) Finish(key, author string, opts sdk.FinishOpts) (*sdk.FinishRe
 	}
 
 	return result, nil
+}
+
+// Next claims the first ready task of a column, moving and assigning
+// it in one write. Unlike Start it records no git branch: the claimed
+// task is returned for the worker to decide how to branch.
+func (a *taskAPI) Next(author string, opts sdk.NextOpts) (*sdk.Task, error) {
+	t, err := a.store.Tasks.Claim(a.ctx, author, tasks.ClaimOptions{
+		From:       opts.From,
+		To:         opts.To,
+		AssignedTo: opts.AssignedTo,
+	})
+	if err != nil {
+		return nil, taskErr(err)
+	}
+	return taskToSDK(t), nil
 }
 
 // ByBranch returns the task linked to the given branch name.

@@ -16,9 +16,12 @@ var reviewSpec = sdk.Command{
 	Name: "review", Desc: `Review pending tasks with inline context and spec previews
 
 Shows task metadata, spec document previews, and linked documents
-for each task. Filter by column to focus on specific workflow stages.`, Usage: "review [--column name] [-n limit]", Flags: []sdk.Flag{
+for each task. Filter by column to focus on specific workflow stages.
+Without a column, done tasks and tasks flagged human are left out;
+--all includes them.`, Usage: "review [--column name] [-n limit] [--all]", Flags: []sdk.Flag{
 		{Name: "column", Type: "string", Desc: "Filter by column"},
 		{Name: "n", Type: "int", Desc: "Maximum tasks to show"},
+		{Name: "all", Type: "bool", Desc: "Include done and human tasks"},
 	},
 }
 
@@ -60,6 +63,18 @@ func review(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("review: %w", err)
 	}
 
+	// The review is what is pending for whoever is asking. Without an
+	// explicit column, finished work and work flagged for the user are
+	// left out; a count at the end says what was skipped.
+	var note string
+	if column == "" && !flags.Bool("all") {
+		var hidden []string
+		tasks, hidden = pendingOnly(tasks)
+		if len(hidden) > 0 {
+			note = fmt.Sprintf("(%s not shown; use --all)", strings.Join(hidden, ", "))
+		}
+	}
+
 	if limit > 0 && len(tasks) > limit {
 		tasks = tasks[:limit]
 	}
@@ -81,11 +96,19 @@ func review(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if !isTTY() {
-		return sdk.Result{Text: plainReview(tasks), Data: data}, nil
+		text := plainReview(tasks)
+		if note != "" {
+			text += note + "\n"
+		}
+		return sdk.Result{Text: text, Data: data}, nil
 	}
 
 	if len(tasks) == 0 {
-		return sdk.Result{Text: emptyCol.Render("no tasks"), Data: data}, nil
+		text := emptyCol.Render("no tasks")
+		if note != "" {
+			text += "\n" + reviewSep.Render(note)
+		}
+		return sdk.Result{Text: text, Data: data}, nil
 	}
 
 	var b strings.Builder
@@ -142,8 +165,38 @@ func review(ctx sdk.Context, args []string) (sdk.Response, error) {
 	b.WriteByte('\n')
 	b.WriteString(reviewSep.Render(fmt.Sprintf("%d tasks", len(tasks))))
 	b.WriteByte('\n')
+	if note != "" {
+		b.WriteString(reviewSep.Render(note))
+		b.WriteByte('\n')
+	}
 
 	return sdk.Result{Text: b.String(), Data: data}, nil
+}
+
+// pendingOnly drops done tasks and tasks flagged human. It returns the
+// rest and a description of what was dropped, such as "3 done, 1
+// human", empty when nothing was.
+func pendingOnly(tasks []*sdk.Task) ([]*sdk.Task, []string) {
+	var done, human int
+	kept := make([]*sdk.Task, 0, len(tasks))
+	for _, t := range tasks {
+		switch {
+		case t.Status == "done":
+			done++
+		case t.HasFlag("human"):
+			human++
+		default:
+			kept = append(kept, t)
+		}
+	}
+	var hidden []string
+	if done > 0 {
+		hidden = append(hidden, fmt.Sprintf("%d done", done))
+	}
+	if human > 0 {
+		hidden = append(hidden, fmt.Sprintf("%d human", human))
+	}
+	return kept, hidden
 }
 
 // linkedDocs returns outgoing links for a task's spec path.

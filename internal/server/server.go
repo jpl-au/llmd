@@ -35,6 +35,10 @@ import (
 // says otherwise.
 const DefaultAddr = "localhost:5563"
 
+// watchInterval is how often the server looks for changes other
+// processes made to the store (see sdk.Runtime.Watch).
+const watchInterval = time.Second
+
 // Server is an HTTP API server for llmd. It dispatches incoming
 // requests to sdk commands through the runtime, using the same
 // dispatch mechanism as the MCP server. The SSE hub streams events to
@@ -156,6 +160,13 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	if s.webhook != nil {
 		defer s.webhook.Close()
 	}
+	// Changes made by other processes (the command line, MCP sessions)
+	// reach SSE and webhook clients as store.changed events.
+	go func() {
+		if err := s.rt.Watch(ctx, watchInterval); err != nil {
+			slog.Warn("watching the store for outside changes", "err", err)
+		}
+	}()
 
 	select {
 	case err := <-errCh:

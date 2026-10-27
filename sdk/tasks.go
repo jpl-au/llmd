@@ -1,6 +1,9 @@
 package sdk
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // TaskStore is the task management interface for the board.
 //
@@ -62,6 +65,15 @@ type TaskStore interface {
 	// has a branch and git is available, the summary includes file
 	// and commit counts.
 	Finish(key, author string, opts FinishOpts) (*FinishResult, error)
+
+	// Next claims the first ready task of a column for a worker: in
+	// one write it moves the task to the target column and assigns it,
+	// so two workers calling Next at once never take the same task.
+	// Tasks are taken in board order. Tasks flagged human, hold or
+	// blocked, tasks whose dependency chain is not done, and backlog
+	// tasks without a spec are passed over. Returns ErrNoneReady when
+	// nothing can be taken.
+	Next(author string, opts NextOpts) (*Task, error)
 
 	// ByBranch returns the task linked to the given branch name.
 	ByBranch(branch string) (*Task, error)
@@ -154,6 +166,17 @@ type Task struct {
 	// CreatedAt is the Unix timestamp (milliseconds) when this task
 	// was created.
 	CreatedAt int64
+}
+
+// HasFlag reports whether the task carries the named flag, such as
+// "blocked", "hold" or "human".
+func (t *Task) HasFlag(name string) bool {
+	for f := range strings.SplitSeq(t.Flags, ",") {
+		if strings.TrimSpace(f) == name {
+			return true
+		}
+	}
+	return false
 }
 
 // TaskAddOpts configures a task add operation.
@@ -269,6 +292,20 @@ type FinishOpts struct {
 	// Base is the git base branch for the summary diff. When empty,
 	// the default branch is detected automatically.
 	Base string
+}
+
+// NextOpts configures a task claim. All fields are optional.
+type NextOpts struct {
+	// From is the column to take from. Defaults to "up-next".
+	From string
+
+	// To is the column the claimed task moves to. Defaults to
+	// "in-progress".
+	To string
+
+	// AssignedTo is who the task is assigned to. Defaults to the
+	// author making the claim.
+	AssignedTo string
 }
 
 // FinishResult contains the outcome of finishing a task.

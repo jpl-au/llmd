@@ -37,10 +37,16 @@ var (
 	flagHold = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("11")). // yellow
 			Padding(0, 1)
+
+	flagHuman = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("13")). // magenta
+			Padding(0, 1)
 )
 
-// formatBoard renders the board view grouped by column.
-func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task) string {
+// formatBoard renders the board view grouped by column. hiddenDone is
+// how many done tasks were left out of tasks; when positive, the done
+// column ends with a line saying so.
+func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task, hiddenDone int) string {
 	specs, err := ctx.Tasks.CheckSpecs(tasks)
 	if err != nil {
 		slog.Debug("checking task specs for board", "error", err)
@@ -68,6 +74,10 @@ func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task) string {
 			b.WriteByte('\n')
 		} else {
 			b.WriteString(taskTable(tt, specs))
+			b.WriteByte('\n')
+		}
+		if col == "done" && hiddenDone > 0 {
+			b.WriteString(emptyCol.Render(fmt.Sprintf("%d more done; use --all or --column done", hiddenDone)))
 			b.WriteByte('\n')
 		}
 	}
@@ -99,12 +109,13 @@ func taskTable(tasks []*sdk.Task, specs map[string]bool) string {
 			}
 			// Colour flags by value
 			if col == 5 && row >= 0 && row < len(tasks) {
-				f := tasks[row].Flags
-				if strings.Contains(f, "blocked") {
+				switch tk := tasks[row]; {
+				case tk.HasFlag("blocked"):
 					return flagBlocked
-				}
-				if strings.Contains(f, "hold") {
+				case tk.HasFlag("hold"):
 					return flagHold
+				case tk.HasFlag("human"):
+					return flagHuman
 				}
 			}
 			// Dim empty cells (assigned to, spec)

@@ -142,7 +142,7 @@ func TestInit(t *testing.T) {
 			if tt.wantGitignore {
 				got := metaReadFile(t, filepath.Join(dir, ".llmd", ".gitignore"))
 				var rules []string
-				for _, line := range strings.Split(got, "\n") {
+				for line := range strings.SplitSeq(got, "\n") {
 					line = strings.TrimSpace(line)
 					if line != "" && !strings.HasPrefix(line, "#") {
 						rules = append(rules, line)

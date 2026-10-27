@@ -37,7 +37,7 @@ version, author, and date. Use --tree for a directory hierarchy.
 
 Defaults to the first 500 matching documents so an agent on a large
 store doesn't get the full catalogue dumped. Pass --limit N for a
-different cap or --all to disable it.`, Usage: "ls [flags] [path]", MCP: true, Flags: []sdk.Flag{
+different cap or --all to disable it.`, Usage: "ls [flags] [path]", MCP: true, MCPDesc: `List documents, optionally under a path: -l for version, author and date, -t newest first, -a to include deleted, --tree for a hierarchy, --since 5m for recent changes. Shows the first 500 unless --limit or --all.`, Flags: []sdk.Flag{
 		{Name: "l", Type: "bool", Desc: "Long format with details"},
 		{Name: "a", Type: "bool", Desc: "Include deleted documents"},
 		{Name: "r", Type: "bool", Desc: "Reverse sort order"},

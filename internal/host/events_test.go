@@ -286,7 +286,7 @@ func TestEventBridge(t *testing.T) {
 			name: "task update",
 			op: func(t *testing.T, c sdk.Context) extension.Event {
 				task := addTask(t, c, "Build it", nil, sdk.TaskAddOpts{Author: "alice"})
-				if err := c.Tasks.Set(task.Key, "bob", sdk.TaskSetOpts{Priority: ptr(2)}); err != nil {
+				if err := c.Tasks.Set(task.Key, "bob", sdk.TaskSetOpts{Priority: new(2)}); err != nil {
 					t.Fatalf("Tasks.Set: %v", err)
 				}
 				return extension.TaskEvent{Type: extension.EventTaskUpdate, Key: task.Key, Path: task.Path, Author: "bob"}
