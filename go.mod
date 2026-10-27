@@ -7,7 +7,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/aymanbagabas/go-udiff v0.4.1
 	github.com/jpl-au/chain v0.2.0
-	github.com/jpl-au/http-client v0.2.0
+	github.com/jpl-au/http-client v0.3.1
 	github.com/jpl-au/qwr v0.5.2
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/zeebo/xxh3 v1.1.0

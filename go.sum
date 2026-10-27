@@ -58,8 +58,8 @@ github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUq
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
 github.com/jpl-au/chain v0.2.0 h1:LAXIpHONlyHlCq8ZGqHcoK621Tdo6VVBlAj+g7CGiWQ=
 github.com/jpl-au/chain v0.2.0/go.mod h1:8QebLCICdoF101FfiobEIndqgh3Yrljqb4EEQLyG/Qc=
-github.com/jpl-au/http-client v0.2.0 h1:diIf0CuUxvVNSVY4D/aNJcoo3CVSUwzm7MSr0IPxpIA=
-github.com/jpl-au/http-client v0.2.0/go.mod h1:/QHZLsAr6cE7DibX8ehKOthxg+NkvV8AiTIRH5Zn8Ig=
+github.com/jpl-au/http-client v0.3.1 h1:xX+I7nc9F92q+4dNLAL9nLant35G9s3WwZZyd/p4+IY=
+github.com/jpl-au/http-client v0.3.1/go.mod h1:/QHZLsAr6cE7DibX8ehKOthxg+NkvV8AiTIRH5Zn8Ig=
 github.com/jpl-au/qwr v0.5.2 h1:KrcmNBVuhKx3lwnFZyzqJ/JQRsDRLuy4xuYKNJKffJw=
 github.com/jpl-au/qwr v0.5.2/go.mod h1:kxC+Bpv48DA+DwRnKjA0omzAU6/heeVG6OZdqSXoR+0=
 github.com/klauspost/cpuid/v2 v2.4.1 h1:I9KxadAkvo+QjtcEE2f2tyfEvmIla/T0m+14PrZNl0U=
