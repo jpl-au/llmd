@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// Initializable extensions can perform setup (migrations, etc).
+// Initializable extensions can perform setup when the host starts.
 type Initializable interface {
 	Init(ctx Context) error
 }

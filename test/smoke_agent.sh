@@ -14,6 +14,9 @@ _smoke_agent() {
 
     cd "$work_dir"
     git init -q .
+    # A throwaway identity, so the commit works on a machine with none.
+    git config user.email "smoke@llmd.test"
+    git config user.name "smoke"
     git commit --allow-empty -q -m "init"
     $llmd init >/dev/null 2>&1
 

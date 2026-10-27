@@ -16,7 +16,7 @@
 // document write/delete events to keep the full-text index in sync.
 //
 // Storage uses SQLite with WAL mode for concurrent read access. Schema
-// migration runs automatically on Open/Init via the internal/sql package.
+// schema is created on Open/Init via the internal/sql package.
 package llmd
 
 import (
@@ -142,8 +142,8 @@ func open(path string) (*Store, error) {
 		workPath: filepath.Join(filepath.Dir(path), "work.db"),
 	}
 
-	if err := s.migrate(); err != nil {
-		return nil, errors.Join(fmt.Errorf("migrating schema: %w", err), db.Close())
+	if err := s.createSchema(); err != nil {
+		return nil, errors.Join(fmt.Errorf("creating schema: %w", err), db.Close())
 	}
 
 	s.wire()
@@ -151,7 +151,7 @@ func open(path string) (*Store, error) {
 }
 
 // wire initialises the event bus and all sub-package managers. Called
-// once after migration by open().
+// once after the schema is created by open().
 func (s *Store) wire() {
 	s.bus = events.New()
 
@@ -181,8 +181,8 @@ func (s *Store) wire() {
 	s.bus.Subscribe(messages.NewHandler(s.Messages, s.workOpen))
 }
 
-// WorkDB returns the work database manager, opening and migrating
-// work.db on demand if it does not already exist. Returns nil if
+// WorkDB returns the work database manager, opening work.db and
+// creating its schema on demand if it does not already exist. Returns nil if
 // the database cannot be opened (error is logged).
 func (s *Store) WorkDB() *qwr.Manager {
 	if s.work != nil {
@@ -196,10 +196,10 @@ func (s *Store) WorkDB() *qwr.Manager {
 	}
 
 	s.work = db
-	if err := s.migrateWork(); err != nil {
-		slog.Error("migrating work schema", "err", err)
+	if err := s.createWorkSchema(); err != nil {
+		slog.Error("creating work schema", "err", err)
 		if cerr := s.work.Close(); cerr != nil {
-			slog.Warn("closing work database after failed migration", "err", cerr)
+			slog.Warn("closing work database after failed schema creation", "err", cerr)
 		}
 		s.work = nil
 		return nil
@@ -219,9 +219,9 @@ func (s *Store) workOpen() bool {
 	return err == nil
 }
 
-// migrateWork creates all work tables in a single pass. Called once
-// when work.db is first opened. All statements are idempotent.
-func (s *Store) migrateWork() error {
+// createWorkSchema creates all work tables in a single pass. Called
+// once when work.db is first opened. All statements are idempotent.
+func (s *Store) createWorkSchema() error {
 	schemas := []string{
 		audit.Schema,
 		tasks.Schema,
@@ -231,7 +231,7 @@ func (s *Store) migrateWork() error {
 	}
 	for _, ddl := range schemas {
 		if _, err := s.work.Query(ddl).Exec(); err != nil {
-			return fmt.Errorf("migrating work schema: %w", err)
+			return fmt.Errorf("creating work schema: %w", err)
 		}
 	}
 	return nil

@@ -57,7 +57,7 @@ internal/line/              Platform-aware line ending conversion (build-tagged)
 internal/validate/          Input validation: null bytes, path length, content size
 internal/server/            HTTP API server: thin transport over sdk.Runtime.Dispatch
 internal/term/              Terminal detection and stdin reading utilities
-internal/sql/               Schema migrations for llmd.db
+internal/sql/               Schema for llmd.db
 pkg/model/core/             Core model types (Origin)
 pkg/events/                 Shared event type definitions
 guide/                      User-facing command guides (markdown)

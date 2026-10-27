@@ -133,7 +133,7 @@ func TestWorkDB_OnDemand(t *testing.T) {
 }
 
 // TestWorkDB_Failure covers the ways work.db can fail to open or
-// migrate. WorkDB must return nil, leave the store without a work
+// create its schema. WorkDB must return nil, leave the store without a work
 // connection so a later call retries, and work-side domains must
 // report the database as unavailable rather than panic.
 func TestWorkDB_Failure(t *testing.T) {
@@ -173,7 +173,7 @@ func TestWorkDB_Failure(t *testing.T) {
 		{
 			// A history table without the audited columns makes the
 			// index creation in the work schema fail, so the database
-			// opens but migration does not.
+			// opens but its schema cannot be created.
 			name: "existing work.db with incompatible schema",
 			breach: func(t *testing.T, _, workPath string) {
 				db, err := sqlite.Open(workPath)

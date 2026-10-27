@@ -5,8 +5,9 @@
 // matters because later schemas may reference tables created by earlier
 // ones (e.g. fts.sql depends on tables from content.sql).
 //
-// All statements use CREATE IF NOT EXISTS and INSERT OR IGNORE, making
-// the migration idempotent - it runs on every store open, not just init.
+// All statements use CREATE IF NOT EXISTS and INSERT OR IGNORE, so
+// running them on every store open creates a fresh store's schema and
+// leaves an existing one alone. Nothing upgrades an older schema.
 package sql
 
 import (
