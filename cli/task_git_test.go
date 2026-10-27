@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -281,19 +282,24 @@ func TestResolveTask(t *testing.T) {
 }
 
 // TestTaskStart covers starting with git (current branch recorded),
-// without git (branch left empty), and the missing-id error.
+// without git (branch left empty), --assign naming the assignee, and
+// the errors: no id, and --agent combined with --assign.
 func TestTaskStart(t *testing.T) {
 	tests := []struct {
 		name       string
 		git        bool
 		noKey      bool
+		flags      []string
 		wantBranch string
-		wantErr    bool
+		wantAssign string
+		wantErr    error
 	}{
 		{name: "with git", git: true, wantBranch: "main"},
 		// No git repo - should still move the task to in-progress.
 		{name: "without git", wantBranch: ""},
-		{name: "missing id", git: true, noKey: true, wantErr: true},
+		{name: "assignee", flags: []string{"--assign", "bob"}, wantAssign: "bob"},
+		{name: "missing id", git: true, noKey: true, wantErr: sdk.ErrMissingArg},
+		{name: "agent and assignee together", flags: []string{"--agent", "claude-code", "--assign", "bob"}, wantErr: sdk.ErrInvalidArg},
 	}
 
 	for _, tt := range tests {
@@ -311,12 +317,16 @@ func TestTaskStart(t *testing.T) {
 			if !tt.noKey {
 				args = []string{task.Key}
 			}
+			args = append(args, tt.flags...)
 			resp, err := taskStart(c, args)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("taskStart(%v) error = %v, wantErr %v", args, err, tt.wantErr)
-			}
-			if tt.wantErr {
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("taskStart(%v) error = %v, want %v", args, err, tt.wantErr)
+				}
 				return
+			}
+			if err != nil {
+				t.Fatalf("taskStart(%v): %v", args, err)
 			}
 
 			text := string(resp.(sdk.Text))
@@ -333,6 +343,9 @@ func TestTaskStart(t *testing.T) {
 			}
 			if updated.Branch != tt.wantBranch {
 				t.Errorf("branch = %q, want %q", updated.Branch, tt.wantBranch)
+			}
+			if updated.AssignedTo != tt.wantAssign {
+				t.Errorf("assigned to = %q, want %q", updated.AssignedTo, tt.wantAssign)
 			}
 		})
 	}

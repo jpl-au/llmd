@@ -240,6 +240,13 @@ func (a *taskAPI) Start(key, author string, opts sdk.StartOpts) (*sdk.Task, erro
 	if err := taskErr(a.store.Tasks.Move(a.ctx, key, col, author)); err != nil {
 		return nil, err
 	}
+	if opts.AssignedTo != "" {
+		if err := taskErr(a.store.Tasks.Set(a.ctx, key, author, tasks.SetOptions{
+			AssignedTo: &opts.AssignedTo,
+		})); err != nil {
+			return nil, err
+		}
+	}
 
 	// Best-effort: record current branch if git is available.
 	if branch, err := a.git.Branch(); err == nil {

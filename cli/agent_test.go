@@ -113,7 +113,7 @@ func TestAgentAdd(t *testing.T) {
 				filepath.Join(".llmd", "agents", "claude-code", "config.json"),
 				filepath.Join(".llmd", "agents", "claude-code", "developer.md"),
 				filepath.Join(".llmd", "agents", "claude-code", "auditor.md"),
-				"llmd task start <task-id> --assign claude-code",
+				"llmd task start <task-id> --agent claude-code",
 			},
 			wantCommand: "claude",
 			wantArgs:    "--output-format json",

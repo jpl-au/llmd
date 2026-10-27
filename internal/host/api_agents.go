@@ -367,10 +367,14 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, agentErr(err)
 	}
 
-	// Non-auditors move to in-progress when their agent starts, if
-	// the column exists. Pipeline-driven boards may not have an
-	// in-progress column - the task stays in the pipeline step column.
+	// Non-auditors take the task: the agent becomes the assignee and
+	// the task moves to in-progress, if the column exists.
+	// Pipeline-driven boards may not have an in-progress column - the
+	// task stays in the pipeline step column.
 	if cfg.Role != "auditor" {
+		if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{AssignedTo: &agent}); err != nil {
+			slog.Warn("assigning task to agent after spawn", "key", taskKey, "agent", agent, "error", err)
+		}
 		cols, colErr := a.store.Tasks.Columns(a.ctx)
 		if colErr != nil {
 			slog.Debug("loading columns after spawn", "error", colErr)

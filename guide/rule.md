@@ -31,7 +31,7 @@ llmd rule unset <column>           Remove agent (keep transitions)
   columns.
 - A column with an agent is automated: the agent is spawned when a
   task enters it. A column without one is manual: a person, or
-  `task start --assign`, triggers the work. Transitions apply either
+  `task start --agent`, triggers the work. Transitions apply either
   way.
 - The agent named in `--agent` must be registered (`guide agent`).
 - Columns with no rule (backlog, up-next and done by default) have no
@@ -76,7 +76,7 @@ A rule has five fields:
 | `resume` | Resume the previous agent's session context (optional, default false) |
 
 Columns without an `agent` field are **manual** - a human (or an
-explicit `--assign` flag) triggers the work. The transitions still
+explicit `task start --agent`) triggers the work. The transitions still
 apply: `llmd agent run` reads success/failure from the rule
 regardless of whether the column is manual or automated.
 

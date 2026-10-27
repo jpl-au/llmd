@@ -18,7 +18,7 @@ llmd agent stop <task-key>                  Stop a running agent
 ```
 
 Built-in agents: `claude-code`, `gemini`, `aider`. `llmd task start
-<id> --assign <agent>` spawns the same way as `agent spawn`.
+<id> --agent <name>` spawns the same way as `agent spawn`.
 
 ## Flags
 
@@ -68,7 +68,7 @@ vi .llmd/agents/claude-code/developer.md
 
 # Spawn an agent for a task, either way
 llmd --author alice agent spawn <task-key> claude-code
-llmd --author alice task start <task-key> --assign claude-code
+llmd --author alice task start <task-key> --agent claude-code
 
 # Set up an automated pipeline via rules
 llmd --author alice rule set code --agent claude-code --role developer
@@ -87,7 +87,7 @@ llmd task board
 
 ## What a spawn does
 
-`agent spawn <task> <agent>` and `task start <task> --assign <agent>`
+`agent spawn <task> <agent>` and `task start <task> --agent <agent>`
 do the same thing:
 
 1. Check that the task's dependencies are satisfied
@@ -97,6 +97,8 @@ do the same thing:
 5. Write a run config (`.llmd-run.json`) to the worktree
 6. Start `llmd agent run` as a detached process
 7. Record the run in the agent_runs table
+8. Make the agent the assignee and move the task to in-progress.
+   Auditors skip this step: the task stays where it is.
 
 The `agent run` process then starts the actual agent (claude, gemini,
 etc.), waits for it to finish, records completion stats, captures

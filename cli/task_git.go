@@ -17,13 +17,15 @@ import (
 
 var taskStartFlags = []sdk.Flag{
 	{Name: "column", Type: "string"},
-	{Name: "assign", Type: "string", Desc: "Spawn an agent for this task"},
+	{Name: "assign", Type: "string", Desc: "Assignee"},
+	{Name: "agent", Type: "string", Desc: "Spawn this agent on the task; it becomes the assignee"},
 	{Name: "budget", Type: "string", Desc: "Max agent budget in USD for this spawn"},
 }
 
 // taskStart moves a task to in-progress and records the current git
-// branch if available. When --assign is set, spawns an agent process
-// in a git worktree to work on the task.
+// branch if available. --assign names the assignee, as on task add,
+// set and next. --agent instead spawns an agent process in a git
+// worktree to work on the task; the agent becomes the assignee.
 func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 	flags, positional, err := sdk.ParseArgs(taskStartFlags, args)
 	if err != nil {
@@ -37,8 +39,11 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task start: %w: id", sdk.ErrMissingArg)
 	}
 
-	agent := flags.String("assign")
+	agent := flags.String("agent")
 	if agent != "" {
+		if flags.String("assign") != "" {
+			return nil, fmt.Errorf("task start: %w: --agent and --assign together - the spawned agent is the assignee", sdk.ErrInvalidArg)
+		}
 		var opts sdk.SpawnOpts
 		if b := flags.String("budget"); b != "" {
 			if _, err := fmt.Sscanf(b, "%f", &opts.MaxBudget); err != nil {
@@ -57,7 +62,7 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	// No agent - standard start.
-	opts := sdk.StartOpts{Column: flags.String("column")}
+	opts := sdk.StartOpts{Column: flags.String("column"), AssignedTo: flags.String("assign")}
 	t, err := ctx.Tasks.Start(key, ctx.Author, opts)
 	if err != nil {
 		return nil, fmt.Errorf("task start: %w", err)

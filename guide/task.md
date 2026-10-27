@@ -13,6 +13,7 @@ llmd task next [--from c] [--to c]    Claim the first ready task
 llmd task move <id> <column>          Move a task to a column
 llmd task set <id> [flags]            Update task fields
 llmd task start <id>                  Move to in-progress, record the git branch
+llmd task start <id> --agent <name>   Spawn an agent on the task (see `guide agent`)
 llmd task branch <id>                 Create a git branch, then start
 llmd task finish [id]                 Move to done with a git summary
 llmd task rm <id>                     Soft-delete a task
@@ -43,7 +44,9 @@ with different meanings.
 |------|-------------|-------------|
 | `--column <col>` | add, list, start, branch, finish | Column to create in (default backlog), filter by, or move to |
 | `--priority <n>` | add, set, list | Priority: 1 is the highest, larger numbers lower, 0 none |
-| `--assign <name>` | add, set, list, next, start | Assignee; for `start`, an agent to spawn |
+| `--assign <name>` | add, set, list, next, start | Assignee |
+| `--agent <name>` | start | Spawn this registered agent on the task; it becomes the assignee |
+| `--budget <usd>` | start | Most the spawned agent may spend |
 | `--depends-on <id>` | add, set | Task that must be done first; empty value clears it |
 | `--path <path>` | add | Use an existing store document as the spec |
 | `--file <file>` | add | Read the spec from a file on disk |

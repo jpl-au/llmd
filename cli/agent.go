@@ -17,7 +17,7 @@ var agentSpec = sdk.Command{
 
 Quick start:
   llmd agent add claude-code
-  llmd task start <task-id> --assign claude-code
+  llmd task start <task-id> --agent claude-code
 
 Subcommands:
   add <name>                       register an agent
@@ -34,7 +34,7 @@ Subcommands:
 
 Built-in agents: claude-code, gemini, aider
 See "llmd guide agent" for full documentation.`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Brief: `Run AI agents on tasks in isolated git worktrees. Built-in: claude-code, gemini, aider.
-Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <name> <role>, spawn <task> <agent>, runs [--status s] [--task k], complete <task> --exit-code n, stop <task>. Or: task start <id> --assign <agent>.`, Flags: []sdk.Flag{
+Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <name> <role>, spawn <task> <agent>, runs [--status s] [--task k], complete <task> --exit-code n, stop <task>. Or: task start <id> --agent <name>.`, Flags: []sdk.Flag{
 		{Name: "command", Type: "string", Desc: "Command to run (for custom agents)"},
 		{Name: "status", Type: "string", Desc: "Filter runs by status"},
 		{Name: "task", Type: "string", Desc: "Filter runs by task key"},
@@ -78,11 +78,11 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "runs":
 		return agentRuns(ctx, args)
 	case "spawn":
-		// agent spawn <task> <agent> → task start <task> --assign <agent>
+		// agent spawn <task> <agent> → task start <task> --agent <agent>
 		if len(args) < 2 {
 			return nil, fmt.Errorf("agent spawn: %w: <task-key> <agent>", sdk.ErrMissingArg)
 		}
-		return taskStart(ctx, []string{args[0], "--assign", args[1]})
+		return taskStart(ctx, []string{args[0], "--agent", args[1]})
 	case "run":
 		return agentRun(ctx, args)
 	case "complete":
@@ -120,7 +120,7 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 			return nil, fmt.Errorf("agent add: %w", err)
 		}
 		return sdk.Text(fmt.Sprintf(
-			"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s\n\nAssign to a task with: llmd task start <task-id> --assign %s",
+			"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s\n\nSpawn it on a task with: llmd task start <task-id> --agent %s",
 			name, profile.Command,
 			agents.ConfigPath(name),
 			agents.PromptPath(name, "developer"),
@@ -144,7 +144,7 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent add: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf(
-		"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s\n\nAssign to a task with: llmd task start <task-id> --assign %s",
+		"Registered %s\n  Command:  %s\n  Config:   %s\n  Prompts:  %s\n            %s\n\nSpawn it on a task with: llmd task start <task-id> --agent %s",
 		name, command,
 		agents.ConfigPath(name),
 		agents.PromptPath(name, "developer"),

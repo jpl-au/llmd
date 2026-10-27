@@ -280,6 +280,8 @@ type TaskSetOpts struct {
 type StartOpts struct {
 	// Column is the target column. Defaults to "in-progress".
 	Column string
+	// AssignedTo, when set, becomes the task's assignee.
+	AssignedTo string
 }
 
 // StartBranchOpts configures a task start-with-branch operation.
