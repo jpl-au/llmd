@@ -73,6 +73,9 @@ func TestGuideShape(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if strings.Contains(text, "\r") {
+				t.Fatal("page has CRLF line endings: the checkout ignored .gitattributes")
+			}
 			if !strings.Contains(text, "\n## Usage\n") {
 				t.Error("no ## Usage section")
 			}

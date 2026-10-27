@@ -1,0 +1,5 @@
+# Check out every text file with LF line endings on every platform.
+# The guides, templates and SQL help are embedded into the binary with
+# go:embed, so a CRLF checkout on Windows would ship carriage returns
+# inside llmd itself and break the tests that read those files.
+* text=auto eol=lf
