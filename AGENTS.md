@@ -48,7 +48,7 @@ internal/llmd/events/       Internal synchronous event bus
 internal/llmd/entities/     Named entity extraction
 internal/llmd/audits/       Agent-to-agent and human-to-agent review threads
 internal/llmd/audit/        Change log
-internal/llmd/key/          ID generation: 9-char base36 from ms timestamps
+internal/llmd/key/          ID generation: 10-char base36 from ms timestamps
 internal/llmd/hash/         Content hashing (xxh3)
 internal/llmd/meta/         Document metadata helpers
 internal/git/               Git CLI wrapper: sdk.GitStore implementation (build-tagged)
@@ -261,14 +261,21 @@ Three separate event mechanisms serve different layers:
 
 ## Key Generation
 
-`internal/llmd/key/` generates 9-character base36 identifiers from millisecond
+`internal/llmd/key/` generates 10-character base36 identifiers from millisecond
 timestamps plus an atomic counter. These are NOT nanoid. Format: lowercase
 alphanumeric, lexicographically sortable by creation time. Used for all entity
 IDs (documents, tasks, audits). **IDs are bare keys with no prefix**  - 
 never add `aud_`, `task_`, `doc_`, or any other prefix.
 
-The counter is seeded with a random offset in [0, 1000) at init to prevent
-collisions between concurrent processes starting in the same millisecond.
+The counter keeps keys unique within one process. Separate processes seed
+it at random, so two llmd processes started within the same second clash
+about once per thousand keys. Every insert therefore goes through
+`key.Insert`, which asks for a fresh key when the store refuses one as
+taken; `tasks.key`, `entities.key`, `agent_runs.key`, `messages.key` and
+`audits.id` are unique in the schema, and a new document checks its key
+against `content` inside the write transaction (versions of one path
+share a key, so that table cannot be unique on it). `key.Force` lets a
+test make a clash happen.
 
 ## Testing
 
@@ -416,11 +423,11 @@ needs to act on it. These are separate fields - an agent creates an audit
 propagates through replies like status does; the effective assignee is from
 the most recent entry. `audit status` filters by effective assignee.
 
-**ID format:** Bare 9-char base36 key with no prefix (same generator as tasks
+**ID format:** Bare 10-char base36 key with no prefix (same generator as tasks
 and all other entities). IDs are never prefixed - no `aud_`, `task_`, `doc_`.
 
 **Target type inference:** The store determines `target_type` from the target
-value. If it matches a valid 9-char base36 key, it's a task; otherwise it's
+value. If it matches a valid 10-char base36 key, it's a task; otherwise it's
 a document.
 
 **Effective status:** Thread status = status of the most recent non-deleted

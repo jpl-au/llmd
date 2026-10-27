@@ -1,5 +1,5 @@
 // Package resolve translates identifiers into paths. An identifier
-// can be a path, a 9-character key, or either with a :version suffix.
+// can be a path, a 10-character key, or either with a :version suffix.
 // This logic is shared across all domains (documents, tasks, entities,
 // agents, audits) so that keys work uniformly as an alternative to
 // paths throughout the platform.
@@ -18,7 +18,7 @@ import (
 type KeyToPath func(ctx context.Context, k string) (string, error)
 
 // Identifier resolves a value that may be a path, a key, or either
-// with a :version suffix. When the base value is a valid 9-character
+// with a :version suffix. When the base value is a valid 10-character
 // key the lookup function is called to translate it to a path. If
 // lookup is nil or returns an error the value is returned as-is,
 // allowing it to fall through to path-based resolution.

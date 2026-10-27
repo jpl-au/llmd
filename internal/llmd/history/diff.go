@@ -27,7 +27,7 @@ type DiffStats struct {
 }
 
 // Diff compares two documents.
-// a and b can be filesystem paths, llmd paths, llmd path:version, or 9-char keys.
+// a and b can be filesystem paths, llmd paths, llmd path:version, or 10-char keys.
 func (h *History) Diff(ctx context.Context, a, b string, opts ...DiffOptions) (*DiffResult, error) {
 	var opt DiffOptions
 	if len(opts) > 0 {

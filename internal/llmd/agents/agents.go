@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS agent_events (
     created_at INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_agent_runs_key ON agent_runs(key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_key ON agent_runs(key);
 CREATE INDEX IF NOT EXISTS idx_agent_runs_task ON agent_runs(task_key);
 CREATE INDEX IF NOT EXISTS idx_agent_events_run ON agent_events(run_key);
 `

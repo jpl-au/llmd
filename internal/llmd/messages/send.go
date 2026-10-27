@@ -32,7 +32,6 @@ func (m *Messages) Send(ctx context.Context, opts SendOptions) (*message.Message
 	}
 
 	now := clock.Now()
-	k := key.Generate()
 
 	var sourceKey sql.NullString
 	if opts.SourceKey != "" {
@@ -43,25 +42,23 @@ func (m *Messages) Send(ctx context.Context, opts SendOptions) (*message.Message
 		assignedTo = sql.NullString{String: opts.AssignedTo, Valid: true}
 	}
 
-	qr, err := m.db.Query(`
-		INSERT OR IGNORE INTO messages (key, source_key, type, payload, author, source, assigned_to, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, k, sourceKey, opts.Type, opts.Payload, opts.Author, opts.Source, assignedTo, now).WithContext(ctx).Exec()
+	k, err := key.Insert("messages.key", func(k string) error {
+		_, err := m.db.Query(`
+			INSERT INTO messages (key, source_key, type, payload, author, source, assigned_to, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, k, sourceKey, opts.Type, opts.Payload, opts.Author, opts.Source, assignedTo, now).WithContext(ctx).Exec()
+		return err
+	})
+	if key.Taken(err, "messages.source_key") {
+		// The same event was already queued, by this or another process.
+		existing, err := m.bySourceKey(ctx, opts.SourceKey)
+		if err != nil {
+			return nil, fmt.Errorf("duplicate message %s: %w", opts.SourceKey, err)
+		}
+		return existing, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("inserting message: %w", err)
-	}
-	if sourceKey.Valid {
-		n, err := qr.SQLResult.RowsAffected()
-		if err != nil {
-			return nil, fmt.Errorf("checking rows affected: %w", err)
-		}
-		if n == 0 {
-			existing, err := m.bySourceKey(ctx, opts.SourceKey)
-			if err != nil {
-				return nil, fmt.Errorf("duplicate message %s: %w", opts.SourceKey, err)
-			}
-			return existing, nil
-		}
 	}
 
 	msg := &message.Message{

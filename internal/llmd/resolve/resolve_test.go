@@ -19,8 +19,8 @@ func TestParseVersion(t *testing.T) {
 		{"path with version", "notes/readme:3", "notes/readme", new(3)},
 		{"colon in path", "my:file:5", "my:file", new(5)},
 		{"non-numeric suffix", "notes/readme:abc", "notes/readme:abc", nil},
-		{"key", "0mnnqhmvm", "0mnnqhmvm", nil},
-		{"key with version", "0mnnqhmvm:7", "0mnnqhmvm", new(7)},
+		{"key", "0mnnqhmvm1", "0mnnqhmvm1", nil},
+		{"key with version", "0mnnqhmvm1:7", "0mnnqhmvm1", new(7)},
 	}
 
 	for _, tt := range tests {
@@ -40,7 +40,7 @@ func TestParseVersion(t *testing.T) {
 
 func TestIdentifier(t *testing.T) {
 	lookup := func(_ context.Context, key string) (string, error) {
-		if key == "0mnnqhmvm" {
+		if key == "0mnnqhmvm1" {
 			return "observations/llmd-recorder", nil
 		}
 		return "", errors.New("not found")
@@ -59,9 +59,9 @@ func TestIdentifier(t *testing.T) {
 	}{
 		{"path", "notes/readme", nil, "notes/readme", nil, false},
 		{"path with version", "notes/readme:3", nil, "notes/readme", new(3), false},
-		{"key", "0mnnqhmvm", lookup, "observations/llmd-recorder", nil, true},
-		{"key with version", "0mnnqhmvm:7", lookup, "observations/llmd-recorder", new(7), true},
-		{"key not found", "0mnnqhmvm", notFound, "0mnnqhmvm", nil, false},
+		{"key", "0mnnqhmvm1", lookup, "observations/llmd-recorder", nil, true},
+		{"key with version", "0mnnqhmvm1:7", lookup, "observations/llmd-recorder", new(7), true},
+		{"key not found", "0mnnqhmvm1", notFound, "0mnnqhmvm1", nil, false},
 	}
 
 	for _, tt := range tests {

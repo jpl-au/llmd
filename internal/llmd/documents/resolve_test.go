@@ -37,7 +37,7 @@ func TestKeyToPath(t *testing.T) {
 		},
 		{
 			name:    "unknown key",
-			setup:   func(t *testing.T, s *llmd.Store) string { return "zzzzzzzzz" },
+			setup:   func(t *testing.T, s *llmd.Store) string { return "zzzzzzzzzz" },
 			wantErr: documents.ErrNotFound,
 		},
 	}

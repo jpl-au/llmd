@@ -6,7 +6,7 @@ package document
 // potentially large Content field. Used by List operations to efficiently
 // return many documents without loading all their content into memory.
 type Info struct {
-	// Key is the stable document identifier (9-character nanoid).
+	// Key is the stable document identifier (10-character base36 key).
 	Key string
 
 	// Path is the human-readable document identifier.

@@ -18,7 +18,7 @@
 //
 // Documents have both a Path and a Key:
 //   - Path: human-readable identifier like "docs/readme" or "notes/2024/jan"
-//   - Key: stable 9-character nanoid, same across all versions of a document
+//   - Key: stable 10-character base36 key, same across all versions of a document
 //
 // Paths can be renamed; Keys never change. Use Keys for stable references,
 // Paths for human interaction. Both can be used to look up documents.
@@ -69,7 +69,7 @@ type Document struct {
 	// Each version has a unique ID. Not typically used in application code.
 	ID int64
 
-	// Key is the stable document identifier (9-character nanoid).
+	// Key is the stable document identifier (10-character base36 key).
 	// The same Key is used across all versions of a document.
 	// Use this for stable references that survive path renames.
 	Key string

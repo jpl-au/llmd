@@ -53,7 +53,7 @@
 //
 // # Keys
 //
-// Each entity has a unique Key (9-character nanoid). Keys are immutable and
+// Each entity has a unique Key (10-character base36 key). Keys are immutable and
 // serve as stable identifiers across the entity's lifecycle.
 //
 // # Insert-Only Semantics
@@ -76,7 +76,7 @@ type Entity struct {
 	// Not typically used in application code; prefer Key for identification.
 	ID int64
 
-	// Key is the unique identifier for this entity (9-character nanoid).
+	// Key is the unique identifier for this entity (10-character base36 key).
 	// Keys are stable, URL-safe, and suitable for external references.
 	Key string
 

@@ -65,13 +65,13 @@ llmd hook init gemini     # a hooks list for the Gemini CLI configuration
 llmd hook init generic    # a shell script that wraps any command
 
 # Run any agent through the generic script, task key first
-./hooks.sh 0mvj8snvv my-agent --some-flag
+./hooks.sh 0mvj8snvv7 my-agent --some-flag
 
 # A generic payload any tool can produce
-printf '{"event":"task.completed","task_id":"0mvj8snvv"}' | llmd --author my-agent hook
+printf '{"event":"task.completed","task_id":"0mvj8snvv7"}' | llmd --author my-agent hook
 
 # Name the task when the platform's payload does not
-llmd --author claude hook --task 0mvj8snvv
+llmd --author claude hook --task 0mvj8snvv7
 ```
 
 ## Setting up a platform

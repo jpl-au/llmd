@@ -284,7 +284,7 @@ MD
     # --- key-based access ---
     # ls should show key alongside path.
     key=$($llmd ls 2>&1 | grep "docs/greeting" | awk '{print $1}')
-    if [ -n "$key" ] && [ ${#key} -eq 9 ]; then
+    if [ -n "$key" ] && [ ${#key} -eq 10 ]; then
         log_pass "ls shows document key"
     else
         log_fail "ls shows document key: got '$key'"

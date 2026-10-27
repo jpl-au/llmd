@@ -33,7 +33,7 @@ llmd task column mv <name> --after c  Reorder a column
 ```
 
 Default columns: backlog, up-next, in-progress, review, approval,
-done, blocked. Task IDs are 9-character keys such as `a1b2c3d4e`.
+done, blocked. Task IDs are 10-character keys such as `a1b2c3d4e5`.
 
 ## Flags
 
@@ -113,26 +113,26 @@ Auth tokens never expire, causing security issues.
 SPEC
 
 # Queue it for an agent
-llmd --author alice task move a1b2c3d4e up-next
+llmd --author alice task move a1b2c3d4e5 up-next
 
 # An agent claims the next piece of work and gets the spec back
 llmd --author claude-code task next
 
 # ... does the work, then hands it over
-llmd --author claude-code task move a1b2c3d4e review
+llmd --author claude-code task move a1b2c3d4e5 review
 
 # A reviewer takes the next task waiting for review
 llmd --author reviewer task next --from review --to approval
 
 # Approve and record the git summary
-llmd --author reviewer task finish a1b2c3d4e
+llmd --author reviewer task finish a1b2c3d4e5
 
 # Keep a task for yourself: agents pass it over, review hides it
-llmd --author alice task set a1b2c3d4e --flag human
+llmd --author alice task set a1b2c3d4e5 --flag human
 
 # Mark blocked, then clear it
-llmd --author alice task set a1b2c3d4e --flag blocked
-llmd --author alice task set a1b2c3d4e --unflag blocked
+llmd --author alice task set a1b2c3d4e5 --flag blocked
+llmd --author alice task set a1b2c3d4e5 --unflag blocked
 
 # Other ways to supply a spec
 llmd --author alice task add "Fix auth bug" --file spec.md
@@ -176,9 +176,9 @@ branch.
 
 ```bash
 git checkout -b feature-auth
-llmd --author alice task start a1b2c3d4e     # Started a1b2c3d4e on branch feature-auth
-llmd task diff a1b2c3d4e --stat
-llmd --author alice task set a1b2c3d4e --branch feature-auth   # set the branch by hand
+llmd --author alice task start a1b2c3d4e5     # Started a1b2c3d4e5 on branch feature-auth
+llmd task diff a1b2c3d4e5 --stat
+llmd --author alice task set a1b2c3d4e5 --branch feature-auth   # set the branch by hand
 ```
 
 `next` records no branch: it hands a task over and leaves branching
@@ -195,9 +195,9 @@ A task in review is checked with `llmd review --column review` and
 discussed in audit threads:
 
 ```bash
-llmd --author reviewer audit add a1b2c3d4e "Error handling missing" --assign coder
+llmd --author reviewer audit add a1b2c3d4e5 "Error handling missing" --assign coder
 llmd --author coder audit status      # what needs my response
-llmd --author reviewer task finish a1b2c3d4e
+llmd --author reviewer task finish a1b2c3d4e5
 ```
 
 See `guide audit` for threads and `guide workflow` for the full task

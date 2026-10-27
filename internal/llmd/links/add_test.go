@@ -119,7 +119,7 @@ func TestAdd(t *testing.T) {
 			if got.Value.Label != tt.label {
 				t.Errorf("Add(%q, %q) Value.Label = %q, want %q", from, to, got.Value.Label, tt.label)
 			}
-			if len(got.Key) != 9 {
+			if len(got.Key) != 10 {
 				t.Errorf("Add(%q, %q) Key length = %d, want 9", from, to, len(got.Key))
 			}
 

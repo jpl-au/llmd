@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/jpl-au/llmd/internal/llmd/key"
+
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
@@ -32,8 +34,8 @@ type Stat struct {
 
 // Stat returns document metadata without loading content.
 // This is more efficient than Read when only metadata is needed.
-// value can be a document path or 9-char key.
-// Checks path and key (if 9 chars) concurrently, returns with priority: path > key.
+// value can be a document path or a key.
+// Checks path and key (if it has a key's length) concurrently, returns with priority: path > key.
 func (d *Documents) Stat(ctx context.Context, value string) (*Stat, error) {
 	var wg sync.WaitGroup
 	var pathStat, keyStat *Stat
@@ -44,9 +46,9 @@ func (d *Documents) Stat(ctx context.Context, value string) (*Stat, error) {
 		pathStat, pathErr = d.statByPath(ctx, value)
 	})
 
-	// Check by key (only if 9 chars)
+	// Check by key (only if it has a key's length)
 	wg.Go(func() {
-		if len(value) != 9 {
+		if len(value) != key.Length {
 			return
 		}
 		keyStat, keyErr = d.statByKey(ctx, value)

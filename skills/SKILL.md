@@ -188,6 +188,6 @@ task finish <id>               approve and complete
 - `audit list --pending` shows unresolved review threads needing attention
 - `guide` returns an overview of all commands; `guide <topic>` returns detailed help (workflow, task, audit, agent, rule, queue, etc.)
 - Document paths use forward slashes, no leading slash: `docs/api`, `notes/meeting`
-- Task IDs are 9-character base36 keys (e.g. `a1b2c3d4e`)
+- Task IDs are 10-character base36 keys (e.g. `a1b2c3d4e5`)
 - FTS5 search supports: implicit AND, explicit OR/NOT, NEAR(), prefix *, "exact phrases"
 - Always include `author` on mutations or the call will be rejected

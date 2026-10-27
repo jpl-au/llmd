@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jpl-au/llmd/internal/clock"
@@ -96,7 +97,22 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 		LIMIT 1
 	`, namespace, path).Scan(&k)
 	if err != nil {
-		k = key.Generate()
+		// A new document. Keys are shared by the versions of one path,
+		// so the table cannot enforce uniqueness; check here instead,
+		// inside the write transaction, that no other path holds it.
+		k, err = key.Insert("content.key", func(k string) error {
+			var n int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM content WHERE key = ?`, k).Scan(&n); err != nil {
+				return err
+			}
+			if n > 0 {
+				return errors.New("UNIQUE constraint failed: content.key")
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("choosing a key: %w", err)
+		}
 	}
 
 	_, err = tx.ExecContext(ctx, `

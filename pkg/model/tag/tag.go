@@ -57,7 +57,7 @@ type Value struct {
 // (Relation for the document path, Value for the tag name).
 // Tags are immutable once created - to change a tag, remove and re-add it.
 type Tag struct {
-	// Key is the unique identifier for this tag entity (9-character nanoid).
+	// Key is the unique identifier for this tag entity (10-character base36 key).
 	Key string
 
 	// Relation is the document path this tag is attached to.

@@ -118,7 +118,7 @@ type TaskStore interface {
 // all be updated in place. Every mutation is recorded in the audit log
 // (see [TaskStore.Log]).
 type Task struct {
-	// Key is the stable 9-character base36 identifier for this task.
+	// Key is the stable 10-character base36 identifier for this task.
 	// Unique across all tasks and never changes.
 	Key string
 

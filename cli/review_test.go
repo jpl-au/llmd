@@ -188,12 +188,12 @@ func TestReview(t *testing.T) {
 					t.Errorf("review %v = %d lines, want %d", tt.args, lines, tt.wantCount)
 				}
 				// Each plain line is the seven-field task line, starting
-				// with a 9-character task key.
+				// with a 10-character task key.
 				for line := range strings.SplitSeq(strings.TrimRight(got, "\n"), "\n") {
 					if line == "" {
 						continue
 					}
-					if fields := strings.Split(line, "\t"); len(fields) != 7 || len(fields[0]) != 9 {
+					if fields := strings.Split(line, "\t"); len(fields) != 7 || len(fields[0]) != 10 {
 						t.Errorf("review %v line %q, want key\\ttitle\\tcolumn\\tP<n>\\tassignee\\tflags\\tspec", tt.args, line)
 					}
 				}

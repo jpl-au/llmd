@@ -67,8 +67,8 @@ func TestWrite(t *testing.T) {
 			if doc.Author != tt.opts.Author {
 				t.Errorf("Write(%q).Author = %q, want %q", tt.path, doc.Author, tt.opts.Author)
 			}
-			if len(doc.Key) != 9 {
-				t.Errorf("Write(%q).Key = %q, want 9 characters", tt.path, doc.Key)
+			if len(doc.Key) != 10 {
+				t.Errorf("Write(%q).Key = %q, want 10 characters", tt.path, doc.Key)
 			}
 			if doc.Meta == nil {
 				t.Errorf("Write(%q).Meta = nil, want non-nil", tt.path)

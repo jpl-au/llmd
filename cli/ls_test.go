@@ -220,8 +220,8 @@ func TestLs(t *testing.T) {
 				if got != "" {
 					for line := range strings.SplitSeq(got, "\n") {
 						key, path, ok := strings.Cut(line, " ")
-						if !ok || len(key) != 9 {
-							t.Errorf("ls %v line %q, want \"<9-char key> <path>\"", args, line)
+						if !ok || len(key) != 10 {
+							t.Errorf("ls %v line %q, want \"<10-char key> <path>\"", args, line)
 						}
 						paths = append(paths, path)
 					}

@@ -14,17 +14,19 @@ import (
 // Write creates a new entity. Entities are insert-only; state changes create new rows.
 func (e *Entities) Write(ctx context.Context, namespace, value string, opts WriteOptions) (*entity.Entity, error) {
 	now := clock.Now()
-	k := key.Generate()
 
 	var relation sql.NullString
 	if opts.Relation != "" {
 		relation = sql.NullString{String: opts.Relation, Valid: true}
 	}
 
-	_, err := e.db.Query(`
-		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, value, opts.Author, opts.Source, now).WithContext(ctx).Exec()
+	k, err := key.Insert("entities.key", func(k string) error {
+		_, err := e.db.Query(`
+			INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, k, namespace, relation, value, opts.Author, opts.Source, now).WithContext(ctx).Exec()
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("inserting entity: %w", err)
 	}

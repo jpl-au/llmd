@@ -39,7 +39,6 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 	}
 
 	now := clock.Now()
-	k := key.Generate()
 
 	tagValue := tag.Value{Tag: name}
 	data, err := json.Marshal(tagValue)
@@ -47,11 +46,13 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 		return nil, fmt.Errorf("marshaling tag: %w", err)
 	}
 
-	_, err = t.db.Query(`
-		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Exec()
-
+	k, err := key.Insert("entities.key", func(k string) error {
+		_, err := t.db.Query(`
+			INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Exec()
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("inserting tag: %w", err)
 	}

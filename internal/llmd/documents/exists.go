@@ -3,13 +3,15 @@ package documents
 import (
 	"context"
 	"database/sql"
+
+	"github.com/jpl-au/llmd/internal/llmd/key"
 )
 
 // Exists checks if a document exists at the given path or key.
 // Returns true if the document exists and is not deleted.
 func (d *Documents) Exists(ctx context.Context, value string) (bool, error) {
-	// Try by key first (9-char identifier)
-	if len(value) == 9 {
+	// Try by key first.
+	if len(value) == key.Length {
 		var exists bool
 		row, err := d.db.Query(`
 			SELECT EXISTS(

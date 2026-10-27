@@ -53,12 +53,14 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 	}
 
 	now := clock.Now()
-	k := key.Generate()
 
-	_, err = l.db.Query(`
-		INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Exec()
+	k, err := key.Insert("entities.key", func(k string) error {
+		_, err := l.db.Query(`
+			INSERT INTO entities (key, namespace, relation, value, author, source, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, k, namespace, relation, string(data), opts.Author, opts.Source, now).WithContext(ctx).Exec()
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("inserting link: %w", err)
 	}

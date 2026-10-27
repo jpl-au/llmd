@@ -83,7 +83,6 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	}
 
 	now := clock.Now()
-	k := key.Generate()
 
 	// Validate dependency target exists.
 	if opts.DependsOn != "" {
@@ -112,22 +111,25 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 			return nil, fmt.Errorf("getting position: %w", err)
 		}
 
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO tasks (key, title, status, priority, position, assigned_to, branch, flags, depends_on, path, author, source, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
-		`, k, title, status, opts.Priority, maxPos+1, assignedTo, branch, nullStr(opts.DependsOn), path, opts.Author, opts.Source, now)
+		k, err := key.Insert("tasks.key", func(k string) error {
+			_, err := tx.ExecContext(ctx, `
+				INSERT INTO tasks (key, title, status, priority, position, assigned_to, branch, flags, depends_on, path, author, source, created_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+			`, k, title, status, opts.Priority, maxPos+1, assignedTo, branch, nullStr(opts.DependsOn), path, opts.Author, opts.Source, now)
+			return err
+		})
 		if err != nil {
 			return nil, fmt.Errorf("inserting task: %w", err)
 		}
 
 		recordTx(ctx, tx, opts.Author, "created", k, "", title)
-		return maxPos + 1, nil
+		return added{k, maxPos + 1}, nil
 	}).WithContext(ctx).Exec()
 	if err != nil {
 		return nil, err
 	}
 
-	pos := result.Value.(int)
+	k, pos := result.Value.(added).key, result.Value.(added).pos
 
 	tsk := &task.Task{
 		Key:        k,
@@ -216,4 +218,11 @@ func slug(title string) string {
 	}
 	s := b.String()
 	return strings.TrimRight(s, "-")
+}
+
+// added is what the insert transaction hands back: the key the store
+// accepted and the position in the column.
+type added struct {
+	key string
+	pos int
 }

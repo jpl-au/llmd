@@ -42,13 +42,13 @@ llmd audit status                    Inbox: what needs my response
   and resolves the thread.
 - Threads are single-level. Replying to a reply attaches to the
   top-level parent.
-- A 9-character base36 key as the target means a task; anything else
+- A 10-character base36 key as the target means a task; anything else
   is a document path.
 - `show` prints the root message and the 9 most recent replies (10
   entries). `--all` shows the whole thread.
 - `status` lists threads assigned to the author whose status is
   `pending` or `needs-work`.
-- IDs are bare 9-character base36 keys with no prefix. `--json` gives
+- IDs are bare 10-character base36 keys with no prefix. `--json` gives
   the structured form.
 
 ## Examples

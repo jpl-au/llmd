@@ -163,11 +163,11 @@ title heading (spec gating).
 ### Moving tasks through the board
 
 ```
-llmd task move a1b2c3d4e up-next        # ready to start
+llmd task move a1b2c3d4e5 up-next        # ready to start
 llmd --author claude-code task next     # claim the first ready task, get its spec
-llmd task move a1b2c3d4e in-progress    # or claim a chosen task by hand
-llmd task move a1b2c3d4e review         # work done, ready for review
-llmd task finish a1b2c3d4e              # approved, move to done
+llmd task move a1b2c3d4e5 in-progress    # or claim a chosen task by hand
+llmd task move a1b2c3d4e5 review         # work done, ready for review
+llmd task finish a1b2c3d4e5              # approved, move to done
 ```
 
 ### The approval and blocked columns
@@ -269,7 +269,7 @@ document.
 
 ```
 # Reviewer flags an issue
-llmd --author "alice" audit add a1b2c3d4e "Error handling missing" \
+llmd --author "alice" audit add a1b2c3d4e5 "Error handling missing" \
   --assign bob
 
 # Coder checks their inbox and responds
@@ -287,9 +287,9 @@ See `guide audit` for full details.
 Link tasks to git branches for traceability:
 
 ```
-llmd task start a1b2c3d4e               # records branch, moves to in-progress
-llmd task diff a1b2c3d4e                # diff against default branch
-llmd task files a1b2c3d4e               # list changed files
+llmd task start a1b2c3d4e5               # records branch, moves to in-progress
+llmd task diff a1b2c3d4e5                # diff against default branch
+llmd task files a1b2c3d4e5               # list changed files
 ```
 
 When agents are spawned, they work in isolated git worktrees on

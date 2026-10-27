@@ -79,7 +79,7 @@ type AgentConfig struct {
 
 // AgentRun represents a single agent execution against a task.
 type AgentRun struct {
-	// Key is the unique run identifier (9-char base36).
+	// Key is the unique run identifier (10-char base36).
 	Key string `json:"key"`
 
 	// TaskKey is the task this agent is working on.

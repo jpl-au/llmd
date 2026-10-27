@@ -10,7 +10,6 @@ import (
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/hash"
-	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/internal/llmd/meta"
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
@@ -80,7 +79,14 @@ func (h *History) revertInTx(ctx context.Context, tx *sql.Tx, path, content stri
 	}
 
 	now := clock.Now()
-	k := key.Generate()
+
+	// Every version of a path shares the document's key.
+	var k string
+	if err := tx.QueryRowContext(ctx, `
+		SELECT key FROM content WHERE namespace = ? AND path = ? LIMIT 1
+	`, namespace, path).Scan(&k); err != nil {
+		return nil, fmt.Errorf("reading document key: %w", err)
+	}
 
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO content (

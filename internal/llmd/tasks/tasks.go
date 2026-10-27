@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     deleted_at INTEGER
 );
 
-CREATE INDEX IF NOT EXISTS idx_tasks_key ON tasks(key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_key ON tasks(key);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_tasks_path ON tasks(path);
 CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted_at) WHERE deleted_at IS NOT NULL;

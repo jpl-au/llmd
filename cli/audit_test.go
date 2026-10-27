@@ -256,8 +256,8 @@ func TestAuditAdd(t *testing.T) {
 				}
 			}
 			aud := auditOf(t, resp)
-			if aud.ID == "" || len(aud.ID) != 9 {
-				t.Errorf("audit %v ID = %q, want a 9-char key", args, aud.ID)
+			if aud.ID == "" || len(aud.ID) != 10 {
+				t.Errorf("audit %v ID = %q, want a 10-char key", args, aud.ID)
 			}
 			if aud.ParentID != "" {
 				t.Errorf("audit %v ParentID = %q, want empty for a top-level audit", args, aud.ParentID)
@@ -366,7 +366,7 @@ func TestAuditReply(t *testing.T) {
 		},
 		{
 			name:    "unknown id",
-			args:    []string{"reply", "zzzzzzzzz", "x"},
+			args:    []string{"reply", "zzzzzzzzzz", "x"},
 			wantErr: sdk.ErrNotFound,
 		},
 		{
@@ -646,7 +646,7 @@ func TestAuditShow(t *testing.T) {
 		},
 		{
 			name:    "unknown id",
-			args:    []string{"show", "zzzzzzzzz"},
+			args:    []string{"show", "zzzzzzzzzz"},
 			wantErr: sdk.ErrNotFound,
 		},
 		{
@@ -725,7 +725,7 @@ func TestAuditResolve(t *testing.T) {
 		{name: "resolves the thread", args: []string{"resolve", "{root}"}},
 		{name: "resolve via a reply id", args: []string{"resolve", "{reply}"}},
 		{name: "missing id", args: []string{"resolve"}, wantErr: sdk.ErrMissingArg},
-		{name: "unknown id", args: []string{"resolve", "zzzzzzzzz"}, wantErr: sdk.ErrNotFound},
+		{name: "unknown id", args: []string{"resolve", "zzzzzzzzzz"}, wantErr: sdk.ErrNotFound},
 	}
 
 	for _, tt := range tests {
@@ -774,12 +774,12 @@ func TestAuditRmRestore(t *testing.T) {
 		wantErr  error
 	}{
 		{name: "rm hides the audit", args: []string{"rm", "{id}"}, wantText: "Deleted audit {id}"},
-		{name: "rm unknown id", args: []string{"rm", "zzzzzzzzz"}, wantErr: sdk.ErrNotFound},
+		{name: "rm unknown id", args: []string{"rm", "zzzzzzzzzz"}, wantErr: sdk.ErrNotFound},
 		{name: "rm already deleted", args: []string{"rm", "{id}"}, deleted: true, wantErr: sdk.ErrNotFound},
 		{name: "rm missing id", args: []string{"rm"}, wantErr: sdk.ErrMissingArg},
 		{name: "restore recovers the audit", args: []string{"restore", "{id}"}, deleted: true, wantText: "Restored audit {id}"},
 		{name: "restore a live audit", args: []string{"restore", "{id}"}, wantErr: sdk.ErrNotFound},
-		{name: "restore unknown id", args: []string{"restore", "zzzzzzzzz"}, wantErr: sdk.ErrNotFound},
+		{name: "restore unknown id", args: []string{"restore", "zzzzzzzzzz"}, wantErr: sdk.ErrNotFound},
 		{name: "restore missing id", args: []string{"restore"}, wantErr: sdk.ErrMissingArg},
 	}
 

@@ -45,7 +45,7 @@ func TestAdd(t *testing.T) {
 		},
 		{
 			name: "task target",
-			opts: AddOptions{Target: "0mmofq4de", Content: "Check the spec.", Author: "gemini"},
+			opts: AddOptions{Target: "0mmofq4de1", Content: "Check the spec.", Author: "gemini"},
 			want: Audit{TargetType: "task", Status: "pending"},
 		},
 		{
@@ -115,13 +115,13 @@ func TestInferTargetType(t *testing.T) {
 	}{
 		{"document path", "docs/api", "document"},
 		{"nested document path", "notes/meeting", "document"},
-		{"valid base36 key", "0mmofq4de", "task"},
-		{"all zeros key", "000000000", "task"},
+		{"valid base36 key", "0mmofq4de1", "task"},
+		{"all zeros key", "0000000000", "task"},
 		{"short word", "docs", "document"}, // 4 chars, not a key
-		{"lowercase alpha key", "abcdefghi", "task"},
-		{"uppercase", "ABCDEFGHI", "document"}, // uppercase = not valid base36
+		{"lowercase alpha key", "abcdefghij", "task"},
+		{"uppercase", "ABCDEFGHIJ", "document"}, // uppercase = not valid base36
 		{"too short", "abc", "document"},
-		{"too long", "abcdefghij", "document"},
+		{"too long", "abcdefghijk", "document"},
 	}
 
 	for _, tt := range tests {
@@ -234,7 +234,7 @@ func TestRead(t *testing.T) {
 		wantContent string
 	}{
 		{"existing", "", nil, "Test."},
-		{"not found", "xxxxxxxxx", ErrNotFound, ""},
+		{"not found", "xxxxxxxxxx", ErrNotFound, ""},
 	}
 
 	for _, tt := range tests {
@@ -397,7 +397,7 @@ func TestDelete(t *testing.T) {
 	}{
 		{"deletes", "", "gemini", nil},
 		{"missing author", "", "", ErrMissingAuthor},
-		{"not found", "xxxxxxxxx", "gemini", ErrNotFound},
+		{"not found", "xxxxxxxxxx", "gemini", ErrNotFound},
 	}
 
 	for _, tt := range tests {

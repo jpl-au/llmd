@@ -45,13 +45,15 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 		assignee = parent.Assignee
 	}
 
-	id := key.Generate()
 	now := clock.Now()
 
-	_, err = a.db.Query(`
-		INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, assignee, status, opts.Content, threadID, now).WithContext(ctx).Exec()
+	id, err := key.Insert("audits.id", func(id string) error {
+		_, err := a.db.Query(`
+			INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, id, parent.Target, parent.TargetType, parent.Version, opts.Author, assignee, status, opts.Content, threadID, now).WithContext(ctx).Exec()
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("inserting reply: %w", err)
 	}

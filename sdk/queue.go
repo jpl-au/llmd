@@ -42,7 +42,7 @@ type QueueStore interface {
 
 // Message is the SDK view of a queue message.
 type Message struct {
-	// Key is the stable 9-character identifier.
+	// Key is the stable 10-character identifier.
 	Key string
 
 	// Type identifies the event (e.g. "document.written", "direct").

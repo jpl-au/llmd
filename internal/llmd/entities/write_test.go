@@ -38,7 +38,7 @@ func TestWrite(t *testing.T) {
 			if got.Relation != tt.relation {
 				t.Errorf("Write(%q, %q) Relation = %q, want %q", tt.namespace, tt.value, got.Relation, tt.relation)
 			}
-			if len(got.Key) != 9 {
+			if len(got.Key) != 10 {
 				t.Errorf("Write(%q, %q) Key length = %d, want 9", tt.namespace, tt.value, len(got.Key))
 			}
 			if got.Author != "test" {

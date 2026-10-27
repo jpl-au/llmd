@@ -102,7 +102,7 @@ func TestAdd(t *testing.T) {
 			if got.Relation != "docs/readme" {
 				t.Errorf("Add(%q, %q) Relation = %q, want %q", value, tt.tag, got.Relation, "docs/readme")
 			}
-			if len(got.Key) != 9 {
+			if len(got.Key) != 10 {
 				t.Errorf("Add(%q, %q) Key length = %d, want 9", value, tt.tag, len(got.Key))
 			}
 

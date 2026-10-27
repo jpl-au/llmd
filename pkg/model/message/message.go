@@ -15,7 +15,7 @@ type Message struct {
 	// ID is the auto-increment database row ID.
 	ID int64
 
-	// Key is the stable 9-character base36 identifier.
+	// Key is the stable 10-character base36 identifier.
 	Key string
 
 	// SourceKey is the deduplication key, derived from the domain event

@@ -46,13 +46,13 @@ llmd queue history [--limit N | --all]  Recent messages including acknowledged
   not every consumer acknowledged them; a consumer that never catches
   up does not pin the table. `guide config` has the key.
 - Content for `send` comes from the positional argument or stdin. IDs
-  are bare 9-character base36 keys. `--json` gives the structured form.
+  are bare 10-character base36 keys. `--json` gives the structured form.
 
 ## Examples
 
 ```bash
 # Direct to an agent
-llmd --author jake queue send "review task a8f3k2m1n" --assign claude-code
+llmd --author jake queue send "review task a8f3k2m1n4" --assign claude-code
 
 # Broadcast (all consumers see it)
 llmd --author jake queue send "deployment complete"
@@ -70,7 +70,7 @@ llmd --author claude-code queue ls --limit 5
 llmd --author claude-code queue peek
 
 # Must be the oldest pending message
-llmd --author claude-code queue ack a8f3k2m1n
+llmd --author claude-code queue ack a8f3k2m1n4
 
 # Most recent 20 messages (default cap)
 llmd --author claude-code queue history

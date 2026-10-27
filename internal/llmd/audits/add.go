@@ -23,7 +23,7 @@ type AddOptions struct {
 }
 
 // Add creates a top-level audit on a document or task. The target_type
-// is inferred from the target: valid 9-char base36 keys are tasks,
+// is inferred from the target: valid 10-char base36 keys are tasks,
 // everything else is a document path.
 func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 	if opts.Author == "" {
@@ -43,7 +43,6 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 
 	targetType := inferTargetType(opts.Target)
 
-	id := key.Generate()
 	now := clock.Now()
 
 	var version *int
@@ -51,10 +50,13 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 		version = &opts.Version
 	}
 
-	_, err := a.db.Query(`
-		INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
-	`, id, opts.Target, targetType, version, opts.Author, opts.Assignee, status, opts.Content, now).WithContext(ctx).Exec()
+	id, err := key.Insert("audits.id", func(id string) error {
+		_, err := a.db.Query(`
+			INSERT INTO audits (id, target, target_type, version, author, assignee, status, content, parent_id, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+		`, id, opts.Target, targetType, version, opts.Author, opts.Assignee, status, opts.Content, now).WithContext(ctx).Exec()
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("inserting audit: %w", err)
 	}
@@ -88,7 +90,7 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 }
 
 // inferTargetType returns "task" if the target looks like a valid task
-// key (9-char base36), otherwise "document".
+// key (10-char base36), otherwise "document".
 func inferTargetType(target string) string {
 	if key.Validate(target) == nil {
 		return "task"

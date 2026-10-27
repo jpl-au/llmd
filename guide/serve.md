@@ -338,7 +338,7 @@ curl -X DELETE http://localhost:5563/tag/important/docs/readme \
 ### Move a task
 
 ```bash
-curl -X POST http://localhost:5563/task/move/0mvj8snvv/review \
+curl -X POST http://localhost:5563/task/move/0mvj8snvv7/review \
   -H "Author: Claude"
 ```
 

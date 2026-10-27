@@ -81,7 +81,7 @@ llmd --author alice task move <key> code
 # Monitor progress
 llmd agent runs
 llmd agent runs --status running
-llmd agent runs --task a1b2c3d4e
+llmd agent runs --task a1b2c3d4e5
 llmd task board
 ```
 

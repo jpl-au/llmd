@@ -19,7 +19,7 @@ func docRunAs(t *testing.T, c sdk.Context, author, cmd string, stdin []byte, arg
 	return c.Runtime.Dispatch(t.Context(), cmd, args, author, stdin, "")
 }
 
-// docKey returns the 9-character key of the document at path.
+// docKey returns the 10-character key of the document at path.
 func docKey(t *testing.T, c sdk.Context, path string) string {
 	t.Helper()
 	docs, err := c.Documents.List(path, sdk.ListOpts{Deleted: true})

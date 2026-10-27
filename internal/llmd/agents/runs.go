@@ -65,13 +65,15 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 		return nil, fmt.Errorf("%w: %s - agent runs --task %s shows it, agent stop %s ends it", ErrRunning, opts.TaskKey, opts.TaskKey, opts.TaskKey)
 	}
 
-	k := key.Generate()
 	now := clock.Now()
 
-	_, err = a.db.Query(`
-		INSERT INTO agent_runs (key, task_key, agent, branch, worktree, pid, author, started_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, k, opts.TaskKey, opts.Agent, opts.Branch, opts.Worktree, opts.PID, opts.Author, now).Exec()
+	k, err := key.Insert("agent_runs.key", func(k string) error {
+		_, err := a.db.Query(`
+			INSERT INTO agent_runs (key, task_key, agent, branch, worktree, pid, author, started_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, k, opts.TaskKey, opts.Agent, opts.Branch, opts.Worktree, opts.PID, opts.Author, now).Exec()
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("inserting agent run: %w", err)
 	}

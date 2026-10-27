@@ -79,7 +79,7 @@ type Value struct {
 // (Relation for source path, Value for target and label).
 // Links are immutable once created - to change a link, remove and re-add it.
 type Link struct {
-	// Key is the unique identifier for this link entity (9-character nanoid).
+	// Key is the unique identifier for this link entity (10-character base36 key).
 	Key string
 
 	// Relation is the source document path (FROM side of the link).

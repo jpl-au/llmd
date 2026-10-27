@@ -181,8 +181,8 @@ func TestQueueSend(t *testing.T) {
 
 			resp := run(t, c, "queue", stdin, tt.args...)
 			msg := queueMsgOf(t, resp)
-			if len(msg.Key) != 9 {
-				t.Errorf("queue %v Key = %q, want a 9-char key", tt.args, msg.Key)
+			if len(msg.Key) != 10 {
+				t.Errorf("queue %v Key = %q, want a 10-char key", tt.args, msg.Key)
 			}
 			if got, want := text(resp), "Sent "+msg.Key+tt.wantSuffix; got != want {
 				t.Errorf("queue %v = %q, want %q", tt.args, got, want)

@@ -23,7 +23,7 @@ type Task struct {
 	// Not typically used in application code; use Key instead.
 	ID int64
 
-	// Key is the stable 9-character base36 identifier.
+	// Key is the stable 10-character base36 identifier.
 	// Unique across all tasks and never changes.
 	Key string
 
