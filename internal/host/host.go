@@ -17,6 +17,7 @@ import (
 	"github.com/jpl-au/llmd/internal/config"
 	igit "github.com/jpl-au/llmd/internal/git"
 	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/internal/term"
 	"github.com/jpl-au/llmd/internal/validate"
@@ -36,6 +37,7 @@ type Host struct {
 	store      *llmd.Store
 	lim        validate.Limits
 	limSet     bool
+	taskOrder  tasks.Order // ordering within a column; "" reads the config
 	git        sdk.GitStore
 	commands   map[string]*cmdEntry
 	extensions []sdk.Extension
@@ -61,6 +63,14 @@ func WithLimits(l validate.Limits) Option {
 		h.lim = l
 		h.limSet = true
 	}
+}
+
+// WithTaskOrder sets how tasks are ordered within a column, for the
+// board, review and task next alike: tasks.OrderPriority or
+// tasks.OrderPosition. The default comes from the task.order key of
+// the configuration file, which is priority.
+func WithTaskOrder(o tasks.Order) Option {
+	return func(h *Host) { h.taskOrder = o }
 }
 
 // cmdEntry maps a command to its owning extension.
@@ -117,6 +127,10 @@ func (h *Host) attach(store *llmd.Store) {
 		return
 	}
 	h.store = store
+
+	if err := store.Tasks.SetOrder(h.taskOrder); err != nil {
+		slog.Warn("task order", "order", h.taskOrder, "err", err)
+	}
 
 	// Callbacks subscribed while the host had no store join the bus now.
 	for _, fn := range h.subs {
@@ -385,12 +399,17 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 	if h.git == nil {
 		h.git = igit.New()
 	}
-	if !h.limSet {
+	if !h.limSet || h.taskOrder == "" {
 		cfg, err := config.Load()
 		if err != nil {
-			slog.Warn("loading config for validation limits", "err", err)
+			slog.Warn("loading config", "err", err)
 		}
-		h.lim = validate.LoadLimits(cfg.Limits)
+		if !h.limSet {
+			h.lim = validate.LoadLimits(cfg.Limits)
+		}
+		if h.taskOrder == "" {
+			h.taskOrder = tasks.Order(cfg.Task.Order)
+		}
 	}
 
 	// Compiled extensions (e.g. cli package) registered at init() time.

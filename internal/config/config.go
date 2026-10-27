@@ -22,7 +22,16 @@ type Config struct {
 	Server  ServerConfig             `yaml:"server,omitempty"`
 	Log     LogConfig                `yaml:"log,omitempty"`
 	Limits  LimitConfig              `yaml:"limits,omitempty"`
+	Task    TaskConfig               `yaml:"task,omitempty"`
 	Webhook map[string]WebhookConfig `yaml:"webhook,omitempty"`
+}
+
+// TaskConfig holds task board settings.
+type TaskConfig struct {
+	// Order is how tasks are ordered within a column, for the board,
+	// review and task next: "priority" (priority 1 first, then board
+	// position; the default) or "position" (board position only).
+	Order string `yaml:"order,omitempty"`
 }
 
 // WebhookConfig holds settings for a single webhook endpoint.
@@ -64,6 +73,9 @@ func Defaults() Config {
 		Limits: LimitConfig{
 			PathLength:  1024,
 			ContentSize: 10 * 1024 * 1024, // 10 MB
+		},
+		Task: TaskConfig{
+			Order: "priority",
 		},
 	}
 }
@@ -155,6 +167,7 @@ func Keys() []string {
 		"log.format",
 		"limits.path_length",
 		"limits.content_size",
+		"task.order",
 	}
 }
 
@@ -187,6 +200,8 @@ func (c Config) Field(key string) (string, bool) {
 			return "", false
 		}
 		return strconv.Itoa(c.Limits.ContentSize), true
+	case "task.order":
+		return c.Task.Order, c.Task.Order != ""
 	default:
 		return "", false
 	}
@@ -221,6 +236,13 @@ func (c *Config) Set(key, value string) error {
 			return fmt.Errorf("log.level must be one of: debug, info, warn, error")
 		}
 		c.Log.Level = value
+	case "task.order":
+		switch value {
+		case "priority", "position":
+		default:
+			return fmt.Errorf("task.order must be priority or position")
+		}
+		c.Task.Order = value
 	case "log.format":
 		switch value {
 		case "text", "json":

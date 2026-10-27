@@ -13,9 +13,10 @@ import (
 )
 
 // List returns all non-deleted tasks matching the filter criteria in
-// board order: by column (as the board defines them), then position,
-// then creation time, then id. When no filters are set, returns every
-// active task on the board.
+// board order: by column (as the board defines them), then within the
+// column by the configured Order (priority first by default, then
+// position, creation time and id). When no filters are set, returns
+// every active task on the board.
 func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error) {
 	if err := t.ensure(); err != nil {
 		return nil, err
@@ -89,13 +90,7 @@ func (t *Tasks) List(ctx context.Context, opts ListOptions) ([]*task.Task, error
 		if c := cmp.Compare(column(a.Status), column(b.Status)); c != 0 {
 			return c
 		}
-		if c := cmp.Compare(a.Position, b.Position); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(a.CreatedAt, b.CreatedAt); c != 0 {
-			return c
-		}
-		return cmp.Compare(a.ID, b.ID)
+		return t.compare(a, b)
 	})
 	return tasks, nil
 }

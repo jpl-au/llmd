@@ -82,6 +82,7 @@ llmd config git deny "llmd-docs.db"
 | `log.format` | Log format: `text`, `json` |
 | `limits.path_length` | Maximum document path length in bytes (default `1024`) |
 | `limits.content_size` | Maximum document content size in bytes (default `10485760`) |
+| `task.order` | Order within a board column, for the board, `review` and `task next`: `priority` (default; priority 1 first, then board position) or `position` (board position only) |
 
 Example config.yaml:
 
@@ -98,6 +99,9 @@ log:
 limits:
   path_length: 2048
   content_size: 20971520
+
+task:
+  order: position
 ```
 
 ## Git integration

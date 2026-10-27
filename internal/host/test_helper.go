@@ -46,7 +46,7 @@ func TestHome(t *testing.T) string {
 // cleanup registered. Use h.Context(t.Context(), author) for the
 // sdk.Context a command would receive and h.Dir() for the directory
 // that holds the .llmd store.
-func TestSetup(t *testing.T, mode TestMode) *Host {
+func TestSetup(t *testing.T, mode TestMode, opts ...Option) *Host {
 	t.Helper()
 
 	dir := t.TempDir()
@@ -63,7 +63,7 @@ func TestSetup(t *testing.T, mode TestMode) *Host {
 				t.Errorf("closing store: %v", err)
 			}
 		})
-		return setup(store)
+		return setup(store, opts...)
 
 	case TestWorkdir:
 		orig, err := os.Getwd()
@@ -87,7 +87,7 @@ func TestSetup(t *testing.T, mode TestMode) *Host {
 			t.Fatalf("closing init store: %v", err)
 		}
 
-		h, err := Open(dbPath)
+		h, err := Open(dbPath, opts...)
 		if err != nil {
 			t.Fatalf("host.Open: %v", err)
 		}

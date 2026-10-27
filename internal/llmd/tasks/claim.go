@@ -37,8 +37,9 @@ type ClaimOptions struct {
 // Claim takes the first ready task of a column for a worker: in a
 // single transaction it moves the task to the target column and
 // assigns it, so two workers claiming at once never take the same
-// task. Tasks are considered in board order (position, then creation
-// time) and passed over when they are flagged human, hold or blocked,
+// task. Tasks are considered in the column's order (priority first by
+// default, then position) and passed over when they are flagged human,
+// hold or blocked,
 // when a dependency is not done, or, for the backlog, when they have
 // no spec. Returns ErrNoneReady when nothing can be taken.
 func (t *Tasks) Claim(ctx context.Context, author string, opts ClaimOptions) (*task.Task, error) {
@@ -82,7 +83,7 @@ func (t *Tasks) Claim(ctx context.Context, author string, opts ClaimOptions) (*t
 	}
 
 	result, err := t.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
-		candidates, err := claimCandidates(ctx, tx, from)
+		candidates, err := claimCandidates(ctx, tx, from, t.orderBy())
 		if err != nil {
 			return nil, err
 		}
@@ -158,14 +159,14 @@ type candidate struct {
 	key, flags, dependsOn, path, assignedTo string
 }
 
-// claimCandidates lists the tasks of a column in board order. The rows
-// are read fully before any other statement runs on the transaction.
-func claimCandidates(ctx context.Context, tx *sql.Tx, status string) ([]candidate, error) {
+// claimCandidates lists the tasks of a column in the given order. The
+// rows are read fully before any other statement runs on the
+// transaction.
+func claimCandidates(ctx context.Context, tx *sql.Tx, status, orderBy string) ([]candidate, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT key, flags, depends_on, path, assigned_to FROM tasks
 		WHERE status = ? AND deleted_at IS NULL
-		ORDER BY position ASC, created_at ASC, id ASC
-	`, status)
+	`+orderBy, status)
 	if err != nil {
 		return nil, fmt.Errorf("listing %s: %w", status, err)
 	}

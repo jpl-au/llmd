@@ -13,6 +13,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/clock/clocktest"
 	"github.com/jpl-au/llmd/internal/host"
+	"github.com/jpl-au/llmd/internal/llmd/tasks"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -397,6 +398,46 @@ func TestTaskListSince(t *testing.T) {
 			}
 			if got := taskTitles(tasks); !slices.Equal(got, tt.wantData) {
 				t.Errorf("task %v Data titles = %v, want %v", args, got, tt.wantData)
+			}
+		})
+	}
+}
+
+// TestTaskListOrder checks the order within a column as the board and
+// task next present it: by default a task with priority 1 comes before
+// priority 3, which comes before no priority, and board position only
+// breaks ties; a host configured for position order shows the column
+// as created.
+func TestTaskListOrder(t *testing.T) {
+	tests := []struct {
+		name string
+		opts []host.Option
+		want []string
+	}{
+		{"priority first by default", nil, []string{"High", "Low", "Low too", "None"}},
+		{"position when configured", []host.Option{host.WithTaskOrder(tasks.OrderPosition)}, []string{"None", "Low", "High", "Low too"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := host.TestSetup(t, host.TestIsolated, tt.opts...)
+			c := h.Context(t.Context(), "alice")
+			taskSeed(t, c, "None", taskBody("None"), "--column", "up-next")
+			taskSeed(t, c, "Low", taskBody("Low"), "--column", "up-next", "--priority", "3")
+			taskSeed(t, c, "High", taskBody("High"), "--column", "up-next", "--priority", "1")
+			taskSeed(t, c, "Low too", taskBody("Low too"), "--column", "up-next", "--priority", "3")
+
+			resp := run(t, c, "task", nil, "list", "up-next")
+			got, ok := data(resp).([]*sdk.Task)
+			if !ok {
+				t.Fatalf("task list Data = %T, want []*sdk.Task", data(resp))
+			}
+			if titles := taskTitles(got); !slices.Equal(titles, tt.want) {
+				t.Errorf("task list up-next = %v, want %v", titles, tt.want)
+			}
+			// A negative priority is refused.
+			err := runErr(t, c, "task", nil, "set", got[0].Key, "--priority", "-1")
+			if !errors.Is(err, sdk.ErrInvalidArg) {
+				t.Errorf("task set --priority -1 error = %v, want sdk.ErrInvalidArg", err)
 			}
 		})
 	}

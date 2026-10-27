@@ -28,9 +28,10 @@ llmd review <column>                        Same as --column
 - `--column` wins when a column is also given as an argument. `-n`
   applies after the filtering above.
 - Piped, each task is one line of seven tab-separated fields: `key
-  title column P<priority> assignee flags spec`, where spec is the
-  document path when the spec document exists and empty otherwise. The
-  same line shape as `task list`.
+  title column priority assignee flags spec`. Priority reads `P1`, `P2`
+  and so on, or `-` for none; spec is the document path when the spec
+  document exists and empty otherwise. The same line shape as `task
+  list`.
 - At a terminal each task is a card: key, title and column, then
   priority, assignee and flags, then the spec preview and the links.
 - `--json` returns, per task, the task, its spec preview and its links.

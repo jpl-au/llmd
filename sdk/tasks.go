@@ -24,7 +24,9 @@ type TaskStore interface {
 	Read(key string) (*Task, error)
 
 	// List returns tasks, optionally filtered by column, assignee,
-	// or priority.
+	// or priority, in board order: by column, then within a column by
+	// the configured task order (priority 1 first, then position, by
+	// default). Next takes tasks in the same order.
 	List(opts TaskListOpts) ([]*Task, error)
 
 	// Move changes a task's column.
@@ -128,13 +130,17 @@ type Task struct {
 	// "in-progress", "done"). Controlled by [TaskStore.Move].
 	Status string
 
-	// Priority is a numeric priority level. Higher values indicate
-	// higher importance. Zero means no priority set.
+	// Priority is the task's priority: 1 is the highest, larger
+	// numbers are lower, and zero means none. Never negative. With the
+	// default task order, tasks with a priority come before those
+	// without within a column, lowest number first.
 	Priority int
 
-	// Position is the sort order within the task's column. Lower
-	// values appear first. Managed automatically by Add and Move;
-	// can be overridden via [TaskSetOpts.Position].
+	// Position is the board order within the task's column. Lower
+	// values appear first. Managed automatically by Add and Move; can
+	// be overridden via [TaskSetOpts.Position]. With the default task
+	// order it breaks ties between equal priorities; with the position
+	// order it is the whole order.
 	Position int
 
 	// AssignedTo is the person responsible for this task.
@@ -189,7 +195,8 @@ type TaskAddOpts struct {
 	// Status is the initial column. Defaults to "backlog".
 	Status string
 
-	// Priority sets the task priority. Zero means no priority.
+	// Priority sets the task priority: 1 is the highest, zero means
+	// none. A negative value is ErrInvalidArg.
 	Priority int
 
 	// AssignedTo sets the initial assignee.
@@ -241,7 +248,8 @@ type TaskSetOpts struct {
 	// Title replaces the task title.
 	Title *string
 
-	// Priority sets the numeric priority.
+	// Priority sets the priority: 1 is the highest, zero clears it. A
+	// negative value is ErrInvalidArg.
 	Priority *int
 
 	// Position moves the task within its column. Other tasks in the

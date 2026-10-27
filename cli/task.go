@@ -35,10 +35,10 @@ Subcommands (passed as first arg):
   diff [id]                 show git diff for task's branch
   files [id]                list files changed on task's branch
   commits [id]              list commits on task's branch`, Usage: "task <subcommand> [options]", MCP: true, MCPName: "task", Brief: `Task board. Columns: backlog, up-next, in-progress, review, approval, done, blocked.
-Subcommands: list [--column c] [--all] (board; done shows its newest 10), show <id>, add <title> (spec via content; --column, --priority, --assign, --depends-on), next [--from c] [--to c] [--assign who] (claim the first ready task: move + assign in one write, returns its spec), move <id> <column>, set <id> (--title, --priority, --assign, --flag, --unflag, --depends-on, --branch), start <id>, finish [id], branch <id>, rm <id>, restore <id>, link <id> <path>, links <id>, log <id>, chain <id>, ready <id>, diff|files|commits [id], column list|add|rm|mv.
+Subcommands: list [--column c] [--all] (board; done shows its newest 10), show <id>, add <title> (spec via content; --column, --priority, --assign, --depends-on), next [--from c] [--to c] [--assign who] (claim the first ready task, priority 1 first then board order: move + assign in one write, returns its spec), move <id> <column>, set <id> (--title, --priority, --assign, --flag, --unflag, --depends-on, --branch), start <id>, finish [id], branch <id>, rm <id>, restore <id>, link <id> <path>, links <id>, log <id>, chain <id>, ready <id>, diff|files|commits [id], column list|add|rm|mv.
 Flags blocked and hold pause a task; human marks it for the user: leave those alone.`, Flags: []sdk.Flag{
 		{Name: "column", Type: "string", Desc: "Filter by column"},
-		{Name: "priority", Type: "int", Desc: "Filter or set priority"},
+		{Name: "priority", Type: "int", Desc: "Filter or set priority: 1 is highest, 0 none"},
 		{Name: "assign", Type: "string", Desc: "Filter or set assigned to"},
 		{Name: "branch", Type: "string", Desc: "Git branch for this task"},
 		{Name: "depends-on", Type: "string", Desc: "Task key this task depends on"},

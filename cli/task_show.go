@@ -43,7 +43,9 @@ func taskDetail(ctx sdk.Context, t *sdk.Task) string {
 	fmt.Fprintf(&b, "|-------|-------|\n")
 	fmt.Fprintf(&b, "| ID | %s |\n", t.Key)
 	fmt.Fprintf(&b, "| Status | %s |\n", t.Status)
-	fmt.Fprintf(&b, "| Priority | %d |\n", t.Priority)
+	if t.Priority > 0 {
+		fmt.Fprintf(&b, "| Priority | %d |\n", t.Priority)
+	}
 	if t.AssignedTo != "" {
 		fmt.Fprintf(&b, "| Assigned To | %s |\n", t.AssignedTo)
 	}

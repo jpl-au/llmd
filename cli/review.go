@@ -133,15 +133,21 @@ func review(ctx sdk.Context, args []string) (sdk.Response, error) {
 		b.WriteByte('\n')
 
 		// Metadata
-		meta := fmt.Sprintf("Priority: %d", e.Task.Priority)
+		var parts []string
+		if e.Task.Priority > 0 {
+			parts = append(parts, fmt.Sprintf("Priority: %d", e.Task.Priority))
+		}
 		if e.Task.AssignedTo != "" {
-			meta += "  Assigned: " + e.Task.AssignedTo
+			parts = append(parts, "Assigned: "+e.Task.AssignedTo)
 		}
 		if e.Task.Flags != "" {
-			meta += "  Flags: " + e.Task.Flags
+			parts = append(parts, "Flags: "+e.Task.Flags)
 		}
-		b.WriteString(reviewMeta.Render(meta))
-		b.WriteByte('\n')
+		meta := strings.Join(parts, "  ")
+		if meta != "" {
+			b.WriteString(reviewMeta.Render(meta))
+			b.WriteByte('\n')
+		}
 
 		// Spec preview
 		if e.Spec != "" {

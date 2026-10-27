@@ -26,8 +26,9 @@ llmd <command> --help   Usage, flags and a pointer to the guide
 - Tasks move through columns: backlog, up-next, in-progress, review,
   approval, done, blocked. A task cannot leave the backlog until its
   spec document says more than its title.
-- To pick up work, call `task next`: it claims the first ready task in
-  one write and returns its spec. Then work, then `task move <id>
+- To pick up work, call `task next`: it claims the first ready task
+  (priority 1 first, then board order) in one write and returns its
+  spec. Then work, then `task move <id>
   review` or `task finish <id>`. Raise problems with `audit add <id>`.
   Tasks flagged `human` are for the user: leave them alone.
 - Output that would grow without bound is capped and says so: `ls`

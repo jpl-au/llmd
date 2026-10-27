@@ -18,6 +18,9 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 	if err := t.ensure(); err != nil {
 		return err
 	}
+	if opts.Priority != nil && *opts.Priority < 0 {
+		return ErrInvalidPriority
+	}
 
 	tsk, err := t.Read(ctx, key)
 	if err != nil {

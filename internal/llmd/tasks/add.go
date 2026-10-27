@@ -23,6 +23,9 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	if title == "" {
 		return nil, ErrMissingTitle
 	}
+	if opts.Priority < 0 {
+		return nil, ErrInvalidPriority
+	}
 	if err := t.ensure(); err != nil {
 		return nil, err
 	}

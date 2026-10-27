@@ -59,6 +59,8 @@ func taskErr(err error) error {
 		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
 	case errors.Is(err, tasks.ErrCycle):
 		return fmt.Errorf("%w: %w", sdk.ErrCycle, err)
+	case errors.Is(err, tasks.ErrInvalidPriority):
+		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
 	case errors.Is(err, tasks.ErrNoneReady):
 		return fmt.Errorf("%w: %w", sdk.ErrNoneReady, err)
 	default:

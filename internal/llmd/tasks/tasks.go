@@ -79,6 +79,7 @@ type Tasks struct {
 	docs  *documents.Documents
 	audit *audit.Log
 	bus   *events.Bus
+	order Order // ordering within a column; "" means OrderPriority
 	once  sync.Once
 	err   error
 }

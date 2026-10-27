@@ -25,8 +25,8 @@ func TestTaskShow(t *testing.T) {
 	}{
 		{
 			name:       "metadata table and spec body",
-			wantText:   []string{"# Alpha", "| ID | {key} |", "| Status | backlog |", "| Priority | 0 |", "| Spec | tasks/alpha |", "---", "Alpha spec body."},
-			wantAbsent: []string{"Assigned To", "Branch", "Depends On", "Flags"},
+			wantText:   []string{"# Alpha", "| ID | {key} |", "| Status | backlog |", "| Spec | tasks/alpha |", "---", "Alpha spec body."},
+			wantAbsent: []string{"Priority", "Assigned To", "Branch", "Depends On", "Flags"},
 		},
 		{
 			name:       "no document shows metadata only",

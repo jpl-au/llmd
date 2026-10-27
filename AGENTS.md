@@ -366,6 +366,12 @@ dispatch on top.
 | `StartBranch(key, author, StartBranchOpts)` | Create branch from title slug, checkout, record, move to column |
 | `Finish(key, author, FinishOpts)` | Move to done + return `FinishResult` with git summary counts |
 | `Next(author, NextOpts)` | Claim the first ready task of a column: move + assign in one transaction (`internal/llmd/tasks/claim.go`) |
+
+Within a column, `List` and `Next` share one order (`internal/llmd/tasks/order.go`):
+by default priority first (1 is the highest, 0 is none, negatives are
+refused), then position; `task.order: position` in the config makes
+position the whole order. The host reads the key in `setup` and applies
+it on `attach` with `Tasks.SetOrder`; tests pass `host.WithTaskOrder`.
 | `ByBranch(branch)` | Find task linked to a branch name |
 
 Implementation lives in `internal/host/api_tasks.go`. The `branchSlug`

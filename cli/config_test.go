@@ -377,3 +377,19 @@ func TestConfigGit(t *testing.T) {
 		})
 	}
 }
+
+// TestConfigTaskOrder covers the task.order key: listed with its
+// default, settable to position, and refused for anything else.
+func TestConfigTaskOrder(t *testing.T) {
+	c := taskWorkdirCLI(t, "alice")
+	if got := text(run(t, c, "config", nil)); !strings.Contains(got, "task.order=priority") {
+		t.Errorf("config = %q, want to list task.order=priority", got)
+	}
+	run(t, c, "config", nil, "task.order", "position")
+	if got := text(run(t, c, "config", nil, "task.order")); !strings.Contains(got, "position") {
+		t.Errorf("config task.order = %q, want position", got)
+	}
+	if err := runErr(t, c, "config", nil, "task.order", "random"); err == nil || !strings.Contains(err.Error(), "priority or position") {
+		t.Errorf("config task.order random error = %v, want a message naming the valid values", err)
+	}
+}

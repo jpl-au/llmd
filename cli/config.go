@@ -34,6 +34,7 @@ Keys use dot notation for nested values:
   log.format        Log format (text, json)
   limits.path_length   Maximum document path length in bytes
   limits.content_size  Maximum document content size in bytes
+  task.order        Order within a column: priority (default) or position
 
 The "config author" setting is for the human user only - LLMs and
 scripts must use --author on each command instead.`, Usage: "config [key] [value] | config git [allow|deny|ls] [pattern]", Flags: []sdk.Flag{

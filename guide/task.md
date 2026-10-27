@@ -42,7 +42,7 @@ with different meanings.
 | Flag | Subcommands | Description |
 |------|-------------|-------------|
 | `--column <col>` | add, list, start, branch, finish | Column to create in (default backlog), filter by, or move to |
-| `--priority <n>` | add, set, list | Set or filter by priority |
+| `--priority <n>` | add, set, list | Priority: 1 is the highest, larger numbers lower, 0 none |
 | `--assign <name>` | add, set, list, next, start | Assignee; for `start`, an agent to spawn |
 | `--depends-on <id>` | add, set | Task that must be done first; empty value clears it |
 | `--path <path>` | add | Use an existing store document as the spec |
@@ -69,7 +69,12 @@ with different meanings.
 - A task cannot leave the backlog until its spec document has content
   beyond the title heading. Write the spec with `llmd write
   tasks/<slug>`, or link one with `task link`.
-- `next` takes the first task in board order, moves it and assigns it
+- Within a column, tasks with a priority come first, 1 before 2, then
+  tasks without one; board position breaks ties. The board, `review`
+  and `next` all use this order, so what an agent takes is the top of
+  what a person sees. `llmd config task.order position` switches to
+  board position alone. A negative priority is refused.
+- `next` takes the first task in that order, moves it and assigns it
   in one write. Two callers never get the same task. It passes over
   tasks flagged human, hold or blocked, tasks whose dependencies are
   not done, and backlog tasks without a spec. Nothing ready is an
@@ -82,8 +87,9 @@ with different meanings.
 - `rm` deletes the task only. The spec document stays; remove it with
   `llmd rm <path>` if you mean to.
 - Piped, `task list` prints `COLUMN (count)` headings with one task per
-  line: `key  title  column  P<priority>  assignee  flags  spec`, seven
-  tab-separated fields, spec being the document path when it exists.
+  line: `key  title  column  priority  assignee  flags  spec`, seven
+  tab-separated fields. Priority reads `P1`, `P2` and so on, or `-` for
+  none; spec is the document path when the document exists.
   `task show` and `task next` print raw markdown. `task log` prints
   tab-separated lines with a header line.
 
@@ -197,7 +203,9 @@ them: see `guide rule`.
 ## Notes
 
 - Every change to a task is recorded; `task log <id>` shows it.
-- Position within a column is the board order. `set --position`
+- Position is the hand order within a column. `set --position`
   reorders; `move` and `next` put a task at the end of its new column.
+  With the default order, position only decides between tasks of equal
+  priority; set `task.order` to `position` to make it the whole order.
 - A dependency (`--depends-on`) is a single task. `chain` follows the
   dependencies back to the first; `ready` says whether all are done.

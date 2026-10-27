@@ -115,12 +115,21 @@ func formatTaskTable(ctx sdk.Context, tasks []*sdk.Task) string {
 //	key  title  column  P<priority>  assignee  flags  spec
 //
 // spec is the document path when the spec document exists, else empty.
+// A task with no priority shows "-" in the priority field.
 func plainTaskLine(t *sdk.Task, hasSpec bool) string {
 	spec := ""
 	if hasSpec {
 		spec = t.Path
 	}
-	return fmt.Sprintf("%s\t%s\t%s\tP%d\t%s\t%s\t%s", t.Key, t.Title, t.Status, t.Priority, t.AssignedTo, t.Flags, spec)
+	return fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s", t.Key, t.Title, t.Status, priorityLabel(t.Priority), t.AssignedTo, t.Flags, spec)
+}
+
+// priorityLabel is "P1", "P2" and so on, or "-" for no priority.
+func priorityLabel(p int) string {
+	if p <= 0 {
+		return "-"
+	}
+	return fmt.Sprintf("P%d", p)
 }
 
 // plainTaskLines renders one plainTaskLine per task, each ending in a
@@ -168,9 +177,13 @@ func taskTable(tasks []*sdk.Task, specs map[string]bool) string {
 		if specs[tk.Key] {
 			spec = tk.Path
 		}
+		pri := ""
+		if tk.Priority > 0 {
+			pri = strconv.Itoa(tk.Priority)
+		}
 		t.Row(
 			tk.Key,
-			strconv.Itoa(tk.Priority),
+			pri,
 			tk.Title,
 			tk.AssignedTo,
 			spec,
