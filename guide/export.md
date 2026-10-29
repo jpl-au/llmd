@@ -28,6 +28,10 @@ directory, the current directory by default.
   `notes/sub/c` as `./sub/c.md`.
 - Existing files are skipped unless `--overwrite` is given. The output
   lists each file written, then `skipped N existing` when any were.
+- A prefix export also writes the documents' tags and outgoing links
+  to `.meta.yaml`, keyed by path relative to the prefix as the files
+  are. Links to documents outside the prefix are left out. A single
+  document export writes no `.meta.yaml`.
 
 ## Examples
 

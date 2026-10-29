@@ -274,10 +274,20 @@ type ImportOpts struct {
 
 // ImportResult contains the results of a bulk import.
 type ImportResult struct {
-	Created []string `json:"created"`
-	Updated []string `json:"updated"`
-	Skipped []string `json:"skipped"`
-	Errors  []string `json:"errors"` // "path: reason" for files that could not be imported
+	Created []string   `json:"created"`
+	Updated []string   `json:"updated"`
+	Skipped []string   `json:"skipped"`
+	Meta    MetaCounts `json:"meta"`
+	Errors  []string   `json:"errors"` // "path: reason" for files, tags or links that could not be imported
+}
+
+// MetaCounts counts the tag and link changes an import or mirror push
+// made from the .meta.yaml beside the files.
+type MetaCounts struct {
+	Tagged   int `json:"tagged"`
+	Untagged int `json:"untagged"`
+	Linked   int `json:"linked"`
+	Unlinked int `json:"unlinked"`
 }
 
 // ExportOpts configures a bulk export operation.

@@ -28,9 +28,13 @@ func newMirrorAPI(store *llmd.Store, ctx context.Context) *mirrorAPI {
 // Derives the directory name from the database filename:
 // llmd.db → .llmd/llmd/, llmd-docs.db → .llmd/llmd-docs/.
 func (a *mirrorAPI) Directory() string {
-	base := filepath.Base(a.store.Path())
-	name := strings.TrimSuffix(base, ".db")
-	return filepath.Join(".llmd", name)
+	return filepath.Join(".llmd", mirrorName(a.store.Path()))
+}
+
+// mirrorName is the name of a store's mirror directory: the database
+// filename without .db.
+func mirrorName(dbPath string) string {
+	return strings.TrimSuffix(filepath.Base(dbPath), ".db")
 }
 
 // Pull writes store documents to the filesystem, skipping unchanged
@@ -59,10 +63,15 @@ func (a *mirrorAPI) Push(dir string, opts sdk.PushOpts) (*sdk.PushResult, error)
 	if err != nil {
 		return nil, err
 	}
-	return &sdk.PushResult{
+	out := &sdk.PushResult{
 		Created: r.Created,
 		Updated: r.Updated,
 		Skipped: r.Skipped,
 		Deleted: r.Deleted,
-	}, nil
+		Meta:    sdk.MetaCounts(r.Meta),
+	}
+	for _, e := range r.Errors {
+		out.Errors = append(out.Errors, e.Path+": "+e.Err.Error())
+	}
+	return out, nil
 }

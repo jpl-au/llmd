@@ -31,6 +31,21 @@ llmd mirror push [<path>]    Push edits back, optionally only those under a path
   with their file: one written to the store since the last pull has no
   file yet and is kept, and so is one changed in the store after its
   file was removed. `llmd restore` brings a deleted document back.
+- Tags and links travel in `.meta.yaml` at the top of the mirror,
+  keyed by document path, with each document's tags and outgoing
+  links. `pull` writes it for every document. `push` applies what
+  changed in it since the last pull or push: tags and links added to
+  the file are added, those removed from it are removed, and ones made
+  in the store since are kept.
+
+  ```yaml
+  docs/api:
+    tags:
+      - backend
+    links:
+      - to: docs/auth
+        label: depends-on
+  ```
 - What the last pull or push left in step is recorded in
   `.llmd/<dbname>.manifest`, beside the mirror directory. It is local
   to the checkout and never committed. With no manifest, as in a fresh

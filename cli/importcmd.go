@@ -60,6 +60,9 @@ func importCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(result.Skipped) > 0 {
 		lines = append(lines, fmt.Sprintf("skipped %d unchanged", len(result.Skipped)))
 	}
+	if parts := metaParts(result.Meta); len(parts) > 0 {
+		lines = append(lines, strings.Join(parts, ", "))
+	}
 	for _, e := range result.Errors {
 		lines = append(lines, "failed "+e)
 	}

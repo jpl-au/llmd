@@ -18,9 +18,16 @@ import (
 	"strings"
 )
 
-// manifest maps a store path to the content hash it had when the
-// mirror file and the document last matched.
-type manifest map[string]string
+// manifest records the last point the mirror and the store matched.
+type manifest struct {
+	// Docs maps a store path to the content hash it had when the
+	// mirror file and the document last matched.
+	Docs map[string]string `json:"docs"`
+
+	// Meta is the .meta.yaml as the last pull or push left it: the
+	// base push compares the file with to see what changed in it.
+	Meta meta `json:"meta,omitempty"`
+}
 
 // manifestPath returns the manifest file for a mirror directory.
 func manifestPath(dir string) string {
@@ -29,23 +36,26 @@ func manifestPath(dir string) string {
 
 // readManifest loads the manifest for dir. A missing manifest is an
 // empty one: nothing has been pulled, so a push deletes nothing.
-func readManifest(dir string) (manifest, error) {
+func readManifest(dir string) (*manifest, error) {
+	m := &manifest{Docs: map[string]string{}}
 	data, err := os.ReadFile(manifestPath(dir))
 	if errors.Is(err, fs.ErrNotExist) {
-		return manifest{}, nil
+		return m, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("reading mirror manifest: %w", err)
 	}
-	m := manifest{}
-	if err := json.Unmarshal(data, &m); err != nil {
+	if err := json.Unmarshal(data, m); err != nil {
 		return nil, fmt.Errorf("reading mirror manifest %s: %w", manifestPath(dir), err)
+	}
+	if m.Docs == nil {
+		m.Docs = map[string]string{}
 	}
 	return m, nil
 }
 
 // write saves the manifest for dir.
-func (m manifest) write(dir string) error {
+func (m *manifest) write(dir string) error {
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err

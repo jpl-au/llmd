@@ -307,8 +307,13 @@ func (h *Host) Init(dbPath string) (string, error) {
 		return "", fmt.Errorf("closing store: %w", err)
 	}
 
-	// Create the default whitelist .gitignore beside the new database.
+	// Create the default whitelist .gitignore beside the new database,
+	// and allow this store's mirror: the default one commits llmd/,
+	// so a named store (llmd-docs.db) adds llmd-docs/.
 	if err := config.InitGitignoreIn(filepath.Dir(path)); err != nil {
+		return "", fmt.Errorf("creating gitignore: %w", err)
+	}
+	if err := config.GitAllowIn(filepath.Dir(path), mirrorName(path)+"/"); err != nil {
 		return "", fmt.Errorf("creating gitignore: %w", err)
 	}
 

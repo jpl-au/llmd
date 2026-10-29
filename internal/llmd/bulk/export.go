@@ -14,7 +14,7 @@ import (
 
 // ExportResult contains the results of an export operation.
 type ExportResult struct {
-	Exported []string // Filesystem paths that were written
+	Exported []string // Filesystem paths that were written, the .meta.yaml included
 	Skipped  []string // Paths skipped (already exist)
 	Errors   []ExportError
 }
@@ -69,6 +69,28 @@ func (b *Bulk) Export(ctx context.Context, path, dest string, opts ExportOptions
 				}
 			} else {
 				result.Exported = append(result.Exported, filepath.Join(dest, rel))
+			}
+		}
+
+		// Tags and links of the exported documents, keyed and linked
+		// relative to the prefix as the files are.
+		paths := make([]string, len(docs))
+		for i, d := range docs {
+			paths[i] = d.Path
+		}
+		m, err := b.collectMeta(ctx, paths, func(p string) (string, bool) {
+			return strings.TrimPrefix(p, path), strings.HasPrefix(p, path)
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(m) > 0 {
+			if _, err := root.Stat(metaFile); err == nil && !opts.Overwrite {
+				result.Skipped = append(result.Skipped, filepath.Join(dest, metaFile))
+			} else if err := writeMeta(root, m); err != nil {
+				result.Errors = append(result.Errors, ExportError{Path: metaFile, Err: err})
+			} else {
+				result.Exported = append(result.Exported, filepath.Join(dest, metaFile))
 			}
 		}
 

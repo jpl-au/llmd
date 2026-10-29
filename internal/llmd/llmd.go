@@ -184,9 +184,9 @@ func (s *Store) wire() {
 	s.Documents = documents.New(s.db, s.bus)
 	s.History = history.New(s.db, s.Documents)
 	s.Search = search.New(s.db)
-	s.Bulk = bulk.New(s.Documents)
 	s.Tags = tags.New(s.db, s.Documents, s.bus)
 	s.Links = links.New(s.db, s.Documents, s.bus)
+	s.Bulk = bulk.New(s.Documents, s.Tags, s.Links)
 	s.Entities = entities.New(s.db)
 
 	// Work-side domains (work.db, opened on demand).

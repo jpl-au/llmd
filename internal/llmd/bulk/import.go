@@ -21,6 +21,7 @@ type ImportResult struct {
 	Created []string // New documents added to store
 	Updated []string // Existing documents got new version
 	Skipped []string // Content identical, no change made
+	Meta    MetaResult
 	Errors  []ImportError
 }
 
@@ -128,6 +129,23 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 
 	if err != nil {
 		return result, err
+	}
+
+	// Tags and links from the sidecar, once every document is in, so
+	// links between imported documents find both ends.
+	if !opts.DryRun && !opts.skipMeta {
+		m, err := readMeta(root)
+		if err != nil {
+			return result, err
+		}
+		var failed []ImportError
+		result.Meta, failed = b.applyMeta(ctx, m, nil, func(string) bool { return true }, func(p string) string {
+			if opts.Prefix == "" {
+				return p
+			}
+			return strings.TrimSuffix(opts.Prefix, "/") + "/" + p
+		}, opts.Origin)
+		result.Errors = append(result.Errors, failed...)
 	}
 
 	return result, nil

@@ -10,6 +10,8 @@ package bulk
 
 import (
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/internal/llmd/links"
+	"github.com/jpl-au/llmd/internal/llmd/tags"
 )
 
 // Errors returned by bulk operations.
@@ -17,13 +19,16 @@ var ()
 
 // Bulk provides batch import and export operations. It delegates
 // individual document reads and writes to the Documents package,
-// handling the filesystem traversal and change-detection logic.
+// handling the filesystem traversal and change-detection logic, and
+// carries tags and links in a .meta.yaml beside the files.
 type Bulk struct {
-	docs *documents.Documents
+	docs  *documents.Documents
+	tags  *tags.Tags
+	links *links.Links
 }
 
-// New creates a Bulk instance that delegates document operations to
-// the given Documents handle.
-func New(docs *documents.Documents) *Bulk {
-	return &Bulk{docs: docs}
+// New creates a Bulk instance that delegates document, tag and link
+// operations to the given handles.
+func New(docs *documents.Documents, t *tags.Tags, l *links.Links) *Bulk {
+	return &Bulk{docs: docs, tags: t, links: l}
 }

@@ -27,6 +27,11 @@ llmd import [flags] <dir>
   version, so there is no way to force one.
 - The output lists each document written, then `skipped N unchanged`
   when any were. `--dry-run` prints the same list without writing.
+- A `.meta.yaml` in `<dir>` (as `export` writes it) adds its tags and
+  links, after every document is in, under `--prefix` like the files.
+  Import only adds: a tag or link missing from the file is not
+  removed. One that cannot be applied, such as a link to a document
+  that does not exist, is listed as failed and the rest still apply.
 
 ## Examples
 

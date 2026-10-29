@@ -497,6 +497,7 @@ func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult
 		Created: r.Created,
 		Updated: r.Updated,
 		Skipped: r.Skipped,
+		Meta:    sdk.MetaCounts(r.Meta),
 	}
 	for _, e := range r.Errors {
 		out.Errors = append(out.Errors, e.Path+": "+e.Err.Error())

@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -56,10 +57,11 @@ func TestInit(t *testing.T) {
 	tests := []struct {
 		name          string
 		author        string
-		db            string // --db value; {dir} is the working directory
-		wantText      string // {dir} expanded
-		wantDB        string // store file relative to the working directory, {dir} expanded
-		wantGitignore bool   // .llmd/.gitignore holds the whitelist
+		db            string   // --db value; {dir} is the working directory
+		wantText      string   // {dir} expanded
+		wantDB        string   // store file relative to the working directory, {dir} expanded
+		wantGitignore bool     // .llmd/.gitignore holds the whitelist
+		wantAllowed   []string // rules after the whitelist: a named store's mirror
 		wantAnyErr    bool
 	}{
 		{
@@ -76,6 +78,7 @@ func TestInit(t *testing.T) {
 			wantText:      "Initialised llmd store at .llmd/llmd-docs.db",
 			wantDB:        filepath.Join(".llmd", "llmd-docs.db"),
 			wantGitignore: true,
+			wantAllowed:   []string{"!llmd-docs/", "!llmd-docs/**"},
 		},
 		{
 			name:          "db shorthand with spaces is sanitised",
@@ -84,6 +87,7 @@ func TestInit(t *testing.T) {
 			wantText:      "Initialised llmd store at .llmd/llmd-my-docs.db",
 			wantDB:        filepath.Join(".llmd", "llmd-my-docs.db"),
 			wantGitignore: true,
+			wantAllowed:   []string{"!llmd-my-docs/", "!llmd-my-docs/**"},
 		},
 		{
 			name:     "db explicit path",
@@ -148,8 +152,9 @@ func TestInit(t *testing.T) {
 						rules = append(rules, line)
 					}
 				}
-				if strings.Join(rules, "\n") != strings.Join(whitelist, "\n") {
-					t.Errorf("after init, .llmd/.gitignore rules = %v, want %v", rules, whitelist)
+				want := append(slices.Clone(whitelist), tt.wantAllowed...)
+				if strings.Join(rules, "\n") != strings.Join(want, "\n") {
+					t.Errorf("after init, .llmd/.gitignore rules = %v, want %v", rules, want)
 				}
 			}
 

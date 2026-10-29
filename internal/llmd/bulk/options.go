@@ -9,6 +9,8 @@ type ImportOptions struct {
 	Flatten bool   // Flatten directory structure
 	Hidden  bool   // Include hidden files/directories
 	DryRun  bool   // Show what would be imported without importing
+
+	skipMeta bool // MirrorPush applies the sidecar itself, against its base
 }
 
 // ExportOptions configures an export operation.

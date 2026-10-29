@@ -107,9 +107,29 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(r.Deleted) > 0 {
 		parts = append(parts, fmt.Sprintf("deleted %d", len(r.Deleted)))
 	}
-	if len(parts) == 0 {
+	parts = append(parts, metaParts(r.Meta)...)
+	if len(parts) == 0 && len(r.Errors) == 0 {
 		return sdk.Text("Nothing to push"), nil
 	}
 
-	return sdk.Text(fmt.Sprintf("Pushed from %s%c (%s)", dir, filepath.Separator, strings.Join(parts, ", "))), nil
+	lines := []string{fmt.Sprintf("Pushed from %s%c (%s)", dir, filepath.Separator, strings.Join(parts, ", "))}
+	for _, e := range r.Errors {
+		lines = append(lines, "failed "+e)
+	}
+	return sdk.Text(strings.Join(lines, "\n")), nil
+}
+
+// metaParts describes the tag and link changes from a .meta.yaml, the
+// ones that happened only.
+func metaParts(m sdk.MetaCounts) []string {
+	var parts []string
+	for _, c := range []struct {
+		n    int
+		verb string
+	}{{m.Tagged, "tagged"}, {m.Untagged, "untagged"}, {m.Linked, "linked"}, {m.Unlinked, "unlinked"}} {
+		if c.n > 0 {
+			parts = append(parts, fmt.Sprintf("%s %d", c.verb, c.n))
+		}
+	}
+	return parts
 }

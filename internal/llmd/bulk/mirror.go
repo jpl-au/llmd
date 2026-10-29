@@ -56,9 +56,9 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 	if err != nil {
 		return nil, err
 	}
-	for p := range m {
+	for p := range m.Docs {
 		if strings.HasPrefix(p, prefix) {
-			delete(m, p)
+			delete(m.Docs, p)
 		}
 	}
 
@@ -70,7 +70,7 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", doc.Path, err)
 		}
-		m[doc.Path] = content.Hash
+		m.Docs[doc.Path] = content.Hash
 
 		rel := relFS(doc.Path)
 		// The stale pass walks an fs.FS, whose paths always use
@@ -95,6 +95,25 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 		}
 		result.Wrote++
 	}
+
+	// Tags and links of every document, whatever the prefix: the
+	// sidecar describes the whole store, keyed by store path as the
+	// mirror's files are.
+	all, err := b.docs.List(ctx, documents.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, len(all))
+	for i, d := range all {
+		paths[i] = d.Path
+	}
+	if m.Meta, err = b.collectMeta(ctx, paths, func(p string) (string, bool) { return p, true }); err != nil {
+		return nil, err
+	}
+	if err := writeMeta(root, m.Meta); err != nil {
+		return nil, err
+	}
+	keep[metaFile] = true
 
 	// Only the subtree the prefix covers is pruned: a prefix pull must
 	// not remove mirrored files of live documents outside it.
@@ -137,7 +156,7 @@ func (b *Bulk) MirrorPush(ctx context.Context, dir string, opts MirrorPushOption
 	if prefix := strings.Trim(opts.Prefix, "/"); prefix != "" {
 		src = filepath.Join(dir, filepath.FromSlash(prefix))
 	}
-	r, err := b.Import(ctx, src, ImportOptions{Origin: opts.Origin, Prefix: opts.Prefix})
+	r, err := b.Import(ctx, src, ImportOptions{Origin: opts.Origin, Prefix: opts.Prefix, skipMeta: true})
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +167,7 @@ func (b *Bulk) MirrorPush(ctx context.Context, dir string, opts MirrorPushOption
 		return nil, err
 	}
 
-	for p, h := range m {
+	for p, h := range m.Docs {
 		if !underDir(p, opts.Prefix) {
 			continue
 		}
@@ -156,7 +175,7 @@ func (b *Bulk) MirrorPush(ctx context.Context, dir string, opts MirrorPushOption
 			continue
 		}
 		if b.docs.Check(ctx, p) != nil {
-			delete(m, p) // already deleted or moved in the store
+			delete(m.Docs, p) // already deleted or moved in the store
 			continue
 		}
 		doc, err := b.docs.Read(ctx, p)
@@ -169,7 +188,7 @@ func (b *Bulk) MirrorPush(ctx context.Context, dir string, opts MirrorPushOption
 		if err := b.docs.Delete(ctx, p, documents.DeleteOptions{Origin: opts.Origin}); err != nil {
 			return nil, fmt.Errorf("deleting %s: %w", p, err)
 		}
-		delete(m, p)
+		delete(m.Docs, p)
 		result.Deleted = append(result.Deleted, p)
 	}
 	slices.Sort(result.Deleted)
@@ -181,9 +200,40 @@ func (b *Bulk) MirrorPush(ctx context.Context, dir string, opts MirrorPushOption
 			if err != nil {
 				return nil, fmt.Errorf("reading %s: %w", p, err)
 			}
-			m[p] = doc.Hash
+			m.Docs[p] = doc.Hash
 		}
 	}
+
+	// Tags and links: what changed in the sidecar since the base.
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("opening root %s: %w", dir, err)
+	}
+	defer root.Close()
+	file, err := readMeta(root)
+	if err != nil {
+		return nil, err
+	}
+	var failed []ImportError
+	result.Meta, failed = b.applyMeta(ctx, file, m.Meta, func(p string) bool { return underDir(p, opts.Prefix) },
+		func(p string) string { return p }, opts.Origin)
+	result.Errors = append(result.Errors, failed...)
+
+	// The new base: the file for the paths pushed, the old base for the
+	// rest, which this push did not apply.
+	base := meta{}
+	for p, dm := range m.Meta {
+		if !underDir(p, opts.Prefix) {
+			base[p] = dm
+		}
+	}
+	for p, dm := range file {
+		if underDir(p, opts.Prefix) {
+			base[p] = dm
+		}
+	}
+	m.Meta = base
+
 	if err := m.write(dir); err != nil {
 		return nil, err
 	}
