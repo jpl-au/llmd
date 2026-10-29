@@ -49,8 +49,7 @@ func (s *Server) handle(cmd string, tmpl []string) http.HandlerFunc {
 		if r.Body != nil {
 			defer r.Body.Close()
 			b, err := io.ReadAll(http.MaxBytesReader(w, r.Body, s.maxBody))
-			var tooBig *http.MaxBytesError
-			if errors.As(err, &tooBig) {
+			if tooBig, ok := errors.AsType[*http.MaxBytesError](err); ok {
 				writeError(w, http.StatusRequestEntityTooLarge, fmt.Errorf("the request body is larger than %d bytes.", tooBig.Limit))
 				return
 			}

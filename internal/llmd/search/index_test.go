@@ -7,7 +7,6 @@ import (
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/history"
-	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 // TestIndex checks that the FTS index follows the document lifecycle.
@@ -282,5 +281,5 @@ func ftsMoveOpts() documents.MoveOptions {
 }
 
 func ftsRevertOpts() history.RevertOptions {
-	return history.RevertOptions{Origin: core.Origin{Author: "test", Source: "cli"}}
+	return history.RevertOptions{Author: "test", Source: "cli"}
 }

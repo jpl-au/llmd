@@ -52,8 +52,7 @@ func Context(err error, format string, args ...any) error {
 	if err == nil {
 		return nil
 	}
-	var k *kinded
-	if errors.As(err, &k) {
+	if _, ok := errors.AsType[*kinded](err); ok {
 		return err
 	}
 	return fmt.Errorf(format+": %w", append(args, err)...)

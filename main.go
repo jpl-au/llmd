@@ -55,7 +55,7 @@ func run(args []string) int {
 	// A value the config cannot use is reported once; the command runs
 	// with that key's default.
 	if err := cfg.Validate(); err != nil {
-		for _, line := range strings.Split(err.Error(), "\n") {
+		for line := range strings.SplitSeq(err.Error(), "\n") {
 			slog.Warn("config value ignored, using the default", "problem", line)
 		}
 	}
@@ -116,8 +116,7 @@ func run(args []string) int {
 	if err != nil {
 		// A command that reports another program's exit status (agent
 		// run) exits with it.
-		var exit *sdk.ExitError
-		if errors.As(err, &exit) {
+		if exit, ok := errors.AsType[*sdk.ExitError](err); ok {
 			return exit.Code
 		}
 		// Ctrl-C (or SIGTERM) cancels the command; say so plainly

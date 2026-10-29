@@ -285,8 +285,7 @@ func (g *Git) WorktreeRemove(path string) error {
 
 // branchError extracts a useful message from a failed git command.
 func branchError(err error, branch string) error {
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		stderr := strings.TrimSpace(string(exitErr.Stderr))
 		if strings.Contains(stderr, "unknown revision") {
 			return sdk.Errorf(sdk.ErrNotFound, "git has no branch %s.", branch)
