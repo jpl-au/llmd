@@ -104,6 +104,9 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(r.Skipped) > 0 {
 		parts = append(parts, fmt.Sprintf("unchanged %d", len(r.Skipped)))
 	}
+	if len(r.Deleted) > 0 {
+		parts = append(parts, fmt.Sprintf("deleted %d", len(r.Deleted)))
+	}
 	if len(parts) == 0 {
 		return sdk.Text("Nothing to push"), nil
 	}

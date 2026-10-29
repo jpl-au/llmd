@@ -25,7 +25,16 @@ llmd mirror push [<path>]    Push edits back, optionally only those under a path
   files in the mirror at all it says `Nothing to push`. A path limits
   push to that part of the mirror, as it limits pull, so `pull docs`
   then `push docs` keeps every path as it was.
-- Push never deletes a store document. Only pull removes files.
+- Push deletes (softly) a document whose file was removed from the
+  mirror since the last pull or push, so a deletion made in git
+  reaches the store. It deletes only documents it knows were in step
+  with their file: one written to the store since the last pull has no
+  file yet and is kept, and so is one changed in the store after its
+  file was removed. `llmd restore` brings a deleted document back.
+- What the last pull or push left in step is recorded in
+  `.llmd/<dbname>.manifest`, beside the mirror directory. It is local
+  to the checkout and never committed. With no manifest, as in a fresh
+  clone, push deletes nothing.
 - A subcommand other than `pull` or `push` is an error.
 
 ## Examples
@@ -45,11 +54,18 @@ llmd --author alice mirror push
 
 # Push with a different database
 llmd --author alice mirror push --db docs
+
+# Share documents through git: the default .llmd/.gitignore commits
+# the mirror and keeps the database local
+llmd mirror pull && git add .llmd && git commit -m "Update docs"
+git pull && llmd --author alice mirror push
 ```
 
 ## Notes
 
 The mirror is for editor integration and agent access, such as `@`
-mentions in Claude Code. Use `import` and `export` for one-off bulk
+mentions in Claude Code, and it is how documents are shared through
+git: the databases stay local, and the mirrored `.md` files are what
+is committed and merged. Use `import` and `export` for one-off bulk
 transfers to and from arbitrary directories; see `guide import` and
 `guide export`.

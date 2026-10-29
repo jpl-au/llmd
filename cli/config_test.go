@@ -219,8 +219,10 @@ func TestConfigGit(t *testing.T) {
 		wantAbsent []string
 		wantExact  *string
 		wantRules  []string // exact rules listed afterwards, when set
-		// wantCommitted are paths git must not ignore afterwards.
+		// wantCommitted are paths git must not ignore afterwards;
+		// wantIgnored are paths it must.
 		wantCommitted []string
+		wantIgnored   []string
 		wantErr       error
 		wantAnyErr    bool
 	}{
@@ -235,22 +237,26 @@ func TestConfigGit(t *testing.T) {
 			author:    "alice",
 			seed:      seedDefault,
 			args:      []string{"git", "ls"},
-			wantText:  []string{"*", "!llmd.db", "!.gitignore"},
-			wantRules: []string{"*", "!llmd.db", "!.gitignore"},
+			wantText:  []string{"*", "!.gitignore", "!llmd/", "!llmd/**"},
+			wantRules: []string{"*", "!.gitignore", "!llmd/", "!llmd/**"},
+			// Documents travel through git as mirrored files; the
+			// databases and the mirror manifest stay local.
+			wantCommitted: []string{".llmd/llmd/docs/api.md"},
+			wantIgnored:   []string{".llmd/llmd.db", ".llmd/work.db", ".llmd/llmd.manifest"},
 		},
 		{
 			name:     "bare git lists",
 			author:   "alice",
 			seed:     seedDefault,
 			args:     []string{"git"},
-			wantText: []string{"!llmd.db"},
+			wantText: []string{"!llmd/**"},
 		},
 		{
 			name:     "list alias",
 			author:   "alice",
 			seed:     seedDefault,
 			args:     []string{"git", "list"},
-			wantText: []string{"!llmd.db"},
+			wantText: []string{"!llmd/**"},
 		},
 		{
 			name:      "allow appends a whitelist entry",
@@ -258,7 +264,7 @@ func TestConfigGit(t *testing.T) {
 			seed:      seedDefault,
 			args:      []string{"git", "allow", "reports/"},
 			wantExact: new("Allowed reports/ in .llmd/.gitignore"),
-			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/", "!reports/**"},
+			wantRules: []string{"*", "!.gitignore", "!llmd/", "!llmd/**", "!reports/", "!reports/**"},
 			// What matters is what git does: a file inside the allowed
 			// directory is committed. Allowing "reports/" alone once
 			// left its files ignored by the "*" rule.
@@ -278,7 +284,7 @@ func TestConfigGit(t *testing.T) {
 				run(t, c, "config", nil, "git", "allow", "reports/")
 			},
 			args:      []string{"git", "allow", "reports/"},
-			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/", "!reports/**"},
+			wantRules: []string{"*", "!.gitignore", "!llmd/", "!llmd/**", "!reports/", "!reports/**"},
 		},
 		{
 			name:   "deny removes the entry",
@@ -289,13 +295,13 @@ func TestConfigGit(t *testing.T) {
 			},
 			args:      []string{"git", "deny", "reports/"},
 			wantExact: new("Denied reports/ in .llmd/.gitignore"),
-			wantRules: []string{"*", "!llmd.db", "!.gitignore"},
+			wantRules: []string{"*", "!.gitignore", "!llmd/", "!llmd/**"},
 		},
 		{
 			name:      "deny a default entry",
 			author:    "alice",
 			seed:      seedDefault,
-			args:      []string{"git", "deny", "llmd.db"},
+			args:      []string{"git", "deny", "llmd/"},
 			wantRules: []string{"*", "!.gitignore"},
 		},
 		{
@@ -330,7 +336,7 @@ func TestConfigGit(t *testing.T) {
 			author:    "",
 			seed:      seedDefault,
 			args:      []string{"git", "allow", "reports/"},
-			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/", "!reports/**"},
+			wantRules: []string{"*", "!.gitignore", "!llmd/", "!llmd/**", "!reports/", "!reports/**"},
 		},
 	}
 
@@ -397,6 +403,17 @@ func TestConfigGit(t *testing.T) {
 				// check-ignore -q exits 0 when the path is ignored.
 				if err := exec.Command("git", "check-ignore", "-q", path).Run(); err == nil {
 					t.Errorf("git ignores %s after %v", path, tt.args)
+				}
+			}
+			for _, path := range tt.wantIgnored {
+				if _, err := exec.LookPath("git"); err != nil {
+					t.Skip("git not installed")
+				}
+				if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+					t.Fatalf("git init: %v %s", err, out)
+				}
+				if err := exec.Command("git", "check-ignore", "-q", path).Run(); err != nil {
+					t.Errorf("git does not ignore %s after %v", path, tt.args)
 				}
 			}
 		})

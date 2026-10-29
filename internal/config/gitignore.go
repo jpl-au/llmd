@@ -21,15 +21,18 @@ import (
 
 // defaultGitignore is written by InitGitignore for new stores.
 // Whitelist approach: ignore everything, then allow only the files
-// that should be committed (the document database and this gitignore).
-// work.db is excluded - it holds operational state (tasks, audits,
-// agent activity) that should not be published.
+// that should be committed (the mirrored documents and this
+// gitignore). The databases stay local: documents travel through git
+// as .md files from llmd mirror, which merge as text where a binary
+// database cannot. work.db holds operational state (tasks, audits,
+// agent activity) that should not be published either.
 const defaultGitignore = `# Ignore everything by default
 *
 
-# Allow the document database and this file
-!llmd.db
+# Allow the mirrored documents and this file
 !.gitignore
+!llmd/
+!llmd/**
 `
 
 // StoreDir is the store directory the working-directory variants of

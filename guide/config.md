@@ -147,17 +147,21 @@ The default `.llmd/.gitignore` created by `llmd init`:
 # Ignore everything by default
 *
 
-# Allow the document database and this file
-!llmd.db
+# Allow the mirrored documents and this file
 !.gitignore
+!llmd/
+!llmd/**
 ```
 
 `config git allow` on a directory (`reports/`) also allows everything
 under it (`reports/**`), so its files are committed, not just the
 directory.
 
-Only database files and the gitignore itself are committed. Everything
-else is excluded.
+Only the mirrored documents (`.llmd/llmd/`, written by `llmd mirror`)
+and the gitignore itself are committed. The databases stay local: a
+binary database cannot be merged when two people change it, and
+mirrored `.md` files can. To commit the database instead, run
+`llmd config git allow llmd.db`.
 
 ## Author and attribution
 

@@ -47,28 +47,22 @@ func (a *mirrorAPI) Pull(prefix, dir string) (*sdk.PullResult, error) {
 	}, nil
 }
 
-// Push imports .md files from the filesystem back into the store. A
-// prefix limits it to the files under that path, as pull's prefix
-// limits what is written: pull puts docs/a at <dir>/docs/a.md, so push
-// of docs reads <dir>/docs and keeps docs/ in each path.
+// Push imports .md files from the filesystem back into the store and
+// deletes the documents whose mirror file was removed. A prefix limits
+// it to the files under that path, as pull's prefix limits what is
+// written.
 func (a *mirrorAPI) Push(dir string, opts sdk.PushOpts) (*sdk.PushResult, error) {
-	src := dir
-	if prefix := strings.Trim(opts.Prefix, "/"); prefix != "" {
-		src = filepath.Join(dir, filepath.FromSlash(prefix))
-	}
-	r, err := a.store.Bulk.Import(a.ctx, src, bulk.ImportOptions{
+	r, err := a.store.Bulk.MirrorPush(a.ctx, dir, bulk.MirrorPushOptions{
 		Origin: origin("mirror"),
 		Prefix: opts.Prefix,
 	})
 	if err != nil {
 		return nil, err
 	}
-	if r == nil {
-		return &sdk.PushResult{}, nil
-	}
 	return &sdk.PushResult{
 		Created: r.Created,
 		Updated: r.Updated,
 		Skipped: r.Skipped,
+		Deleted: r.Deleted,
 	}, nil
 }

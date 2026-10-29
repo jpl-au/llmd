@@ -11,7 +11,9 @@ type MirrorStore interface {
 
 	// Push imports .md files from dir back into the store. New and
 	// modified files are written as new versions. Unchanged files
-	// are skipped.
+	// are skipped. A document whose file was removed since the last
+	// pull or push is soft-deleted, unless it changed in the store
+	// since then.
 	Push(dir string, opts PushOpts) (*PushResult, error)
 }
 
@@ -32,4 +34,5 @@ type PushResult struct {
 	Created []string `json:"created"`
 	Updated []string `json:"updated"`
 	Skipped []string `json:"skipped"`
+	Deleted []string `json:"deleted"`
 }

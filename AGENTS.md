@@ -827,14 +827,19 @@ blocklist. llmd never touches the project's root `.gitignore`.
 **Default `.llmd/.gitignore` (created by `llmd init`):**
 ```
 *
-!llmd.db
 !.gitignore
+!llmd/
+!llmd/**
 ```
 
-Everything is ignored except the document database and the gitignore
-itself. `llmd.db` (documents, tags, links) is committed by default -
-shared context is the intended use case. `work.db` (tasks, audits,
-agent activity) is excluded as operational state.
+Everything is ignored except the mirrored documents and the gitignore
+itself. Documents are shared through git as the `.md` files `llmd
+mirror` writes to `.llmd/llmd/`, which merge as text; `llmd.db` stays
+local, since two people changing a binary database cannot be merged.
+`work.db` (tasks, audits, agent activity) is local operational state.
+`mirror push` deletes the documents whose files were removed, guided
+by `.llmd/llmd.manifest` (local, never committed) so a document that
+was never pulled is not mistaken for a removed one.
 
 **CLI management:**
 ```bash

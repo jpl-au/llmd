@@ -1,8 +1,10 @@
 package bulk_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
@@ -208,5 +210,167 @@ func TestMirror(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestMirrorPush covers the push's delete pass: a file removed from
+// the mirror deletes its document, but only a document the manifest
+// says was in step with that file. Each case writes docs to a fresh
+// store, optionally pulls them, then applies change to the store and
+// removes files from the mirror before one push with prefix. Paths in
+// remove and files are relative to the mirror directory.
+func TestMirrorPush(t *testing.T) {
+	tests := []struct {
+		name        string
+		docs        []doc             // written to the store in order
+		pull        bool              // pull everything before the change
+		files       map[string]string // planted in the mirror directory after the pull
+		change      func(t *testing.T, s *llmd.Store)
+		remove      []string // files removed from the mirror before the push
+		prefix      string
+		wantDeleted []string
+		wantLive    []string // documents still live afterwards
+	}{
+		{
+			name:        "removed file deletes its document",
+			docs:        []doc{{"readme", "# Hello"}, {"docs/guide", "guide"}},
+			pull:        true,
+			remove:      []string{"docs/guide.md"},
+			wantDeleted: []string{"docs/guide"},
+			wantLive:    []string{"readme"},
+		},
+		{
+			// Written after the pull, so it has no file yet: not a
+			// removal.
+			name: "document never pulled is kept",
+			docs: []doc{{"readme", "# Hello"}},
+			pull: true,
+			change: func(t *testing.T, s *llmd.Store) {
+				if _, err := s.Documents.Write(t.Context(), "notes/new", "new", testWriteOpts()); err != nil {
+					t.Fatalf("Write(notes/new) error = %v", err)
+				}
+			},
+			wantLive: []string{"readme", "notes/new"},
+		},
+		{
+			name: "document changed since its file went is kept",
+			docs: []doc{{"readme", "v1"}},
+			pull: true,
+			change: func(t *testing.T, s *llmd.Store) {
+				if _, err := s.Documents.Write(t.Context(), "readme", "v2", testWriteOpts()); err != nil {
+					t.Fatalf("Write(readme) error = %v", err)
+				}
+			},
+			remove:   []string{"readme.md"},
+			wantLive: []string{"readme"},
+		},
+		{
+			name:        "prefix push only deletes under the prefix",
+			docs:        []doc{{"docs/guide", "guide"}, {"notes/todo", "todo"}},
+			pull:        true,
+			remove:      []string{"docs/guide.md", "notes/todo.md"},
+			prefix:      "docs",
+			wantDeleted: []string{"docs/guide"},
+			wantLive:    []string{"notes/todo"},
+		},
+		{
+			// A fresh clone: files from git, an empty store and no
+			// manifest. Everything is created and nothing deleted.
+			name:     "no manifest deletes nothing",
+			files:    map[string]string{"docs/guide.md": "guide"},
+			wantLive: []string{"docs/guide"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := t.Context()
+			opts := bulk.MirrorPushOptions{Origin: testWriteOpts().Origin, Prefix: tt.prefix}
+
+			for _, d := range tt.docs {
+				if _, err := s.Documents.Write(ctx, d.path, d.content, testWriteOpts()); err != nil {
+					t.Fatalf("Write(%q) error = %v", d.path, err)
+				}
+			}
+			dir := filepath.Join(t.TempDir(), "llmd")
+			if tt.pull {
+				if _, err := s.Bulk.Mirror(ctx, "", dir); err != nil {
+					t.Fatalf("Mirror(\"\") error = %v", err)
+				}
+			}
+			for name, content := range tt.files {
+				p := filepath.Join(dir, filepath.FromSlash(name))
+				if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+					t.Fatalf("MkdirAll(%q) error = %v", name, err)
+				}
+				if err := os.WriteFile(p, []byte(content), 0644); err != nil {
+					t.Fatalf("WriteFile(%q) error = %v", name, err)
+				}
+			}
+			if tt.change != nil {
+				tt.change(t, s)
+			}
+			for _, name := range tt.remove {
+				if err := os.Remove(filepath.Join(dir, filepath.FromSlash(name))); err != nil {
+					t.Fatalf("Remove(%q) error = %v", name, err)
+				}
+			}
+
+			got, err := s.Bulk.MirrorPush(ctx, dir, opts)
+			if err != nil {
+				t.Fatalf("MirrorPush(%q) error = %v", tt.prefix, err)
+			}
+			if !slices.Equal(got.Deleted, tt.wantDeleted) {
+				t.Errorf("MirrorPush(%q).Deleted = %v, want %v", tt.prefix, got.Deleted, tt.wantDeleted)
+			}
+			for _, p := range tt.wantDeleted {
+				if err := s.Documents.Check(ctx, p); !errors.Is(err, documents.ErrDeleted) {
+					t.Errorf("Check(%q) = %v, want %v", p, err, documents.ErrDeleted)
+				}
+			}
+			for _, p := range tt.wantLive {
+				if err := s.Documents.Check(ctx, p); err != nil {
+					t.Errorf("Check(%q) = %v, want live", p, err)
+				}
+			}
+
+			// A second push finds nothing more to delete.
+			again, err := s.Bulk.MirrorPush(ctx, dir, opts)
+			if err != nil {
+				t.Fatalf("second MirrorPush(%q) error = %v", tt.prefix, err)
+			}
+			if len(again.Deleted) != 0 {
+				t.Errorf("second MirrorPush(%q).Deleted = %v, want none", tt.prefix, again.Deleted)
+			}
+		})
+	}
+}
+
+// TestMirrorPushAfterPush checks that a push records the files it
+// pushed, so a file created in the mirror, pushed and later removed
+// deletes its document without a pull in between.
+func TestMirrorPushAfterPush(t *testing.T) {
+	s := testStore(t)
+	ctx := t.Context()
+	opts := bulk.MirrorPushOptions{Origin: testWriteOpts().Origin}
+	dir := filepath.Join(t.TempDir(), "llmd")
+	file := filepath.Join(dir, "notes", "idea.md")
+
+	if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("idea"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := s.Bulk.MirrorPush(ctx, dir, opts); err != nil || !slices.Equal(r.Created, []string{"notes/idea"}) {
+		t.Fatalf("MirrorPush() = %+v, %v, want notes/idea created", r, err)
+	}
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.Bulk.MirrorPush(ctx, dir, opts)
+	if err != nil || !slices.Equal(r.Deleted, []string{"notes/idea"}) {
+		t.Fatalf("MirrorPush() after removal = %+v, %v, want notes/idea deleted", r, err)
 	}
 }

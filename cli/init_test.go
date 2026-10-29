@@ -51,7 +51,7 @@ func metaInit(t *testing.T, h *host.Host, author, dbPath string) (sdk.Response, 
 // twice, and running without an author. Each case starts in an empty
 // directory with a storeless host.
 func TestInit(t *testing.T) {
-	whitelist := []string{"*", "!llmd.db", "!.gitignore"}
+	whitelist := []string{"*", "!.gitignore", "!llmd/", "!llmd/**"}
 
 	tests := []struct {
 		name          string

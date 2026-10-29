@@ -11,8 +11,8 @@ llmd init
 ## Rules
 
 - Creates `.llmd/llmd.db` in the current directory, plus a
-  `.llmd/.gitignore` that commits the database and ignores its
-  temporary files. Prints `Initialised llmd store at <path>`.
+  `.llmd/.gitignore` that commits the mirrored documents in
+  `.llmd/llmd/` and keeps the databases local; see `guide mirror`. Prints `Initialised llmd store at <path>`.
 - The global `--db <path>` flag creates the database at a different
   path instead.
 - Safe to run where a store already exists: it says so, changes

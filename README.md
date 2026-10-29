@@ -8,9 +8,10 @@ your context sessions keep getting shorter.
 llmd is a document store for LLMs and humans. It was built for LLMs in
 orchestration between Claude Code, Gemini CLI and Antigravity. It's designed
 as a context database specifically for AI agent usage that can be easily
-shared and committed to a repo. It also includes a task board with git
-branch tracking, so agents and humans can coordinate work in the same place
-they store context.
+shared through a repo: `llmd mirror` writes documents out as `.md`
+files to commit, and reads them back in after a pull. It also includes a
+task board with git branch tracking, so agents and humans can coordinate
+work in the same place they store context.
 
 It works well as a way to easily provide customised documentation for LLMs
 for any project. And because it's using SQLite3, your docs are easily

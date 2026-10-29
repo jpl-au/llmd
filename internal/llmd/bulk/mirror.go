@@ -11,6 +11,7 @@ package bulk
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/pkg/model/core"
 )
 
 // MirrorResult contains the counts from a mirror operation.
@@ -48,6 +50,18 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 	}
 	defer root.Close()
 
+	// The pull rewrites the manifest entries it covers, so a document
+	// deleted from the store since the last pull drops out of it too.
+	m, err := readManifest(dir)
+	if err != nil {
+		return nil, err
+	}
+	for p := range m {
+		if strings.HasPrefix(p, prefix) {
+			delete(m, p)
+		}
+	}
+
 	keep := make(map[string]bool)
 	result := &MirrorResult{}
 
@@ -56,6 +70,7 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", doc.Path, err)
 		}
+		m[doc.Path] = content.Hash
 
 		rel := relFS(doc.Path)
 		// The stale pass walks an fs.FS, whose paths always use
@@ -87,6 +102,90 @@ func (b *Bulk) Mirror(ctx context.Context, prefix, dir string) (*MirrorResult, e
 	result.Removed = removed
 	if err != nil {
 		return nil, fmt.Errorf("removing stale files: %w", err)
+	}
+	if err := m.write(dir); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// MirrorPushOptions configures a mirror push.
+type MirrorPushOptions struct {
+	core.Origin
+	Prefix string // Only push the files under this path
+}
+
+// MirrorPushResult contains the outcome of a mirror push.
+type MirrorPushResult struct {
+	ImportResult
+	Deleted []string // Documents deleted because their file was removed
+}
+
+// MirrorPush imports the .md files under dir back into the store, then
+// deletes the documents whose mirror file has been removed since the
+// last pull or push. A prefix limits both to the files under that
+// path: pull puts docs/a at <dir>/docs/a.md, so a push of docs reads
+// <dir>/docs and keeps docs/ in each path.
+//
+// Only documents in the manifest are deleted, so a document written
+// to the store since the last pull, which has no file yet, is left
+// alone. A document changed in the store since its file was removed
+// is kept as well; the next pull writes its file back. Deletes are
+// soft, so llmd restore brings a document back.
+func (b *Bulk) MirrorPush(ctx context.Context, dir string, opts MirrorPushOptions) (*MirrorPushResult, error) {
+	src := dir
+	if prefix := strings.Trim(opts.Prefix, "/"); prefix != "" {
+		src = filepath.Join(dir, filepath.FromSlash(prefix))
+	}
+	r, err := b.Import(ctx, src, ImportOptions{Origin: opts.Origin, Prefix: opts.Prefix})
+	if err != nil {
+		return nil, err
+	}
+	result := &MirrorPushResult{ImportResult: *r}
+
+	m, err := readManifest(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for p, h := range m {
+		if !underDir(p, opts.Prefix) {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(dir, relFS(p))); !errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if b.docs.Check(ctx, p) != nil {
+			delete(m, p) // already deleted or moved in the store
+			continue
+		}
+		doc, err := b.docs.Read(ctx, p)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", p, err)
+		}
+		if doc.Hash != h {
+			continue
+		}
+		if err := b.docs.Delete(ctx, p, documents.DeleteOptions{Origin: opts.Origin}); err != nil {
+			return nil, fmt.Errorf("deleting %s: %w", p, err)
+		}
+		delete(m, p)
+		result.Deleted = append(result.Deleted, p)
+	}
+	slices.Sort(result.Deleted)
+
+	// Every file pushed now matches its document.
+	for _, paths := range [][]string{r.Created, r.Updated, r.Skipped} {
+		for _, p := range paths {
+			doc, err := b.docs.Read(ctx, p)
+			if err != nil {
+				return nil, fmt.Errorf("reading %s: %w", p, err)
+			}
+			m[p] = doc.Hash
+		}
+	}
+	if err := m.write(dir); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
