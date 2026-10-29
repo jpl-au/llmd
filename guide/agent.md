@@ -36,8 +36,11 @@ Built-in agents: `claude-code`, `gemini`, `aider`. `llmd task start
 - `spawn`, `complete` and `stop` act on a task and need an author.
   `add` and `rm` only write configuration files, like `llmd config`,
   and need none; nor do `ls`, `config`, `prompt` and `runs`.
-- `spawn` needs git. It refuses when the task's dependencies are not
-  done, and a task can have only one running agent at a time.
+- `spawn` needs git and a running `llmd serve`: agents read and change
+  the store through the HTTP API, from prompts and hooks alike, so they
+  work from a worktree that has no store of its own. It refuses when
+  the server is not running, when the task's dependencies are not
+  done, and when the task already has a running agent.
 - A spawn creates a branch if the task has none, a worktree at
   `.llmd/worktrees/<task-key>/`, a run config `.llmd-run.json` in it,
   and starts `llmd agent run` as a detached process.
@@ -119,11 +122,8 @@ Registering an agent creates files on disk:
   config.json         Configuration (command, args)
   settings.json       Runtime settings (permissions, hooks)
   developer.md        Developer prompt template
-  developer-http.md   Developer HTTP transport template
   tester.md           Tester prompt template
-  tester-http.md      Tester HTTP transport template
   auditor.md          Auditor prompt template
-  auditor-http.md     Auditor HTTP transport template
 ```
 
 `settings.json` is written for agents whose platform reads one
@@ -154,7 +154,7 @@ Templates use Go `text/template` syntax. Available fields:
 | `{{.Branch}}` | Git branch name |
 | `{{.AssignedTo}}` | Who the task is assigned to |
 | `{{.Agent}}` | Agent name |
-| `{{.URL}}` | HTTP API URL (if server is running) |
+| `{{.URL}}` | HTTP API URL of the running `llmd serve` |
 | `{{.SpecPath}}` | Path to the task's spec document |
 | `{{.OnSuccess}}` | Column to move to on success (from rule) |
 | `{{.OnFailure}}` | Column to move to on failure (from rule) |
@@ -165,8 +165,9 @@ When spawning, the template is resolved in order:
 2. `.llmd/agents/default/<role>.md` - shared default template
 3. Built-in embedded template
 
-If the HTTP server is running, the `-http` variant is tried first
-(e.g. `developer-http.md` before `developer.md`).
+`settings.json` is templated too, with `{{.Agent}}`, `{{.TaskID}}` and
+`{{.URL}}`: the built-in Claude Code hook posts its event to
+`{{.URL}}/hook`.
 
 ## Run tracking
 

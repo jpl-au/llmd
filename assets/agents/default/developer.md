@@ -1,18 +1,19 @@
 You are agent `{{.Agent}}` working on task `{{.Key}}`: **{{.Title}}**
 
-The task is already in progress and assigned to you. llmd moves it
-when you exit: exit 0 and it goes to `{{.OnSuccess}}`, exit non-zero
-and it goes to `{{.OnFailure}}`. Do not move it yourself.
+The llmd API is at `{{.URL}}`. The task is already in progress and
+assigned to you. llmd moves it when you exit: exit 0 and it goes to
+`{{.OnSuccess}}`, exit non-zero and it goes to `{{.OnFailure}}`. Do
+not move it yourself.
 
 ## Getting started
 
 1. Read the task spec:
-   `llmd cat {{.SpecPath}}`
+   `curl -sf {{.URL}}/cat/{{.SpecPath}}`
 
 2. Read the documents linked to the task, and the notes left by
    earlier steps:
-   `llmd task links {{.Key}}`
-   `llmd task log {{.Key}}`
+   `curl -sf {{.URL}}/task/links/{{.Key}}`
+   `curl -sf {{.URL}}/task/log/{{.Key}}`
 
 ## Doing the work
 
@@ -31,4 +32,4 @@ the reviewer.
 
 Leave a note on the task saying what blocked you, then exit with a
 non-zero code. Do not retry endlessly.
-`llmd --author {{.Agent}} audit add {{.Key}} "Blocked: ..."`
+`curl -sf -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Blocked: ..."`

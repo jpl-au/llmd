@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/assets/platform"
@@ -173,6 +174,14 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, fmt.Errorf("git required for agent spawn: %w", err)
 	}
 
+	// Agents reach llmd through the HTTP server: their prompts and
+	// hooks call it, so they work from a worktree that has no store.
+	// Refuse before anything is created when it is not running.
+	llmdURL, err := serverURL()
+	if err != nil {
+		return nil, err
+	}
+
 	// Determine the branch name.
 	branch := t.Branch
 	needsBranch := branch == ""
@@ -237,19 +246,8 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	if settings := a.store.Agents.Settings(a.ctx, agent); settings != "" {
 		templated := strings.ReplaceAll(settings, "{{.Agent}}", agent)
 		templated = strings.ReplaceAll(templated, "{{.TaskID}}", taskKey)
+		templated = strings.ReplaceAll(templated, "{{.URL}}", llmdURL)
 		a.writeSettings(absWorktree, plat, templated)
-	}
-
-	// Resolve the HTTP API URL. Only use it if the server is
-	// actually reachable - a configured but stopped server should
-	// not cause agents to receive HTTP-based prompts they can't use.
-	llmdURL := ""
-	if c, err := config.Load(); err == nil && c.Server.Addr != "" {
-		candidate := "http://" + c.Server.Addr
-		if resp, err := http.Get(candidate + "/version"); err == nil {
-			resp.Body.Close()
-			llmdURL = candidate
-		}
 	}
 
 	// Resume is requested either explicitly via SpawnOpts (set by the
@@ -567,6 +565,23 @@ func hasFlag(flags, flag string) bool {
 		}
 	}
 	return false
+}
+
+// serverURL returns the URL of the running llmd serve, read from
+// server.addr, or an error saying to run it.
+func serverURL() (string, error) {
+	addr := config.DefaultAddr
+	if c, err := config.Load(); err == nil && c.Server.Addr != "" {
+		addr = c.Server.Addr
+	}
+	url := "http://" + addr
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(url + "/version")
+	if err != nil {
+		return "", sdk.Errorf(sdk.ErrUnavailable, "unable to spawn agents. Please run llmd serve.")
+	}
+	resp.Body.Close()
+	return url, nil
 }
 
 // writeSettings writes agent runtime settings into the worktree at
