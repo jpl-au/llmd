@@ -58,7 +58,7 @@ func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
 	numberLines := flags.Bool("n")
 
 	if len(paths) == 0 {
-		return nil, fmt.Errorf("cat: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "cat: a path is required.")
 	}
 
 	// When offset is set, line numbers from addLineNumbers should
@@ -72,7 +72,7 @@ func cat(ctx sdk.Context, args []string) (sdk.Response, error) {
 	for _, path := range paths {
 		content, err := ctx.Documents.Read(path, opts)
 		if err != nil {
-			return nil, fmt.Errorf("cat: %s: %w", path, err)
+			return nil, fmt.Errorf("cat: %w", err)
 		}
 
 		text := string(content)

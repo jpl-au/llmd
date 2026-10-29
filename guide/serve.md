@@ -13,10 +13,19 @@ llmd serve
 
 - Listens on `localhost:5563`. Change it with `llmd config server.addr
   "localhost:9090"`.
-- No authentication by default, which is fine on localhost. Before
-  listening anywhere else, set `llmd config server.token
-  "a-long-random-string"`; every request must then carry
-  `Authorization: Bearer <token>` or it gets `401`.
+- No authentication by default, which is fine on localhost. Without a
+  token the server answers only requests addressed to this machine
+  (`localhost`, `127.0.0.1`, `::1`, on any port) and only from pages
+  served by this machine; any other `Host` or `Origin` gets `403`. This stops a web page from
+  reaching the server through DNS rebinding.
+- To listen anywhere but loopback, set `llmd config server.token
+  "a-long-random-string"` first; `serve` refuses to start without one.
+  Every request must then carry `Authorization: Bearer <token>` or it
+  gets `401`, and any `Host` is accepted.
+- A request body larger than `limits.content_size` (10 MB by default)
+  is refused: `413` once it passes the limit by 64 KB, `400` with the
+  content-size error below that. A client gets 10 seconds to send its headers and a minute
+  for the whole request; an idle connection closes after two minutes.
 - The URL mirrors the command line: `<METHOD> /<command>/<subcommand>/
   <arguments>`. Reads are `GET`; anything that changes the store or
   writes files is `POST`, or `DELETE` for removals. A `GET` never
@@ -82,12 +91,12 @@ These commands are not available over HTTP: `mcp`, `serve`, `init`,
 | `GET /status`               | Store overview                      |
 | `GET /review`               | Pending tasks with context          |
 | `POST /write/<path>`        | Create or update a document         |
-| `POST /edit/<path>`         | Search and replace in a document    |
-| `POST /sed/<path>`          | Sed-style substitution              |
+| `POST /edit/<path>`         | Search and replace in a document: `?old=` and `?new=` hold the text |
+| `POST /sed/<path>`          | Sed-style substitution: `?expr=` holds the expression |
 | `POST /rm/<path>`           | Soft-delete a document              |
-| `POST /mv/<from>`           | Move or rename a document           |
+| `POST /mv/<from>/<to>`      | Move or rename a document (`from` URL-encoded) |
 | `POST /restore/<path>`      | Recover a deleted document          |
-| `POST /revert/<path>`       | Roll back to a previous version     |
+| `POST /revert/<version>/<path>` | Roll back to a previous version |
 | `POST /import`              | Import .md files from a directory   |
 | `POST /export/<path>`       | Export documents to the filesystem  |
 | `POST /vacuum`              | Purge deleted documents             |
@@ -198,7 +207,8 @@ These commands are not available over HTTP: `mcp`, `serve`, `init`,
 `POST /hook` is the `hook` command over HTTP. The body is the agent
 platform's payload and the `Author` header names the agent, which
 selects the payload format. The response is the text a command hook
-would print; with `Output: json` it is the event, the task and the
+would print; when that is empty, or with `Output: json`, it is the
+event, the task and the
 actions taken. Pass `?task=<id>` when the payload does not name the
 task. See `llmd guide hooks` for what each event does.
 
@@ -215,7 +225,6 @@ curl -X POST http://localhost:5563/hook \
 | `Author` | Identity for mutations. Falls back to the server default |
 | `Authorization` | `Bearer <token>` when `server.token` is set    |
 | `Message`| Version message (passed as `--message`)                  |
-| `Source` | Source attribution (passed as `--source`)                 |
 | `Output` | Set to `json` to force JSON response on all endpoints    |
 
 ## Query parameters
@@ -232,7 +241,9 @@ GET /history/docs/spec?limit=5   -> history --limit 5 docs/spec
 The `q` parameter is special: it becomes a positional argument (the
 search pattern) rather than a flag. Every other parameter becomes a
 `--key value` flag. For a boolean flag, pass `true` to set it; a value
-of `false` is ignored.
+of `false` is ignored. A parameter the command has no flag for is
+refused with `400`, and so is a path or `q` that starts with `-`, which
+the command would read as a flag.
 
 ## Request body
 
@@ -252,12 +263,16 @@ This is the project documentation."
 
 By default, text commands return `text/plain` and structured commands
 return `application/json`. Set the `Output: json` header to force JSON
-on all endpoints.
+on all endpoints: a command with structured data returns it, and one
+without returns its text as `{"text": "..."}`, exactly as `--json`
+prints it on the command line. JSON keys are snake_case.
 
-Errors return JSON with an `error` field:
+Errors return JSON with an `error` field. The message is the same
+sentence the command line prints; the status code says what kind of
+error it is:
 
 ```json
-{"error": "not found: docs/nonexistent"}
+{"error": "cat: docs/nonexistent does not exist."}
 ```
 
 ### HTTP status codes
@@ -267,8 +282,11 @@ Errors return JSON with an `error` field:
 | 200  | Success                                          |
 | 204  | Success, no content                              |
 | 400  | Missing or invalid argument                      |
+| 401  | `server.token` is set and the request lacks it   |
+| 403  | No token, and the request is not addressed to localhost |
 | 404  | Document or resource not found                   |
 | 409  | Conflict (e.g. document already exists for mv)   |
+| 413  | Request body larger than `limits.content_size`   |
 | 422  | Unprocessable (e.g. task missing spec)            |
 | 500  | Internal error                                   |
 

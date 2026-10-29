@@ -24,11 +24,11 @@
 //	    switch cmd {
 //	    case "hello":
 //	        if len(args) == 0 {
-//	            return nil, fmt.Errorf("hello: %w", sdk.ErrMissingArg)
+//	            return nil, sdk.Errorf(sdk.ErrMissingArg, "hello: a name is required.")
 //	        }
 //	        return sdk.Text(fmt.Sprintf("Hello, %s!", args[0])), nil
 //	    default:
-//	        return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
+//	        return nil, sdk.Errorf(sdk.ErrUnknownCmd, "hello: unknown command %s.", cmd)
 //	    }
 //	}
 //

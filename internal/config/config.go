@@ -7,9 +7,13 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"maps"
+	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -20,14 +24,51 @@ import (
 // Config holds all configuration values. Fields map directly to
 // the nested YAML structure in config.yaml.
 type Config struct {
-	Author  string                   `yaml:"author,omitempty"`
-	Server  ServerConfig             `yaml:"server,omitempty"`
-	Log     LogConfig                `yaml:"log,omitempty"`
-	Limits  LimitConfig              `yaml:"limits,omitempty"`
-	Task    TaskConfig               `yaml:"task,omitempty"`
-	Queue   QueueConfig              `yaml:"queue,omitempty"`
-	Hook    HookConfig               `yaml:"hook,omitempty"`
-	Webhook map[string]WebhookConfig `yaml:"webhook,omitempty"`
+	Author   string                   `yaml:"author,omitempty"`
+	Server   ServerConfig             `yaml:"server,omitempty"`
+	Log      LogConfig                `yaml:"log,omitempty"`
+	Limits   LimitConfig              `yaml:"limits,omitempty"`
+	Task     TaskConfig               `yaml:"task,omitempty"`
+	Queue    QueueConfig              `yaml:"queue,omitempty"`
+	Hook     HookConfig               `yaml:"hook,omitempty"`
+	Webhook  map[string]WebhookConfig `yaml:"webhook,omitempty"`
+	Git      GitConfig                `yaml:"git,omitempty"`
+	Database DatabaseConfig           `yaml:"database,omitempty"`
+	Display  DisplayConfig            `yaml:"display,omitempty"`
+}
+
+// DisplayConfig holds settings for output at a terminal.
+type DisplayConfig struct {
+	// Theme is the colour scheme rendered markdown uses: "dark" (the
+	// default) for a dark terminal background, "light" for a light
+	// one. Piped output is never coloured.
+	Theme string `yaml:"theme,omitempty"`
+}
+
+// DefaultAddr is the address llmd serve listens on unless server.addr
+// says otherwise.
+const DefaultAddr = "localhost:5563"
+
+// GitConfig holds settings for the git commands tasks and agents run.
+type GitConfig struct {
+	// Timeout is how long one git command may run before it is
+	// stopped, a duration such as 2m.
+	Timeout string `yaml:"timeout,omitempty"`
+}
+
+// DatabaseConfig holds SQLite settings for llmd.db and work.db. They
+// apply to this process's connections; nothing is stored in the files.
+type DatabaseConfig struct {
+	// BusyTimeout is how long a write waits for another process's
+	// write to finish before failing, a duration such as 5s. Raise it
+	// when several agents write to one store at once.
+	BusyTimeout string `yaml:"busy_timeout,omitempty"`
+	// CacheSize is the most page cache, in MB, each connection may
+	// hold. Memory is used only as pages are read.
+	CacheSize int `yaml:"cache_size,omitempty"`
+	// MMapSize is how much of each file, in MB, is memory-mapped; 0
+	// turns memory-mapping off.
+	MMapSize *int `yaml:"mmap_size,omitempty"`
 }
 
 // HookConfig holds agent hook settings.
@@ -89,12 +130,18 @@ type WebhookConfig struct {
 	Timeout string `yaml:"timeout,omitempty"` // per request, a duration such as 10s (default 10s)
 }
 
-// ServerConfig holds HTTP server settings.
+// ServerConfig holds HTTP server settings. Durations are strings such
+// as 10s or 2m.
 type ServerConfig struct {
-	Addr           string `yaml:"addr,omitempty"`
-	Token          string `yaml:"token,omitempty"`           // when set, every request must carry Authorization: Bearer <token>
-	WebhookWorkers int    `yaml:"webhook_workers,omitempty"` // goroutines delivering webhooks (default 4)
-	WebhookQueue   int    `yaml:"webhook_queue,omitempty"`   // events that may wait for a worker (default 256)
+	Addr              string `yaml:"addr,omitempty"`
+	Token             string `yaml:"token,omitempty"`               // when set, every request must carry Authorization: Bearer <token>
+	WebhookWorkers    int    `yaml:"webhook_workers,omitempty"`     // goroutines delivering webhooks (default 4)
+	WebhookQueue      int    `yaml:"webhook_queue,omitempty"`       // events that may wait for a worker (default 256)
+	ReadHeaderTimeout string `yaml:"read_header_timeout,omitempty"` // time a client has to send its headers
+	ReadTimeout       string `yaml:"read_timeout,omitempty"`        // time a client has to send the whole request
+	IdleTimeout       string `yaml:"idle_timeout,omitempty"`        // how long an unused keep-alive connection stays open
+	ShutdownTimeout   string `yaml:"shutdown_timeout,omitempty"`    // time requests in flight get to finish on shutdown
+	WatchInterval     string `yaml:"watch_interval,omitempty"`      // how often to look for changes other processes made
 }
 
 // LogConfig holds logging settings.
@@ -115,7 +162,23 @@ type LimitConfig struct {
 func Defaults() Config {
 	return Config{
 		Server: ServerConfig{
-			Addr: "localhost:5563",
+			Addr:              DefaultAddr,
+			ReadHeaderTimeout: "10s",
+			ReadTimeout:       "1m",
+			IdleTimeout:       "2m",
+			ShutdownTimeout:   "5s",
+			WatchInterval:     "1s",
+		},
+		Git: GitConfig{
+			Timeout: "2m",
+		},
+		Database: DatabaseConfig{
+			BusyTimeout: "5s",
+			CacheSize:   64,
+			MMapSize:    new(256),
+		},
+		Display: DisplayConfig{
+			Theme: "dark",
 		},
 		Limits: LimitConfig{
 			PathLength:  1024,
@@ -182,10 +245,6 @@ func Save(key, value string, global bool) error {
 		path = filepath.Join(home, ".llmd", "config.yaml")
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-
 	// Load existing values from this specific file (no defaults
 	// applied - we only persist what the user has set).
 	var cfg Config
@@ -201,11 +260,53 @@ func Save(key, value string, global bool) error {
 		return err
 	}
 
+	// The global directory holds nothing anyone else needs. The local
+	// one holds llmd.db, which is shared, so only the file is private.
+	dirPerm := os.FileMode(0o755)
+	if global {
+		dirPerm = 0o700
+	}
+	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
+		return err
+	}
+
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("marshalling config: %w", err)
 	}
-	return os.WriteFile(path, data, 0o644)
+	// The file can hold server.token and webhook keys, so only its
+	// owner may read it.
+	return writeAtomic(path, data, 0o600)
+}
+
+// writeAtomic replaces path with data: it writes a temporary file in
+// the same directory and renames it over path, so a crash or a full
+// disk leaves the old file whole rather than a truncated one.
+func writeAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }() // a no-op once renamed
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	return nil
 }
 
 // Keys returns all valid dot-notation config keys.
@@ -223,6 +324,16 @@ func Keys() []string {
 		"task.order",
 		"queue.retention",
 		"hook.limit",
+		"server.read_header_timeout",
+		"server.read_timeout",
+		"server.idle_timeout",
+		"server.shutdown_timeout",
+		"server.watch_interval",
+		"git.timeout",
+		"database.busy_timeout",
+		"database.cache_size",
+		"database.mmap_size",
+		"display.theme",
 	}
 }
 
@@ -264,6 +375,29 @@ func (c Config) Field(key string) (string, bool) {
 			return "", false
 		}
 		return strconv.Itoa(*c.Hook.Limit), true
+	case "server.read_header_timeout":
+		return c.Server.ReadHeaderTimeout, c.Server.ReadHeaderTimeout != ""
+	case "server.read_timeout":
+		return c.Server.ReadTimeout, c.Server.ReadTimeout != ""
+	case "server.idle_timeout":
+		return c.Server.IdleTimeout, c.Server.IdleTimeout != ""
+	case "server.shutdown_timeout":
+		return c.Server.ShutdownTimeout, c.Server.ShutdownTimeout != ""
+	case "server.watch_interval":
+		return c.Server.WatchInterval, c.Server.WatchInterval != ""
+	case "git.timeout":
+		return c.Git.Timeout, c.Git.Timeout != ""
+	case "database.busy_timeout":
+		return c.Database.BusyTimeout, c.Database.BusyTimeout != ""
+	case "database.cache_size":
+		return strconv.Itoa(c.Database.CacheSize), c.Database.CacheSize != 0
+	case "database.mmap_size":
+		if c.Database.MMapSize == nil {
+			return "", false
+		}
+		return strconv.Itoa(*c.Database.MMapSize), true
+	case "display.theme":
+		return c.Display.Theme, c.Display.Theme != ""
 	default:
 		return "", false
 	}
@@ -280,63 +414,172 @@ func (c *Config) Set(key, value string) error {
 	case "server.token":
 		c.Server.Token = value
 	case "server.webhook_workers":
-		n, err := strconv.Atoi(value)
-		if err != nil || n < 1 {
-			return fmt.Errorf("server.webhook_workers must be a positive integer")
-		}
-		c.Server.WebhookWorkers = n
+		return setCount(&c.Server.WebhookWorkers, key, value, 1)
 	case "server.webhook_queue":
-		n, err := strconv.Atoi(value)
-		if err != nil || n < 1 {
-			return fmt.Errorf("server.webhook_queue must be a positive integer")
-		}
-		c.Server.WebhookQueue = n
+		return setCount(&c.Server.WebhookQueue, key, value, 1)
 	case "log.level":
-		switch value {
-		case "debug", "info", "warn", "error":
-		default:
-			return fmt.Errorf("log.level must be one of: debug, info, warn, error")
+		if !slices.Contains([]string{"debug", "info", "warn", "error"}, value) {
+			return fmt.Errorf("log.level must be debug, info, warn or error.")
 		}
 		c.Log.Level = value
+	case "log.format":
+		if value != "text" && value != "json" {
+			return fmt.Errorf("log.format must be text or json.")
+		}
+		c.Log.Format = value
 	case "task.order":
-		switch value {
-		case "priority", "position":
-		default:
-			return fmt.Errorf("task.order must be priority or position")
+		if value != "priority" && value != "position" {
+			return fmt.Errorf("task.order must be priority or position.")
 		}
 		c.Task.Order = value
 	case "queue.retention":
 		if _, err := Retention(value); err != nil {
-			return fmt.Errorf("queue.retention must be a number of days (30d), a duration (12h), or 0 to keep every message")
+			return fmt.Errorf("queue.retention must be a number of days such as 30d, a duration such as 12h, or 0 to keep every message.")
 		}
 		c.Queue.Retention = value
 	case "hook.limit":
 		n, err := strconv.Atoi(value)
 		if err != nil || n < 0 {
-			return fmt.Errorf("hook.limit must be a whole number of messages, or 0 to print every pending message")
+			return fmt.Errorf("hook.limit must be a whole number of messages, or 0 to print every pending message.")
 		}
 		c.Hook.Limit = &n
-	case "log.format":
-		switch value {
-		case "text", "json":
-		default:
-			return fmt.Errorf("log.format must be one of: text, json")
-		}
-		c.Log.Format = value
 	case "limits.path_length":
-		n, err := strconv.Atoi(value)
-		if err != nil {
-			return fmt.Errorf("limits.path_length must be an integer")
-		}
-		c.Limits.PathLength = n
+		return setCount(&c.Limits.PathLength, key, value, 1)
 	case "limits.content_size":
-		n, err := strconv.Atoi(value)
-		if err != nil {
-			return fmt.Errorf("limits.content_size must be an integer")
+		return setCount(&c.Limits.ContentSize, key, value, 1)
+	case "server.read_header_timeout":
+		return setDuration(&c.Server.ReadHeaderTimeout, key, value)
+	case "server.read_timeout":
+		return setDuration(&c.Server.ReadTimeout, key, value)
+	case "server.idle_timeout":
+		return setDuration(&c.Server.IdleTimeout, key, value)
+	case "server.shutdown_timeout":
+		return setDuration(&c.Server.ShutdownTimeout, key, value)
+	case "server.watch_interval":
+		return setDuration(&c.Server.WatchInterval, key, value)
+	case "git.timeout":
+		return setDuration(&c.Git.Timeout, key, value)
+	case "database.busy_timeout":
+		return setDuration(&c.Database.BusyTimeout, key, value)
+	case "database.cache_size":
+		return setCount(&c.Database.CacheSize, key, value, 1)
+	case "database.mmap_size":
+		var n int
+		if err := setCount(&n, key, value, 0); err != nil {
+			return err
 		}
-		c.Limits.ContentSize = n
+		c.Database.MMapSize = &n
+	case "display.theme":
+		if value != "dark" && value != "light" {
+			return fmt.Errorf("display.theme must be dark or light.")
+		}
+		c.Display.Theme = value
 	default:
-		return fmt.Errorf("unknown config key: %s", key)
+		return fmt.Errorf("there is no config key %s. Run llmd config to list them.", key)
 	}
 	return nil
+}
+
+// setCount parses a whole number of at least min into dst.
+func setCount(dst *int, key, value string, min int) error {
+	n, err := strconv.Atoi(value)
+	if err != nil || n < min {
+		if min == 0 {
+			return fmt.Errorf("%s must be 0 or a positive whole number.", key)
+		}
+		return fmt.Errorf("%s must be a positive whole number.", key)
+	}
+	*dst = n
+	return nil
+}
+
+// setDuration checks value is a positive duration and stores it.
+func setDuration(dst *string, key, value string) error {
+	if _, err := Duration(value); err != nil {
+		return fmt.Errorf("%s must be a duration such as 30s or 2m.", key)
+	}
+	*dst = value
+	return nil
+}
+
+// Validate reports every value in c that `llmd config <key> <value>`
+// would refuse, in the words it would use. Values a file cannot get
+// wrong for a key it leaves out are not reported: Load fills those
+// from Defaults. Callers keep running on a config with problems: the
+// accessors (DurationSetting, CountSetting) use the default for any
+// value Validate reports.
+func (c Config) Validate() error {
+	var problems []error
+	for _, key := range Keys() {
+		value, ok := c.Field(key)
+		if !ok {
+			continue
+		}
+		var scratch Config
+		if err := scratch.Set(key, value); err != nil {
+			problems = append(problems, err)
+		}
+	}
+	// Field reports 0 as unset, but a file that sets these to 0 breaks
+	// every write or read.
+	for key, n := range map[string]int{
+		"limits.path_length":  c.Limits.PathLength,
+		"limits.content_size": c.Limits.ContentSize,
+		"database.cache_size": c.Database.CacheSize,
+	} {
+		if n == 0 {
+			problems = append(problems, fmt.Errorf("%s must be a positive whole number.", key))
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(c.Webhook)) {
+		hook := c.Webhook[name]
+		if u, err := url.Parse(hook.URL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			problems = append(problems, fmt.Errorf("webhook.%s.url must be an http or https URL.", name))
+		}
+		if hook.Timeout != "" {
+			if _, err := Duration(hook.Timeout); err != nil {
+				problems = append(problems, fmt.Errorf("webhook.%s.timeout must be a duration such as 10s.", name))
+			}
+		}
+		if hook.Retries < 0 {
+			problems = append(problems, fmt.Errorf("webhook.%s.retries must be 0 or more.", name))
+		}
+	}
+	slices.SortFunc(problems, func(a, b error) int { return strings.Compare(a.Error(), b.Error()) })
+	return errors.Join(problems...)
+}
+
+// DurationSetting returns the duration key holds, or the default when
+// the value is missing or not a positive duration.
+func (c Config) DurationSetting(key string) time.Duration {
+	if v, ok := c.Field(key); ok {
+		if d, err := Duration(v); err == nil {
+			return d
+		}
+	}
+	v, _ := Defaults().Field(key)
+	d, _ := Duration(v)
+	return d
+}
+
+// CountSetting returns the whole number key holds, or the default when
+// the value is missing or below min.
+func (c Config) CountSetting(key string, min int) int {
+	if v, ok := c.Field(key); ok {
+		if n, err := strconv.Atoi(v); err == nil && n >= min {
+			return n
+		}
+	}
+	v, _ := Defaults().Field(key)
+	n, _ := strconv.Atoi(v)
+	return n
+}
+
+// Duration parses a positive duration setting such as 10s, 2m or 1h.
+func Duration(s string) (time.Duration, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("%q is not a positive duration", s)
+	}
+	return d, nil
 }

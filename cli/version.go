@@ -11,7 +11,7 @@ import (
 )
 
 var versionSpec = sdk.Command{
-	Name: "version", Desc: "Show version information", Usage: "version",
+	Name: "version", Guide: "-", Desc: "Show version information", Usage: "version",
 }
 
 // versionCmd returns build information as both human-readable text and

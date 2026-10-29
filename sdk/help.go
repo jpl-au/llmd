@@ -55,6 +55,20 @@ func (c *Command) AgentHelp() string {
 			}
 		}
 	}
-	fmt.Fprintf(&b, "\nDetails: guide %s", c.Name)
+	if page := c.GuidePage(); page != "" {
+		fmt.Fprintf(&b, "\nDetails: guide %s", page)
+	}
 	return b.String()
+}
+
+// GuidePage returns the guide page that documents the command, or ""
+// when there is none (see Command.Guide).
+func (c *Command) GuidePage() string {
+	switch c.Guide {
+	case "":
+		return c.Name
+	case "-":
+		return ""
+	}
+	return c.Guide
 }

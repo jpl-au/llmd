@@ -87,11 +87,11 @@ func TestQueueCmd(t *testing.T) {
 	}{
 		{name: "no subcommand", author: "claude", wantErr: sdk.ErrMissingArg},
 		{name: "unknown subcommand", author: "claude", args: []string{"bogus"}, wantMsg: "unknown subcommand"},
-		{name: "send needs author", args: []string{"send", "hi"}, wantMsg: "author required"},
-		{name: "ls needs author", args: []string{"ls"}, wantMsg: "author required"},
-		{name: "peek needs author", args: []string{"peek"}, wantMsg: "author required"},
-		{name: "ack needs author", args: []string{"ack", "abc"}, wantMsg: "author required"},
-		{name: "history needs author", args: []string{"history"}, wantMsg: "author required"},
+		{name: "send needs author", args: []string{"send", "hi"}, wantMsg: "an author is required."},
+		{name: "ls needs author", args: []string{"ls"}, wantMsg: "an author is required."},
+		{name: "peek needs author", args: []string{"peek"}, wantMsg: "an author is required."},
+		{name: "ack needs author", args: []string{"ack", "abc"}, wantMsg: "an author is required."},
+		{name: "history needs author", args: []string{"history"}, wantMsg: "an author is required."},
 	}
 
 	for _, tt := range tests {

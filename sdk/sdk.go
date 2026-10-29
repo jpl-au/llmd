@@ -4,6 +4,7 @@ package sdk
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/jpl-au/llmd/pkg/events"
@@ -11,9 +12,10 @@ import (
 
 // Common errors returned by commands. These allow callers to
 // programmatically distinguish error categories without parsing
-// strings. Commands wrap these with context, e.g.:
+// strings. Commands attach a kind with Errorf, which keeps the kind's
+// own text out of the message:
 //
-//	fmt.Errorf("cat: %w", sdk.ErrMissingArg)
+//	sdk.Errorf(sdk.ErrMissingArg, "cat: a path is required.")
 var (
 	// ErrMissingArg means a required positional argument was not provided.
 	ErrMissingArg = errors.New("missing required argument")
@@ -67,6 +69,11 @@ var (
 	// ErrNoOp means an edit's old and new strings were identical, so the
 	// operation would have produced no change.
 	ErrNoOp = errors.New("old and new are identical")
+
+	// ErrUnavailable means something the command depends on outside
+	// the store is missing or not in a usable state: git is not
+	// installed, the directory is not a repository, HEAD is detached.
+	ErrUnavailable = errors.New("not available")
 )
 
 // Runtime is the host's surface for commands that need to reach back
@@ -96,7 +103,9 @@ type Runtime interface {
 	Watch(ctx context.Context, interval time.Duration) error
 
 	// Init creates a new store at dbPath (or the default path when
-	// empty) and returns the path created.
+	// empty) and returns the path created. When a store is already
+	// there it changes nothing and returns its path with an ErrExists
+	// error.
 	Init(dbPath string) (string, error)
 }
 
@@ -148,6 +157,11 @@ type Command struct {
 	// instead. The full Desc stays for a person's --help.
 	Brief string
 
+	// Guide is the guide page that documents the command, named in
+	// its help as "Details: guide <page>". Empty means the page is the
+	// command's name; "-" means there is no page, and help names none.
+	Guide string
+
 	NeedsAuthor bool
 	Streams     bool
 
@@ -168,10 +182,12 @@ type Command struct {
 //
 // Args are the arguments the command receives, in order. An entry of
 // the form "{name}" is replaced by that part of the URL and dropped
-// when empty; any other entry is passed as written, which is how a
-// route selects a subcommand or a flag. Query parameters are appended
-// as flags and the request body is the command's stdin, for every
-// route.
+// when empty. An entry "{?name}" is replaced by the query parameter
+// name, for free text a URL segment cannot carry well (edit's old and
+// new text, a sed expression); that parameter is then not a flag. Any
+// other entry is passed as written, which is how a route selects a
+// subcommand or a flag. Other query parameters are appended as flags
+// and the request body is the command's stdin, for every route.
 type Route struct {
 	Method  string
 	Pattern string
@@ -185,13 +201,21 @@ type Route struct {
 // command receives everything it may need here.
 //
 // Author is the configured user identity (required for write
-// operations). Stdin contains piped input when present, or nil for
-// interactive terminals. Runtime reaches back into the host.
+// operations). Stdin is the command's input source: a pipe or file
+// for the CLI, the request content for MCP and HTTP, or nil when there
+// is none. Commands read it through Input or OptionalInput, only when
+// they need it, so a command given its content as an argument never
+// waits on an open pipe. Runtime reaches back into the host.
 type Context struct {
 	context.Context
 
-	Author  string
-	Stdin   []byte
+	Author string
+	Stdin  io.Reader
+	// TTY reports whether the output goes to a person at a terminal:
+	// true for the CLI writing to one, false for a pipe, MCP and HTTP.
+	// Commands style output (tables, colour) only when it is set; the
+	// server's own terminal says nothing about its clients.
+	TTY     bool
 	DBPath  string // Override database path (empty = default)
 	Runtime Runtime
 
@@ -278,6 +302,48 @@ func (Data) Response() {}
 type Result struct {
 	Text string
 	Data any
+	// Note is a line about the result rather than part of it, such as
+	// "(5 more not shown; use --all)". The CLI prints it on stderr so
+	// piped output stays one item per line; MCP appends it to the text.
+	Note string
 }
 
 func (Result) Response() {}
+
+// JSONText is the JSON form of a response that has no structured data:
+// its text, under one key. An object rather than a bare string, so a
+// command can add fields later without breaking what parses it.
+type JSONText struct {
+	Text string `json:"text"`
+}
+
+// JSON returns the value a response is encoded as when JSON is asked
+// for (--json, or Output: json over HTTP): its structured data when it
+// has some, otherwise its text as a JSONText. Every transport calls
+// this, so --json means the same thing from every command and surface.
+func JSON(r Response) any {
+	switch v := r.(type) {
+	case Text:
+		return JSONText{Text: string(v)}
+	case Markdown:
+		return jsonData(v.Data, v.Text)
+	case Result:
+		return jsonData(v.Data, v.Text)
+	case Data:
+		return v.V
+	}
+	return JSONText{}
+}
+
+// jsonData is a response's data, or its text when it has none. Data
+// that is only a string (cat's document) is text too, so --json never
+// prints a bare string.
+func jsonData(data any, text string) any {
+	switch d := data.(type) {
+	case nil:
+		return JSONText{Text: text}
+	case string:
+		return JSONText{Text: d}
+	}
+	return data
+}

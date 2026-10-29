@@ -27,6 +27,12 @@ linters:
     - misspell
     - unconvert
   settings:
+    staticcheck:
+      # The default set, less ST1005. Error messages here are finished
+      # sentences for the reader ("cat: p does not exist."), not
+      # fragments to be composed, so they end with a full stop. See
+      # "Errors" in AGENTS.md.
+      checks: ["all", "-ST1000", "-ST1003", "-ST1005", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
     errcheck:
       # Closing a reader or a read-only handle cannot lose data, and
       # writing to stdout or an HTTP response has no useful recovery.

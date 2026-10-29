@@ -28,6 +28,30 @@ import (
 // stay under ~10k tokens.
 const defaultListLimit = 500
 
+// cappedNote says how many items the cap left out, or "" for none.
+func cappedNote(hidden int) string {
+	if hidden == 0 {
+		return ""
+	}
+	return fmt.Sprintf("(%d more not shown; use --all)", hidden)
+}
+
+// capped applies the ls, find and glob cap to items: --all lifts it,
+// --limit sets it, otherwise defaultListLimit. It returns the items to
+// show and how many it left out.
+func capped[T any](items []T, flags sdk.FlagValues) ([]T, int) {
+	limit := flags.Int("limit")
+	if flags.Bool("all") {
+		limit = 0
+	} else if limit == 0 {
+		limit = defaultListLimit
+	}
+	if limit > 0 && len(items) > limit {
+		return items[:limit], len(items) - limit
+	}
+	return items, 0
+}
+
 var lsSpec = sdk.Command{
 	Name: "ls", Desc: `List documents in the store
 
@@ -84,16 +108,7 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 
-	// Resolve the cap: --all beats --limit beats the default.
-	limit := flags.Int("limit")
-	if flags.Bool("all") {
-		limit = 0
-	} else if limit == 0 {
-		limit = defaultListLimit
-	}
-	if limit > 0 && len(docs) > limit {
-		docs = docs[:limit]
-	}
+	docs, hidden := capped(docs, flags)
 
 	if len(docs) == 0 {
 		return sdk.Result{Text: "", Data: []sdk.Doc{}}, nil
@@ -116,10 +131,10 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	var text string
 	switch {
-	case asTree && isTTY():
+	case asTree && ctx.TTY:
 		text = buildTree(docs)
 	case long:
-		text = formatTable(docs)
+		text = formatTable(ctx.TTY, docs)
 	default:
 		lines := make([]string, len(docs))
 		for i, d := range docs {
@@ -128,16 +143,16 @@ func ls(ctx sdk.Context, args []string) (sdk.Response, error) {
 		text = strings.Join(lines, "\n")
 	}
 
-	return sdk.Result{Text: text, Data: data}, nil
+	return sdk.Result{Text: text, Data: data, Note: cappedNote(hidden)}, nil
 }
 
 // formatTable renders docs as a lipgloss table with styled path cells.
-func formatTable(docs []sdk.Doc) string {
+func formatTable(tty bool, docs []sdk.Doc) string {
 	if len(docs) == 0 {
 		return ""
 	}
 
-	t := newTable("KEY", "VER", "AUTHOR", "DATE", "PATH")
+	t := newTable(tty, "KEY", "VER", "AUTHOR", "DATE", "PATH")
 
 	for _, d := range docs {
 		date := time.UnixMilli(d.CreatedAt).Format("2006-01-02")

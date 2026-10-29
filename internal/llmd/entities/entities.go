@@ -13,7 +13,7 @@ import (
 
 // Errors returned by entity operations.
 var (
-	ErrNotFound = errors.New("entity not found")
+	ErrNotFound = errors.New("the entity does not exist.")
 )
 
 // Entities provides entity operations.

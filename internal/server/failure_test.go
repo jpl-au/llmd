@@ -33,7 +33,7 @@ func TestWriteFailuresAreLogged(t *testing.T) {
 		wantLog string
 	}{
 		{"text", func(w http.ResponseWriter) { writeResponse(w, plainReq(), sdk.Text("hi")) }, "writing text response"},
-		{"markdown", func(w http.ResponseWriter) { writeResponse(w, plainReq(), sdk.Markdown{Text: "# hi"}) }, "writing markdown response"},
+		{"markdown", func(w http.ResponseWriter) { writeResponse(w, plainReq(), sdk.Markdown{Text: "# hi"}) }, "writing text response"},
 		{"result text", func(w http.ResponseWriter) { writeResponse(w, plainReq(), sdk.Result{Text: "hi", Data: 1}) }, "writing text response"},
 		{"json", func(w http.ResponseWriter) { writeJSON(w, http.StatusOK, map[string]int{"n": 1}) }, "writing JSON response"},
 		{"error", func(w http.ResponseWriter) { writeError(w, http.StatusBadRequest, errors.New("bad")) }, "writing error response"},
@@ -73,7 +73,7 @@ func TestHandleBodyReadError(t *testing.T) {
 	}
 	s := New(rt, WithAddr("localhost:0"), WithAuthor("test"))
 
-	req := httptest.NewRequest(http.MethodPost, "/write/docs/a", errReader{})
+	req := httptest.NewRequest(http.MethodPost, "http://localhost/write/docs/a", errReader{})
 	rec := httptest.NewRecorder()
 	s.mux.ServeHTTP(rec, req)
 

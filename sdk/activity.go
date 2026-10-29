@@ -11,10 +11,10 @@ type ActivityStore interface {
 
 // Activity represents a single event in the unified activity feed.
 type Activity struct {
-	Type      string // "document", "tag", "link", "task"
-	Action    string // "written", "deleted", "tagged", "untagged", "linked", "unlinked", "created", "moved", etc.
-	Subject   string // document path or task key
-	Author    string
-	Detail    string // version message, tag name, link target, old→new
-	Timestamp int64  // Unix milliseconds
+	Type      string `json:"type"`    // "document", "tag", "link", "task"
+	Action    string `json:"action"`  // "written", "deleted", "tagged", "untagged", "linked", "unlinked", "created", "moved", etc.
+	Subject   string `json:"subject"` // document path or task key
+	Author    string `json:"author"`
+	Detail    string `json:"detail"`    // version message, tag name, link target, old→new
+	Timestamp int64  `json:"timestamp"` // Unix milliseconds
 }

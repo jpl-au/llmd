@@ -26,6 +26,12 @@ llmd config git deny <pattern>       Stop allowing a pattern
   `~/.llmd/config.yaml` with `--global`. When a local file exists it is
   used whole; nothing is merged from the global file.
 - Keys use dot notation for nested values, such as `server.addr`.
+- `llmd config <key> <value>` refuses a value it cannot use. A value
+  edited into the file by hand that cannot be used is reported as a
+  warning on every command, and that key's default is used until it is
+  fixed; keys the file leaves out take their defaults. Unknown keys in
+  the file are ignored.
+- Durations are written like `30s`, `2m` or `1h`.
 - `config author` names the person at the terminal and is used for
   their interactive commands only. Agents and scripts must not set it;
   they pass `--author` on every change instead, so history shows who
@@ -85,6 +91,16 @@ llmd config git deny "llmd-docs.db"
 | `task.order` | Order within a board column, for the board, `review` and `task next`: `priority` (default; priority 1 first, then board position) or `position` (board position only) |
 | `queue.retention` | How long `vacuum` keeps queue messages: a number of days such as `30d` (default), a duration such as `12h`, or `0` to keep every message |
 | `hook.limit` | Pending queue messages the session-start hook prints into an agent's context: `10` (default), or `0` for all of them |
+| `server.read_header_timeout` | Time a client has to send its request headers (default `10s`) |
+| `server.read_timeout` | Time a client has to send its whole request (default `1m`) |
+| `server.idle_timeout` | How long an unused keep-alive connection stays open (default `2m`) |
+| `server.shutdown_timeout` | Time requests in flight get to finish when the server stops (default `5s`) |
+| `server.watch_interval` | How often `serve` looks for changes other processes made, to send as `store.changed` (default `1s`) |
+| `git.timeout` | How long one git command may run before it is stopped (default `2m`) |
+| `database.busy_timeout` | How long a write waits for another process's write before failing (default `5s`). Raise it when several agents write to one store at once |
+| `database.cache_size` | Most page cache, in MB, each database connection may hold; used only as pages are read (default `64`) |
+| `display.theme` | Colours for markdown rendered at a terminal: `dark` (default) for a dark background, `light` for a light one |
+| `database.mmap_size` | How much of each database file, in MB, is memory-mapped (default `256`); `0` turns memory-mapping off |
 
 Example config.yaml:
 
@@ -110,6 +126,12 @@ queue:
 
 hook:
   limit: 5
+
+git:
+  timeout: 5m
+
+database:
+  busy_timeout: 15s
 ```
 
 ## Git integration
@@ -122,10 +144,17 @@ temp files) are automatically excluded without maintaining a blocklist.
 The default `.llmd/.gitignore` created by `llmd init`:
 
 ```
+# Ignore everything by default
 *
+
+# Allow the document database and this file
 !llmd.db
 !.gitignore
 ```
+
+`config git allow` on a directory (`reports/`) also allows everything
+under it (`reports/**`), so its files are committed, not just the
+directory.
 
 Only database files and the gitignore itself are committed. Everything
 else is excluded.

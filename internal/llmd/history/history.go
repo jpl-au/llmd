@@ -21,8 +21,8 @@ const mime = "text/markdown"
 
 // Errors returned by history operations.
 var (
-	ErrNotFound       = errors.New("document not found")
-	ErrVersionInvalid = errors.New("invalid version")
+	ErrNotFound       = errors.New("the document does not exist.")
+	ErrVersionInvalid = errors.New("the document has no such version.")
 )
 
 // History provides version history operations against the content table.

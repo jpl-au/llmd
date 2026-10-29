@@ -15,8 +15,9 @@ llmd init
   temporary files. Prints `Initialised llmd store at <path>`.
 - The global `--db <path>` flag creates the database at a different
   path instead.
-- Safe to run where a store already exists: it does not overwrite
-  existing data.
+- Safe to run where a store already exists: it says so, changes
+  nothing (the store and `.llmd/.gitignore` included) and succeeds, so
+  setup scripts can run it every time.
 - Needs no author. Over MCP the tool is named `llmd_init`; `init` is
   not available over HTTP.
 

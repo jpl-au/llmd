@@ -74,10 +74,7 @@ func (s *Search) full(ctx context.Context, query string, opt Options) ([]Result,
 
 	rows, err := s.db.Query(b.String(), args...).WithContext(ctx).Read()
 	if err != nil {
-		if strings.Contains(err.Error(), "fts5") {
-			return nil, ErrInvalidQuery
-		}
-		return nil, fmt.Errorf("fts query: %w", err)
+		return nil, queryError(err)
 	}
 	defer rows.Close()
 
@@ -131,10 +128,7 @@ func (s *Search) paths(ctx context.Context, query string, opt Options) ([]Result
 
 	rows, err := s.db.Query(b.String(), args...).WithContext(ctx).Read()
 	if err != nil {
-		if strings.Contains(err.Error(), "fts5") {
-			return nil, ErrInvalidQuery
-		}
-		return nil, fmt.Errorf("fts query: %w", err)
+		return nil, queryError(err)
 	}
 	defer rows.Close()
 

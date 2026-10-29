@@ -5,9 +5,9 @@
 // matters because later schemas may reference tables created by earlier
 // ones (e.g. fts.sql depends on tables from content.sql).
 //
-// All statements use CREATE IF NOT EXISTS and INSERT OR IGNORE, so
-// running them on every store open creates a fresh store's schema and
-// leaves an existing one alone. Nothing upgrades an older schema.
+// All statements use CREATE IF NOT EXISTS, so running them on every
+// store open creates a fresh store's schema and leaves an existing one
+// alone. Nothing upgrades an older schema.
 package sql
 
 import (
@@ -26,7 +26,7 @@ var schemas embed.FS
 var help string
 
 // Exec executes all embedded .sql schema files in alphabetical order,
-// then inserts the embedded help.md content into the help table.
+// then stores the embedded help.md content as the help table's one row.
 //
 // The help table stores documentation inside the database itself so
 // that LLMs or humans exploring the SQLite file directly (e.g. via
@@ -56,6 +56,12 @@ func Exec(db *qwr.Manager) error {
 	}
 
 	// Embed help documentation inside the database for discoverability.
-	_, err = db.Query("INSERT OR IGNORE INTO help (content) VALUES (?)", help).Exec()
+	// The row is written only when the text differs, so opening a store
+	// leaves the committed llmd.db untouched.
+	_, err = db.Query(`
+		INSERT INTO help (id, content) VALUES (1, ?)
+		ON CONFLICT (id) DO UPDATE SET content = excluded.content
+		WHERE content IS NOT excluded.content
+	`, help).Exec()
 	return err
 }

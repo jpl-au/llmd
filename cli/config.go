@@ -11,7 +11,6 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -44,7 +43,7 @@ scripts must use --author on each command instead.`, Usage: "config [key] [value
 	},
 }
 
-var errConfigUsage = errors.New("config: usage: llmd config [--global] [key] [value]")
+var errConfigUsage = sdk.Errorf(sdk.ErrInvalidArg, "config: too many arguments. Use llmd config [--global] [key] [value].")
 
 // configCmd handles show-all, show-key, and set-key operations.
 func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
@@ -63,7 +62,7 @@ func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case 0:
 		cfg, err := config.Load()
 		if err != nil {
-			return nil, fmt.Errorf("config: reading: %w", err)
+			return nil, fmt.Errorf("config: %w", err)
 		}
 		var lines []string
 		for _, k := range config.Keys() {
@@ -79,7 +78,7 @@ func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case 1:
 		cfg, err := config.Load()
 		if err != nil {
-			return nil, fmt.Errorf("config: reading: %w", err)
+			return nil, fmt.Errorf("config: %w", err)
 		}
 		if v, ok := cfg.Field(positional[0]); ok {
 			return sdk.Text(v), nil
@@ -89,7 +88,7 @@ func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case 2:
 		key, value := positional[0], positional[1]
 		if err := config.Save(key, value, global); err != nil {
-			return nil, fmt.Errorf("config: saving: %w", err)
+			return nil, fmt.Errorf("config: %w", err)
 		}
 		return nil, nil
 

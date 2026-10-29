@@ -41,6 +41,15 @@ func serve(ctx sdk.Context, args []string) (sdk.Response, error) {
 		server.WithToken(cfg.Server.Token),
 		server.WithWebhooks(cfg.Webhook),
 		server.WithWebhookQueue(cfg.Server.WebhookWorkers, cfg.Server.WebhookQueue),
+		// Room for the request around the largest document allowed.
+		server.WithMaxBody(int64(cfg.CountSetting("limits.content_size", 1))+64<<10),
+		server.WithTimeouts(
+			cfg.DurationSetting("server.read_header_timeout"),
+			cfg.DurationSetting("server.read_timeout"),
+			cfg.DurationSetting("server.idle_timeout"),
+		),
+		server.WithShutdownTimeout(cfg.DurationSetting("server.shutdown_timeout")),
+		server.WithWatchInterval(cfg.DurationSetting("server.watch_interval")),
 	)
 	return nil, s.ListenAndServe(ctx)
 }

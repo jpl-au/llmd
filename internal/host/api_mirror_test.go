@@ -182,7 +182,10 @@ func TestMirrorPush(t *testing.T) {
 		{
 			name: "prefix",
 			steps: []step{
-				{files: map[string]string{"one.md": "one"}, opts: sdk.PushOpts{Prefix: "mirror/"}, want: sdk.PushResult{Created: []string{"mirror/one"}}},
+				// The prefix limits push to that part of the mirror, as
+				// it does pull, so a pull and push round trip keeps the
+				// paths. It once prefixed every file, making docs/docs/a.
+				{files: map[string]string{"mirror/one.md": "one", "other/two.md": "two"}, opts: sdk.PushOpts{Prefix: "mirror/"}, want: sdk.PushResult{Created: []string{"mirror/one"}}},
 			},
 			wantDoc: map[string]string{"mirror/one": "one"},
 		},

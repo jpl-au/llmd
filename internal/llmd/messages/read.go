@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/pkg/model/message"
 )
 
@@ -57,7 +59,7 @@ func (m *Messages) Peek(ctx context.Context, consumer string) (*message.Message,
 		return nil, err
 	}
 	if len(msgs) == 0 {
-		return nil, ErrNotFound
+		return nil, errs.New(ErrNotFound, "%s has no pending messages.", consumer)
 	}
 	return &msgs[0], nil
 }

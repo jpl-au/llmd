@@ -14,6 +14,8 @@ llmd restore <path>
 - The document must have been deleted with `llmd rm` and not yet
   purged by `llmd vacuum`. After a vacuum there is nothing to restore.
 - The restored document keeps its full version history.
+- A path or the document's key works.
+- Restoring a document that is not deleted is an error.
 
 ## Examples
 

@@ -6,7 +6,7 @@ alongside Claude Code's own `/schedule` and `/loop` commands.
 ## Quick reference
 
 ```
-"llmd": {"command": "llmd", "args": ["mcp"]}   MCP server entry for Claude Code settings (tools appear as mcp__llmd__<command>)
+"llmd": {"command": "llmd", "args": ["mcp"]}   MCP server entry for Claude Code settings (tools appear as mcp__llmd__<tool>)
 llmd_init                              Initialise a store from inside a session
 llmd hook init claude                  Print the hooks section for .claude/settings.json
 /schedule "..."                        Recurring work on a cron, outside any session
@@ -24,8 +24,8 @@ Rules:
 
 - Every MCP tool call that changes something carries `author`; the
   server instructions and `guide` say how. See `guide mcp`.
-- `--json` on any tool gives structured output a scheduled agent can
-  parse.
+- MCP tools return text. For structured output a scheduled agent can
+  parse, run the command in a shell with `--json`.
 - Hooks run `llmd --author claude hook`; only session start prints
   anything, a count and the newest pending queue messages, so the
   agent's context stays small. See `guide hooks`.
@@ -33,8 +33,9 @@ Rules:
 ## How it works
 
 llmd registers as an MCP server via Claude Code's settings. Once
-configured, all llmd commands are available as MCP tools with the
-`mcp__llmd__` prefix. A companion skill definition (`skills/SKILL.md`)
+configured, llmd's tools are available with the `mcp__llmd__` prefix:
+most commands, with grep, find, glob and init as `llmd_grep` and so on
+(`guide mcp` lists which commands are left out). A companion skill definition (`skills/SKILL.md`)
 teaches Claude Code when and how to use llmd tools - it activates
 automatically when a request involves documents, tasks, audits,
 agents, or search.
@@ -72,7 +73,7 @@ and a note that it is awaiting response."
 Schedule a daily scan for tasks that have not moved:
 
 ```
-/schedule "Every weekday at 8am, list tasks with task list --json.
+/schedule "Every weekday at 8am, list tasks with llmd task list --json.
 Flag any task that has been in in-progress or review for more than
 48 hours by adding an audit note: audit add <task-id> with a
 message noting the task appears stale."
@@ -175,15 +176,17 @@ llmd hook init claude
 
 Each hook runs `llmd --author claude hook`, which reads Claude Code's
 payload and acts on it: session start prints a count and the newest
-pending queue messages into the context (`hook.limit`, default 10),
-task completion finishes the task and sends a message, and tool use on
-llmd's MCP tools is recorded as an audit.
+pending queue messages into the context (`hook.limit`, default 10).
+Task events need to know the task: in the worktree of an agent llmd
+spawned, the hooks carry `--task`, so finishing the session finishes
+that task. Your own session's hooks from `hook init` name no task, so
+only session start does anything there.
 No server is needed. See `guide hooks` for every event.
 
 ## Tips
 
-- Use `--json` on any tool for structured output that scheduled agents
-  can parse and act on
+- Use `--json` on the command line for structured output that
+  scheduled agents can parse and act on
 - Queue messages (`queue send --assign`) are a good way for scheduled
   agents to notify humans or other agents about issues
 - Audit threads provide a persistent record of agent decisions and

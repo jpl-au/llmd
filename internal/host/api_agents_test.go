@@ -44,7 +44,7 @@ func TestAgentsRegister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h, c := agentHost(t)
-			err := c.Agents.Register(tt.cfg, "alice")
+			err := c.Agents.Register(tt.cfg)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Register(%+v) error = %v, wantErr %v", tt.cfg, err, tt.wantErr)
 			}

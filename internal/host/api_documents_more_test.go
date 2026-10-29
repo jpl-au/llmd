@@ -150,6 +150,7 @@ func TestDocErr(t *testing.T) {
 		{"document not found", documents.ErrNotFound, sdk.ErrNotFound},
 		{"document deleted", documents.ErrDeleted, sdk.ErrNotFound},
 		{"destination exists", documents.ErrExists, sdk.ErrExists},
+		{"not deleted", documents.ErrNotDeleted, sdk.ErrExists},
 		{"invalid path", docpath.ErrInvalid, sdk.ErrInvalidArg},
 		{"path too long", docpath.ErrTooLong, sdk.ErrInvalidArg},
 		{"invalid glob", search.ErrInvalidGlob, sdk.ErrInvalidArg},
@@ -191,6 +192,25 @@ func TestDocumentsSentinelsReachSDK(t *testing.T) {
 			}
 			_, err := c.Documents.Read("gone", sdk.ReadOpts{})
 			return err
+		}, sdk.ErrNotFound},
+		{"restore a live document", func(t *testing.T, c sdk.Context) error {
+			writeDoc(t, c, "doc", "x")
+			return c.Documents.Restore("doc", sdk.RestoreOpts{Author: "alice"})
+		}, sdk.ErrExists},
+		{"tag a deleted document", func(t *testing.T, c sdk.Context) error {
+			writeDoc(t, c, "gone", "x")
+			if err := c.Documents.Delete("gone", sdk.DeleteOpts{Author: "alice"}); err != nil {
+				return err
+			}
+			return c.Tags.Add("gone", "red", "alice")
+		}, sdk.ErrNotFound},
+		{"link to a deleted document", func(t *testing.T, c sdk.Context) error {
+			writeDoc(t, c, "doc", "x")
+			writeDoc(t, c, "gone", "x")
+			if err := c.Documents.Delete("gone", sdk.DeleteOpts{Author: "alice"}); err != nil {
+				return err
+			}
+			return c.Links.Add("doc", "gone", "", "alice")
 		}, sdk.ErrNotFound},
 		{"revert to a version that does not exist", func(t *testing.T, c sdk.Context) error {
 			writeDoc(t, c, "doc", "x")

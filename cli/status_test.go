@@ -2,7 +2,6 @@ package cli
 
 import (
 	"errors"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -11,24 +10,17 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// metaWithTTY runs fn with os.Stdout pointed at the null device, which
-// is a character device, so commands that check isTTY take their
-// terminal-rendering branch. Nothing is written to stdout while fn
-// runs; the original is restored before returning.
-func metaWithTTY(t *testing.T, fn func()) {
+// runTTY runs cmd as the CLI does for a person at a terminal:
+// sdk.Context.TTY is set, so commands take their terminal-rendering
+// branch. (Dispatch, which run uses, is MCP and HTTP: never a terminal.)
+func runTTY(t *testing.T, c sdk.Context, cmd string, args ...string) sdk.Response {
 	t.Helper()
-	dev, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	c.TTY = true
+	resp, err := (&CLI{}).Exec(c, cmd, args)
 	if err != nil {
-		t.Skipf("opening %s: %v", os.DevNull, err)
+		t.Fatalf("%s %v: %v", cmd, args, err)
 	}
-	defer dev.Close()
-	orig := os.Stdout
-	os.Stdout = dev
-	defer func() { os.Stdout = orig }()
-	if !isTTY() {
-		t.Skipf("%s is not a character device on this platform", os.DevNull)
-	}
-	fn()
+	return resp
 }
 
 // metaANSI matches SGR escape sequences emitted by lipgloss.
@@ -173,7 +165,7 @@ func TestStatus(t *testing.T) {
 			}
 			var resp sdk.Response
 			if tt.tty {
-				metaWithTTY(t, func() { resp = run(t, c, "status", nil, tt.args...) })
+				resp = runTTY(t, c, "status", tt.args...)
 			} else {
 				resp = run(t, c, "status", nil, tt.args...)
 			}

@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
@@ -41,15 +43,13 @@ func (t *Tasks) Delete(ctx context.Context, key, author string) (*task.Task, err
 	}
 
 	if t.bus != nil {
-		if err := t.bus.Emit(ctx, events.Event{
+		t.bus.Emit(ctx, events.Event{
 			Type:      events.TaskDeleted,
 			Path:      tsk.Path,
 			Key:       key,
 			Author:    author,
 			Timestamp: now,
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return tsk, nil
@@ -78,7 +78,7 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 		if n, err := res.RowsAffected(); err != nil {
 			return nil, fmt.Errorf("restoring task: %w", err)
 		} else if n == 0 {
-			return nil, fmt.Errorf("%w: task %s is not deleted", ErrNotFound, key)
+			return nil, errs.New(ErrNotFound, "task %s is not deleted.", key)
 		}
 		recordTx(ctx, tx, author, "restored", key, "", tsk.Status)
 		return nil, nil
@@ -88,15 +88,13 @@ func (t *Tasks) Restore(ctx context.Context, key, author string) (*task.Task, er
 	}
 
 	if t.bus != nil {
-		if err := t.bus.Emit(ctx, events.Event{
+		t.bus.Emit(ctx, events.Event{
 			Type:      events.TaskRestored,
 			Path:      tsk.Path,
 			Key:       key,
 			Author:    author,
 			Timestamp: clock.Now(),
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return tsk, nil

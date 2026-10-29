@@ -38,7 +38,7 @@ func (a *Audits) List(ctx context.Context, opts ListOptions) ([]Audit, error) {
 	var query strings.Builder
 	var args []any
 
-	query.WriteString(`SELECT ` + columns + ` FROM audits WHERE deleted_at IS NULL AND parent_id IS NULL`)
+	query.WriteString(`SELECT ` + columns + ` FROM audits AS top WHERE deleted_at IS NULL AND parent_id IS NULL`)
 
 	if opts.Target != "" {
 		query.WriteString(" AND target = ?")
@@ -49,7 +49,7 @@ func (a *Audits) List(ctx context.Context, opts ListOptions) ([]Audit, error) {
 		args = append(args, opts.ByAuthor)
 	}
 	if opts.Assignee != "" {
-		query.WriteString(" AND assignee = ?")
+		query.WriteString(" AND " + effectiveAssignee + " = ?")
 		args = append(args, opts.Assignee)
 	}
 	if opts.SinceMS > 0 {
@@ -67,6 +67,17 @@ func (a *Audits) List(ctx context.Context, opts ListOptions) ([]Audit, error) {
 
 	return scanAll(rows)
 }
+
+// effectiveAssignee is a thread's assignee: that of its most recent
+// live entry, so a reply that reassigns the thread moves it, as audit
+// status already reads it. The outer query names the root row top.
+const effectiveAssignee = `(
+	SELECT assignee FROM audits
+	WHERE (id = top.id OR parent_id = top.id)
+	  AND deleted_at IS NULL
+	ORDER BY created_at DESC, id DESC
+	LIMIT 1
+)`
 
 // listByEffectiveStatus returns top-level audits whose thread's latest
 // entry matches the status filter.
@@ -91,7 +102,7 @@ func (a *Audits) listByEffectiveStatus(ctx context.Context, opts ListOptions) ([
 		args = append(args, opts.ByAuthor)
 	}
 	if opts.Assignee != "" {
-		query.WriteString(" AND top.assignee = ?")
+		query.WriteString(" AND " + effectiveAssignee + " = ?")
 		args = append(args, opts.Assignee)
 	}
 	if opts.SinceMS > 0 {

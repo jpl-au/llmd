@@ -35,3 +35,31 @@ func TestExec(t *testing.T) {
 		})
 	}
 }
+
+// TestExecHelpOnce checks that every store open leaves exactly one help
+// row: the table once gained a row each time a store was opened.
+func TestExecHelpOnce(t *testing.T) {
+	db := sqlitetest.Open(t, "llmd.db")
+
+	for i := range 3 {
+		if err := Exec(db); err != nil {
+			t.Fatalf("Exec() call %d error = %v", i+1, err)
+		}
+	}
+
+	var n int
+	var content string
+	row, err := db.Query("SELECT COUNT(*), MAX(content) FROM help").WithContext(t.Context()).ReadRow()
+	if err != nil {
+		t.Fatalf("counting help rows: %v", err)
+	}
+	if err := row.Scan(&n, &content); err != nil {
+		t.Fatalf("counting help rows: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("help rows = %d, want 1", n)
+	}
+	if content != help {
+		t.Errorf("help content does not match the embedded help.md")
+	}
+}

@@ -52,40 +52,40 @@ type AuditStore interface {
 // or a reply within a thread. Records are immutable once created.
 type Audit struct {
 	// ID is the unique identifier (10-char base36).
-	ID string
+	ID string `json:"id"`
 
 	// Target is the document path or task key being audited.
-	Target string
+	Target string `json:"target"`
 
 	// TargetType is "document" or "task", inferred by the store.
-	TargetType string
+	TargetType string `json:"target_type"`
 
 	// Version is the document version reviewed. Zero for task targets
 	// or when no version was pinned.
-	Version int
+	Version int `json:"version"`
 
 	// Author identifies who created this entry.
-	Author string
+	Author string `json:"author"`
 
 	// Assignee identifies who needs to act on this audit. Propagates
 	// through replies - the effective assignee is from the latest entry.
-	Assignee string
+	Assignee string `json:"assignee"`
 
 	// Status at the time of this entry (e.g. "pending", "approved",
 	// "needs-work"). The thread's effective status is the status of
 	// its most recent entry.
-	Status string
+	Status string `json:"status"`
 
 	// Content is the review text. Empty for resolve entries.
-	Content string
+	Content string `json:"content"`
 
 	// ParentID is the top-level audit ID for replies, or empty for
 	// top-level entries.
-	ParentID string
+	ParentID string `json:"parent_id"`
 
 	// CreatedAt is the Unix timestamp (milliseconds) when this entry
 	// was created.
-	CreatedAt int64
+	CreatedAt int64 `json:"created_at"`
 }
 
 // AuditOpts configures an audit add or reply operation. All fields
@@ -149,25 +149,25 @@ type AuditStatusOpts struct {
 // the given author's response.
 type AuditStatus struct {
 	// Author is the identity this status was computed for.
-	Author string
+	Author string `json:"author"`
 
 	// Pending contains top-level audits for threads requiring this
 	// author's response. Each thread has been evaluated: only those
 	// where the last entry is NOT from this author are included.
-	Pending []Audit
+	Pending []Audit `json:"pending"`
 
 	// Summary provides aggregate counts for quick display.
-	Summary AuditSummary
+	Summary AuditSummary `json:"summary"`
 }
 
 // AuditSummary provides aggregate counts for the status view.
 type AuditSummary struct {
 	// Total is the number of pending threads.
-	Total int
+	Total int `json:"total"`
 
 	// NeedsWork is the count of threads with effective status "needs-work".
-	NeedsWork int
+	NeedsWork int `json:"needs_work"`
 
 	// Pending is the count of threads with effective status "pending".
-	Pending int
+	Pending int `json:"pending"`
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // sections implements ModeSections: returns markdown sections containing matches.
@@ -37,10 +38,7 @@ func (s *Search) sections(ctx context.Context, query string, opt Options) ([]Res
 
 	rows, err := s.db.Query(b.String(), args...).WithContext(ctx).Read()
 	if err != nil {
-		if strings.Contains(err.Error(), "fts5") {
-			return nil, ErrInvalidQuery
-		}
-		return nil, fmt.Errorf("fts query: %w", err)
+		return nil, queryError(err)
 	}
 	defer rows.Close()
 
@@ -89,6 +87,14 @@ func extractSections(content, query string) []Match {
 				Section: sec.header,
 			})
 		}
+	}
+
+	// The index matched the document, so a hit is never shown empty:
+	// when no single section holds the terms (a phrase running from a
+	// heading into its body, a query the term reader cannot follow),
+	// the whole document is the match.
+	if len(matches) == 0 && strings.TrimSpace(content) != "" {
+		matches = append(matches, Match{Line: 1, Text: content})
 	}
 
 	return matches
@@ -181,13 +187,25 @@ func joinLines(lines []string, start, end int) string {
 }
 
 // containsTerms returns true if text contains at least one of the terms.
-// Matching is case-insensitive. Returns false for empty terms slice.
+// It compares words, not characters, as the full-text index does:
+// case, punctuation and line breaks between words are ignored, so the
+// phrase "Authentication: OAuth2" is found in "## Authentication\n\n
+// OAuth2". A term matches at the start of a word, which also covers a
+// prefix search (hel* arrives as hel). Returns false for empty terms.
 func containsTerms(text string, terms []string) bool {
-	lower := strings.ToLower(text)
+	words := " " + strings.Join(wordsOf(text), " ")
 	for _, term := range terms {
-		if strings.Contains(lower, strings.ToLower(term)) {
+		if w := wordsOf(term); len(w) > 0 && strings.Contains(words, " "+strings.Join(w, " ")) {
 			return true
 		}
 	}
 	return false
+}
+
+// wordsOf splits s into lowercase words: runs of letters and digits,
+// as the full-text index tokenises.
+func wordsOf(s string) []string {
+	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
 }

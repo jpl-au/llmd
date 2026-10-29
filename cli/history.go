@@ -54,7 +54,7 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		path = positional[0]
 	}
 	if path == "" {
-		return nil, fmt.Errorf("history: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "history: a path is required.")
 	}
 
 	versions, err := ctx.Documents.History(path, limit)
@@ -66,7 +66,7 @@ func historyCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Result{Text: "No history", Data: []sdk.Version{}}, nil
 	}
 
-	t := newTable("VER", "AUTHOR", "DATE", "MESSAGE")
+	t := newTable(ctx.TTY, "VER", "AUTHOR", "DATE", "MESSAGE")
 
 	for _, v := range versions {
 		date := time.UnixMilli(v.CreatedAt).Format("2006-01-02 15:04")

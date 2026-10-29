@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -218,8 +219,10 @@ func TestConfigGit(t *testing.T) {
 		wantAbsent []string
 		wantExact  *string
 		wantRules  []string // exact rules listed afterwards, when set
-		wantErr    error
-		wantAnyErr bool
+		// wantCommitted are paths git must not ignore afterwards.
+		wantCommitted []string
+		wantErr       error
+		wantAnyErr    bool
 	}{
 		{
 			name:      "list without a gitignore is empty",
@@ -255,13 +258,17 @@ func TestConfigGit(t *testing.T) {
 			seed:      seedDefault,
 			args:      []string{"git", "allow", "reports/"},
 			wantExact: new("Allowed reports/ in .llmd/.gitignore"),
-			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/"},
+			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/", "!reports/**"},
+			// What matters is what git does: a file inside the allowed
+			// directory is committed. Allowing "reports/" alone once
+			// left its files ignored by the "*" rule.
+			wantCommitted: []string{".llmd/reports/q3.md"},
 		},
 		{
 			name:      "allow without a gitignore creates one",
 			author:    "alice",
 			args:      []string{"git", "allow", "reports/"},
-			wantRules: []string{"!reports/"},
+			wantRules: []string{"!reports/", "!reports/**"},
 		},
 		{
 			name:   "allow twice is idempotent",
@@ -271,7 +278,7 @@ func TestConfigGit(t *testing.T) {
 				run(t, c, "config", nil, "git", "allow", "reports/")
 			},
 			args:      []string{"git", "allow", "reports/"},
-			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/"},
+			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/", "!reports/**"},
 		},
 		{
 			name:   "deny removes the entry",
@@ -323,7 +330,7 @@ func TestConfigGit(t *testing.T) {
 			author:    "",
 			seed:      seedDefault,
 			args:      []string{"git", "allow", "reports/"},
-			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/"},
+			wantRules: []string{"*", "!llmd.db", "!.gitignore", "!reports/", "!reports/**"},
 		},
 	}
 
@@ -372,6 +379,24 @@ func TestConfigGit(t *testing.T) {
 				}
 				if text(ls) != strings.Join(tt.wantRules, "\n") {
 					t.Errorf("config git ls text after %v = %q, want %q", tt.args, text(ls), strings.Join(tt.wantRules, "\n"))
+				}
+			}
+			for _, path := range tt.wantCommitted {
+				if _, err := exec.LookPath("git"); err != nil {
+					t.Skip("git not installed")
+				}
+				if out, err := exec.Command("git", "init", "-q").CombinedOutput(); err != nil {
+					t.Fatalf("git init: %v %s", err, out)
+				}
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				// check-ignore -q exits 0 when the path is ignored.
+				if err := exec.Command("git", "check-ignore", "-q", path).Run(); err == nil {
+					t.Errorf("git ignores %s after %v", path, tt.args)
 				}
 			}
 		})

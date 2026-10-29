@@ -19,6 +19,8 @@ package search
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/jpl-au/qwr"
 )
@@ -26,11 +28,11 @@ import (
 var (
 	// ErrInvalidQuery is returned when the FTS5 query syntax is invalid.
 	// Common causes: unbalanced quotes, invalid operators, empty query.
-	ErrInvalidQuery = errors.New("invalid FTS query")
+	ErrInvalidQuery = errors.New("the search query is not valid. Check that its quotes and brackets are balanced.")
 
 	// ErrInvalidGlob is returned when the glob pattern is malformed.
 	// Common causes: unbalanced brackets, invalid character classes.
-	ErrInvalidGlob = errors.New("invalid glob pattern")
+	ErrInvalidGlob = errors.New("that is not a valid glob pattern.")
 )
 
 // Search provides full-text search and glob matching over the document store.
@@ -44,4 +46,17 @@ type Search struct {
 // The database must have the content_fts table initialised.
 func New(db *qwr.Manager) *Search {
 	return &Search{db: db}
+}
+
+// queryError turns a failed FTS5 query into ErrInvalidQuery when the
+// query text was at fault (an unbalanced quote, bad syntax), so the
+// reader is told to fix the query rather than shown SQLite's message.
+func queryError(err error) error {
+	msg := err.Error()
+	for _, s := range []string{"fts5", "unterminated string", "syntax error"} {
+		if strings.Contains(msg, s) {
+			return ErrInvalidQuery
+		}
+	}
+	return fmt.Errorf("fts query: %w", err)
 }

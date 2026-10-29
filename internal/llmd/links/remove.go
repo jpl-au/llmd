@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
@@ -54,7 +56,7 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 	}
 
 	if len(keysToDelete) == 0 {
-		return ErrNotFound
+		return errs.New(ErrNotFound, "%s has no link to %s.", from, to)
 	}
 
 	// Soft delete the matching links in a single transaction.
@@ -76,15 +78,13 @@ func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error
 	}
 
 	if l.bus != nil {
-		if err := l.bus.Emit(ctx, events.Event{
+		l.bus.Emit(ctx, events.Event{
 			Type:      events.LinkRemoved,
 			Path:      relation,
 			Author:    opts.Author,
 			Timestamp: now,
 			Metadata:  map[string]any{"to": toPath, "label": opts.Label},
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return nil

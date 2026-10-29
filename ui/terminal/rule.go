@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ruleColumn  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
+	ruleColumn  = lipgloss.NewStyle().Bold(true)
 	ruleAgent   = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
 	ruleSuccess = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	ruleFailure = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))

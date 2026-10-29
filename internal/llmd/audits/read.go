@@ -6,6 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/jpl-au/llmd/internal/errs"
 )
 
 // Read returns a single non-deleted audit by ID.
@@ -22,7 +24,7 @@ func (a *Audits) Read(ctx context.Context, id string) (*Audit, error) {
 	}
 	aud, err := scanAudit(row)
 	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
+		return nil, errs.New(ErrNotFound, "no audit %s.", id)
 	}
 	return aud, err
 }

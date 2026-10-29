@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/jpl-au/llmd/sdk"
 	"github.com/jpl-au/llmd/ui"
 	"github.com/jpl-au/llmd/ui/terminal"
@@ -50,7 +52,7 @@ func ruleCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "unset":
 		return ruleUnset(ctx, args)
 	default:
-		return nil, fmt.Errorf("rule: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "rule: unknown subcommand %s. Run llmd rule --help to list them.", sub)
 	}
 }
 
@@ -64,7 +66,7 @@ func ruleList(ctx sdk.Context, _ []string) (sdk.Response, error) {
 	}
 
 	views := ui.NewRuleViews(rs)
-	return sdk.Result{Text: terminal.RenderRules(views), Data: rs}, nil
+	return sdk.Result{Text: ruleText(ctx, terminal.RenderRules(views)), Data: rs}, nil
 }
 
 var ruleSetFlags = []sdk.Flag{
@@ -81,7 +83,7 @@ func ruleSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("rule set: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("rule set: %w: column name", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "rule set: a column name is required.")
 	}
 
 	column := positional[0]
@@ -117,12 +119,12 @@ func ruleSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	view := ui.NewRuleView(column, rule)
-	return sdk.Result{Text: terminal.RenderRule(view), Data: rule}, nil
+	return sdk.Result{Text: ruleText(ctx, terminal.RenderRule(view)), Data: rule}, nil
 }
 
 func ruleUnset(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("rule unset: %w: column name", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "rule unset: a column name is required.")
 	}
 
 	column := args[0]
@@ -137,5 +139,14 @@ func ruleUnset(ctx sdk.Context, args []string) (sdk.Response, error) {
 	rule := rs[column]
 
 	view := ui.NewRuleView(column, rule)
-	return sdk.Result{Text: terminal.RenderRule(view), Data: rule}, nil
+	return sdk.Result{Text: ruleText(ctx, terminal.RenderRule(view)), Data: rule}, nil
+}
+
+// ruleText keeps the rules view's colours for a terminal and drops
+// them for anyone else: MCP and HTTP once received the escape codes.
+func ruleText(ctx sdk.Context, styled string) string {
+	if ctx.TTY {
+		return styled
+	}
+	return ansi.Strip(styled)
 }

@@ -89,13 +89,13 @@ type DocumentStore interface {
 // that). Returned by List. CreatedAt is a Unix timestamp. Deleted is
 // true for soft-deleted documents (only visible with ListOpts.Deleted).
 type Doc struct {
-	Key       string
-	Path      string
-	Version   int
-	Author    string
-	Message   string
-	CreatedAt int64
-	Deleted   bool
+	Key       string `json:"key"`
+	Path      string `json:"path"`
+	Version   int    `json:"version"`
+	Author    string `json:"author"`
+	Message   string `json:"message"`
+	CreatedAt int64  `json:"created_at"`
+	Deleted   bool   `json:"deleted"`
 }
 
 // ReadOpts configures a Read operation.
@@ -215,45 +215,45 @@ type GrepOpts struct {
 //	GrepSnippets: Path, Text (with highlights)
 type GrepHit struct {
 	// Path is the document path.
-	Path string
+	Path string `json:"path"`
 
 	// Line is the 1-indexed line number (GrepLines, GrepSections).
-	Line int
+	Line int `json:"line"`
 
 	// Column is the 0-indexed byte position in the line (GrepLines).
-	Column int
+	Column int `json:"column"`
 
 	// Text contains the matched content.
-	Text string
+	Text string `json:"text"`
 
 	// Before contains context lines before the match (GrepLines).
-	Before []string
+	Before []string `json:"before"`
 
 	// After contains context lines after the match (GrepLines).
-	After []string
+	After []string `json:"after"`
 
 	// Section is the markdown heading text (GrepSections).
-	Section string
+	Section string `json:"section"`
 }
 
 // Version is a single entry in a document's version history.
 // Number is the 1-indexed version number. CreatedAt is a Unix timestamp.
 type Version struct {
-	Path      string // document path, resolved when history was requested by key
-	Number    int
-	Author    string
-	Message   string
-	CreatedAt int64
+	Path      string `json:"path"` // document path, resolved when history was requested by key
+	Number    int    `json:"number"`
+	Author    string `json:"author"`
+	Message   string `json:"message"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 // VacuumResult contains the counts from a vacuum operation.
 type VacuumResult struct {
-	Documents int64
-	Tags      int64
-	Links     int64
-	Messages  int64    // queue messages older than the configured retention
-	Paths     []string // documents purged, or that would be, in path order
-	DryRun    bool     // nothing was changed
+	Documents int64    `json:"documents"`
+	Tags      int64    `json:"tags"`
+	Links     int64    `json:"links"`
+	Messages  int64    `json:"messages"` // queue messages older than the configured retention
+	Paths     []string `json:"paths"`    // documents purged, or that would be, in path order
+	DryRun    bool     `json:"dry_run"`  // nothing was changed
 }
 
 // VacuumOpts narrows a vacuum. DryRun reports what would be purged
@@ -274,10 +274,10 @@ type ImportOpts struct {
 
 // ImportResult contains the results of a bulk import.
 type ImportResult struct {
-	Created []string
-	Updated []string
-	Skipped []string
-	Errors  []string // "path: reason" for files that could not be imported
+	Created []string `json:"created"`
+	Updated []string `json:"updated"`
+	Skipped []string `json:"skipped"`
+	Errors  []string `json:"errors"` // "path: reason" for files that could not be imported
 }
 
 // ExportOpts configures a bulk export operation.
@@ -287,7 +287,7 @@ type ExportOpts struct {
 
 // ExportResult contains the results of a bulk export.
 type ExportResult struct {
-	Exported []string
-	Skipped  []string
-	Errors   []string // "path: reason" for documents that could not be exported
+	Exported []string `json:"exported"`
+	Skipped  []string `json:"skipped"`
+	Errors   []string `json:"errors"` // "path: reason" for documents that could not be exported
 }

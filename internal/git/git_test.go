@@ -86,13 +86,13 @@ func TestAvailable(t *testing.T) {
 		wantErr string
 	}{
 		{"inside repo", testRepo, ""},
-		{"outside repo", chdirTemp, "not in a git repository"},
+		{"outside repo", chdirTemp, "this is not a git repository."},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup(t)
-			err := New().Available()
+			err := New(0).Available()
 			var got string
 			if err != nil {
 				got = err.Error()
@@ -130,7 +130,7 @@ func TestBranch(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir)
 			}
-			got, err := New().Branch()
+			got, err := New(0).Branch()
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Branch() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -175,7 +175,7 @@ func TestDefaultBranch(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir)
 			}
-			got, err := New().DefaultBranch()
+			got, err := New(0).DefaultBranch()
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("DefaultBranch() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -198,7 +198,7 @@ func TestCommits(t *testing.T) {
 		{name: "two ahead", setup: featureWithCommits, base: "main", branch: "feature", want: 2},
 		// No commits ahead of main on main itself.
 		{name: "same branch", base: "main", branch: "main", want: 0},
-		{name: "unknown branch", base: "main", branch: "nope", wantErr: `branch "nope" not found in git`},
+		{name: "unknown branch", base: "main", branch: "nope", wantErr: `git has no branch nope.`},
 	}
 
 	for _, tt := range tests {
@@ -207,7 +207,7 @@ func TestCommits(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir)
 			}
-			got, err := New().Commits(tt.base, tt.branch)
+			got, err := New(0).Commits(tt.base, tt.branch)
 			if tt.wantErr != "" {
 				if err == nil || err.Error() != tt.wantErr {
 					t.Fatalf("Commits(%q, %q) error = %v, want %q", tt.base, tt.branch, err, tt.wantErr)
@@ -237,7 +237,7 @@ func TestCheckoutNew(t *testing.T) {
 			name:    "duplicate branch",
 			setup:   func(t *testing.T, dir string) { gitRun(t, dir, "branch", "task/my-feature") },
 			branch:  "task/my-feature",
-			wantErr: `branch "task/my-feature" already exists`,
+			wantErr: `the branch task/my-feature already exists.`,
 		},
 		{name: "invalid name", branch: "bad..name", wantErr: "git checkout -b: "},
 	}
@@ -248,7 +248,7 @@ func TestCheckoutNew(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir)
 			}
-			g := New()
+			g := New(0)
 			err := g.CheckoutNew(tt.branch)
 			if tt.wantErr != "" {
 				if err == nil || !strings.HasPrefix(err.Error(), tt.wantErr) {
@@ -294,7 +294,7 @@ func TestRevCount(t *testing.T) {
 			wantAhead:  2,
 			wantBehind: 1,
 		},
-		{name: "unknown branch", branch: "nope", wantErr: `branch "nope" not found in git`},
+		{name: "unknown branch", branch: "nope", wantErr: `git has no branch nope.`},
 	}
 
 	for _, tt := range tests {
@@ -303,7 +303,7 @@ func TestRevCount(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir)
 			}
-			ahead, behind, err := New().RevCount("main", tt.branch)
+			ahead, behind, err := New(0).RevCount("main", tt.branch)
 			if tt.wantErr != "" {
 				if err == nil || err.Error() != tt.wantErr {
 					t.Fatalf("RevCount(main, %q) error = %v, want %q", tt.branch, err, tt.wantErr)
@@ -338,7 +338,7 @@ func TestFiles(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir)
 			}
-			got, err := New().Files("main", tt.branch)
+			got, err := New(0).Files("main", tt.branch)
 			if err != nil {
 				t.Fatalf("Files(main, %q) error = %v", tt.branch, err)
 			}
@@ -371,7 +371,7 @@ func TestDiff(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir)
 			}
-			got, err := New().Diff("main", tt.branch, tt.opts)
+			got, err := New(0).Diff("main", tt.branch, tt.opts)
 			if err != nil {
 				t.Fatalf("Diff(main, %q, %+v) error = %v", tt.branch, tt.opts, err)
 			}
@@ -471,7 +471,7 @@ func TestWorktreeCreate(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir, path)
 			}
-			g := New()
+			g := New(0)
 			err := g.WorktreeCreate(path, tt.branch)
 			if tt.wantReason != "" {
 				checkWorktreeError(t, "WorktreeCreate", err, "git worktree create: ", tt.wantReason)
@@ -526,7 +526,7 @@ func TestWorktreeAdd(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir, path)
 			}
-			g := New()
+			g := New(0)
 			err := g.WorktreeAdd(path, tt.branch)
 			if tt.wantReason != "" {
 				checkWorktreeError(t, "WorktreeAdd", err, "git worktree add: ", tt.wantReason)
@@ -558,7 +558,7 @@ func TestWorktreeRemove(t *testing.T) {
 		{
 			name: "removes worktree",
 			setup: func(t *testing.T, _, path string) {
-				if err := New().WorktreeCreate(path, "feature"); err != nil {
+				if err := New(0).WorktreeCreate(path, "feature"); err != nil {
 					t.Fatalf("WorktreeCreate(%q, feature) error = %v", path, err)
 				}
 			},
@@ -580,7 +580,7 @@ func TestWorktreeRemove(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t, dir, path)
 			}
-			err := New().WorktreeRemove(path)
+			err := New(0).WorktreeRemove(path)
 			if tt.wantReason != "" {
 				checkWorktreeError(t, "WorktreeRemove", err, "git worktree remove: ", tt.wantReason)
 			} else if err != nil {
@@ -624,7 +624,7 @@ func TestBranchError(t *testing.T) {
 				return err
 			},
 			branch: "nope",
-			want:   `branch "nope" not found in git`,
+			want:   `git has no branch nope.`,
 		},
 		{
 			name: "other stderr",
@@ -669,6 +669,41 @@ func TestBranchError(t *testing.T) {
 			}
 			if tt.wantWrap != nil && !errors.Is(got, tt.wantWrap) {
 				t.Errorf("errors.Is(branchError(%v, %q), %v) = false, want true", in, tt.branch, tt.wantWrap)
+			}
+		})
+	}
+}
+
+// TestOptionLikeRefs checks that a ref or path starting with "-" is
+// refused before git runs: "--output=<file>" as a base once made git
+// diff write that file, and a URL query could supply it.
+func TestOptionLikeRefs(t *testing.T) {
+	dir := testRepo(t)
+	written := filepath.Join(t.TempDir(), "written")
+	g := New(0)
+
+	calls := []struct {
+		name string
+		call func() error
+	}{
+		{"Diff base", func() error { _, err := g.Diff("--output="+written, "main", sdk.DiffOpts{}); return err }},
+		{"Diff branch", func() error { _, err := g.Diff("main", "--output="+written, sdk.DiffOpts{}); return err }},
+		{"Files", func() error { _, err := g.Files("--output="+written, "main"); return err }},
+		{"Commits", func() error { _, err := g.Commits("--output="+written, "main"); return err }},
+		{"RevCount", func() error { _, _, err := g.RevCount("--output="+written, "main"); return err }},
+		{"CheckoutNew", func() error { return g.CheckoutNew("--orphan") }},
+		{"WorktreeAdd path", func() error { return g.WorktreeAdd("--detach", "main") }},
+		{"WorktreeCreate branch", func() error { return g.WorktreeCreate(filepath.Join(dir, "wt"), "-x") }},
+		{"WorktreeRemove", func() error { return g.WorktreeRemove("--force") }},
+	}
+	for _, tt := range calls {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.call(); !errors.Is(err, sdk.ErrInvalidArg) {
+				t.Errorf("%s error = %v, want %v", tt.name, err, sdk.ErrInvalidArg)
+			}
+			matches, _ := filepath.Glob(written + "*")
+			if len(matches) > 0 {
+				t.Errorf("%s let git write %v", tt.name, matches)
 			}
 		})
 	}

@@ -74,16 +74,14 @@ func (a *Audits) Add(ctx context.Context, opts AddOptions) (*Audit, error) {
 	}
 
 	if a.bus != nil {
-		if err := a.bus.Emit(ctx, events.Event{
+		a.bus.Emit(ctx, events.Event{
 			Type:      events.AuditCreated,
 			Path:      opts.Target,
 			Key:       id,
 			Author:    opts.Author,
 			Timestamp: now,
 			Metadata:  map[string]any{"assignee": opts.Assignee, "status": status},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return result, nil

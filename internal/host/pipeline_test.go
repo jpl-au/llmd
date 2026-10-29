@@ -34,6 +34,18 @@ func setRule(t *testing.T, c sdk.Context, column string, rule sdk.ColumnRule) {
 	}
 }
 
+// setGhostRule leaves the review column's rule naming an agent whose
+// configuration is gone: rule set refuses an unknown agent, but one
+// can still be removed after its rule was set.
+func setGhostRule(t *testing.T, c sdk.Context) {
+	t.Helper()
+	registerAgent(t, c, "ghost")
+	setRule(t, c, "review", sdk.ColumnRule{Agent: "ghost", Success: "approval", Failure: "blocked"})
+	if err := c.Agents.Remove("ghost"); err != nil {
+		t.Fatalf("Agents.Remove(ghost) error = %v", err)
+	}
+}
+
 // registerAgent registers an agent whose command is the running test
 // binary, which exists on every platform, so Spawn passes the command
 // lookup and reaches the git check.
@@ -43,7 +55,7 @@ func registerAgent(t *testing.T, c sdk.Context, name string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.Agents.Register(sdk.AgentConfig{Name: name, Command: exe}, "alice"); err != nil {
+	if err := c.Agents.Register(sdk.AgentConfig{Name: name, Command: exe}); err != nil {
 		t.Fatalf("Agents.Register(%q) error = %v", name, err)
 	}
 }
@@ -97,8 +109,8 @@ func TestPipelineHandleEvent(t *testing.T) {
 		{
 			name: "ignores non-task events",
 			setup: func(t *testing.T, _ *Host, c sdk.Context, _ string) {
-				setRule(t, c, "review", agentRule)
 				registerAgent(t, c, agent)
+				setRule(t, c, "review", agentRule)
 			},
 			event: func(key string) pkgevents.Event {
 				return pkgevents.Event{Type: pkgevents.DocumentWritten, Key: key, Path: "docs/a", Metadata: map[string]any{"to": "review"}}
@@ -107,8 +119,8 @@ func TestPipelineHandleEvent(t *testing.T) {
 		{
 			name: "ignores a move without a destination",
 			setup: func(t *testing.T, _ *Host, c sdk.Context, _ string) {
-				setRule(t, c, "review", agentRule)
 				registerAgent(t, c, agent)
+				setRule(t, c, "review", agentRule)
 			},
 			event: func(key string) pkgevents.Event {
 				return pkgevents.Event{Type: pkgevents.TaskMoved, Key: key, Author: "alice"}
@@ -151,8 +163,8 @@ func TestPipelineHandleEvent(t *testing.T) {
 		{
 			name: "agent already running",
 			setup: func(t *testing.T, h *Host, c sdk.Context, key string) {
-				setRule(t, c, "review", agentRule)
 				registerAgent(t, c, agent)
+				setRule(t, c, "review", agentRule)
 				seedRun(t, h, agents.RecordOpts{TaskKey: key, Agent: agent})
 			},
 			event: func(key string) pkgevents.Event {
@@ -163,8 +175,8 @@ func TestPipelineHandleEvent(t *testing.T) {
 		{
 			name: "finished run does not block a new spawn",
 			setup: func(t *testing.T, h *Host, c sdk.Context, key string) {
-				setRule(t, c, "review", agentRule)
 				registerAgent(t, c, agent)
+				setRule(t, c, "review", agentRule)
 				seedRun(t, h, agents.RecordOpts{TaskKey: key, Agent: agent})
 				if err := c.Agents.Complete(key, 0); err != nil {
 					t.Fatalf("Agents.Complete(%q) error = %v", key, err)
@@ -179,7 +191,7 @@ func TestPipelineHandleEvent(t *testing.T) {
 		{
 			name: "missing agent config",
 			setup: func(t *testing.T, _ *Host, c sdk.Context, _ string) {
-				setRule(t, c, "review", sdk.ColumnRule{Agent: "ghost", Success: "approval", Failure: "blocked"})
+				setGhostRule(t, c)
 			},
 			event: func(key string) pkgevents.Event {
 				return pkgevents.Event{Type: pkgevents.TaskMoved, Key: key, Author: "alice", Metadata: map[string]any{"to": "review"}}
@@ -188,8 +200,8 @@ func TestPipelineHandleEvent(t *testing.T) {
 		{
 			name: "missing task",
 			setup: func(t *testing.T, _ *Host, c sdk.Context, _ string) {
-				setRule(t, c, "review", agentRule)
 				registerAgent(t, c, agent)
+				setRule(t, c, "review", agentRule)
 			},
 			event: func(string) pkgevents.Event {
 				return pkgevents.Event{Type: pkgevents.TaskMoved, Key: "nosuchtask", Author: "alice", Metadata: map[string]any{"to": "review"}}
@@ -198,8 +210,8 @@ func TestPipelineHandleEvent(t *testing.T) {
 		{
 			name: "spawn attempted for an agent column",
 			setup: func(t *testing.T, _ *Host, c sdk.Context, _ string) {
-				setRule(t, c, "review", agentRule)
 				registerAgent(t, c, agent)
+				setRule(t, c, "review", agentRule)
 			},
 			event: func(key string) pkgevents.Event {
 				return pkgevents.Event{Type: pkgevents.TaskMoved, Key: key, Author: "alice", Metadata: map[string]any{"to": "review"}}
@@ -241,7 +253,7 @@ func TestPipelineHandleEvent(t *testing.T) {
 func TestPipelineFailedSpawnKeepsMove(t *testing.T) {
 	h := TestSetup(t, TestWorkdir)
 	c := h.Context(t.Context(), "alice")
-	setRule(t, c, "review", sdk.ColumnRule{Agent: "ghost", Success: "approval", Failure: "blocked"})
+	setGhostRule(t, c)
 	task := addTask(t, c, "Reviewed", spec, sdk.TaskAddOpts{Author: "alice"})
 
 	if err := c.Tasks.Move(task.Key, "review", "alice"); err != nil {

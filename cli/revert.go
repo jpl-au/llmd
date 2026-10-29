@@ -31,7 +31,7 @@ func revert(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("revert: %w", err)
 	}
 	if len(positional) < 2 {
-		return nil, fmt.Errorf("revert: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "revert: a path and a version are required.")
 	}
 
 	path := positional[0]
@@ -39,7 +39,7 @@ func revert(ctx sdk.Context, args []string) (sdk.Response, error) {
 	versionStr := strings.TrimPrefix(positional[1], "v")
 	version, err := strconv.Atoi(versionStr)
 	if err != nil {
-		return nil, fmt.Errorf("revert: %w: %s", sdk.ErrInvalidArg, positional[1])
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "revert: %s is not a version number.", positional[1])
 	}
 	message := flags.String("message")
 

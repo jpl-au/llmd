@@ -50,7 +50,7 @@ func TestTaskNext(t *testing.T) {
 			drain:       2,
 			args:        []string{"next"},
 			wantErr:     sdk.ErrNoneReady,
-			wantErrText: []string{"no task ready in up-next"},
+			wantErrText: []string{"no task is ready in up-next."},
 		},
 		{
 			name:       "columns and assignee are flags",

@@ -15,6 +15,7 @@ import (
 	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/assets/platform"
 	"github.com/jpl-au/llmd/internal/config"
+	"github.com/jpl-au/llmd/internal/errs"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/internal/llmd/audits"
@@ -44,13 +45,13 @@ func agentErr(err error) error {
 	}
 	switch {
 	case errors.Is(err, agents.ErrNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, agents.ErrRunNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, agents.ErrRunning):
-		return fmt.Errorf("%w: %w", sdk.ErrAgentRunning, err)
+		return errs.Mark(sdk.ErrAgentRunning, err)
 	case errors.Is(err, agents.ErrNotRunning):
-		return fmt.Errorf("%w: %w", sdk.ErrAgentNotRunning, err)
+		return errs.Mark(sdk.ErrAgentNotRunning, err)
 	default:
 		return err
 	}
@@ -78,13 +79,13 @@ func runToSDK(r *agents.Run) *sdk.AgentRun {
 }
 
 // Register adds or updates an agent configuration.
-func (a *agentAPI) Register(cfg sdk.AgentConfig, author string) error {
-	return a.store.Agents.Register(a.ctx, cfg, author)
+func (a *agentAPI) Register(cfg sdk.AgentConfig) error {
+	return a.store.Agents.Register(a.ctx, cfg)
 }
 
 // Remove deletes an agent configuration by name.
-func (a *agentAPI) Remove(name, author string) error {
-	return agentErr(a.store.Agents.Remove(a.ctx, name, author))
+func (a *agentAPI) Remove(name string) error {
+	return agentErr(a.store.Agents.Remove(a.ctx, name))
 }
 
 // Agent returns a single agent configuration by name.
@@ -116,7 +117,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, fmt.Errorf("checking readiness: %w", err)
 	}
 	if !ready {
-		return nil, fmt.Errorf("%w: %s - task chain %s shows what it waits on", sdk.ErrNotReady, taskKey, taskKey)
+		return nil, sdk.Errorf(sdk.ErrNotReady, "%s is waiting on other tasks. Run llmd task chain %s to see them.", taskKey, taskKey)
 	}
 
 	// Look up agent configuration.
@@ -153,6 +154,14 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
+	// A task runs one agent at a time. Refuse here, before anything
+	// is created: a refusal after the worktree and the process existed
+	// once removed the running agent's worktree. Record checks again,
+	// atomically, for two spawns racing past this point.
+	if prev, err := a.store.Agents.RunByTask(a.ctx, taskKey); err == nil && prev.Status == "running" {
+		return nil, agentErr(agents.Running(taskKey))
+	}
+
 	// Resolve the command binary.
 	cmdPath, err := exec.LookPath(cfg.Command)
 	if err != nil {
@@ -174,7 +183,11 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// Auditors review existing work - they don't need an isolated
 	// worktree. They run from the main working directory and read
 	// the developer's diff via task commands.
+	// created is whether this spawn made the worktree: only then may a
+	// failure below remove it. A reused worktree belongs to an earlier
+	// pipeline step, or to an agent that is still running.
 	var absWorktree string
+	created := false
 	if cfg.Role == "auditor" {
 		absWorktree, err = filepath.Abs(".")
 		if err != nil {
@@ -200,6 +213,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 				if err := a.git.WorktreeCreate(absWorktree, branch); err != nil {
 					return nil, fmt.Errorf("creating worktree: %w", err)
 				}
+				created = true
 				if err := a.store.Tasks.Set(a.ctx, taskKey, author, tasks.SetOptions{
 					Branch: &branch,
 				}); err != nil {
@@ -209,6 +223,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 				if err := a.git.WorktreeAdd(absWorktree, branch); err != nil {
 					return nil, fmt.Errorf("creating worktree: %w", err)
 				}
+				created = true
 			}
 		}
 	}
@@ -310,7 +325,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		OnSuccess: opts.OnSuccess,
 		OnFailure: opts.OnFailure,
 	}); err != nil {
-		if cfg.Role != "auditor" {
+		if created {
 			if rmErr := a.git.WorktreeRemove(absWorktree); rmErr != nil {
 				slog.Warn("cleaning up worktree after config failure", "path", absWorktree, "error", rmErr)
 			}
@@ -338,7 +353,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	detach(cmd)
 
 	if err := cmd.Start(); err != nil {
-		if cfg.Role != "auditor" {
+		if created {
 			if rmErr := a.git.WorktreeRemove(absWorktree); rmErr != nil {
 				slog.Warn("cleaning up worktree after spawn failure", "path", absWorktree, "error", rmErr)
 			}
@@ -359,7 +374,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		if killErr := cmd.Process.Kill(); killErr != nil {
 			slog.Warn("killing agent after record failure", "pid", cmd.Process.Pid, "error", killErr)
 		}
-		if cfg.Role != "auditor" {
+		if created {
 			if rmErr := a.git.WorktreeRemove(absWorktree); rmErr != nil {
 				slog.Warn("cleaning up worktree after record failure", "path", absWorktree, "error", rmErr)
 			}
@@ -480,7 +495,7 @@ func (a *agentAPI) Stop(taskKey, author string) error {
 		return agentErr(err)
 	}
 	if r.Status != "running" {
-		return agentErr(fmt.Errorf("%w: %s (status: %s)", agents.ErrNotRunning, r.Key, r.Status))
+		return agentErr(errs.New(agents.ErrNotRunning, "agent run %s is %s, not running.", r.Key, r.Status))
 	}
 
 	// Gracefully terminate the process. On Unix this sends SIGTERM; on

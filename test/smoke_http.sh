@@ -142,7 +142,7 @@ _smoke_http() {
         -H "Output: json" -d "# Smoke task
 
 Spec body." 2>&1)
-    key=$(echo "$out" | sed -n 's/.*"Key": *"\([a-z0-9]\{10\}\)".*/\1/p' | head -1)
+    key=$(echo "$out" | sed -n 's/.*"key": *"\([a-z0-9]\{10\}\)".*/\1/p' | head -1)
     if [ -n "$key" ]; then
         log_pass "POST /task/add/<title> creates a task"
     else

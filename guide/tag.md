@@ -24,7 +24,8 @@ llmd tag -f <name>             List documents carrying a tag
 - Adding or removing a tag needs an author; listing and finding do not.
 - The document must exist. Adding a tag it already has, or removing
   one it does not have, is an error.
-- Tags are plain strings with no hierarchy.
+- Tag names are lowercase letters, digits and hyphens, up to 64
+  characters, with no hierarchy: `needs-review`, not `a/b`.
 - Listing prints one item per line: `name (count)` for all tags, the
   tag names for a document, the paths for `-f`.
 

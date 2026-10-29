@@ -3,6 +3,7 @@ package agents
 import (
 	"errors"
 	"slices"
+	"sync"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/sqlite/sqlitetest"
@@ -176,6 +177,39 @@ func TestRecord(t *testing.T) {
 // TestComplete covers the terminal "completed" and "failed" events,
 // the stats they carry, and rejection when no run is active. The
 // materialised view is checked through RunByTask.
+// TestRecordConcurrent checks that concurrent spawns for one task
+// start exactly one run: the running check once sat outside the insert
+// transaction, so several could pass it. Run with -race.
+func TestRecordConcurrent(t *testing.T) {
+	a := setup(t)
+	const spawns = 8
+
+	errs := make([]error, spawns)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range spawns {
+		wg.Go(func() {
+			<-start
+			_, errs[i] = a.Record(t.Context(), RecordOpts{TaskKey: "task000001", Agent: "claude", Author: "alice"})
+		})
+	}
+	close(start)
+	wg.Wait()
+
+	started := 0
+	for i, err := range errs {
+		switch {
+		case err == nil:
+			started++
+		case !errors.Is(err, ErrRunning):
+			t.Errorf("Record() spawn %d error = %v, want nil or ErrRunning", i, err)
+		}
+	}
+	if started != 1 {
+		t.Errorf("Record() started %d runs for one task, want 1", started)
+	}
+}
+
 func TestComplete(t *testing.T) {
 	cost := 0.50
 	inTok := 1000

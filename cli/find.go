@@ -33,7 +33,7 @@ func find(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("find: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("find: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "find: a search query is required.")
 	}
 
 	query := positional[0]
@@ -56,15 +56,7 @@ func find(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	// Apply the cap: --all beats --limit beats the default.
-	limit := flags.Int("limit")
-	if flags.Bool("all") {
-		limit = 0
-	} else if limit == 0 {
-		limit = defaultListLimit
-	}
-	if limit > 0 && len(paths) > limit {
-		paths = paths[:limit]
-	}
+	paths, hidden := capped(paths, flags)
 
-	return sdk.Result{Text: strings.Join(paths, "\n"), Data: paths}, nil
+	return sdk.Result{Text: strings.Join(paths, "\n"), Data: paths, Note: cappedNote(hidden)}, nil
 }

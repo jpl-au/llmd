@@ -83,12 +83,12 @@ func TestAuditCmd(t *testing.T) {
 	}{
 		{name: "no subcommand", author: "alice", wantErr: sdk.ErrMissingArg},
 		{name: "unknown subcommand", author: "alice", args: []string{"bogus"}, wantMsg: "unknown subcommand"},
-		{name: "add needs author", args: []string{"add", "docs/a", "x"}, wantMsg: "author required"},
-		{name: "reply needs author", args: []string{"reply", "abc", "x"}, wantMsg: "author required"},
-		{name: "resolve needs author", args: []string{"resolve", "abc"}, wantMsg: "author required"},
-		{name: "rm needs author", args: []string{"rm", "abc"}, wantMsg: "author required"},
-		{name: "restore needs author", args: []string{"restore", "abc"}, wantMsg: "author required"},
-		{name: "status needs author", args: []string{"status"}, wantMsg: "author required"},
+		{name: "add needs author", args: []string{"add", "docs/a", "x"}, wantMsg: "an author is required."},
+		{name: "reply needs author", args: []string{"reply", "abc", "x"}, wantMsg: "an author is required."},
+		{name: "resolve needs author", args: []string{"resolve", "abc"}, wantMsg: "an author is required."},
+		{name: "rm needs author", args: []string{"rm", "abc"}, wantMsg: "an author is required."},
+		{name: "restore needs author", args: []string{"restore", "abc"}, wantMsg: "an author is required."},
+		{name: "status needs author", args: []string{"status"}, wantMsg: "an author is required."},
 	}
 
 	for _, tt := range tests {

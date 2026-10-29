@@ -26,6 +26,11 @@ llmd write <path> --message "why" < file.md     Record a version message
 - An existing document gets a new version; a new path is created at
   version 1. Nothing is overwritten: `llmd history`, `llmd diff` and
   `llmd revert` reach every earlier version.
+- Writing to a deleted path continues that document: its earlier
+  versions come back with it and the write is the next version.
+  Writing its last content back restores it without a new version. To
+  reuse the path for something new, `llmd vacuum` the deleted document
+  first.
 - Paths look like `notes/plan`: forward slashes, no leading slash. A
   single word is a fine path.
 

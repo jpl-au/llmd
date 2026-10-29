@@ -2,76 +2,85 @@ package documents
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+
+	"github.com/jpl-au/llmd/internal/errs"
 
 	"github.com/jpl-au/llmd/internal/clock"
 
+	"github.com/jpl-au/llmd/internal/llmd/fts"
 	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Move renames a document from src to dst.
-// All versions are moved to the new path.
+// All versions are moved to the new path. src must be live (ErrDeleted,
+// ErrNotFound otherwise) and dst must have no versions (ErrExists).
 func (d *Documents) Move(ctx context.Context, src, dst string, opts MoveOptions) error {
 	if err := opts.Validate(); err != nil {
 		return err
 	}
 
-	// Check destination doesn't exist
-	ok, err := d.Exists(ctx, dst)
+	type moved struct {
+		key     string
+		version int
+	}
+	result, err := d.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		if err := CheckTx(ctx, tx, src); err != nil {
+			return nil, err
+		}
+		// The destination must be free. A deleted document there still
+		// owns its versions: merging two histories under one path would
+		// make neither make sense.
+		switch err := CheckTx(ctx, tx, dst); {
+		case err == nil:
+			return nil, errs.New(ErrExists, "%s already exists.", dst)
+		case errors.Is(err, ErrDeleted):
+			return nil, errs.New(ErrExists, "%s is a deleted document. Restore it, or vacuum to purge it.", dst)
+		case !errors.Is(err, ErrNotFound):
+			return nil, err
+		}
+
+		// The row the index holds for src is the latest live version,
+		// which is also what the event reports.
+		before, err := fts.Live(ctx, tx, src)
+		if err != nil {
+			return nil, err
+		}
+		var m moved
+		if err := tx.QueryRowContext(ctx, `
+			SELECT key, version FROM content WHERE id = ?
+		`, before.ID).Scan(&m.key, &m.version); err != nil {
+			return nil, fmt.Errorf("reading document version: %w", err)
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE content SET path = ?
+			WHERE namespace = ? AND path = ?
+		`, dst, namespace, src); err != nil {
+			return nil, fmt.Errorf("moving document: %w", err)
+		}
+
+		return m, fts.Sync(ctx, tx, before, dst)
+	}).WithContext(ctx).Exec()
 	if err != nil {
 		return err
 	}
-	if ok {
-		return fmt.Errorf("%w: %s", ErrExists, dst)
-	}
+	m := result.Value.(moved)
 
-	// Get the latest version info before moving (for the event)
-	var key string
-	var version int
-	row, err := d.db.Query(`
-		SELECT key, version FROM content
-		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
-		ORDER BY version DESC LIMIT 1
-	`, namespace, src).WithContext(ctx).ReadRow()
-	if err != nil {
-		return ErrNotFound
-	}
-	if err := row.Scan(&key, &version); err != nil {
-		return ErrNotFound
-	}
-
-	qr, err := d.db.Query(`
-		UPDATE content SET path = ?
-		WHERE namespace = ? AND path = ?
-	`, dst, namespace, src).WithContext(ctx).Exec()
-	if err != nil {
-		return fmt.Errorf("moving document: %w", err)
-	}
-
-	rows, err := qr.SQLResult.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("checking rows affected: %w", err)
-	}
-	if rows == 0 {
-		return ErrNotFound
-	}
-
-	// Emit event
 	if d.bus != nil {
-		now := clock.Now()
-		if err := d.bus.Emit(ctx, events.Event{
+		d.bus.Emit(ctx, events.Event{
 			Type:      events.DocumentMoved,
 			Path:      dst,
-			Key:       key,
-			Version:   version,
+			Key:       m.key,
+			Version:   m.version,
 			Author:    opts.Author,
-			Timestamp: now,
+			Timestamp: clock.Now(),
 			Metadata: map[string]any{
 				"old_path": src,
 			},
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return nil

@@ -12,13 +12,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/jpl-au/qwr"
 
 	"github.com/jpl-au/llmd/internal/llmd/audit"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/events"
+	"github.com/jpl-au/llmd/internal/llmd/lazy"
 )
 
 // Schema is the DDL for the tasks table and its indices.
@@ -60,14 +60,14 @@ CREATE TABLE IF NOT EXISTS board (
 var DefaultColumns = []string{"backlog", "up-next", "in-progress", "review", "approval", "done", "blocked"}
 
 var (
-	ErrNotFound     = errors.New("task not found")
-	ErrNoSpec       = errors.New("task has no spec")
-	ErrInvalidCol   = errors.New("unknown column")
-	ErrColNotEmpty  = errors.New("column has tasks - move or delete them first")
-	ErrColExists    = errors.New("column already exists")
-	ErrColNotFound  = errors.New("column not found")
-	ErrMissingTitle = errors.New("title is required")
-	ErrCycle        = errors.New("dependency cycle detected")
+	ErrNotFound     = errors.New("the task does not exist.")
+	ErrNoSpec       = errors.New("the task has no spec, so it cannot leave the backlog.")
+	ErrInvalidCol   = errors.New("there is no such column.")
+	ErrColNotEmpty  = errors.New("the column still has tasks. Move or delete them first.")
+	ErrColExists    = errors.New("the column already exists.")
+	ErrColNotFound  = errors.New("there is no such column.")
+	ErrMissingTitle = errors.New("a title is required.")
+	ErrCycle        = errors.New("that dependency would make a cycle.")
 )
 
 // Tasks provides task CRUD, board column management, and audit logging.
@@ -80,8 +80,7 @@ type Tasks struct {
 	audit *audit.Log
 	bus   *events.Bus
 	order Order // ordering within a column; "" means OrderPriority
-	once  sync.Once
-	err   error
+	once  lazy.Once
 }
 
 // New creates a Tasks instance with its dependencies. The db function
@@ -92,20 +91,21 @@ func New(db func() *qwr.Manager, docs *documents.Documents, audit *audit.Log, bu
 
 // ensure opens the work database and creates the tasks table if needed.
 func (t *Tasks) ensure() error {
-	t.once.Do(func() {
-		t.db = t.dbFn()
-		if t.db == nil {
-			t.err = fmt.Errorf("work database not available")
-			return
+	return t.once.Do(func() error {
+		db := t.dbFn()
+		if db == nil {
+			return fmt.Errorf("work database not available")
 		}
-		_, t.err = t.db.Query(Schema).Exec()
-		if t.err != nil {
-			return
+		if _, err := db.Query(Schema).Exec(); err != nil {
+			return err
 		}
 		// Ensure audit table exists for recordTx.
-		t.err = t.audit.Ensure()
+		if err := t.audit.Ensure(); err != nil {
+			return err
+		}
+		t.db = db
+		return nil
 	})
-	return t.err
 }
 
 // ensureBoard inserts the default board if no rows exist yet. A fresh

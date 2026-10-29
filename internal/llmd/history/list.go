@@ -3,9 +3,13 @@ package history
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
+	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
@@ -82,7 +86,12 @@ func (h *History) List(ctx context.Context, path string, opts ...ListOptions) ([
 	}
 
 	if len(results) == 0 {
-		return nil, ErrNotFound
+		// A deleted document's history is behind restore, as its
+		// content is.
+		if err := h.docs.Check(ctx, path); err != nil && !errors.Is(err, documents.ErrNotFound) {
+			return nil, err
+		}
+		return nil, errs.New(ErrNotFound, "%s does not exist.", path)
 	}
 
 	return results, nil

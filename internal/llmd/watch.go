@@ -23,11 +23,13 @@ import (
 //
 // It reads SQLite's data_version on a connection of its own, which
 // advances on every commit that connection did not make. Commits this
-// process makes raise an event on the bus first, so a change seen
-// right after a bus event is taken as our own and not reported; an
-// outside commit landing in the same interval as one of ours is
-// reported with the next outside commit. A work.db that appears while
-// watching is reported as a change to it.
+// process makes also raise an event on the bus, but only after the
+// commit, so a poll can see one of ours before its event arrives. A
+// change is therefore held for one interval and reported only if no
+// event of ours arrived in the meantime; an outside commit landing in
+// the same interval as one of ours is reported with the next outside
+// commit. A work.db that appears while watching is reported as a
+// change to it.
 func (s *Store) Watch(ctx context.Context, interval time.Duration, fn func(db string)) error {
 	if interval <= 0 {
 		return errors.New("watch: interval must be positive")
@@ -44,15 +46,23 @@ func (s *Store) Watch(ctx context.Context, interval time.Duration, fn func(db st
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	var held []string // changes seen last tick, not yet known to be outside
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
 		}
-		// Read the flag once per tick so a change of ours and an
-		// outside change to the other database are judged together.
+		// Read the flag once per tick so changes of ours and outside
+		// changes are judged together. An event of ours that arrived
+		// since the last tick claims the changes held from it too.
 		mine := own.Swap(false)
+		if !mine {
+			for _, db := range held {
+				fn(db)
+			}
+		}
+		held = held[:0]
 		for _, w := range dbs {
 			changed, err := w.poll(ctx)
 			if err != nil {
@@ -60,7 +70,7 @@ func (s *Store) Watch(ctx context.Context, interval time.Duration, fn func(db st
 				continue
 			}
 			if changed && !mine {
-				fn(filepath.Base(w.path))
+				held = append(held, filepath.Base(w.path))
 			}
 		}
 	}

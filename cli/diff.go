@@ -59,7 +59,7 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	showAll := flags.Bool("all")
 
 	if len(paths) == 0 {
-		return nil, fmt.Errorf("diff: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "diff: a path is required.")
 	}
 
 	var source, target string
@@ -71,14 +71,14 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 			return nil, fmt.Errorf("diff: %w", err)
 		}
 		if len(versions) < 2 {
-			return nil, fmt.Errorf("diff: %w: no previous version for %s", sdk.ErrNotFound, paths[0])
+			return nil, sdk.Errorf(sdk.ErrNotFound, "diff: %s has no earlier version to compare with.", paths[0])
 		}
 		source = paths[0] + ":" + strconv.Itoa(versions[1].Number)
 		target = paths[0]
 	case 2:
 		source, target = paths[0], paths[1]
 	default:
-		return nil, fmt.Errorf("diff: %w: expected 1 or 2 paths, got %d", sdk.ErrInvalidArg, len(paths))
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "diff: one or two paths are required, not %d.", len(paths))
 	}
 
 	diffText, added, removed, err := ctx.Documents.Diff(source, target, contextLines)
@@ -104,7 +104,7 @@ func diffCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		}
 	}
 
-	if isTTY() {
+	if ctx.TTY {
 		diffText = colourDiff(diffText)
 	}
 

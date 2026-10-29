@@ -19,7 +19,8 @@ llmd vacuum [--dry-run] [--older-than <age>]
 ## Rules
 
 - An author is required, like every other command that changes the
-  store: `--author`, or one set with `llmd config author`. Over HTTP,
+  store: `--author` for agents and scripts, or the configured author at
+  an interactive terminal. Over HTTP,
   vacuum is a POST request.
 - This cannot be undone. Documents soft-deleted with `llmd rm` are
   removed with their full version history and can no longer be

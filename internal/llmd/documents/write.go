@@ -9,6 +9,7 @@ import (
 
 	"github.com/jpl-au/llmd/internal/clock"
 
+	"github.com/jpl-au/llmd/internal/llmd/fts"
 	"github.com/jpl-au/llmd/internal/llmd/hash"
 	"github.com/jpl-au/llmd/internal/llmd/key"
 	"github.com/jpl-au/llmd/internal/llmd/meta"
@@ -20,8 +21,9 @@ const namespace = "core:document"
 const mime = "text/markdown"
 
 // Write creates or updates a document at the given path. The hash
-// check, version increment, and insert run in a single transaction
-// so concurrent writes cannot produce duplicate version numbers.
+// check, version increment, insert and search index update run in a
+// single transaction so concurrent writes cannot produce duplicate
+// version numbers and the index cannot fall behind the content.
 func (d *Documents) Write(ctx context.Context, path, content string, opts WriteOptions) (*document.Document, error) {
 	result, err := d.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
 		return d.writeInTx(ctx, tx, path, content, opts)
@@ -30,45 +32,87 @@ func (d *Documents) Write(ctx context.Context, path, content string, opts WriteO
 		return nil, err
 	}
 
-	doc := result.Value.(*document.Document)
+	w := result.Value.(written)
 
-	// Emit event after commit so subscribers see committed data.
-	if d.bus != nil {
-		if err := d.bus.Emit(ctx, events.Event{
-			Type:      events.DocumentWritten,
-			Path:      path,
-			Key:       doc.Key,
-			Version:   doc.Version,
-			Author:    opts.Author,
-			Timestamp: doc.CreatedAt,
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
+	// Emit event after commit so subscribers see committed data. A
+	// write that changed nothing is not an event; one that only brought
+	// a deleted document back is a restore.
+	if d.bus != nil && (w.changed || w.restored) {
+		typ, at := events.DocumentWritten, w.doc.CreatedAt
+		if !w.changed {
+			typ, at = events.DocumentRestored, clock.Now()
 		}
+		d.bus.Emit(ctx, events.Event{
+			Type:      typ,
+			Path:      path,
+			Key:       w.doc.Key,
+			Version:   w.doc.Version,
+			Author:    opts.Author,
+			Timestamp: at,
+		})
 	}
 
-	return doc, nil
+	return w.doc, nil
 }
 
-// writeInTx writes a document within an existing transaction.
-func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content string, opts WriteOptions) (*document.Document, error) {
+// written is the result of writeInTx: the document as it now stands,
+// whether the write added a version, and whether it brought a deleted
+// document back without one.
+type written struct {
+	doc      *document.Document
+	changed  bool
+	restored bool
+}
+
+// writeInTx writes a document within an existing transaction and
+// updates the search index on the same transaction.
+func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content string, opts WriteOptions) (written, error) {
 	if err := opts.Validate(); err != nil {
-		return nil, err
+		return written{}, err
 	}
 
 	now := clock.Now()
 	s := hash.XXH3(content)
 
+	before, err := fts.Live(ctx, tx, path)
+	if err != nil {
+		return written{}, err
+	}
+
+	// A document is live or deleted as a whole. Writing to a deleted
+	// path continues that document - same key, next version number -
+	// so its earlier versions come back with it.
+	res, err := tx.ExecContext(ctx, `
+		UPDATE content SET deleted_at = NULL
+		WHERE namespace = ? AND path = ? AND deleted_at IS NOT NULL
+	`, namespace, path)
+	if err != nil {
+		return written{}, fmt.Errorf("restoring earlier versions: %w", err)
+	}
+	revived, err := res.RowsAffected()
+	if err != nil {
+		return written{}, fmt.Errorf("checking rows affected: %w", err)
+	}
+
 	// Check if content is unchanged from latest version
 	var latest string
-	err := tx.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		SELECT hash FROM content
 		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
 		ORDER BY version DESC LIMIT 1
 	`, namespace, path).Scan(&latest)
 
 	if err == nil && latest == s {
-		// Content unchanged, return existing document
-		return d.readInTx(ctx, tx, path)
+		// Content unchanged: no new version. A deleted document
+		// written with its last content is simply restored.
+		w := written{restored: revived > 0}
+		if w.restored {
+			if err := fts.Sync(ctx, tx, before, path); err != nil {
+				return written{}, err
+			}
+		}
+		w.doc, err = d.readInTx(ctx, tx, path)
+		return w, err
 	}
 
 	// Get next version number
@@ -78,7 +122,7 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 		WHERE namespace = ? AND path = ?
 	`, namespace, path).Scan(&max)
 	if err != nil {
-		return nil, fmt.Errorf("getting version: %w", err)
+		return written{}, fmt.Errorf("getting version: %w", err)
 	}
 	next := max + 1
 
@@ -86,7 +130,7 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 	m := meta.Compute(content)
 	meta, err := json.Marshal(m)
 	if err != nil {
-		return nil, fmt.Errorf("marshaling meta: %w", err)
+		return written{}, fmt.Errorf("marshaling meta: %w", err)
 	}
 
 	// Reuse the document's existing key, or generate one for new documents.
@@ -111,7 +155,7 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 			return nil
 		})
 		if err != nil {
-			return nil, fmt.Errorf("choosing a key: %w", err)
+			return written{}, fmt.Errorf("choosing a key: %w", err)
 		}
 	}
 
@@ -124,12 +168,16 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 		opts.Author, opts.Message, opts.Source, mime, string(meta), now)
 
 	if err != nil {
-		return nil, fmt.Errorf("inserting document: %w", err)
+		return written{}, fmt.Errorf("inserting document: %w", err)
+	}
+
+	if err := fts.Sync(ctx, tx, before, path); err != nil {
+		return written{}, err
 	}
 
 	// Note: Events are emitted by caller after transaction commits
 
-	return &document.Document{
+	return written{changed: true, doc: &document.Document{
 		Key:       k,
 		Namespace: namespace,
 		Path:      path,
@@ -142,5 +190,5 @@ func (d *Documents) writeInTx(ctx context.Context, tx *sql.Tx, path, content str
 		MIME:      mime,
 		Meta:      m,
 		CreatedAt: now,
-	}, nil
+	}}, nil
 }

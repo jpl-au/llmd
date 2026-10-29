@@ -33,8 +33,9 @@ Built-in agents: `claude-code`, `gemini`, `aider`. `llmd task start
 
 ## Rules
 
-- Changing anything (`add`, `rm`, `spawn`, `complete`, `stop`) needs
-  an author. `ls`, `config`, `prompt` and `runs` need none.
+- `spawn`, `complete` and `stop` act on a task and need an author.
+  `add` and `rm` only write configuration files, like `llmd config`,
+  and need none; nor do `ls`, `config`, `prompt` and `runs`.
 - `spawn` needs git. It refuses when the task's dependencies are not
   done, and a task can have only one running agent at a time.
 - A spawn creates a branch if the task has none, a worktree at
@@ -120,9 +121,13 @@ Registering an agent creates files on disk:
   developer.md        Developer prompt template
   developer-http.md   Developer HTTP transport template
   tester.md           Tester prompt template
+  tester-http.md      Tester HTTP transport template
   auditor.md          Auditor prompt template
   auditor-http.md     Auditor HTTP transport template
 ```
+
+`settings.json` is written for agents whose platform reads one
+(claude-code); the others get none.
 
 For the built-in agents llmd knows the binary, arguments and prompt
 patterns, and seeds default templates and settings.

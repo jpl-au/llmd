@@ -3,8 +3,8 @@ package host
 import (
 	"context"
 	"errors"
-	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/messages"
 	"github.com/jpl-au/llmd/pkg/model/message"
@@ -30,9 +30,9 @@ func queueErr(err error) error {
 	}
 	switch {
 	case errors.Is(err, messages.ErrNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, messages.ErrOrderViolation):
-		return fmt.Errorf("%w: %w", sdk.ErrOrderViolation, err)
+		return errs.Mark(sdk.ErrOrderViolation, err)
 	default:
 		return err
 	}

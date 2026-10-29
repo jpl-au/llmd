@@ -35,7 +35,7 @@ func TestTaskLink(t *testing.T) {
 		{name: "missing task", args: []string{"link", "nope", "docs/design"}, wantErr: sdk.ErrNotFound},
 		{name: "missing path", args: []string{"link", "{key}"}, wantErr: sdk.ErrMissingArg},
 		{name: "no args", args: []string{"link"}, wantErr: sdk.ErrMissingArg},
-		{name: "no author", noAuthor: true, args: []string{"link", "{key}", "docs/design"}, wantErrText: "author required"},
+		{name: "no author", noAuthor: true, args: []string{"link", "{key}", "docs/design"}, wantErrText: "an author is required."},
 	}
 
 	for _, tt := range tests {

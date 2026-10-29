@@ -11,7 +11,8 @@ llmd mv <source> <destination>
 ## Rules
 
 - An author is required: `--author` for agents and scripts.
-- The source path must exist and the destination path must not.
+- The source must be a live document. The destination must hold no
+  document, live or deleted: restore or vacuum a deleted one first.
 - The full version history moves with the document.
 
 ## Examples

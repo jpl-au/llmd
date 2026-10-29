@@ -16,7 +16,7 @@ type LinkStore interface {
 
 // Link represents a directed relationship between two documents.
 type Link struct {
-	From  string
-	To    string
-	Label string
+	From  string `json:"from"`
+	To    string `json:"to"`
+	Label string `json:"label"`
 }

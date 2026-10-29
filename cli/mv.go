@@ -22,7 +22,7 @@ func mv(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("mv: %w", err)
 	}
 	if len(args) < 2 {
-		return nil, fmt.Errorf("mv: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "mv: a source and a destination are required.")
 	}
 
 	if err := ctx.Documents.Move(args[0], args[1], sdk.MoveOpts{Author: ctx.Author}); err != nil {

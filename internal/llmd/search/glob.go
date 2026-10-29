@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"path"
 	"strings"
+
+	"github.com/jpl-au/llmd/internal/errs"
 )
 
 // Glob searches for documents matching a glob pattern.
@@ -79,7 +81,7 @@ func validateGlob(pattern string) error {
 	test := strings.ReplaceAll(pattern, "**", "*")
 	_, err := path.Match(test, "")
 	if err != nil {
-		return ErrInvalidGlob
+		return errs.New(ErrInvalidGlob, "%s is not a valid glob pattern.", pattern)
 	}
 	return nil
 }

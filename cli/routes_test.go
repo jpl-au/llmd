@@ -57,7 +57,8 @@ func TestRoutesWellFormed(t *testing.T) {
 			}
 			used := make(map[string]bool)
 			for _, a := range rt.Args {
-				if strings.HasPrefix(a, "{") && strings.HasSuffix(a, "}") {
+				// {?name} is a query parameter, not a wildcard.
+				if strings.HasPrefix(a, "{") && !strings.HasPrefix(a, "{?") && strings.HasSuffix(a, "}") {
 					w := a[1 : len(a)-1]
 					used[w] = true
 					if !wild[w] {

@@ -11,9 +11,6 @@ import (
 	"github.com/jpl-au/llmd/sdk"
 )
 
-// guidePageFor maps a command to its guide page when the names differ.
-var guidePageFor = map[string]string{"hook": "hooks"}
-
 // TestGuideShape is the guard for the guide pages' dense-first shape:
 // a title, then one plain paragraph saying what the page covers, before
 // any heading, table or code. A command's page also has a Usage section
@@ -61,9 +58,9 @@ func TestGuideShape(t *testing.T) {
 	}
 
 	for _, cmd := range cmds {
-		page := cmd.Name
-		if p, ok := guidePageFor[page]; ok {
-			page = p
+		page := cmd.GuidePage()
+		if page == "" {
+			continue // no page for this command
 		}
 		if !pages[page] {
 			continue
@@ -103,6 +100,21 @@ func mentionsFlag(text string, f sdk.Flag) bool {
 	return len(f.Name) == 1 && strings.Contains(text, "-"+f.Name)
 }
 
+// TestGuidePointers checks that the page every command's help names
+// ("Details: guide <page>") exists: hook once pointed at a missing
+// "hook" page, and version and extensions at pages never written.
+func TestGuidePointers(t *testing.T) {
+	for _, cmd := range (&CLI{}).Commands() {
+		page := cmd.GuidePage()
+		if page == "" {
+			continue
+		}
+		if _, err := guide.Get(page); err != nil {
+			t.Errorf("%s --help names guide %s, which does not exist: %v", cmd.Name, page, err)
+		}
+	}
+}
+
 // TestGuideFlagsExist is the other direction of TestGuideShape: a
 // long flag a command page documents for its own command must exist
 // in the spec, so a renamed or removed flag does not live on in the
@@ -111,9 +123,9 @@ func mentionsFlag(text string, f sdk.Flag) bool {
 func TestGuideFlagsExist(t *testing.T) {
 	flagRe := regexp.MustCompile(`--([a-z][a-z-]*)`)
 	for _, cmd := range (&CLI{}).Commands() {
-		page := cmd.Name
-		if p, ok := guidePageFor[page]; ok {
-			page = p
+		page := cmd.GuidePage()
+		if page == "" {
+			continue // no page for this command
 		}
 		data, err := os.ReadFile(filepath.Join("..", "guide", page+".md"))
 		if err != nil {

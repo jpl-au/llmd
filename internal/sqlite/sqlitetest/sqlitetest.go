@@ -18,7 +18,7 @@ import (
 func Open(tb testing.TB, name string) *qwr.Manager {
 	tb.Helper()
 	path := filepath.Join(tb.TempDir(), name)
-	db, err := sqlite.Open(path)
+	db, err := sqlite.Open(path, sqlite.Settings{})
 	if err != nil {
 		tb.Fatalf("opening test database %s: %v", path, err)
 	}

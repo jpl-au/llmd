@@ -12,11 +12,11 @@ package audits
 import (
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/jpl-au/qwr"
 
 	"github.com/jpl-au/llmd/internal/llmd/events"
+	"github.com/jpl-au/llmd/internal/llmd/lazy"
 )
 
 // Schema is the DDL for the audits table and its indices.
@@ -45,9 +45,9 @@ CREATE INDEX IF NOT EXISTS idx_audits_created_at ON audits(created_at);
 `
 
 var (
-	ErrNotFound      = errors.New("audit not found")
-	ErrMissingAuthor = errors.New("author is required")
-	ErrMissingTarget = errors.New("target is required")
+	ErrNotFound      = errors.New("the audit does not exist.")
+	ErrMissingAuthor = errors.New("an author is required.")
+	ErrMissingTarget = errors.New("a target document or task is required.")
 )
 
 // Audits provides audit CRUD and thread status queries. The audits
@@ -56,8 +56,7 @@ type Audits struct {
 	dbFn func() *qwr.Manager
 	db   *qwr.Manager
 	bus  *events.Bus
-	once sync.Once
-	err  error
+	once lazy.Once
 }
 
 // New creates an Audits instance. The db function returns the work
@@ -68,13 +67,15 @@ func New(db func() *qwr.Manager, bus *events.Bus) *Audits {
 
 // ensure opens the work database and creates the audits table if needed.
 func (a *Audits) ensure() error {
-	a.once.Do(func() {
-		a.db = a.dbFn()
-		if a.db == nil {
-			a.err = fmt.Errorf("work database not available")
-			return
+	return a.once.Do(func() error {
+		db := a.dbFn()
+		if db == nil {
+			return fmt.Errorf("work database not available")
 		}
-		_, a.err = a.db.Query(Schema).Exec()
+		if _, err := db.Query(Schema).Exec(); err != nil {
+			return err
+		}
+		a.db = db
+		return nil
 	})
-	return a.err
 }

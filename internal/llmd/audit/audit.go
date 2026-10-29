@@ -12,11 +12,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sync"
 
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/qwr"
+
+	"github.com/jpl-au/llmd/internal/llmd/lazy"
 )
 
 // Schema is the DDL for the history table used by the audit log.
@@ -40,8 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp);
 type Log struct {
 	dbFn func() *qwr.Manager
 	db   *qwr.Manager
-	once sync.Once
-	err  error
+	once lazy.Once
 }
 
 // New creates a new Log instance. The db function returns the work
@@ -53,15 +53,17 @@ func New(db func() *qwr.Manager) *Log {
 // Ensure creates the history table if it does not exist. It is
 // idempotent and safe to call from multiple goroutines.
 func (l *Log) Ensure() error {
-	l.once.Do(func() {
-		l.db = l.dbFn()
-		if l.db == nil {
-			l.err = fmt.Errorf("work database not available")
-			return
+	return l.once.Do(func() error {
+		db := l.dbFn()
+		if db == nil {
+			return fmt.Errorf("work database not available")
 		}
-		_, l.err = l.db.Query(Schema).Exec()
+		if _, err := db.Query(Schema).Exec(); err != nil {
+			return err
+		}
+		l.db = db
+		return nil
 	})
-	return l.err
 }
 
 // Event is a single audit log entry.

@@ -6,6 +6,6 @@ import "errors"
 // record (Author) and where it came from (Source). Both are required
 // for all write operations - see Origin.Validate().
 var (
-	ErrAuthorRequired = errors.New("author is required")
-	ErrSourceRequired = errors.New("source is required")
+	ErrAuthorRequired = errors.New("an author is required.")
+	ErrSourceRequired = errors.New("a source is required.")
 )

@@ -35,15 +35,16 @@ func newHookAPI(store *llmd.Store, lim validate.Limits, git sdk.GitStore, limit 
 
 func (h *hookAPI) Handle(author string, payload []byte, opts sdk.HookOpts) (*sdk.HookResult, error) {
 	if author == "" {
-		return nil, fmt.Errorf("%w: author", sdk.ErrMissingArg)
+		return nil, sdk.AuthorRequired("")
 	}
 	if len(payload) == 0 {
-		return nil, fmt.Errorf("%w: hook payload", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "no hook payload. The agent platform sends it on stdin.")
 	}
 
 	event, err := assets.Agent.Platform(author).ParseHook(payload)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", sdk.ErrInvalidArg, err)
+		slog.Debug("parsing hook payload", "author", author, "err", err)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "the payload is not valid JSON.")
 	}
 	if event.TaskID == "" {
 		event.TaskID = opts.Task

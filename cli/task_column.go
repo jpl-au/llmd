@@ -31,7 +31,7 @@ func taskAddColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task column add: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("task column add: %w: name", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task column add: a column name is required.")
 	}
 
 	name := positional[0]
@@ -48,7 +48,7 @@ func taskAddColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 // tasks still occupy the column.
 func taskRmColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task column rm: %w: name", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task column rm: a column name is required.")
 	}
 
 	if err := ctx.Tasks.RemoveColumn(args[0], ctx.Author); err != nil {
@@ -66,13 +66,13 @@ func taskMvColumn(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("task column mv: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("task column mv: %w: name", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task column mv: a column name is required.")
 	}
 
 	name := positional[0]
 	after := flags.String("after")
 	if after == "" {
-		return nil, fmt.Errorf("task column mv: %w: --after is required", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task column mv: --after is required.")
 	}
 
 	if err := ctx.Tasks.MoveColumn(name, after, ctx.Author); err != nil {

@@ -43,7 +43,7 @@ func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("link: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "link: a source and a target are required.")
 	}
 
 	// llmd link <path> - list links
@@ -65,7 +65,7 @@ func linkCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// Checked here, not via NeedsAuthor - reads don't need an author.
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("link: %w: author required for mutations", sdk.ErrMissingArg)
+		return nil, sdk.AuthorRequired("link")
 	}
 	from, to := positional[0], positional[1]
 	if err := ctx.Links.Add(from, to, label, ctx.Author); err != nil {

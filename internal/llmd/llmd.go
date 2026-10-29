@@ -12,8 +12,9 @@
 //   - events: in-process event bus for cross-cutting concerns
 //
 // The event bus connects packages that need to react to changes without
-// direct dependencies. Currently, the FTS search index subscribes to
-// document write/delete events to keep the full-text index in sync.
+// direct dependencies: the message queue, extensions and the server's
+// SSE and webhook subscribers. The FTS index is not a subscriber; it is
+// updated inside each document transaction (see package fts).
 //
 // Storage uses SQLite with WAL mode for concurrent read access. Schema
 // schema is created on Open/Init via the internal/sql package.
@@ -25,7 +26,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
+
+	"github.com/jpl-au/llmd/internal/errs"
 
 	"github.com/jpl-au/llmd/internal/sqlite"
 
@@ -75,12 +79,23 @@ type Store struct {
 	Audit    *audit.Log
 
 	db       *qwr.Manager // llmd.db - always open
+	workMu   sync.Mutex   // guards work: the server opens it from concurrent requests
 	work     *qwr.Manager // work.db - nil until first work operation
 	bus      *events.Bus
 	path     string // llmd.db path
 	workPath string // work.db path
 
-	queueRetention time.Duration // Vacuum removes queue messages older than this; 0 keeps them
+	queueRetention time.Duration   // Vacuum removes queue messages older than this; 0 keeps them
+	dbSettings     sqlite.Settings // how llmd.db and work.db are opened
+}
+
+// Option configures how a store is opened.
+type Option func(*Store)
+
+// WithDatabase sets the SQLite settings for llmd.db and work.db. The
+// zero value keeps the defaults.
+func WithDatabase(s sqlite.Settings) Option {
+	return func(st *Store) { st.dbSettings = s }
 }
 
 // SetQueueRetention sets how long queue messages are kept: Vacuum
@@ -89,8 +104,15 @@ func (s *Store) SetQueueRetention(d time.Duration) {
 	s.queueRetention = d
 }
 
-// Init creates a new store. Fails if it already exists.
-func Init(path string) (*Store, error) {
+// Errors from Init and Open.
+var (
+	ErrStoreExists = errors.New("a store already exists.")
+	ErrNoStore     = errors.New("there is no store.")
+)
+
+// Init creates a new store. Fails with ErrStoreExists if it already
+// exists.
+func Init(path string, opts ...Option) (*Store, error) {
 	var err error
 	path, err = docpath.ResolveDB(path)
 	if err != nil {
@@ -99,7 +121,7 @@ func Init(path string) (*Store, error) {
 
 	// Check if already exists
 	if _, err := os.Stat(path); err == nil {
-		return nil, fmt.Errorf("store already exists: %s", path)
+		return nil, errs.New(ErrStoreExists, "a store already exists at %s.", path)
 	}
 
 	// Create directory
@@ -108,11 +130,11 @@ func Init(path string) (*Store, error) {
 		return nil, fmt.Errorf("creating directory: %w", err)
 	}
 
-	return open(path)
+	return open(path, opts)
 }
 
 // Open opens an existing store. Fails if it doesn't exist.
-func Open(path string) (*Store, error) {
+func Open(path string, opts ...Option) (*Store, error) {
 	var err error
 	path, err = docpath.ResolveDB(path)
 	if err != nil {
@@ -121,26 +143,29 @@ func Open(path string) (*Store, error) {
 
 	// Check exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("store not found: %s", path)
+		return nil, errs.New(ErrNoStore, "there is no store at %s. Run llmd init to create one.", path)
 	}
 
-	return open(path)
+	return open(path, opts)
 }
 
 // open is the shared implementation for Init and Open. Database
 // settings live in internal/sqlite so llmd.db and work.db are opened
 // identically.
-func open(path string) (*Store, error) {
-	db, err := sqlite.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("opening database: %w", err)
-	}
-
+func open(path string, opts []Option) (*Store, error) {
 	s := &Store{
-		db:       db,
 		path:     path,
 		workPath: filepath.Join(filepath.Dir(path), "work.db"),
 	}
+	for _, o := range opts {
+		o(s)
+	}
+
+	db, err := sqlite.Open(path, s.dbSettings)
+	if err != nil {
+		return nil, fmt.Errorf("opening database: %w", err)
+	}
+	s.db = db
 
 	if err := s.createSchema(); err != nil {
 		return nil, errors.Join(fmt.Errorf("creating schema: %w", err), db.Close())
@@ -154,9 +179,6 @@ func open(path string) (*Store, error) {
 // once after the schema is created by open().
 func (s *Store) wire() {
 	s.bus = events.New()
-
-	ftsHandler := search.NewFTSHandler(s.db)
-	s.bus.Subscribe(ftsHandler)
 
 	// Document-side domains (llmd.db).
 	s.Documents = documents.New(s.db, s.bus)
@@ -183,27 +205,37 @@ func (s *Store) wire() {
 
 // WorkDB returns the work database manager, opening work.db and
 // creating its schema on demand if it does not already exist. Returns nil if
-// the database cannot be opened (error is logged).
+// the database cannot be opened (error is logged); the next call tries
+// again. Safe for concurrent use.
 func (s *Store) WorkDB() *qwr.Manager {
+	s.workMu.Lock()
+	defer s.workMu.Unlock()
 	if s.work != nil {
 		return s.work
 	}
 
-	db, err := sqlite.Open(s.workPath)
+	db, err := sqlite.Open(s.workPath, s.dbSettings)
 	if err != nil {
 		slog.Error("opening work database", "path", s.workPath, "err", err)
 		return nil
 	}
 
-	s.work = db
-	if err := s.createWorkSchema(); err != nil {
+	if err := createWorkSchema(db); err != nil {
 		slog.Error("creating work schema", "err", err)
-		if cerr := s.work.Close(); cerr != nil {
+		if cerr := db.Close(); cerr != nil {
 			slog.Warn("closing work database after failed schema creation", "err", cerr)
 		}
-		s.work = nil
 		return nil
 	}
+	s.work = db
+	return s.work
+}
+
+// openWork returns the work database if this process has opened it,
+// or nil. Unlike WorkDB it never opens the file.
+func (s *Store) openWork() *qwr.Manager {
+	s.workMu.Lock()
+	defer s.workMu.Unlock()
 	return s.work
 }
 
@@ -212,7 +244,7 @@ func (s *Store) WorkDB() *qwr.Manager {
 // Checks the file on disk rather than the in-memory connection so
 // that events are queued when work.db was created by a previous process.
 func (s *Store) workOpen() bool {
-	if s.work != nil {
+	if s.openWork() != nil {
 		return true
 	}
 	_, err := os.Stat(s.workPath)
@@ -221,7 +253,7 @@ func (s *Store) workOpen() bool {
 
 // createWorkSchema creates all work tables in a single pass. Called
 // once when work.db is first opened. All statements are idempotent.
-func (s *Store) createWorkSchema() error {
+func createWorkSchema(db *qwr.Manager) error {
 	schemas := []string{
 		audit.Schema,
 		tasks.Schema,
@@ -230,7 +262,7 @@ func (s *Store) createWorkSchema() error {
 		agents.Schema,
 	}
 	for _, ddl := range schemas {
-		if _, err := s.work.Query(ddl).Exec(); err != nil {
+		if _, err := db.Query(ddl).Exec(); err != nil {
 			return fmt.Errorf("creating work schema: %w", err)
 		}
 	}
@@ -240,8 +272,8 @@ func (s *Store) createWorkSchema() error {
 // Close closes both databases. Safe to call when work.db was never opened.
 func (s *Store) Close() error {
 	var errs []error
-	if s.work != nil {
-		errs = append(errs, s.work.Close())
+	if work := s.openWork(); work != nil {
+		errs = append(errs, work.Close())
 	}
 	errs = append(errs, s.db.Close())
 	return errors.Join(errs...)
@@ -252,8 +284,8 @@ func (s *Store) Close() error {
 // git commits (the gitignored -wal and -shm files become empty/absent).
 // Both llmd.db and work.db (if open) are checkpointed.
 func (s *Store) Checkpoint() error {
-	if s.work != nil {
-		if err := s.work.Checkpoint(checkpoint.Truncate).Exec(); err != nil {
+	if work := s.openWork(); work != nil {
+		if err := work.Checkpoint(checkpoint.Truncate).Exec(); err != nil {
 			return fmt.Errorf("checkpointing work database: %w", err)
 		}
 	}

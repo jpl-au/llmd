@@ -6,65 +6,72 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
+	"github.com/jpl-au/llmd/internal/llmd/fts"
 	"github.com/jpl-au/llmd/pkg/events"
 )
 
 // Restore restores a soft-deleted document at the given path.
-// All versions of the document are restored.
+// All versions of the document are restored. Returns ErrNotDeleted for
+// a live document and ErrNotFound when the path has no versions.
 func (d *Documents) Restore(ctx context.Context, path string, opts RestoreOptions) error {
 	if err := opts.Validate(); err != nil {
 		return err
 	}
 
-	// Get the latest version info before restoring (for the event)
-	var key string
-	var version int
-	row, err := d.db.Query(`
-		SELECT key, version FROM content
-		WHERE namespace = ? AND path = ? AND deleted_at IS NOT NULL
-		ORDER BY version DESC LIMIT 1
-	`, namespace, path).WithContext(ctx).ReadRow()
-	if err != nil {
-		return fmt.Errorf("finding deleted document: %w", err)
+	type restored struct {
+		key     string
+		version int
 	}
-	if err := row.Scan(&key, &version); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFound
+	result, err := d.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		switch err := CheckTx(ctx, tx, path); {
+		case err == nil:
+			return nil, errs.New(ErrNotDeleted, "%s is not deleted.", path)
+		case !errors.Is(err, ErrDeleted):
+			return nil, err
 		}
-		return fmt.Errorf("finding deleted document: %w", err)
-	}
 
-	qr, err := d.db.Query(`
-		UPDATE content SET deleted_at = NULL
-		WHERE namespace = ? AND path = ? AND deleted_at IS NOT NULL
-	`, namespace, path).WithContext(ctx).Exec()
+		// The latest version, for the event.
+		var r restored
+		if err := tx.QueryRowContext(ctx, `
+			SELECT key, version FROM content
+			WHERE namespace = ? AND path = ?
+			ORDER BY version DESC LIMIT 1
+		`, namespace, path).Scan(&r.key, &r.version); err != nil {
+			return nil, fmt.Errorf("finding deleted document: %w", err)
+		}
+
+		before, err := fts.Live(ctx, tx, path)
+		if err != nil {
+			return nil, err
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE content SET deleted_at = NULL
+			WHERE namespace = ? AND path = ? AND deleted_at IS NOT NULL
+		`, namespace, path); err != nil {
+			return nil, fmt.Errorf("restoring document: %w", err)
+		}
+
+		return r, fts.Sync(ctx, tx, before, path)
+	}).WithContext(ctx).Exec()
 	if err != nil {
-		return fmt.Errorf("restoring document: %w", err)
+		return err
 	}
+	r := result.Value.(restored)
 
-	rows, err := qr.SQLResult.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("checking rows affected: %w", err)
-	}
-	if rows == 0 {
-		return ErrNotFound
-	}
-
-	// Emit event
 	if d.bus != nil {
-		now := clock.Now()
-		if err := d.bus.Emit(ctx, events.Event{
+		d.bus.Emit(ctx, events.Event{
 			Type:      events.DocumentRestored,
 			Path:      path,
-			Key:       key,
-			Version:   version,
+			Key:       r.key,
+			Version:   r.version,
 			Author:    opts.Author,
-			Timestamp: now,
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+			Timestamp: clock.Now(),
+		})
 	}
 
 	return nil

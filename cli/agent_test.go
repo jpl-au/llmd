@@ -70,9 +70,9 @@ func TestAgentCmd(t *testing.T) {
 	}{
 		{name: "no subcommand", author: "alice", wantErr: sdk.ErrMissingArg},
 		{name: "unknown subcommand", author: "alice", args: []string{"bogus"}, wantMsg: "unknown subcommand"},
-		{name: "stop needs author", args: []string{"stop", "abc"}, wantMsg: "author required"},
-		{name: "complete needs author", args: []string{"complete", "abc"}, wantMsg: "author required"},
-		{name: "spawn needs author", args: []string{"spawn", "abc", "claude-code"}, wantMsg: "author required"},
+		{name: "stop needs author", args: []string{"stop", "abc"}, wantMsg: "an author is required."},
+		{name: "complete needs author", args: []string{"complete", "abc"}, wantMsg: "an author is required."},
+		{name: "spawn needs author", args: []string{"spawn", "abc", "claude-code"}, wantMsg: "an author is required."},
 		{name: "spawn needs task and agent", author: "alice", args: []string{"spawn", "abc"}, wantErr: sdk.ErrMissingArg},
 	}
 
@@ -363,7 +363,7 @@ func TestAgentConfig(t *testing.T) {
 // only appear when the stored configuration sets them.
 func TestAgentConfigOptionalRows(t *testing.T) {
 	_, c := agentSetup(t, "")
-	if err := c.Agents.Register(sdk.AgentConfig{Name: "reviewer", Command: "/usr/bin/review", Role: "auditor", MaxBudget: 2.5}, "llmd"); err != nil {
+	if err := c.Agents.Register(sdk.AgentConfig{Name: "reviewer", Command: "/usr/bin/review", Role: "auditor", MaxBudget: 2.5}); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
 	got := text(run(t, c, "agent", nil, "config", "reviewer"))

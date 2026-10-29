@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"os"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -11,9 +10,11 @@ import (
 )
 
 var (
+	// Headers are bold in the terminal's own foreground colour, which
+	// reads on dark and light backgrounds alike; a fixed bright white
+	// vanished on a light one.
 	tblHeader = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("15")).
 			Padding(0, 1)
 
 	tblCell = lipgloss.NewStyle().
@@ -33,28 +34,20 @@ var (
 	diffHeader  = lipgloss.NewStyle().Bold(true)
 )
 
-// isTTY reports whether stdout is a terminal.
-func isTTY() bool {
-	f, err := os.Stdout.Stat()
-	if err != nil {
-		return false
-	}
-	return f.Mode()&os.ModeCharDevice != 0
-}
-
 // grid is a table that knows its audience. At a terminal it renders
 // as a bordered, styled lipgloss table. Piped, as it is for a model
 // running llmd in a shell, it renders as tab-separated lines with the
 // headers on the first line: nothing to draw, nothing to parse past.
 type grid struct {
+	tty     bool // render for a terminal (sdk.Context.TTY)
 	headers []string
 	rows    [][]string
 	style   func(row, col int) lipgloss.Style
 }
 
 // newTable creates a grid with the standard header and cell styles.
-func newTable(headers ...string) *grid {
-	return &grid{headers: headers, style: func(row, col int) lipgloss.Style {
+func newTable(tty bool, headers ...string) *grid {
+	return &grid{tty: tty, headers: headers, style: func(row, col int) lipgloss.Style {
 		if row == table.HeaderRow {
 			return tblHeader
 		}
@@ -73,9 +66,9 @@ func (g *grid) Row(cells ...string) {
 	g.rows = append(g.rows, cells)
 }
 
-// String renders the grid for the current stdout.
+// String renders the grid for its audience.
 func (g *grid) String() string {
-	if !isTTY() {
+	if !g.tty {
 		return g.plain()
 	}
 	t := table.New().

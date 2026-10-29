@@ -7,12 +7,14 @@
 // webhook dispatcher.
 //
 // Events are fire-and-forget: handlers observe after the fact and cannot
-// block or veto the originating operation. If a handler returns an error,
-// event delivery stops and the error propagates to the caller.
+// block or veto the originating operation. Every handler receives every
+// event; a handler that fails is logged and the next one still runs,
+// because the change the event reports is already committed.
 package events
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/jpl-au/llmd/pkg/events"
 )
@@ -40,13 +42,12 @@ func (b *Bus) Subscribe(h Handler) {
 }
 
 // Emit sends an event to all subscribed handlers.
-// Handlers are called synchronously in subscription order.
-// Returns the first error encountered, if any.
-func (b *Bus) Emit(ctx context.Context, event events.Event) error {
+// Handlers are called synchronously in subscription order. A handler
+// error is logged and does not stop delivery to the rest.
+func (b *Bus) Emit(ctx context.Context, event events.Event) {
 	for _, h := range b.handlers {
 		if err := h.HandleEvent(ctx, event); err != nil {
-			return err
+			slog.Warn("event handler failed", "event", event.Type, "path", event.Path, "key", event.Key, "err", err)
 		}
 	}
-	return nil
 }

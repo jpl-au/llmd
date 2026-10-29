@@ -11,7 +11,6 @@ package links
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/jpl-au/qwr"
 
@@ -23,9 +22,9 @@ import (
 const namespace = "core:link"
 
 var (
-	ErrExists   = errors.New("link already exists")
-	ErrNotFound = errors.New("link not found")
-	ErrSelfLink = errors.New("cannot link document to itself")
+	ErrExists   = errors.New("the link already exists.")
+	ErrNotFound = errors.New("there is no such link.")
+	ErrSelfLink = errors.New("a document cannot link to itself.")
 )
 
 // Links provides link operations.
@@ -46,15 +45,8 @@ func (l *Links) resolvePath(ctx context.Context, value string) string {
 	return path
 }
 
-// requireDocument returns documents.ErrNotFound unless a live document
-// exists at path. Links may only connect documents that exist.
+// requireDocument returns documents.ErrNotFound or ErrDeleted unless a
+// live document exists at path. Links may only connect live documents.
 func (l *Links) requireDocument(ctx context.Context, path string) error {
-	exists, err := l.docs.Exists(ctx, path)
-	if err != nil {
-		return fmt.Errorf("checking document: %w", err)
-	}
-	if !exists {
-		return fmt.Errorf("%s: %w", path, documents.ErrNotFound)
-	}
-	return nil
+	return l.docs.Check(ctx, path)
 }

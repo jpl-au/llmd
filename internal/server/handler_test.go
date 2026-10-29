@@ -43,13 +43,13 @@ func TestWriteResponse(t *testing.T) {
 		wantJSON   any    // decoded body for a JSON response
 	}{
 		{name: "text", resp: sdk.Text("hello\n"), wantStatus: http.StatusOK, wantType: textType, wantBody: "hello\n"},
-		{name: "text as json", resp: sdk.Text("hello"), output: "json", wantStatus: http.StatusOK, wantType: jsonType, wantJSON: "hello"},
+		{name: "text as json", resp: sdk.Text("hello"), output: "json", wantStatus: http.StatusOK, wantType: jsonType, wantJSON: map[string]any{"text": "hello"}},
 		{name: "text with another output value", resp: sdk.Text("hello"), output: "text", wantStatus: http.StatusOK, wantType: textType, wantBody: "hello"},
-		{name: "output header is case-insensitive", resp: sdk.Text("hello"), output: "JSON", wantStatus: http.StatusOK, wantType: jsonType, wantJSON: "hello"},
+		{name: "output header is case-insensitive", resp: sdk.Text("hello"), output: "JSON", wantStatus: http.StatusOK, wantType: jsonType, wantJSON: map[string]any{"text": "hello"}},
 		{name: "markdown", resp: sdk.Markdown{Text: "# Hi\n\nBody.\n", Data: data}, wantStatus: http.StatusOK, wantType: markdownType, wantBody: "# Hi\n\nBody.\n"},
 		{name: "markdown as json", resp: sdk.Markdown{Text: "# Hi\n", Data: data}, output: "json", wantStatus: http.StatusOK, wantType: jsonType, wantJSON: wantData},
 		{name: "markdown without text", resp: sdk.Markdown{Data: data}, wantStatus: http.StatusOK, wantType: jsonType, wantJSON: wantData},
-		{name: "markdown without data as json", resp: sdk.Markdown{Text: "# Hi\n"}, output: "json", wantStatus: http.StatusOK, wantType: jsonType, wantJSON: nil},
+		{name: "markdown without data as json", resp: sdk.Markdown{Text: "# Hi\n"}, output: "json", wantStatus: http.StatusOK, wantType: jsonType, wantJSON: map[string]any{"text": "# Hi\n"}},
 		{name: "result", resp: sdk.Result{Text: "docs/a  v2\n", Data: data}, wantStatus: http.StatusOK, wantType: textType, wantBody: "docs/a  v2\n"},
 		{name: "result as json", resp: sdk.Result{Text: "docs/a  v2\n", Data: data}, output: "json", wantStatus: http.StatusOK, wantType: jsonType, wantJSON: wantData},
 		{name: "result without text", resp: sdk.Result{Data: data}, wantStatus: http.StatusOK, wantType: jsonType, wantJSON: wantData},
@@ -110,8 +110,8 @@ func TestWriteResponse(t *testing.T) {
 
 // TestHandleMetadata covers what reaches the dispatcher besides the
 // URL: the Author header, falling back to the server's WithAuthor
-// default when absent; the Message and Source headers as --message
-// and --source arguments after the positional ones; and the request
+// default when absent; the Message header as a --message argument
+// after the positional ones; and the request
 // body as stdin, with an empty body passed as nil rather than an
 // empty slice.
 func TestHandleMetadata(t *testing.T) {
@@ -156,18 +156,13 @@ func TestHandleMetadata(t *testing.T) {
 			wantArgs:      []string{"docs/a", "--message", "fix typo"},
 		},
 		{
-			name:          "source header",
-			defaultAuthor: "serve",
-			headers:       map[string]string{"Source": "ci"},
-			wantAuthor:    "serve",
-			wantArgs:      []string{"docs/a", "--source", "ci"},
-		},
-		{
-			name:          "message then source",
+			// No command has --source, so passing the header on as one
+			// once failed every request that carried it.
+			name:          "source header is not a flag",
 			defaultAuthor: "serve",
 			headers:       map[string]string{"Source": "ci", "Message": "fix typo"},
 			wantAuthor:    "serve",
-			wantArgs:      []string{"docs/a", "--message", "fix typo", "--source", "ci"},
+			wantArgs:      []string{"docs/a", "--message", "fix typo"},
 		},
 		{
 			name:          "body is stdin",

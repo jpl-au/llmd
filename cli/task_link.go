@@ -13,7 +13,7 @@ import (
 // document in the store.
 func taskLink(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("task link: %w: id and path", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task link: a task key and a path are required.")
 	}
 
 	if err := ctx.Tasks.Link(args[0], args[1], ctx.Author); err != nil {
@@ -26,7 +26,7 @@ func taskLink(ctx sdk.Context, args []string) (sdk.Response, error) {
 // taskLinks lists links for a task's spec document.
 func taskLinks(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task links: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task links: a task key is required.")
 	}
 
 	links, err := ctx.Tasks.Links(args[0], "out")

@@ -58,10 +58,10 @@ func (d *Documents) Stat(ctx context.Context, value string) (*Stat, error) {
 
 	// Return by priority: path > key
 	if pathStat != nil {
-		return pathStat, pathErr
+		return pathStat, d.explain(ctx, pathErr, value, nil)
 	}
 	if keyStat != nil {
-		return keyStat, keyErr
+		return keyStat, d.explain(ctx, keyErr, value, nil)
 	}
 
 	// Return the most relevant error
@@ -71,11 +71,12 @@ func (d *Documents) Stat(ctx context.Context, value string) (*Stat, error) {
 	if keyErr != nil && keyErr != ErrNotFound {
 		return nil, keyErr
 	}
-	return nil, ErrNotFound
+	return nil, NotFound(value)
 }
 
 // statByKey queries the content table by the document's stable key.
-// Returns the latest version for that key regardless of soft-delete status.
+// Returns the latest version, alongside ErrDeleted for a deleted
+// document.
 func (d *Documents) statByKey(ctx context.Context, key string) (*Stat, error) {
 	var stat Stat
 	var meta sql.NullString
@@ -87,6 +88,7 @@ func (d *Documents) statByKey(ctx context.Context, key string) (*Stat, error) {
 		SELECT id, key, path, version, hash, author, message, source, mime, meta, created_at, deleted_at
 		FROM content
 		WHERE namespace = ? AND key = ?
+		ORDER BY version DESC LIMIT 1
 	`, namespace, key).WithContext(ctx).ReadRow()
 	if err != nil {
 		return nil, fmt.Errorf("querying stat by key: %w", err)
@@ -108,8 +110,9 @@ func (d *Documents) statByKey(ctx context.Context, key string) (*Stat, error) {
 	return finish(&stat, message, mime, meta, deletedAt)
 }
 
-// statByPath queries the content table by document path. Returns only
-// the latest non-deleted version (unlike statByKey which includes deleted).
+// statByPath queries the content table by document path. Returns the
+// latest version, alongside ErrDeleted for a deleted document, as Read
+// does.
 func (d *Documents) statByPath(ctx context.Context, path string) (*Stat, error) {
 	var stat Stat
 	var meta sql.NullString
@@ -120,7 +123,7 @@ func (d *Documents) statByPath(ctx context.Context, path string) (*Stat, error) 
 	row, err := d.db.Query(`
 		SELECT id, key, path, version, hash, author, message, source, mime, meta, created_at, deleted_at
 		FROM content
-		WHERE namespace = ? AND path = ? AND deleted_at IS NULL
+		WHERE namespace = ? AND path = ?
 		ORDER BY version DESC LIMIT 1
 	`, namespace, path).WithContext(ctx).ReadRow()
 	if err != nil {

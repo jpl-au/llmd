@@ -97,20 +97,48 @@ func TestParseGlobal(t *testing.T) {
 			want: globalFlags{Author: "dave", Cmd: "ls", Args: []string{}},
 		},
 		{
-			// A leading flag the global parser does not know is left
-			// for the command, which then rejects it.
-			name: "unknown leading flag is ignored by the global parser",
-			args: []string{"--bogus", "ls"},
-			want: globalFlags{Cmd: "ls", Args: []string{}},
+			// An unknown flag before the command is refused, not
+			// dropped: it once ran ls as if it were not there.
+			name:    "unknown leading flag is refused",
+			args:    []string{"--bogus", "ls"},
+			wantErr: "llmd: unknown flag --bogus. The global flags are --author, --json, --db, --verbose and --help.",
 		},
-		{name: "db without a value", args: []string{"--db"}, wantErr: "--db requires a path"},
-		{name: "author without a value", args: []string{"--author"}, wantErr: "--author requires a name"},
+		{name: "db without a value", args: []string{"--db"}, wantErr: "llmd: --db needs a path."},
+		{name: "author without a value", args: []string{"--author"}, wantErr: "llmd: --author needs a name."},
+		{name: "trailing author without a value", args: []string{"ls", "--author"}, wantErr: "llmd: --author needs a name."},
+		{name: "db with an empty inline value", args: []string{"--db=", "ls"}, wantErr: "llmd: --db needs a path."},
 		{
-			// After the command, a trailing --author with no value is
-			// not consumed and reaches the command as an argument.
-			name: "trailing author after the command is left alone",
-			args: []string{"ls", "--author"},
-			want: globalFlags{Cmd: "ls", Args: []string{"--author"}},
+			// --db=x was once ignored, so the command read the
+			// default store.
+			name: "db inline before the command",
+			args: []string{"--db=docs", "cat", "p"},
+			want: globalFlags{DB: "docs", Cmd: "cat", Args: []string{"p"}},
+		},
+		{
+			// --db after the command once reached the command and
+			// was refused as unknown.
+			name: "db after the command",
+			args: []string{"cat", "p", "--db", "docs"},
+			want: globalFlags{DB: "docs", Cmd: "cat", Args: []string{"p"}},
+		},
+		{
+			name: "db inline after the command",
+			args: []string{"cat", "--db=docs", "p"},
+			want: globalFlags{DB: "docs", Cmd: "cat", Args: []string{"p"}},
+		},
+		{
+			// After --, everything belongs to the command.
+			name: "double dash ends global flags",
+			args: []string{"write", "p", "--", "--json"},
+			want: globalFlags{Cmd: "write", Args: []string{"p", "--", "--json"}},
+		},
+		{name: "version before the command", args: []string{"--version"}, want: globalFlags{Version: true, Args: nil}},
+		{name: "short version", args: []string{"-v"}, want: globalFlags{Version: true}},
+		{
+			// After the command, --version is the command's flag.
+			name: "version after the command belongs to it",
+			args: []string{"cat", "--version", "3", "p"},
+			want: globalFlags{Cmd: "cat", Args: []string{"--version", "3", "p"}},
 		},
 	}
 
@@ -149,10 +177,13 @@ func TestDisplay(t *testing.T) {
 	}{
 		{name: "text", resp: sdk.Text("hello"), wantOut: "hello\n"},
 		{name: "empty text prints nothing", resp: sdk.Text(""), wantOut: ""},
-		{name: "text ignores json", resp: sdk.Text("hello"), jsonOut: true, wantOut: "hello\n"},
+		// Under --json every response is JSON: text has no structured
+		// form, so it comes out as {"text": ...}.
+		{name: "text as json", resp: sdk.Text("hello"), jsonOut: true, wantJSON: map[string]any{"text": "hello"}},
 		{name: "markdown raw on a pipe", resp: sdk.Markdown{Text: "# Title", Data: "x"}, wantOut: "# Title\n"},
 		{name: "markdown data as json", resp: sdk.Markdown{Text: "# Title", Data: map[string]any{"a": 1.0}}, jsonOut: true, wantJSON: map[string]any{"a": 1.0}},
-		{name: "markdown without data falls back to text under json", resp: sdk.Markdown{Text: "# Title"}, jsonOut: true, wantOut: "# Title\n"},
+		{name: "markdown without data as json", resp: sdk.Markdown{Text: "# Title"}, jsonOut: true, wantJSON: map[string]any{"text": "# Title"}},
+		{name: "result without data as json", resp: sdk.Result{Text: "done"}, jsonOut: true, wantJSON: map[string]any{"text": "done"}},
 		{name: "result text", resp: sdk.Result{Text: "done", Data: []string{"a"}}, wantOut: "done\n"},
 		{name: "result data as json", resp: sdk.Result{Text: "done", Data: []any{"a"}}, jsonOut: true, wantJSON: []any{"a"}},
 		{name: "result without text prints nothing", resp: sdk.Result{Data: []string{"a"}}, wantOut: ""},
@@ -198,7 +229,7 @@ func TestErrorf(t *testing.T) {
 		jsonOut bool
 		want    string
 	}{
-		{"plain", false, "error: boom: 42\n"},
+		{"plain", false, "boom: 42\n"},
 		{"json", true, `{"error":"boom: 42"}` + "\n"},
 	}
 	for _, tt := range tests {
@@ -286,6 +317,24 @@ func TestHelp(t *testing.T) {
 	if strings.Count(out, "\n\n\n") > 0 {
 		t.Errorf("root help has a blank gap:\n%s", out)
 	}
+	// Every command is advertised: audit, queue, rule and graph were
+	// once left out of the listing although the guide lists them.
+	listed := map[string]bool{}
+	for _, g := range helpGroups {
+		for _, name := range g.names {
+			listed[name] = true
+		}
+	}
+	for name := range cmds {
+		if !listed[name] {
+			t.Errorf("root help does not list the command %q", name)
+		}
+	}
+	for _, flag := range []string{"--author", "--db", "--json", "--verbose", "--help", "--version"} {
+		if !strings.Contains(out, flag) {
+			t.Errorf("root help does not list the global flag %s", flag)
+		}
+	}
 
 	cat := cmds["cat"]
 	t.Run("terminal form", func(t *testing.T) {
@@ -349,16 +398,16 @@ func TestRun(t *testing.T) {
 		{name: "no arguments shows help", args: nil, wantOut: []string{"Usage:", "Reading:"}},
 		{name: "version", args: []string{"version"}, wantOut: []string{"Build Tag:", "Go Version:"}},
 		{name: "command help", args: []string{"cat", "--help"}, wantOut: []string{"Usage: llmd cat", "Details: guide cat"}},
-		{name: "help for an unknown command", args: []string{"nope", "--help"}, wantCode: 1, wantErr: []string{"unknown command: nope"}},
-		{name: "bad global flag", args: []string{"--db"}, wantCode: 1, wantErr: []string{"--db requires a path"}},
-		{name: "store missing", args: []string{"ls"}, wantCode: 1, wantErr: []string{"store not found"}},
+		{name: "help for an unknown command", args: []string{"nope", "--help"}, wantCode: 1, wantErr: []string{"llmd: unknown command nope."}},
+		{name: "bad global flag", args: []string{"--db"}, wantCode: 1, wantErr: []string{"llmd: --db needs a path."}},
+		{name: "store missing", args: []string{"ls"}, wantCode: 1, wantErr: []string{"ls: there is no store at .llmd/llmd.db. Run llmd init to create one."}},
 		{name: "init", args: []string{"init"}, wantOut: []string{"Initialised llmd store"}},
 		{name: "write from stdin", args: []string{"--author", "alice", "write", "docs/a"}, stdin: "# A\n", wantOut: []string{"Wrote docs/a"}},
 		{name: "cat", args: []string{"cat", "docs/a"}, wantOut: []string{"# A"}},
 		{name: "cat as json", args: []string{"--json", "cat", "docs/a"}, wantOut: []string{`"# A\n"`}},
 		{name: "missing argument shows command help", args: []string{"cat"}, wantCode: 1, wantOut: []string{"Usage: llmd cat"}},
 		{name: "write without author", args: []string{"write", "docs/b"}, stdin: "x", wantCode: 1, wantOut: []string{"Usage: llmd write", "--author <name>"}},
-		{name: "not found", args: []string{"cat", "docs/missing"}, wantCode: 1, wantErr: []string{"not found"}},
+		{name: "not found", args: []string{"cat", "docs/missing"}, wantCode: 1, wantErr: []string{"docs/missing does not exist."}},
 		{name: "json error", args: []string{"--json", "cat", "docs/missing"}, wantCode: 1, wantErr: []string{`{"error":"`}},
 	}
 

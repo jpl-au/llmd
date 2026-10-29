@@ -18,6 +18,23 @@ package cli
 import "github.com/jpl-au/llmd/sdk"
 
 func init() {
+	// Document commands with more than a path. The second value comes
+	// first, URL-encoded when it is a path, so the document path can
+	// stay last; free text (old and new text, an expression) comes in
+	// the query.
+	mvSpec.Routes = []sdk.Route{
+		{Method: "POST", Pattern: "/mv/{from}/{to...}", Args: []string{"{from}", "{to}"}},
+	}
+	revertSpec.Routes = []sdk.Route{
+		{Method: "POST", Pattern: "/revert/{version}/{path...}", Args: []string{"{path}", "{version}"}},
+	}
+	editSpec.Routes = []sdk.Route{
+		{Method: "POST", Pattern: "/edit/{path...}", Args: []string{"{path}", "{?old}", "{?new}"}},
+	}
+	sedSpec.Routes = []sdk.Route{
+		{Method: "POST", Pattern: "/sed/{path...}", Args: []string{"{?expr}", "{path}"}},
+	}
+
 	tagSpec.Routes = []sdk.Route{
 		{Method: "GET", Pattern: "/tag"},
 		{Method: "GET", Pattern: "/tag/{path...}", Args: []string{"{path}"}},

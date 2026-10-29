@@ -104,7 +104,7 @@ func graphTimeline(ctx sdk.Context) (sdk.Response, error) {
 		}
 	}
 
-	if !isTTY() {
+	if !ctx.TTY {
 		lines := make([]string, len(events))
 		for i, e := range events {
 			lines[i] = fmt.Sprintf("%s (v%d)", e.Path, e.Version)
@@ -150,7 +150,7 @@ func graphLineage(ctx sdk.Context, path string) (sdk.Response, error) {
 		}
 	}
 
-	if !isTTY() {
+	if !ctx.TTY {
 		lines := make([]string, len(versions))
 		for i, v := range versions {
 			ts := time.UnixMilli(v.CreatedAt).Format("02 Jan 2006 15:04")

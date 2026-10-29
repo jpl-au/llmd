@@ -37,20 +37,25 @@ func taskAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	file := flags.String("file")
 
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("task add: %w: title", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task add: a title is required.")
 	}
 	if file != "" && opts.Path != "" {
-		return nil, fmt.Errorf("task add: %w: --file and --path are mutually exclusive", sdk.ErrInvalidArg)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task add: use --file or --path, not both.")
 	}
 
 	// --file reads content from the filesystem
-	body := ctx.Stdin
+	var body []byte
 	if file != "" {
 		data, err := os.ReadFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("task add: %w", err)
 		}
 		body = data
+	} else {
+		body, err = ctx.OptionalInput()
+		if err != nil {
+			return nil, fmt.Errorf("task add: reading stdin: %w", err)
+		}
 	}
 
 	title := strings.Join(positional, " ")

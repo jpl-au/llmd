@@ -13,7 +13,9 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -38,7 +40,7 @@ func mirror(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "push":
 		return mirrorPush(ctx, args[1:])
 	default:
-		return nil, fmt.Errorf("mirror: %w: unknown subcommand %q (pull or push)", sdk.ErrInvalidArg, args[0])
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "mirror: unknown subcommand %s. Use pull or push.", args[0])
 	}
 }
 
@@ -73,7 +75,7 @@ func mirrorPull(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("mirror push: %w: --author is required", sdk.ErrMissingArg)
+		return nil, sdk.AuthorRequired("mirror push")
 	}
 
 	var prefix string
@@ -86,6 +88,9 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 		Prefix: prefix,
 	})
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, sdk.Errorf(sdk.ErrNotFound, "mirror push: %v Run llmd mirror pull first.", err)
+		}
 		return nil, fmt.Errorf("mirror push: %w", err)
 	}
 

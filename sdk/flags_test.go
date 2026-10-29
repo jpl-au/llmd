@@ -98,6 +98,20 @@ func TestParseArgs(t *testing.T) {
 			wantPos:  []string{"--not-a-flag", "file"},
 		},
 		{
+			// Old text from a markdown list starts with "- "; it was
+			// once read as the unknown flag "- ".
+			name:    "dash then space is a value",
+			flags:   []Flag{{Name: "all", Type: "bool"}},
+			args:    []string{"docs/a", "- item", "- done"},
+			wantPos: []string{"docs/a", "- item", "- done"},
+		},
+		{
+			name:    "dash then digit or alone is a value",
+			flags:   []Flag{{Name: "n", Type: "bool"}},
+			args:    []string{"-1", "-", "--5"},
+			wantPos: []string{"-1", "-", "--5"},
+		},
+		{
 			name:     "empty args",
 			flags:    []Flag{{Name: "n", Type: "bool"}},
 			args:     nil,

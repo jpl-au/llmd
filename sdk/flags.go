@@ -8,7 +8,6 @@
 package sdk
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -80,17 +79,25 @@ func ParseArgs(flags []Flag, args []string) (FlagValues, []string, error) {
 			break
 		}
 
+		// Only an argument shaped like a flag is one: "-" or "--" then a
+		// letter. Anything else starting with "-" ("- item", "-1", "-")
+		// is a value: old text from a markdown list, a negative number.
+		if !looksLikeFlag(arg) {
+			positional = append(positional, arg)
+			continue
+		}
+
 		// Long flags (--name, --name=value).
 		if strings.HasPrefix(arg, "--") {
 			name, val, hasEq := strings.Cut(arg[2:], "=")
 			f, ok := byLong[name]
 			if !ok {
-				return fv, nil, fmt.Errorf("%w: unknown flag: --%s", ErrInvalidArg, name)
+				return fv, nil, Errorf(ErrInvalidArg, "unknown flag --%s.", name)
 			}
 			if err := setFlag(&fv, f, val, hasEq, func() (string, error) {
 				i++
 				if i >= len(args) {
-					return "", fmt.Errorf("%w: --%s requires a value", ErrInvalidArg, name)
+					return "", Errorf(ErrInvalidArg, "--%s needs a value.", name)
 				}
 				return args[i], nil
 			}); err != nil {
@@ -106,7 +113,7 @@ func ParseArgs(flags []Flag, args []string) (FlagValues, []string, error) {
 				c := chars[j]
 				f, ok := byShort[c]
 				if !ok {
-					return fv, nil, fmt.Errorf("%w: unknown flag: -%c", ErrInvalidArg, c)
+					return fv, nil, Errorf(ErrInvalidArg, "unknown flag -%c.", c)
 				}
 				if f.Type == "bool" {
 					fv.set[f.Name] = true
@@ -118,7 +125,7 @@ func ParseArgs(flags []Flag, args []string) (FlagValues, []string, error) {
 				if err := setFlag(&fv, f, rest, rest != "", func() (string, error) {
 					i++
 					if i >= len(args) {
-						return "", fmt.Errorf("%w: -%c requires a value", ErrInvalidArg, c)
+						return "", Errorf(ErrInvalidArg, "-%c needs a value.", c)
 					}
 					return args[i], nil
 				}); err != nil {
@@ -161,9 +168,20 @@ func setFlag(fv *FlagValues, f *Flag, val string, hasVal bool, nextArg func() (s
 		}
 		n, err := strconv.Atoi(val)
 		if err != nil {
-			return fmt.Errorf("%w: --%s: invalid integer: %s", ErrInvalidArg, f.Name, val)
+			return Errorf(ErrInvalidArg, "--%s needs a whole number, not %s.", f.Name, val)
 		}
 		fv.ints[f.Name] = n
 	}
 	return nil
+}
+
+// looksLikeFlag reports whether arg is shaped like a flag: "-x" or
+// "--name", the character after the dashes being a letter.
+func looksLikeFlag(arg string) bool {
+	name := strings.TrimPrefix(strings.TrimPrefix(arg, "-"), "-")
+	if name == arg || name == "" {
+		return false
+	}
+	c := name[0]
+	return 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
 }

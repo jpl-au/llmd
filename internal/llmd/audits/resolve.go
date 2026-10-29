@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
@@ -42,7 +44,7 @@ func (a *Audits) Restore(ctx context.Context, id, author string) (*Audit, error)
 	aud, err := scanAudit(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, errs.New(ErrNotFound, "no deleted audit %s.", id)
 		}
 		return nil, fmt.Errorf("reading audit: %w", err)
 	}
@@ -55,15 +57,13 @@ func (a *Audits) Restore(ctx context.Context, id, author string) (*Audit, error)
 	}
 
 	if a.bus != nil {
-		if err := a.bus.Emit(ctx, events.Event{
+		a.bus.Emit(ctx, events.Event{
 			Type:      events.AuditRestored,
 			Path:      aud.Target,
 			Key:       id,
 			Author:    author,
 			Timestamp: clock.Now(),
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return aud, nil
@@ -93,14 +93,12 @@ func (a *Audits) Delete(ctx context.Context, id, author string) error {
 	}
 
 	if a.bus != nil {
-		if err := a.bus.Emit(ctx, events.Event{
+		a.bus.Emit(ctx, events.Event{
 			Type:      events.AuditDeleted,
 			Key:       id,
 			Author:    author,
 			Timestamp: now,
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return nil

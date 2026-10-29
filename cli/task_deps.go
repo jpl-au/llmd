@@ -12,7 +12,7 @@ import (
 // taskChain displays the dependency chain for a task.
 func taskChain(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task chain: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task chain: a task key is required.")
 	}
 
 	chain, err := ctx.Tasks.Chain(args[0])
@@ -42,7 +42,7 @@ func taskChain(ctx sdk.Context, args []string) (sdk.Response, error) {
 // taskReady reports whether a task's dependencies are all satisfied.
 func taskReady(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task ready: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task ready: a task key is required.")
 	}
 
 	ready, err := ctx.Tasks.Ready(args[0])

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -21,8 +22,13 @@ func initCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("init: %w", err)
 	}
 	path, err := ctx.Runtime.Init(ctx.DBPath)
+	if errors.Is(err, sdk.ErrExists) {
+		// Safe to run again: the store and its files are left as they
+		// are, so a setup script can run init unconditionally.
+		return sdk.Text(fmt.Sprintf("A store already exists at %s. Nothing changed.", path)), nil
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("init: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Initialised llmd store at %s", path)), nil
 }

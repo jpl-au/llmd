@@ -7,6 +7,8 @@ import (
 	"errors"
 	"math"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/pkg/model/task"
 )
 
@@ -27,10 +29,15 @@ const (
 
 // ErrInvalidPriority is returned for a negative priority. Zero means
 // none; 1 is the highest; larger numbers are lower.
-var ErrInvalidPriority = errors.New("priority must be 0 (none) or a positive number, 1 being the highest")
+var ErrInvalidPriority = errors.New("a priority must be 0 for none, or 1 or more, 1 being the highest.")
+
+// invalidPriority is ErrInvalidPriority naming the rejected value.
+func invalidPriority(p int) error {
+	return errs.New(ErrInvalidPriority, "%d is not a valid priority. Use 0 for none, or 1 or more, where 1 is the highest.", p)
+}
 
 // ErrInvalidOrder is returned by SetOrder for an unknown order.
-var ErrInvalidOrder = errors.New("task order must be priority or position")
+var ErrInvalidOrder = errors.New("task.order must be priority or position.")
 
 // SetOrder sets the ordering within columns. The zero value means
 // OrderPriority.

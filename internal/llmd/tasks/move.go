@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
@@ -34,7 +36,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 		return err
 	}
 	if !slices.Contains(cols, status) {
-		return fmt.Errorf("%w: %s", ErrInvalidCol, status)
+		return errs.New(ErrInvalidCol, "there is no column %s. Run llmd task column list to see them.", status)
 	}
 
 	// Spec gating: a task cannot leave the backlog until its document
@@ -46,7 +48,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 			return err
 		}
 		if !specced {
-			return ErrNoSpec
+			return errs.New(ErrNoSpec, "%s has no spec, so it cannot leave the backlog.", key)
 		}
 	}
 
@@ -78,16 +80,14 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 	}
 
 	if t.bus != nil {
-		if err := t.bus.Emit(ctx, events.Event{
+		t.bus.Emit(ctx, events.Event{
 			Type:      events.TaskMoved,
 			Path:      tsk.Path,
 			Key:       key,
 			Author:    author,
 			Timestamp: clock.Now(),
 			Metadata:  map[string]any{"from": oldStatus, "to": status},
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return nil

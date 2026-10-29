@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/jpl-au/llmd/internal/errs"
 	"github.com/jpl-au/llmd/pkg/model/task"
 )
 
@@ -28,7 +29,8 @@ func (t *Tasks) Read(ctx context.Context, key string) (*task.Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	return t.scan(row)
+	tsk, err := t.scan(row)
+	return tsk, named(err, key)
 }
 
 // scanDeleted reads a task including soft-deleted ones.
@@ -43,7 +45,16 @@ func (t *Tasks) scanDeleted(ctx context.Context, key string) (*task.Task, error)
 	if err != nil {
 		return nil, err
 	}
-	return t.scan(row)
+	tsk, err := t.scan(row)
+	return tsk, named(err, key)
+}
+
+// named turns the bare ErrNotFound from scan into one naming the task.
+func named(err error, key string) error {
+	if err == ErrNotFound {
+		return errs.New(ErrNotFound, "no task %s.", key)
+	}
+	return err
 }
 
 // scan reads a single task from a *sql.Row. Returns ErrNotFound when

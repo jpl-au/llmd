@@ -35,12 +35,12 @@ func TestTaskMove(t *testing.T) {
 			name:        "title-only document is rejected with guidance",
 			seedBody:    []byte("# Alpha"),
 			args:        []string{"move", "{key}", "in-progress"},
-			wantErrText: []string{"spec required", "llmd write tasks/alpha", "llmd task link {key}"},
+			wantErrText: []string{"has no spec, so it cannot leave the backlog.", "llmd write tasks/alpha", "llmd task link {key}"},
 		},
 		{
 			name:        "no document is rejected",
 			args:        []string{"move", "{key}", "in-progress"},
-			wantErrText: []string{"spec required"},
+			wantErrText: []string{"has no spec, so it cannot leave the backlog."},
 		},
 		{
 			name:    "spec gating keeps the ErrNoSpec sentinel",
@@ -68,7 +68,7 @@ func TestTaskMove(t *testing.T) {
 		{name: "missing task", args: []string{"move", "nope", "done"}, wantErr: sdk.ErrNotFound},
 		{name: "missing column", args: []string{"move", "{key}"}, wantErr: sdk.ErrMissingArg},
 		{name: "no args", args: []string{"move"}, wantErr: sdk.ErrMissingArg},
-		{name: "no author", noAuthor: true, seedBody: taskBody("Alpha"), args: []string{"move", "{key}", "in-progress"}, wantErrText: []string{"author required"}},
+		{name: "no author", noAuthor: true, seedBody: taskBody("Alpha"), args: []string{"move", "{key}", "in-progress"}, wantErrText: []string{"an author is required."}},
 	}
 
 	for _, tt := range tests {
@@ -307,7 +307,7 @@ func TestTaskSet(t *testing.T) {
 		{name: "unknown flag", args: []string{"set", "{key}", "--bogus", "x"}, wantErr: sdk.ErrInvalidArg},
 		{name: "missing task", args: []string{"set", "nope", "--priority", "1"}, wantErr: sdk.ErrNotFound},
 		{name: "no id", args: []string{"set"}, wantErr: sdk.ErrMissingArg},
-		{name: "no author", noAuthor: true, args: []string{"set", "{key}", "--priority", "1"}, wantErrText: "author required"},
+		{name: "no author", noAuthor: true, args: []string{"set", "{key}", "--priority", "1"}, wantErrText: "an author is required."},
 	}
 
 	for _, tt := range tests {
@@ -366,7 +366,7 @@ func TestTaskRm(t *testing.T) {
 		},
 		{name: "missing task", args: []string{"rm", "nope"}, wantErr: sdk.ErrNotFound},
 		{name: "no id", args: []string{"rm"}, wantErr: sdk.ErrMissingArg},
-		{name: "no author", noAuthor: true, args: []string{"rm", "{key}"}, wantErrText: "author required"},
+		{name: "no author", noAuthor: true, args: []string{"rm", "{key}"}, wantErrText: "an author is required."},
 	}
 
 	for _, tt := range tests {
@@ -422,7 +422,7 @@ func TestTaskRestore(t *testing.T) {
 		{name: "restores a backlog task", args: []string{"restore", "{key}"}, wantText: []string{`Restored task {key} "Alpha"`}},
 		{name: "missing task", args: []string{"restore", "nope"}, wantErr: sdk.ErrNotFound},
 		{name: "no id", args: []string{"restore"}, wantErr: sdk.ErrMissingArg},
-		{name: "no author", noAuthor: true, args: []string{"restore", "{key}"}, wantErrText: "author required"},
+		{name: "no author", noAuthor: true, args: []string{"restore", "{key}"}, wantErrText: "an author is required."},
 	}
 
 	for _, tt := range tests {

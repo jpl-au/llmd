@@ -24,7 +24,7 @@ func rm(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("rm: %w", err)
 	}
 	if len(args) == 0 {
-		return nil, fmt.Errorf("rm: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "rm: a path is required.")
 	}
 
 	if err := ctx.Documents.Delete(args[0], sdk.DeleteOpts{Author: ctx.Author}); err != nil {

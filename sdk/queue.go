@@ -43,25 +43,25 @@ type QueueStore interface {
 // Message is the SDK view of a queue message.
 type Message struct {
 	// Key is the stable 10-character identifier.
-	Key string
+	Key string `json:"key"`
 
 	// Type identifies the event (e.g. "document.written", "direct").
-	Type string
+	Type string `json:"type"`
 
 	// Payload is the JSON event data.
-	Payload string
+	Payload string `json:"payload"`
 
 	// Author is who caused the event or sent the message.
-	Author string
+	Author string `json:"author"`
 
 	// Source is where the message originated ("cli", "mcp", "http").
-	Source string
+	Source string `json:"source"`
 
 	// AssignedTo is the intended recipient. Empty means broadcast.
-	AssignedTo string
+	AssignedTo string `json:"assigned_to"`
 
 	// CreatedAt is the Unix timestamp (milliseconds).
-	CreatedAt int64
+	CreatedAt int64 `json:"created_at"`
 }
 
 // SendOpts configures a queue send operation.

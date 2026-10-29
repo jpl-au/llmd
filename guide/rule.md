@@ -34,7 +34,7 @@ llmd rule unset <column>           Remove agent (keep transitions)
   `task start --agent`, triggers the work. Transitions apply either
   way.
 - The agent named in `--agent` must be registered (`guide agent`).
-- Columns with no rule (backlog, up-next and done by default) have no
+- Columns with no rule (backlog and done by default) have no
   transitions: tasks stay until moved by hand.
 - `list` prints a styled tree of each column's agent and transitions;
   `--json` gives the structured form.
@@ -105,7 +105,7 @@ completed its work and a human signs off before done. The `blocked`
 column is the escape hatch - the agent failed and a human needs to
 investigate before retrying.
 
-Columns not listed (backlog, up-next, done) have no transitions -
+Columns not listed (backlog, done) have no transitions -
 tasks stay there until moved manually.
 
 ### Editing rules directly

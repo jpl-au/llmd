@@ -24,7 +24,7 @@ import (
 )
 
 var hookSpec = sdk.Command{
-	Name: "hook", Desc: `Handle an agent hook event, or print hook configuration
+	Name: "hook", Guide: "hooks", Desc: `Handle an agent hook event, or print hook configuration
 
 Reads an agent platform's hook payload on stdin and acts on it:
 
@@ -62,19 +62,23 @@ func hookEvent(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("hook: %w", err)
 	}
 	if len(positional) > 0 {
-		return nil, fmt.Errorf("hook: %w: unknown subcommand %q", sdk.ErrInvalidArg, positional[0])
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "hook: unknown subcommand %s. Use init.", positional[0])
 	}
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("hook: %w: --author names the agent and selects its payload format", sdk.ErrMissingArg)
-	}
-	if len(ctx.Stdin) == 0 {
-		return nil, fmt.Errorf("hook: %w: hook payload on stdin", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "hook: an author is required. --author names the agent and selects its payload format.")
 	}
 	if ctx.Hooks == nil {
-		return nil, fmt.Errorf("hook: %w: no store in this directory - run llmd init", sdk.ErrNotFound)
+		return nil, sdk.Errorf(sdk.ErrNotFound, "hook: there is no store here. Run llmd init to create one.")
+	}
+	payload, err := ctx.Input()
+	if err != nil {
+		return nil, fmt.Errorf("hook: reading stdin: %w", err)
+	}
+	if len(payload) == 0 {
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "hook: no payload. The agent platform sends it on stdin.")
 	}
 
-	result, err := ctx.Hooks.Handle(ctx.Author, ctx.Stdin, sdk.HookOpts{Task: flags.String("task")})
+	result, err := ctx.Hooks.Handle(ctx.Author, payload, sdk.HookOpts{Task: flags.String("task")})
 	if err != nil {
 		return nil, fmt.Errorf("hook: %w", err)
 	}
@@ -88,8 +92,8 @@ var platforms = []string{"claude", "gemini", "generic"}
 // the platform name.
 func hookInit(_ sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("hook init: %w: platform required (%s)",
-			sdk.ErrMissingArg, strings.Join(platforms, ", "))
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "hook init: a platform is required. Use one of %s.",
+			strings.Join(platforms, ", "))
 	}
 
 	name := args[0]

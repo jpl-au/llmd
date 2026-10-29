@@ -22,21 +22,22 @@ package path
 
 import (
 	"errors"
-	"fmt"
 	slashpath "path"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/jpl-au/llmd/internal/errs"
 )
 
 // ErrInvalid indicates the provided document path is invalid.
-var ErrInvalid = errors.New("invalid document path")
+var ErrInvalid = errors.New("that is not a valid path.")
 
 // ErrTooLong indicates the document path exceeds the configured maximum length.
-var ErrTooLong = errors.New("document path too long")
+var ErrTooLong = errors.New("the path is too long.")
 
 // ErrInvalidDB indicates the --db shorthand name is invalid.
-var ErrInvalidDB = errors.New("invalid database name")
+var ErrInvalidDB = errors.New("that is not a valid store name.")
 
 // ResolveDB converts a --db shorthand name to a full store path.
 // An empty string returns the default path (.llmd/llmd.db). A bare
@@ -72,23 +73,23 @@ func sanitiseDBName(name string) (string, error) {
 	// Reject control characters (0–31) and null bytes.
 	for i := 0; i < len(name); i++ {
 		if name[i] <= 0x1f {
-			return "", fmt.Errorf("%w: contains control character", ErrInvalidDB)
+			return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It contains a control character.", name)
 		}
 	}
 
 	// Reject non-UTF-8 sequences.
 	if !utf8.ValidString(name) {
-		return "", fmt.Errorf("%w: contains invalid UTF-8", ErrInvalidDB)
+		return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It is not valid UTF-8.", name)
 	}
 
 	// Reject Windows-illegal characters.
 	if strings.ContainsAny(name, `<>:"|?*`) {
-		return "", fmt.Errorf("%w: contains illegal character", ErrInvalidDB)
+		return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It cannot contain < > : \" | ? or *.", name)
 	}
 
 	// Reject path traversal.
 	if strings.Contains(name, "..") {
-		return "", fmt.Errorf("%w: contains path traversal", ErrInvalidDB)
+		return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It cannot contain .. or a slash.", name)
 	}
 
 	// Convert spaces to dashes, collapse consecutive dashes, trim.
@@ -99,10 +100,15 @@ func sanitiseDBName(name string) (string, error) {
 	s = strings.Trim(s, "-")
 
 	if s == "" {
-		return "", fmt.Errorf("%w: empty after sanitisation", ErrInvalidDB)
+		return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It has no usable characters.", name)
 	}
 
 	return s, nil
+}
+
+// invalidPath is ErrInvalid naming the rejected path and the rule.
+func invalidPath(p string) error {
+	return errs.New(ErrInvalid, "%s is not a valid path. Paths are relative, such as notes/plan, and cannot climb out of the store.", p)
 }
 
 // Normalise cleans and validates a document path.
@@ -115,8 +121,9 @@ func sanitiseDBName(name string) (string, error) {
 // that Windows-style paths are accepted on any platform.
 func Normalise(p string) (string, error) {
 	if p == "" {
-		return "", ErrInvalid
+		return "", errs.New(ErrInvalid, "a path is required.")
 	}
+	orig := p
 
 	// Convert backslashes to forward slashes. filepath.ToSlash won't do
 	// this on Unix (where backslash is a valid filename character), but we
@@ -127,7 +134,7 @@ func Normalise(p string) (string, error) {
 
 	// Reject absolute paths - document paths must always be relative.
 	if slashpath.IsAbs(p) {
-		return "", ErrInvalid
+		return "", invalidPath(orig)
 	}
 
 	// Remove leading/trailing slashes left after cleaning.
@@ -140,11 +147,11 @@ func Normalise(p string) (string, error) {
 	}
 
 	if p == "" || p == "." || p == ".." {
-		return "", ErrInvalid
+		return "", invalidPath(orig)
 	}
 
 	if strings.Contains(p, "..") {
-		return "", ErrInvalid
+		return "", invalidPath(orig)
 	}
 
 	return p, nil

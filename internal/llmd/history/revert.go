@@ -7,8 +7,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
+	"github.com/jpl-au/llmd/internal/llmd/documents"
+	"github.com/jpl-au/llmd/internal/llmd/fts"
 	"github.com/jpl-au/llmd/internal/llmd/hash"
 	"github.com/jpl-au/llmd/internal/llmd/meta"
 	"github.com/jpl-au/llmd/pkg/model/document"
@@ -16,7 +20,8 @@ import (
 
 // Revert restores a previous version as a new version. The hash
 // check, version increment, and insert run in a single transaction
-// so concurrent reverts cannot produce duplicate version numbers.
+// so concurrent reverts cannot produce duplicate version numbers. The
+// search index moves to the new version in the same transaction.
 func (h *History) Revert(ctx context.Context, path string, version int, opts RevertOptions) (*document.Document, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -25,7 +30,7 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 	// Get the content of the version to revert to
 	content, err := h.content(ctx, path, version)
 	if err != nil {
-		return nil, fmt.Errorf("getting version %d: %w", version, err)
+		return nil, errs.Context(err, "reading version %d of %s", version, path)
 	}
 
 	result, err := h.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
@@ -41,6 +46,15 @@ func (h *History) Revert(ctx context.Context, path string, version int, opts Rev
 // revertInTx inserts the reverted content as a new version within
 // an existing transaction.
 func (h *History) revertInTx(ctx context.Context, tx *sql.Tx, path, content string, version int, opts RevertOptions) (*document.Document, error) {
+	// A revert writes to the document, so it must be live: reverting a
+	// deleted one would leave it half restored.
+	if err := documents.CheckTx(ctx, tx, path); err != nil {
+		if errors.Is(err, documents.ErrNotFound) {
+			return nil, errs.New(ErrNotFound, "%s does not exist.", path)
+		}
+		return nil, err
+	}
+
 	// Check if content is same as current latest (no-op)
 	var latest string
 	err := tx.QueryRowContext(ctx, `
@@ -52,6 +66,11 @@ func (h *History) revertInTx(ctx context.Context, tx *sql.Tx, path, content stri
 	s := hash.XXH3(content)
 	if err == nil && latest == s {
 		return h.latestInTx(ctx, tx, path)
+	}
+
+	before, err := fts.Live(ctx, tx, path)
+	if err != nil {
+		return nil, err
 	}
 
 	// Get next version number
@@ -99,6 +118,10 @@ func (h *History) revertInTx(ctx context.Context, tx *sql.Tx, path, content stri
 		return nil, fmt.Errorf("inserting reverted version: %w", err)
 	}
 
+	if err := fts.Sync(ctx, tx, before, path); err != nil {
+		return nil, err
+	}
+
 	return &document.Document{
 		Key:       k,
 		Namespace: namespace,
@@ -127,7 +150,7 @@ func (h *History) content(ctx context.Context, path string, version int) (string
 	}
 	if err := row.Scan(&content); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", h.missing(ctx, path)
+			return "", h.missing(ctx, path, version)
 		}
 		return "", err
 	}
@@ -137,7 +160,7 @@ func (h *History) content(ctx context.Context, path string, version int) (string
 // missing reports why a version lookup found nothing: ErrNotFound when
 // the document has no versions at all, ErrVersionInvalid when the
 // document exists but not at the requested version.
-func (h *History) missing(ctx context.Context, path string) error {
+func (h *History) missing(ctx context.Context, path string, version int) error {
 	var n int
 	row, err := h.db.Query(`
 		SELECT COUNT(*) FROM content WHERE namespace = ? AND path = ?
@@ -149,9 +172,9 @@ func (h *History) missing(ctx context.Context, path string) error {
 		return err
 	}
 	if n == 0 {
-		return ErrNotFound
+		return errs.New(ErrNotFound, "%s does not exist.", path)
 	}
-	return ErrVersionInvalid
+	return documents.NoVersion(ErrVersionInvalid, path, version)
 }
 
 // latestInTx reads the latest version of a document within a transaction.

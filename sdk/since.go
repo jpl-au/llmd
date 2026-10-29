@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -30,5 +29,5 @@ func ParseSince(s string) (time.Time, error) {
 	if t, err := time.Parse(time.RFC3339, s); err == nil {
 		return t, nil
 	}
-	return time.Time{}, fmt.Errorf("%w: invalid time value %q: use a duration (5m, 1h, 7d) or RFC 3339 timestamp", ErrInvalidArg, s)
+	return time.Time{}, Errorf(ErrInvalidArg, "%s is not a time. Use a duration such as 5m, 1h or 7d, or an RFC 3339 time.", s)
 }

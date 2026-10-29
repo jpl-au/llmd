@@ -3,9 +3,9 @@ package host
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/errs"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/bulk"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
@@ -28,25 +28,25 @@ func docErr(err error) error {
 	}
 	switch {
 	case errors.Is(err, documents.ErrNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, documents.ErrDeleted):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
-	case errors.Is(err, documents.ErrExists):
-		return fmt.Errorf("%w: %w", sdk.ErrExists, err)
+		return errs.Mark(sdk.ErrNotFound, err)
+	case errors.Is(err, documents.ErrExists), errors.Is(err, documents.ErrNotDeleted):
+		return errs.Mark(sdk.ErrExists, err)
 	case errors.Is(err, docpath.ErrInvalid), errors.Is(err, docpath.ErrTooLong):
-		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+		return errs.Mark(sdk.ErrInvalidArg, err)
 	case errors.Is(err, search.ErrInvalidGlob), errors.Is(err, search.ErrInvalidQuery):
-		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+		return errs.Mark(sdk.ErrInvalidArg, err)
 	case errors.Is(err, history.ErrNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, history.ErrVersionInvalid):
-		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+		return errs.Mark(sdk.ErrInvalidArg, err)
 	case errors.Is(err, documents.ErrNoMatch):
-		return fmt.Errorf("%w: %w", sdk.ErrNoMatch, err)
+		return errs.Mark(sdk.ErrNoMatch, err)
 	case errors.Is(err, documents.ErrNotUnique):
-		return fmt.Errorf("%w: %w", sdk.ErrNotUnique, err)
+		return errs.Mark(sdk.ErrNotUnique, err)
 	case errors.Is(err, documents.ErrNoOp):
-		return fmt.Errorf("%w: %w", sdk.ErrNoOp, err)
+		return errs.Mark(sdk.ErrNoOp, err)
 	default:
 		return err
 	}
@@ -546,7 +546,7 @@ func (a *documentAPI) Export(prefix, dir string, opts sdk.ExportOpts) (*sdk.Expo
 	// its failure is the call's error (a missing document is
 	// sdk.ErrNotFound).
 	if len(r.Errors) > 0 && len(r.Exported) == 0 && len(r.Skipped) == 0 {
-		return nil, docErr(fmt.Errorf("exporting %s: %w", r.Errors[0].Path, r.Errors[0].Err))
+		return nil, docErr(errs.Context(r.Errors[0].Err, "exporting %s", r.Errors[0].Path))
 	}
 	out := &sdk.ExportResult{
 		Exported: r.Exported,

@@ -314,12 +314,17 @@ func TestList(t *testing.T) {
 		opts ListOptions
 		want []string // sorted content
 	}{
-		{"all", ListOptions{}, []string{"A.", "B.", "C."}},
+		{"all", ListOptions{}, []string{"A.", "B.", "C.", "D."}},
 		{"by target", ListOptions{Target: "docs/api"}, []string{"A.", "C."}},
 		{"by author", ListOptions{ByAuthor: "gemini"}, []string{"A.", "C."}},
+		// D was handed to gemini by a reply, so it is no longer
+		// claude-code's: the assignee is the latest entry's, as audit
+		// status reads it. List once filtered on the first entry.
 		{"by assignee", ListOptions{Assignee: "claude-code"}, []string{"A.", "C."}},
-		// Only C remains pending: A was resolved and B was approved.
-		{"pending", ListOptions{Pending: true}, []string{"C."}},
+		{"by assignee follows the latest entry", ListOptions{Assignee: "gemini"}, []string{"B.", "D."}},
+		// C and D remain pending: A was resolved and B was approved.
+		{"pending", ListOptions{Pending: true}, []string{"C.", "D."}},
+		{"pending by latest assignee", ListOptions{Pending: true, Assignee: "gemini"}, []string{"D."}},
 		{"by effective status approved", ListOptions{Status: "approved"}, []string{"A.", "B."}},
 		{"by effective status needs-work", ListOptions{Status: "needs-work"}, []string{"C."}},
 		{"pending and target", ListOptions{Pending: true, Target: "docs/auth"}, nil},
@@ -340,6 +345,13 @@ func TestList(t *testing.T) {
 			}
 			if _, err := store.Add(ctx, AddOptions{Target: "docs/api", Content: "C.", Author: "gemini", Assignee: "claude-code", Status: "needs-work"}); err != nil {
 				t.Fatalf("Add(C) error = %v", err)
+			}
+			d, err := store.Add(ctx, AddOptions{Target: "docs/ops", Content: "D.", Author: "codex", Assignee: "claude-code"})
+			if err != nil {
+				t.Fatalf("Add(D) error = %v", err)
+			}
+			if _, err := store.Reply(ctx, d.ID, AddOptions{Content: "Over to you.", Author: "claude-code", Assignee: "gemini"}); err != nil {
+				t.Fatalf("Reply(D) error = %v", err)
 			}
 			// Resolve A - its effective status becomes "approved".
 			if _, err := store.Resolve(ctx, a.ID, "claude-code"); err != nil {

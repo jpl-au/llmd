@@ -9,7 +9,7 @@ same commands.
 ```
 llmd guide              This overview
 llmd guide <topic>      One command or topic in full, e.g. guide task
-llmd <command> --help   Usage, flags and a pointer to the guide
+llmd <command> --help   Usage, flags (or a summary of them) and a pointer to the guide
 ```
 
 ## Rules
@@ -152,6 +152,6 @@ See `guide agent`, `guide rule`, `guide hooks` and `guide workflow`.
 
 ## More help
 
-- `llmd guide <topic>` - detailed help on a topic: any command name, plus
+- `llmd guide <topic>` - detailed help on a topic: a command name (hook's page is `hooks`; version and extensions have none), plus
   workflow, events, hooks, claude-code and install
 - `llmd <command> --help` - usage for a specific command

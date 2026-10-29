@@ -15,14 +15,14 @@ import (
 // actionable instructions for writing or linking a spec.
 func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("task move: %w: id and column", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task move: a task key and a column are required.")
 	}
 
 	if err := ctx.Tasks.Move(args[0], args[1], ctx.Author); err != nil {
 		if errors.Is(err, sdk.ErrNoSpec) {
 			tsk, rerr := ctx.Tasks.Read(args[0])
 			if rerr == nil {
-				return nil, fmt.Errorf("task move: spec required - tasks cannot leave the backlog until their document has content beyond the title heading (%w).\n\nWrite the spec:\n  llmd write %s\n\nOr link an existing document:\n  llmd task link %s <path>", sdk.ErrNoSpec, tsk.Path, args[0])
+				return nil, sdk.Errorf(sdk.ErrNoSpec, "task move: %s has no spec, so it cannot leave the backlog. Write one with llmd write %s, or link a document with llmd task link %s <path>.", args[0], tsk.Path, args[0])
 			}
 		}
 		return nil, fmt.Errorf("task move: %w", err)
@@ -48,7 +48,7 @@ var taskSetFlags = []sdk.Flag{
 
 func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task set: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task set: a task key is required.")
 	}
 
 	key := args[0]
@@ -96,7 +96,7 @@ func taskSet(ctx sdk.Context, args []string) (sdk.Response, error) {
 // output reminds the user to delete it separately if desired.
 func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task rm: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task rm: a task key is required.")
 	}
 
 	t, err := ctx.Tasks.Delete(args[0], ctx.Author)
@@ -115,7 +115,7 @@ func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 // it was in when deleted.
 func taskRestore(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task restore: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task restore: a task key is required.")
 	}
 
 	t, err := ctx.Tasks.Restore(args[0], ctx.Author)

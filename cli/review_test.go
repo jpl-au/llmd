@@ -82,7 +82,7 @@ func TestReview(t *testing.T) {
 			args:      nil,
 			wantText:  []string{"\tFix login\tbacklog\tP2\tbob\t\ttasks/fix-login\n", "\tWrite docs\tbacklog\t-\t\t\t\n", "\tDeploy\tin-progress\t-\t\t\t\n"},
 			wantCount: 3,
-			wantJSON:  []string{`"task":{`, `"spec":"Users cannot log in.\nSee the error log.\n"`, `"links":[{`, `"To":"docs/ref"`, `"Label":"context"`},
+			wantJSON:  []string{`"task":{`, `"spec":"Users cannot log in.\nSee the error log.\n"`, `"links":[{`, `"to":"docs/ref"`, `"label":"context"`},
 		},
 		{
 			name:       "column flag",
@@ -162,7 +162,7 @@ func TestReview(t *testing.T) {
 
 			var resp sdk.Response
 			if tt.tty {
-				metaWithTTY(t, func() { resp = run(t, c, "review", nil, tt.args...) })
+				resp = runTTY(t, c, "review", tt.args...)
 			} else {
 				resp = run(t, c, "review", nil, tt.args...)
 			}

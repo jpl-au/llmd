@@ -46,7 +46,7 @@ func TestOpenErrors(t *testing.T) {
 		{
 			name:    "open missing store",
 			prepare: func(_ *testing.T, dir string) string { return filepath.Join(dir, "llmd.db") },
-			wantMsg: "store not found",
+			wantMsg: "there is no store at",
 		},
 		{
 			name: "init under a file",

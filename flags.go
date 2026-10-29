@@ -12,46 +12,46 @@ type globalFlags struct {
 	JSON    bool
 	Help    bool
 	Verbose bool
+	Version bool
 	DB      string
 	Author  string
 	Cmd     string
 	Args    []string
 }
 
-// parseGlobal extracts global flags from the raw argument list.
-// Flags appearing after the command name are also consumed so they
-// don't leak into per-command ParseArgs.
+// parseGlobal extracts global flags from the raw argument list. They
+// may come before the command or after it, in either --name value or
+// --name=value form, and mean the same in both places. After the
+// command, "--" ends flag parsing: everything from it on is the
+// command's own. Before the command, an unknown flag is an error
+// rather than being dropped.
+//
+// --version and -v are global only before the command (llmd
+// --version): after it they belong to the command, as in cat
+// --version 3.
 func parseGlobal(args []string) (globalFlags, error) {
 	var g globalFlags
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
-		switch {
-		case arg == "--json":
-			g.JSON = true
-		case arg == "--help" || arg == "-h":
-			g.Help = true
-		case arg == "--verbose":
-			g.Verbose = true
-		case arg == "--db":
-			if i+1 >= len(args) {
-				return g, fmt.Errorf("--db requires a path")
-			}
-			i++
-			g.DB = args[i]
-		case arg == "--author":
-			if i+1 >= len(args) {
-				return g, fmt.Errorf("--author requires a name")
-			}
-			i++
-			g.Author = args[i]
-		case strings.HasPrefix(arg, "--author="):
-			g.Author = strings.TrimPrefix(arg, "--author=")
-		case g.Cmd == "" && !strings.HasPrefix(arg, "-"):
+		if !strings.HasPrefix(arg, "-") {
 			g.Cmd = arg
-			g.Args = stripGlobal(args[i+1:], &g)
-			return g, nil
+			rest, err := stripGlobal(args[i+1:], &g)
+			g.Args = rest
+			return g, err
 		}
+		if arg == "--version" || arg == "-v" {
+			g.Version = true
+			continue
+		}
+		n, err := g.take(args, i)
+		if err != nil {
+			return g, err
+		}
+		if n == 0 {
+			return g, fmt.Errorf("llmd: unknown flag %s. The global flags are --author, --json, --db, --verbose and --help.", arg)
+		}
+		i += n - 1
 	}
 
 	return g, nil
@@ -59,26 +59,64 @@ func parseGlobal(args []string) (globalFlags, error) {
 
 // stripGlobal removes global flags from per-command args so they
 // don't reach per-command ParseArgs (which would reject them as
-// unknown).
-func stripGlobal(raw []string, g *globalFlags) []string {
+// unknown). It stops at "--", passing it and what follows through.
+func stripGlobal(raw []string, g *globalFlags) ([]string, error) {
 	out := make([]string, 0, len(raw))
 	for i := 0; i < len(raw); i++ {
-		a := raw[i]
-		switch {
-		case a == "--help" || a == "-h":
-			g.Help = true
-		case a == "--json":
-			g.JSON = true
-		case a == "--verbose":
-			g.Verbose = true
-		case a == "--author" && i+1 < len(raw):
-			i++
-			g.Author = raw[i]
-		case strings.HasPrefix(a, "--author="):
-			g.Author = strings.TrimPrefix(a, "--author=")
-		default:
-			out = append(out, a)
+		if raw[i] == "--" {
+			return append(out, raw[i:]...), nil
 		}
+		n, err := g.take(raw, i)
+		if err != nil {
+			return nil, err
+		}
+		if n == 0 {
+			out = append(out, raw[i])
+			continue
+		}
+		i += n - 1
 	}
-	return out
+	return out, nil
+}
+
+// take reads the global flag at args[i], if it is one, and returns how
+// many arguments it used: 0 when args[i] is not a global flag, 2 when
+// its value is the next argument.
+func (g *globalFlags) take(args []string, i int) (int, error) {
+	arg := args[i]
+	switch arg {
+	case "--json":
+		g.JSON = true
+		return 1, nil
+	case "--help", "-h":
+		g.Help = true
+		return 1, nil
+	case "--verbose":
+		g.Verbose = true
+		return 1, nil
+	}
+
+	name, value, inline := strings.Cut(arg, "=")
+	var dst *string
+	var what string
+	switch name {
+	case "--db":
+		dst, what = &g.DB, "a path"
+	case "--author":
+		dst, what = &g.Author, "a name"
+	default:
+		return 0, nil
+	}
+	if inline {
+		if value == "" {
+			return 0, fmt.Errorf("llmd: %s needs %s.", name, what)
+		}
+		*dst = value
+		return 1, nil
+	}
+	if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
+		return 0, fmt.Errorf("llmd: %s needs %s.", name, what)
+	}
+	*dst = args[i+1]
+	return 2, nil
 }

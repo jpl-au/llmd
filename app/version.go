@@ -11,6 +11,7 @@ package app
 import (
 	"fmt"
 	"runtime"
+	"runtime/debug"
 	"strings"
 )
 
@@ -40,10 +41,13 @@ type Info struct {
 }
 
 // Version returns the current build information. Runtime values
-// (Go version, platform) are always populated; build-time values
-// depend on whether ldflags were set.
+// (Go version, platform) are always populated. Build values come from
+// ldflags (make build); without them, from what the Go toolchain
+// records in the binary: go install stamps the module version, and a
+// build inside the repository stamps the commit, its time, and whether
+// the tree had uncommitted changes.
 func Version() Info {
-	return Info{
+	info := Info{
 		Edition:     Edition,
 		BuildTag:    Tag,
 		BaseVersion: BaseVersion,
@@ -52,6 +56,37 @@ func Version() Info {
 		GoVersion:   runtime.Version(),
 		Platform:    fmt.Sprintf("%s %s", runtime.GOOS, runtime.GOARCH),
 		Diagnostics: Diagnostics,
+	}
+	if Commit == "" {
+		if bi, ok := debug.ReadBuildInfo(); ok {
+			fromBuildInfo(&info, bi)
+		}
+	}
+	return info
+}
+
+// fromBuildInfo fills the build values ldflags would have set from the
+// toolchain's record of the build.
+func fromBuildInfo(info *Info, bi *debug.BuildInfo) {
+	if v := bi.Main.Version; v != "" && v != "(devel)" {
+		info.BuildTag = v
+	}
+	var modified bool
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			info.GitCommit = s.Value
+			if len(s.Value) > 12 {
+				info.GitCommit = s.Value[:12]
+			}
+		case "vcs.time":
+			info.BuildTime = s.Value
+		case "vcs.modified":
+			modified = s.Value == "true"
+		}
+	}
+	if modified && !strings.HasSuffix(info.GitCommit, "-dirty") && info.GitCommit != "" {
+		info.GitCommit += "-dirty"
 	}
 }
 

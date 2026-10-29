@@ -36,18 +36,18 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 		key = positional[0]
 	}
 	if key == "" {
-		return nil, fmt.Errorf("task start: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task start: a task key is required.")
 	}
 
 	agent := flags.String("agent")
 	if agent != "" {
 		if flags.String("assign") != "" {
-			return nil, fmt.Errorf("task start: %w: --agent and --assign together - the spawned agent is the assignee", sdk.ErrInvalidArg)
+			return nil, sdk.Errorf(sdk.ErrInvalidArg, "task start: use --agent or --assign, not both. The spawned agent is the assignee.")
 		}
 		var opts sdk.SpawnOpts
 		if b := flags.String("budget"); b != "" {
 			if _, err := fmt.Sscanf(b, "%f", &opts.MaxBudget); err != nil {
-				return nil, fmt.Errorf("task start: invalid budget %q: %w", b, err)
+				return nil, sdk.Errorf(sdk.ErrInvalidArg, "task start: %s is not a budget. %w", b, err)
 			}
 		}
 		// Spawn an agent - this handles branch creation, worktree,
@@ -102,13 +102,13 @@ func taskDiff(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, fmt.Errorf("task diff: task has no branch - use 'task start' or 'task set --branch'")
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task diff: %s has no branch. Give it one with llmd task start or llmd task set --branch.", t.Key)
 	}
 
 	if base == "" {
 		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
-			return nil, fmt.Errorf("task diff: %w - use --base to specify", err)
+			return nil, fmt.Errorf("task diff: %w Pass --base to name the base branch.", err)
 		}
 	}
 
@@ -121,7 +121,7 @@ func taskDiff(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Text("No differences"), nil
 	}
 
-	if isTTY() {
+	if ctx.TTY {
 		output = colourDiff(output)
 	}
 
@@ -154,13 +154,13 @@ func taskFiles(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, fmt.Errorf("task files: task has no branch - use 'task start' or 'task set --branch'")
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task files: %s has no branch. Give it one with llmd task start or llmd task set --branch.", t.Key)
 	}
 
 	if base == "" {
 		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
-			return nil, fmt.Errorf("task files: %w - use --base to specify", err)
+			return nil, fmt.Errorf("task files: %w Pass --base to name the base branch.", err)
 		}
 	}
 
@@ -241,7 +241,7 @@ func taskBranch(ctx sdk.Context, args []string) (sdk.Response, error) {
 		key = positional[0]
 	}
 	if key == "" {
-		return nil, fmt.Errorf("task branch: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task branch: a task key is required.")
 	}
 
 	t, err := ctx.Tasks.StartBranch(key, ctx.Author, opts)
@@ -277,13 +277,13 @@ func taskCommits(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, fmt.Errorf("task commits: task has no branch - use 'task start' or 'task set --branch'")
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task commits: %s has no branch. Give it one with llmd task start or llmd task set --branch.", t.Key)
 	}
 
 	if base == "" {
 		base, err = ctx.Git.DefaultBranch()
 		if err != nil {
-			return nil, fmt.Errorf("task commits: %w - use --base to specify", err)
+			return nil, fmt.Errorf("task commits: %w Pass --base to name the base branch.", err)
 		}
 	}
 

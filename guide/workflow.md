@@ -21,7 +21,7 @@ llmd --author <reviewer> task finish <id>  Approve and close
 
 Rules:
 
-- Every change carries an author. People set one with `config author`;
+- Every change to the store carries an author. People set one with `config author`;
   agents must pass `--author` instead and never change the configured
   author.
 - Paths use forward slashes and no leading slash. A single word is a
@@ -305,5 +305,5 @@ dedicated branches. The worktree persists across pipeline steps
 - **Audits are the communication channel.** Agents leave audit
   trails explaining decisions, flagging issues, and confirming
   approvals.
-- **Author attribution matters.** Every mutation carries an author,
+- **Author attribution matters.** Every change to the store carries an author,
   so the history shows who did what.

@@ -2,13 +2,15 @@ package documents
 
 import "context"
 
-// KeyToPath translates a key to its document path. Used by the shared
-// resolve package to detect key-based identifiers.
+// KeyToPath translates a key to its document path, live or deleted, so
+// a key reaches the same document and the same errors as its path
+// (restore by key, and ErrDeleted rather than ErrNotFound elsewhere).
+// Used by the shared resolve package to detect key-based identifiers.
 func (d *Documents) KeyToPath(ctx context.Context, k string) (string, error) {
 	var path string
 	row, err := d.db.Query(`
 		SELECT path FROM content
-		WHERE namespace = ? AND key = ? AND deleted_at IS NULL
+		WHERE namespace = ? AND key = ?
 		ORDER BY version DESC LIMIT 1
 	`, namespace, k).WithContext(ctx).ReadRow()
 	if err != nil {

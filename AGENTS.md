@@ -40,6 +40,7 @@ internal/llmd/              Store: opens databases, coordinates sub-packages
 internal/llmd/documents/    Document CRUD, versioning, soft-delete
 internal/llmd/history/      Version listings, unified diffs, reverts
 internal/llmd/search/       FTS5 full-text search and glob matching
+internal/llmd/fts/          Keeps the FTS5 index in step inside each document transaction
 internal/llmd/tasks/        Task board: columns, metadata, audit log
 internal/llmd/tags/         Key-value tags attached to documents
 internal/llmd/links/        Directed relationships between documents
@@ -49,6 +50,7 @@ internal/llmd/entities/     Named entity extraction
 internal/llmd/audits/       Agent-to-agent and human-to-agent review threads
 internal/llmd/audit/        Change log
 internal/llmd/key/          ID generation: 10-char base36 from ms timestamps
+internal/llmd/lazy/         One-time setup that retries after a failure (unlike sync.Once)
 internal/llmd/hash/         Content hashing (xxh3)
 internal/llmd/meta/         Document metadata helpers
 internal/git/               Git CLI wrapper: sdk.GitStore implementation (build-tagged)
@@ -85,13 +87,40 @@ main.go → run()
   │   ├─ load compiled extensions via extension.All()
   │   └─ wire extension EventHandlers to internal bus
   ↓ resolve author (flag → config → term.Interactive() fallback)
-  ↓ term.ReadStdin() - internal/term/
+  ↓ term.Stdin() - internal/term/ (a source; nothing is read yet)
   ↓ host.Exec(ctx, cmd, args, author, stdin, dbPath)
   │   └─ host.Context(ctx, author): per-request bridges bound to ctx,
   │      plus the host itself as sdk.Runtime
   ↓ extension.Exec(sctx, cmd, args) → sdk.Response
   ↓ display(result, jsonOut) - output.go
 ```
+
+### Input
+
+`sdk.Context.Stdin` is an input source, not bytes: the CLI's stdin
+when it is a pipe or file, the request content for MCP and HTTP, or
+nil. Nothing reads it until a command asks:
+
+- `ctx.Input()` - required input (`write`, `hook`). Reads to the end
+  however slow the writer, and stops on Ctrl-C.
+- `ctx.OptionalInput()` - input that is one of several sources
+  (`task add`, `audit add|reply`, `queue send`). Waits 50 ms for the
+  first byte, then reads to the end with no limit.
+
+Agent harnesses often run commands with stdin as a pipe they never
+close, so only read it when the command needs it: after positional
+content and `--file` have been checked.
+
+### Global flags
+
+`parseGlobal` (`flags.go`) reads `--author`, `--db`, `--json`,
+`--verbose` and `--help`/`-h` before or after the command, as
+`--name value` or `--name=value`, the same in both places. After the
+command, `--` ends global flags. Before the command an unknown flag is
+an error. `--version`/`-v` are global only before the command (`llmd
+--version`); after it they are the command's own (`cat --version 3`).
+Version info falls back to `debug.ReadBuildInfo` when ldflags are not
+set, so `go install` builds report their version and commit.
 
 ## Flag Parsing
 
@@ -192,6 +221,8 @@ error types from leaking through the SDK boundary:
 | Internal error | SDK sentinel |
 |---------------|-------------|
 | `documents.ErrNotFound` | `sdk.ErrNotFound` |
+| `documents.ErrDeleted` | `sdk.ErrNotFound` |
+| `documents.ErrExists`, `documents.ErrNotDeleted` | `sdk.ErrExists` |
 | `history.ErrNotFound` | `sdk.ErrNotFound` |
 | `tasks.ErrNotFound` | `sdk.ErrNotFound` |
 | `tasks.ErrNoSpec` | `sdk.ErrNoSpec` |
@@ -238,9 +269,15 @@ themselves.
 
 Three separate event mechanisms serve different layers:
 
-1. **Internal bus** (`internal/llmd/events/`) - synchronous, in-process. The
-   FTS5 search handler subscribes to maintain the full-text index on document
-   writes and deletes. Uses `pkg/events.Event` as the event type.
+1. **Internal bus** (`internal/llmd/events/`) - synchronous, in-process,
+   fired after the change commits. Subscribers are the message queue,
+   extensions, the agent pipeline and the server's SSE and webhook
+   clients. A failing handler is logged and the rest still run; `Emit`
+   returns nothing, because the change it reports has already
+   committed. Anything that must never miss a change belongs in the
+   transaction instead: the FTS5 index is not a subscriber, it is
+   updated by `internal/llmd/fts` inside each document transaction.
+   Uses `pkg/events.Event` as the event type.
 
 2. **Shared event types** (`pkg/events/`) - struct definitions for
    `document.written`, `document.deleted`, `document.restored`,
@@ -251,7 +288,9 @@ Three separate event mechanisms serve different layers:
    `data_version` on each database (`internal/llmd/watch.go`) and hands
    the host's Subscribe callbacks a `store.changed` event. That event
    deliberately bypasses the bus, so the search index, message queue
-   and extensions never see it; `llmd serve` starts the watcher.
+   and extensions never see it; `llmd serve` starts the watcher. Our
+   own bus events arrive only after the commit, so a change is held one
+   interval and dropped if an event of ours arrived meanwhile.
 
 3. **Extension events** (`extension/events.go`) - fire-and-forget notifications
    for extensions. Eight event types: document write/delete/restore/move, tag
@@ -549,9 +588,40 @@ transaction, then uses `TransactionFunc` for the atomic
 check-latest-hash → increment-version → insert sequence. This prevents
 concurrent reverts from producing duplicate version numbers.
 
-**FTS handler:** `onWrite` and `onMove` use `TransactionFunc` so the
-FTS delete-then-insert is atomic. A crash cannot leave the index missing
-a document.
+**Document states:** a document is live, deleted or absent as a whole:
+every version of a path shares one state, and nothing leaves a path
+part live, part deleted. `documents.Check` (and `CheckTx` inside a
+transaction) is the one place that reads the state: nil, `ErrDeleted`
+or `ErrNotFound`. Every operation applies the same rule:
+
+| Operation | Live | Deleted | Absent |
+|-----------|------|---------|--------|
+| read, stat, history, diff, edit, sed, export, revert, rm, mv (source), cp (source), tag, link, task `--path` | proceeds | `ErrDeleted` | `ErrNotFound` |
+| write, cp (destination), import | new version | continues the document: earlier versions return, the write is the next version | version 1 |
+| restore | `ErrNotDeleted` | restores every version | `ErrNotFound` |
+| mv (destination) | `ErrExists` | `ErrExists` (restore or vacuum it) | proceeds |
+
+Keys resolve to their document in any state (`KeyToPath`), so a key
+reaches the same result as its path. A deleted document still owns its
+path: `task add` picks `tasks/<slug>-2` rather than continuing one.
+`vacuum` purges only documents deleted as a whole. Changing a rule
+means changing `TestDocumentStates` (`internal/llmd/lifecycle_test.go`).
+
+**Search index:** `content_fts` is an external-content FTS5 table, so
+removing a row means replaying the exact values it was indexed with,
+and replaying a row that is not indexed corrupts the index. The index
+holds one row per path with a live version: its latest live version.
+Every change to `content` (`writeInTx`, `Delete`, `Restore`, `Move`,
+`revertInTx`) calls `fts.Live` before the change and `fts.Sync` after
+it on the same transaction, so the index commits or rolls back with
+the change. A write that changes nothing adds no version and emits no
+event.
+
+**Work database:** `Store.WorkDB` opens work.db under a mutex, and each
+work domain guards its setup with `lazy.Once`, so concurrent server
+requests open it once and a failed open is retried on the next call.
+`Agents.Record` checks for a running agent and inserts the run in one
+transaction, so two spawns for one task cannot both start.
 
 **When to use `recordTx` vs `audit.Record`:** Use `recordTx` inside a
 transaction to make audit records atomic with the surrounding operation.
@@ -577,6 +647,12 @@ read them:
 | Agent `--help` | `llmd <cmd> --help` piped | `cmdHelp(c, false)`: `c.AgentHelp()` plus one line of global flags |
 | MCP tool list | every MCP session start | `registerTool` in `cli/mcp.go`: `c.AgentHelp()` |
 
+`Command.Guide` names the guide page a command's help points to
+("Details: guide <page>"): empty for the command's own name, `-` for
+none (`version`, `extensions`). `TestGuidePointers` checks every
+pointer resolves, and `TestHelp` that root help lists every command
+and global flag.
+
 `Command.Summary()` is the first paragraph of `Desc`. `AgentHelp()` is
 `Summary` plus the flags and `Details: guide <name>`, or `Brief` alone
 when set. Set `Brief` on a command whose generated form would run long
@@ -585,9 +661,11 @@ list is held under 14 KB by `TestMCPToolListBudget`. `mcpInstructions`
 in `cli/mcp.go` is the one message a model sees at connect time; the
 `guide` index page says the same things for a model in a shell.
 
-**Command output.** `isTTY()` (stdout is a character device) chooses
-the shape, not just the colour. Piped output is for a model or a
-script:
+**Command output.** `sdk.Context.TTY` chooses the shape, not just the
+colour. The host sets it for the CLI when stdout is a terminal and
+never for MCP or HTTP: a server started in a terminal still answers
+its clients in plain form. Commands read `ctx.TTY`, never the process's
+stdout. Piped output is for a model or a script:
 
 - `newTable` returns a `grid` (`cli/styles.go`): a bordered lipgloss
   table at a terminal, tab-separated lines with a header line when
@@ -598,12 +676,29 @@ script:
   shared by `task list` and `review`. `task list` groups them under
   `COLUMN (count)` headings.
 - Markdown (`cat`, `guide`, `task show`) is rendered at a terminal and
-  raw when piped (`renderMarkdown` in `output.go`).
+  raw when piped (`renderMarkdown` in `output.go`), in the
+  `display.theme` style (`dark` or `light`). The theme is configured,
+  not detected: asking the terminal costs seconds when it does not
+  answer. Table headers and headings are bold in the terminal's own
+  foreground colour, never a fixed colour, so they read on any
+  background.
 - Output that grows without bound is capped and says so, with `--all`
-  to lift the cap: `ls` 500 documents, `diff` 500 lines, `task list`
+  to lift the cap (`ls`, `find` and `glob` say it in `sdk.Result.Note`,
+  which the CLI prints on stderr so piped lists stay one item per line,
+  and MCP appends to the text): `ls` 500 documents, `diff` 500 lines, `task list`
   the newest 10 done tasks, `review` leaves out done and human tasks.
 - Error text names the next command to run where there is one (spec
   gating, `task next` with nothing ready).
+
+**JSON output.** `--json` (and `Output: json` over HTTP) means JSON
+from every command, decided in one place: `sdk.JSON(resp)` is the
+response's data when it has some, otherwise `{"text": "<its text>"}`.
+An object, not a bare string, so a command can add fields later without
+breaking a parser. Keys are snake_case: every SDK type carried as data
+has `json` tags. `TestJSONEverywhere` (`json_test.go`) runs commands
+with `--json` and fails on output that is not JSON or a key with a
+capital letter. MCP stays a text surface: its tools return the text
+form.
 
 **Guides.** Every page in `guide/` is dense-first: a title, one plain
 sentence, `## Usage`, `## Flags`, `## Rules` (what is required, refused,
@@ -643,7 +738,10 @@ slashes; an earlier path is URL-encoded as one segment.
 
 **Routes are declared:** a command with subcommands lists its routes in
 `sdk.Command.Routes` (see `cli/routes.go`): method, pattern and the
-argument template the URL expands into. A command without routes gets the
+argument template the URL expands into: `{name}` is a part of the URL,
+`{?name}` a query parameter carrying free text (edit's old and new
+text, a sed expression), after which the flags end with `--`. A
+command without routes gets the
 default pair `GET /<name>` and `GET /<name>/{path...}`, or `POST` when it
 has `NeedsAuthor`. Reads are GET; changes are POST or DELETE. Tests in
 `cli/routes_test.go` check that every GET route works without an author
@@ -651,30 +749,72 @@ has `NeedsAuthor`. Reads are GET; changes are POST or DELETE. Tests in
 `guide/serve.md` lists every declared route.
 
 **Headers carry metadata:** `Author` (fallback identity), `Message` (commit
-message), `Source` (origin tracking), `Output` (`json` to request structured
+message), `Output` (`json` to request structured
 data). No `X-` prefix - RFC 6648 deprecated it.
 
 **Request body is content:** POST bodies carry raw document content (markdown),
 not JSON envelopes. This matches the CLI where stdin is the document body.
 
-**Response format:** `sdk.Text` returns `text/plain`. `sdk.Data` returns JSON.
-`sdk.Result` returns text by default, or JSON when the `Output: json` header
-is set or when no text representation exists.
+**Response format:** `sdk.Text` returns `text/plain`, `sdk.Markdown`
+`text/markdown`, `sdk.Result` its text, and `sdk.Data` JSON. With the
+`Output: json` header (or with no text to return) the body is
+`sdk.JSON(resp)`, the same value the CLI prints for `--json` (see JSON
+output).
 
-**Error mapping:** SDK sentinel errors map to HTTP status codes  - 
-`ErrNotFound` → 404, `ErrMissingArg`/`ErrInvalidArg` → 400, `ErrExists`,
-`ErrOrderViolation`, `ErrCycle`, `ErrAgentRunning`, `ErrAgentNotRunning` and
-`ErrNotReady` → 409, `ErrNoSpec` → 422. All errors return JSON
-`{"error": "..."}`.
+**Error mapping:** `statusOf` (`internal/server/handler.go`) maps every
+SDK error kind to a status, and `TestStatusOfEveryKind` fails when one
+is missing: `ErrNotFound`, `ErrUnknownCmd` → 404; `ErrMissingArg`,
+`ErrInvalidArg` → 400; `ErrExists`, `ErrOrderViolation`, `ErrCycle`,
+`ErrAgentRunning`, `ErrAgentNotRunning`, `ErrNotReady`, `ErrNoneReady`,
+`ErrUnavailable` (git missing or not a repository) → 409; `ErrNoSpec`,
+`ErrNoMatch`, `ErrNotUnique`, `ErrNoOp` → 422. The router's own 404 and
+405 replies are JSON too. All errors return JSON
+`{"error": "..."}` with the message as the CLI prints it (see Errors).
 
-**Configuration:** Listen address is read from `serve_addr` config key,
-defaulting to `localhost:5563`. No flags or environment variables.
+**Configuration:** Listen address is read from the `server.addr`
+config key, defaulting to `localhost:5563`. No flags or environment
+variables.
+
+**Hardening:** without `server.token` the server answers only requests
+whose `Host` (and `Origin`, when sent) is loopback or the configured
+listen host, so a web page cannot reach it through DNS rebinding, and
+`ListenAndServe` refuses a non-loopback address. With a token, the
+token is the check. Request bodies are capped (`WithMaxBody`, set from
+`limits.content_size`), headers and requests time out
+(`WithTimeouts`), and shutdown ends `/events` streams so it completes
+instead of waiting out `WithShutdownTimeout`. URL values that start
+with `-` are refused, since commands would read them as flags; query
+flags are passed in name order. Refs and paths given to git are
+refused when they start with `-`, revisions follow `--end-of-options`,
+and each git command runs with a timeout and `GIT_TERMINAL_PROMPT=0`.
 
 **Skipped commands:** `mcp`, `serve`, `init`, `config`, `version`,
 `extensions` are not exposed over HTTP - they are admin or local-only.
 
 The server uses `github.com/jpl-au/chain` as the HTTP mux, which wraps
 Go 1.22's enhanced `net/http` routing with middleware support.
+
+## Configuration
+
+`internal/config` reads `.llmd/config.yaml`, or `~/.llmd/config.yaml`
+when there is no local file. Every key has its default in
+`config.Defaults()`, so `llmd config` shows what is in effect. YAML is
+decoded leniently: unknown keys are ignored.
+
+- `Config.Set` is the one place a value is checked; `llmd config <key>
+  <value>` refuses what it refuses.
+- `Config.Validate` runs `Set`'s checks over a loaded file (plus zero
+  limits and webhook entries). `main` logs each problem once as a
+  warning; nothing fails because of a bad value.
+- Read durations and counts through `DurationSetting(key)` and
+  `CountSetting(key, min)`, which return the default for a value
+  `Validate` reports. Do not parse config strings at the use site.
+- New tunable values go in the config with a default, not in a
+  constant: a key in `Keys`, `Field` and `Set`, a default in
+  `Defaults`, a row in `guide/config.md`, and an option on the
+  component that uses it (`server.WithTimeouts`, `llmd.WithDatabase`,
+  `git.New(timeout)`). Components keep working with their zero-value
+  defaults so tests need no config.
 
 ## Gitignore Management
 
@@ -723,6 +863,53 @@ machine-readable. `--verbose` overrides any configured level.
 All packages use the process-wide `slog` default - call `slog.Debug`,
 `slog.Info`, `slog.Warn`, `slog.Error` directly. No logger is passed
 through context or structs.
+
+## Errors
+
+An error message is written for whoever reads it, a person or an
+agent, and is the same from the CLI, MCP and HTTP:
+
+- `<command>: <what is wrong>.` and, where there is one, a second
+  sentence with the next step: `cat: p is deleted. Run llmd restore p
+  to bring it back.`
+- Name the thing once (the path, key or value), and say nothing about
+  the code that found the problem: no `resolving x:`, no `getting
+  version 9:`.
+- No `x: y: z` chains and no ` - ` asides.
+
+The error's *kind* is for code, not the message. Build errors with
+`errs.New(kind, format, args...)` (internal packages) or
+`sdk.Errorf(kind, ...)` (commands and extensions): `errors.Is(err,
+kind)` holds and the transports map the kind to an exit code or HTTP
+status, but the kind's own text is not added. The host classifies an
+internal error as an SDK one with `errs.Mark(sdk.ErrX, err)`, which
+adds a kind and no text. Never write `fmt.Errorf("%w: ...", ErrX)`.
+
+- A sentinel with no context reads as a sentence on its own
+  (`tasks.ErrNoneReady` is "no task is ready."), so a bare
+  `fmt.Errorf("task next: %w", err)` still reads well.
+- Errors that can name their object do, where they are returned:
+  `documents.NotFound(path)`, `documents.Deleted(path)`,
+  `documents.NoVersion(kind, path, v)`; tasks, audits, agents, tags
+  and links build theirs the same way.
+- Unexpected failures (a database or file error) keep their cause
+  chain, which is what debugging needs. Wrap them with
+  `errs.Context(err, "doing x")`, which leaves a reader's message from
+  `errs.New` untouched, so every error can be wrapped the same way.
+- `sdk.AuthorRequired(cmd)` is the one author-required sentence.
+- `sdk.ExitError{Cmd, Code}` ends a command with a process exit code
+  (`agent run` passes on the agent's). The CLI exits with the code and
+  prints nothing; never call `os.Exit` from a handler, which skips the
+  store's close and would end an MCP or HTTP server.
+- Ctrl-C prints `llmd: interrupted.`
+- The CLI prints the message as it is (no `error:` prefix). A missing
+  argument prints the message, then the command's usage.
+
+`TestErrorStyle` (`cli/errstyle_test.go`) runs failing commands and
+checks every message against the style; `TestNoStackedErrors`
+(`internal/errs/style_test.go`) rejects the source patterns that
+stacked phrases. Add a case to the first when adding an error a user
+can reach.
 
 ## Common Pitfalls
 

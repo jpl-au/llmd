@@ -138,12 +138,18 @@ func TestMirror(t *testing.T) {
 			wantText: "Pushed from .llmd/llmd/ (unchanged 3)",
 		},
 		{
-			name:     "push with prefix copies under it",
-			author:   "alice",
-			seed:     pullAll,
-			args:     []string{"push", "copy"},
-			wantText: "Pushed from .llmd/llmd/ (created 3)",
-			wantDocs: map[string]string{"copy/docs/a": "# A\n", "copy/other/x": "# X\n"},
+			// A prefix limits push to that part of the mirror, as it
+			// limits pull; it once copied the whole mirror under it.
+			name:   "push with prefix only pushes under it",
+			author: "alice",
+			seed: func(t *testing.T, c sdk.Context, dir string) {
+				pullAll(t, c, dir)
+				metaWriteFile(t, filepath.Join(dir, metaMirrorDir, "docs", "a.md"), "# A edited\n")
+				metaWriteFile(t, filepath.Join(dir, metaMirrorDir, "other", "x.md"), "# X edited\n")
+			},
+			args:     []string{"push", "docs"},
+			wantText: "Pushed from .llmd/llmd/ (updated 1, unchanged 1)",
+			wantDocs: map[string]string{"docs/a": "# A edited\n", "other/x": "# X\n"},
 		},
 		{
 			name:   "push ignores non-markdown files",

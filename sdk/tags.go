@@ -21,12 +21,12 @@ type TagStore interface {
 
 // Tag represents a tag attached to a document.
 type Tag struct {
-	Name string
-	Path string
+	Name string `json:"name"`
+	Path string `json:"path"`
 }
 
 // TagInfo represents a tag with its usage count across documents.
 type TagInfo struct {
-	Name  string
-	Count int
+	Name  string `json:"name"`
+	Count int    `json:"count"`
 }

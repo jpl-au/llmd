@@ -25,7 +25,8 @@ llmd link --both <path>               List links in both directions
 
 - Creating a link needs an author; listing does not.
 - Both documents must exist. A document cannot link to itself, and a
-  link that already exists is refused.
+  link that already exists with the same label is refused; the same
+  two documents may be linked again under a different `--label`.
 - Links are directional, from source to target. Remove one with
   `llmd unlink <from> <to>`.
 - Listing prints one link per line as `from -> to`, with the label in

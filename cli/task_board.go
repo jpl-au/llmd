@@ -53,7 +53,7 @@ func formatBoard(ctx sdk.Context, cols []string, tasks []*sdk.Task, hiddenDone i
 	if err != nil {
 		slog.Debug("checking task specs for board", "error", err)
 	}
-	tty := isTTY()
+	tty := ctx.TTY
 
 	byStatus := make(map[string][]*sdk.Task)
 	for _, t := range tasks {
@@ -102,7 +102,7 @@ func formatTaskTable(ctx sdk.Context, tasks []*sdk.Task) string {
 	if err != nil {
 		slog.Debug("checking task specs for table", "error", err)
 	}
-	if !isTTY() {
+	if !ctx.TTY {
 		return plainTaskLines(tasks, specs)
 	}
 	return taskTable(tasks, specs)

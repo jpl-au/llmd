@@ -29,7 +29,8 @@ llmd cat --version N <path>                Print an older version
   the offset is applied.
 - Line numbers from `-n` match the source document even when sliced,
   so they line up with `llmd grep --lines -n` output.
-- Piped, `--json` or over MCP, the output is the raw markdown source.
+- Piped or over MCP, the output is the raw markdown source; with
+  `--json` it is that source as `{"text": "..."}`.
   At a terminal it is rendered markdown, unless `-n` is set.
 - Several paths are concatenated with newlines, like Unix `cat`.
 

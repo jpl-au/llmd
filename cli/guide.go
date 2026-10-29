@@ -44,10 +44,10 @@ func guideCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if err != nil {
 		topics, listErr := guide.List()
 		if listErr != nil {
-			return nil, fmt.Errorf("guide: %w: %s", sdk.ErrNotFound, topic)
+			return nil, sdk.Errorf(sdk.ErrNotFound, "guide: there is no guide %s. Run llmd guide to list them.", topic)
 		}
-		return nil, fmt.Errorf("guide: %w: %s\n\nAvailable: %s",
-			sdk.ErrNotFound, topic, strings.Join(topics, ", "))
+		return nil, sdk.Errorf(sdk.ErrNotFound, "guide: there is no guide %s. The guides are %s.",
+			topic, strings.Join(topics, ", "))
 	}
 
 	return sdk.Markdown{Text: content}, nil

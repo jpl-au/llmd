@@ -28,7 +28,7 @@ func glob(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("glob: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("glob: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "glob: a pattern is required.")
 	}
 
 	paths, err := ctx.Documents.Glob(positional[0])
@@ -37,19 +37,11 @@ func glob(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	// Apply the cap: --all beats --limit beats the default.
-	limit := flags.Int("limit")
-	if flags.Bool("all") {
-		limit = 0
-	} else if limit == 0 {
-		limit = defaultListLimit
-	}
-	if limit > 0 && len(paths) > limit {
-		paths = paths[:limit]
-	}
+	paths, hidden := capped(paths, flags)
 
 	if len(paths) == 0 {
 		return sdk.Result{Text: "", Data: []string{}}, nil
 	}
 
-	return sdk.Result{Text: strings.Join(paths, "\n"), Data: paths}, nil
+	return sdk.Result{Text: strings.Join(paths, "\n"), Data: paths, Note: cappedNote(hidden)}, nil
 }

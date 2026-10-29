@@ -19,7 +19,7 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 		return err
 	}
 	if opts.Priority != nil && *opts.Priority < 0 {
-		return ErrInvalidPriority
+		return invalidPriority(*opts.Priority)
 	}
 
 	tsk, err := t.Read(ctx, key)
@@ -125,15 +125,13 @@ func (t *Tasks) Set(ctx context.Context, key, author string, opts SetOptions) er
 	}
 
 	if t.bus != nil {
-		if err := t.bus.Emit(ctx, events.Event{
+		t.bus.Emit(ctx, events.Event{
 			Type:      events.TaskUpdated,
 			Path:      tsk.Path,
 			Key:       key,
 			Author:    author,
 			Timestamp: clock.Now(),
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return nil

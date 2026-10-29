@@ -10,6 +10,11 @@
 # The standard binary has zero telemetry code compiled in.
 
 MODULE  := github.com/jpl-au/llmd
+
+# Tool versions. CI installs the same ones; bump them together.
+XTOOLS        := v0.52.0
+GOLANGCI_LINT := v2.15.0
+
 TAG     := $(shell git describe --tags --always --dirty 2>/dev/null || echo dirty)
 COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null)
 BUILT   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -18,7 +23,7 @@ LDFLAGS := -s -w \
 	-X $(MODULE)/app.Commit=$(COMMIT) \
 	-X $(MODULE)/app.Built=$(BUILT)
 
-.PHONY: build build-telemetry test tidy lint tools clean
+.PHONY: build telemetry test tidy lint tools clean
 
 # Standard build — no telemetry.
 build:
@@ -28,12 +33,15 @@ build:
 telemetry:
 	go build -tags telemetry -ldflags="$(LDFLAGS)" -o llmd .
 
-# Run all smoke tests (cli, http, telemetry).
+# Unit tests with the race detector and shuffled order, as CI runs
+# them, then the smoke tests (cli, http, telemetry).
 test:
+	go test -race -shuffle=on ./...
 	bash test/run.sh
 
 # Full tidy sequence — run before committing.
 tidy:
+	go mod tidy
 	go fix ./...
 	goimports -local $(MODULE) -w .
 	go fmt ./...
@@ -51,9 +59,9 @@ lint:
 # Install the tools that tidy and lint need. CI installs the same
 # versions.
 tools:
-	go install golang.org/x/tools/cmd/goimports@latest
-	go install golang.org/x/tools/cmd/deadcode@latest
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+	go install golang.org/x/tools/cmd/goimports@$(XTOOLS)
+	go install golang.org/x/tools/cmd/deadcode@$(XTOOLS)
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT)
 
 # Remove build artifacts.
 clean:

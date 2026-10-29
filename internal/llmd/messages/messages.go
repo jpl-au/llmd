@@ -9,11 +9,11 @@ package messages
 import (
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/jpl-au/qwr"
 
 	"github.com/jpl-au/llmd/internal/llmd/events"
+	"github.com/jpl-au/llmd/internal/llmd/lazy"
 )
 
 // Schema is the DDL for the messages and message_acks tables.
@@ -46,8 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_message_acks_lookup ON message_acks(author, messa
 `
 
 var (
-	ErrNotFound       = errors.New("message not found")
-	ErrOrderViolation = errors.New("must acknowledge oldest message first")
+	ErrNotFound       = errors.New("there is no such message.")
+	ErrOrderViolation = errors.New("acknowledge the oldest message first.")
 )
 
 // Messages provides queue operations backed by SQLite.
@@ -55,8 +55,7 @@ type Messages struct {
 	dbFn func() *qwr.Manager
 	db   *qwr.Manager
 	bus  *events.Bus
-	once sync.Once
-	err  error
+	once lazy.Once
 }
 
 // New creates a Messages instance. The db function returns the work
@@ -67,13 +66,15 @@ func New(db func() *qwr.Manager, bus *events.Bus) *Messages {
 
 // ensure opens the work database and creates the message tables if needed.
 func (m *Messages) ensure() error {
-	m.once.Do(func() {
-		m.db = m.dbFn()
-		if m.db == nil {
-			m.err = fmt.Errorf("work database not available")
-			return
+	return m.once.Do(func() error {
+		db := m.dbFn()
+		if db == nil {
+			return fmt.Errorf("work database not available")
 		}
-		_, m.err = m.db.Query(Schema).Exec()
+		if _, err := db.Query(Schema).Exec(); err != nil {
+			return err
+		}
+		m.db = db
+		return nil
 	})
-	return m.err
 }

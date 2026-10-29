@@ -156,16 +156,16 @@ func TestTaskDispatch(t *testing.T) {
 		{name: "bare column lists without author", args: []string{"column"}},
 
 		// Mutations are refused without an author.
-		{name: "add needs author", args: []string{"add", "Title"}, wantErrText: "author required"},
-		{name: "move needs author", args: []string{"move", "{key}", "backlog"}, wantErrText: "author required"},
-		{name: "set needs author", args: []string{"set", "{key}", "--priority", "1"}, wantErrText: "author required"},
-		{name: "rm needs author", args: []string{"rm", "{key}"}, wantErrText: "author required"},
-		{name: "restore needs author", args: []string{"restore", "{key}"}, wantErrText: "author required"},
-		{name: "link needs author", args: []string{"link", "{key}", "docs/x"}, wantErrText: "author required"},
-		{name: "column add needs author", args: []string{"column", "add", "testing"}, wantErrText: "author required"},
-		{name: "column rm needs author", args: []string{"column", "rm", "approval"}, wantErrText: "author required"},
-		{name: "column mv needs author", args: []string{"column", "mv", "approval", "--after", "backlog"}, wantErrText: "author required"},
-		{name: "column move alias needs author", args: []string{"column", "move", "approval", "--after", "backlog"}, wantErrText: "author required"},
+		{name: "add needs author", args: []string{"add", "Title"}, wantErrText: "an author is required."},
+		{name: "move needs author", args: []string{"move", "{key}", "backlog"}, wantErrText: "an author is required."},
+		{name: "set needs author", args: []string{"set", "{key}", "--priority", "1"}, wantErrText: "an author is required."},
+		{name: "rm needs author", args: []string{"rm", "{key}"}, wantErrText: "an author is required."},
+		{name: "restore needs author", args: []string{"restore", "{key}"}, wantErrText: "an author is required."},
+		{name: "link needs author", args: []string{"link", "{key}", "docs/x"}, wantErrText: "an author is required."},
+		{name: "column add needs author", args: []string{"column", "add", "testing"}, wantErrText: "an author is required."},
+		{name: "column rm needs author", args: []string{"column", "rm", "approval"}, wantErrText: "an author is required."},
+		{name: "column mv needs author", args: []string{"column", "mv", "approval", "--after", "backlog"}, wantErrText: "an author is required."},
+		{name: "column move alias needs author", args: []string{"column", "move", "approval", "--after", "backlog"}, wantErrText: "an author is required."},
 		{
 			name:    "mutation without author is ErrMissingArg",
 			args:    []string{"add", "Title"},
@@ -367,7 +367,7 @@ func TestTaskListSince(t *testing.T) {
 		{
 			name:        "invalid value",
 			since:       func(_, _ *sdk.Task) string { return "yesterday" },
-			wantErrText: "invalid time value",
+			wantErrText: "yesterday is not a time.",
 		},
 	}
 

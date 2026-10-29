@@ -1,8 +1,6 @@
 package host
 
 import (
-	"fmt"
-
 	"github.com/jpl-au/llmd/internal/llmd/rules"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -10,11 +8,12 @@ import (
 // ruleAPI implements [sdk.RuleStore]. Rules are pure filesystem
 // operations - no database dependency.
 type ruleAPI struct {
-	dir string // .llmd/ directory
+	dir   string                  // .llmd/ directory
+	agent func(name string) error // nil when the named agent is registered
 }
 
-func newRuleAPI(dir string) *ruleAPI {
-	return &ruleAPI{dir: dir}
+func newRuleAPI(dir string, agent func(name string) error) *ruleAPI {
+	return &ruleAPI{dir: dir, agent: agent}
 }
 
 func (r *ruleAPI) Show() (map[string]sdk.ColumnRule, error) {
@@ -36,6 +35,12 @@ func (r *ruleAPI) Show() (map[string]sdk.ColumnRule, error) {
 }
 
 func (r *ruleAPI) Set(column string, rule sdk.ColumnRule) error {
+	// A rule naming an unknown agent would do nothing until a task
+	// entered the column, and then fail with only a log line: refuse it
+	// now.
+	if rule.Agent != "" && r.agent != nil && r.agent(rule.Agent) != nil {
+		return sdk.Errorf(sdk.ErrNotFound, "there is no agent %s. Run llmd agent add %s first.", rule.Agent, rule.Agent)
+	}
 	rs, err := rules.Load(r.dir, "default")
 	if err != nil {
 		return err
@@ -57,7 +62,7 @@ func (r *ruleAPI) Unset(column string) error {
 	}
 	cr, ok := rs[column]
 	if !ok {
-		return fmt.Errorf("%w: no rule for column %s", sdk.ErrNotFound, column)
+		return sdk.Errorf(sdk.ErrNotFound, "column %s has no rule.", column)
 	}
 	cr.Agent = ""
 	cr.Role = ""

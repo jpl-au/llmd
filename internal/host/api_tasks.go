@@ -3,11 +3,11 @@ package host
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 	"unicode"
 
+	"github.com/jpl-au/llmd/internal/errs"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 
 	"github.com/jpl-au/llmd/internal/llmd"
@@ -43,26 +43,26 @@ func taskErr(err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, tasks.ErrNotFound), errors.Is(err, documents.ErrNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+	case errors.Is(err, tasks.ErrNotFound), errors.Is(err, documents.ErrNotFound), errors.Is(err, documents.ErrDeleted):
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, tasks.ErrNoSpec):
-		return fmt.Errorf("%w: %w", sdk.ErrNoSpec, err)
+		return errs.Mark(sdk.ErrNoSpec, err)
 	case errors.Is(err, tasks.ErrMissingTitle):
-		return fmt.Errorf("%w: %w", sdk.ErrMissingArg, err)
+		return errs.Mark(sdk.ErrMissingArg, err)
 	case errors.Is(err, tasks.ErrInvalidCol):
-		return fmt.Errorf("%w: %w - task column list shows the columns", sdk.ErrInvalidArg, err)
+		return errs.Mark(sdk.ErrInvalidArg, err)
 	case errors.Is(err, tasks.ErrColNotFound):
-		return fmt.Errorf("%w: %w - task column list shows the columns", sdk.ErrNotFound, err)
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, tasks.ErrColExists):
-		return fmt.Errorf("%w: %w", sdk.ErrExists, err)
+		return errs.Mark(sdk.ErrExists, err)
 	case errors.Is(err, tasks.ErrColNotEmpty):
-		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+		return errs.Mark(sdk.ErrInvalidArg, err)
 	case errors.Is(err, tasks.ErrCycle):
-		return fmt.Errorf("%w: %w", sdk.ErrCycle, err)
+		return errs.Mark(sdk.ErrCycle, err)
 	case errors.Is(err, tasks.ErrInvalidPriority):
-		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+		return errs.Mark(sdk.ErrInvalidArg, err)
 	case errors.Is(err, tasks.ErrNoneReady):
-		return fmt.Errorf("%w: %w", sdk.ErrNoneReady, err)
+		return errs.Mark(sdk.ErrNoneReady, err)
 	default:
 		return err
 	}
@@ -276,7 +276,7 @@ func (a *taskAPI) StartBranch(key, author string, opts sdk.StartBranchOpts) (*sd
 		return nil, taskErr(err)
 	}
 	if t.Branch != "" {
-		return nil, fmt.Errorf("%w: task already has branch %q", sdk.ErrInvalidArg, t.Branch)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "%s already has the branch %s.", t.Key, t.Branch)
 	}
 
 	name := opts.Name
@@ -401,7 +401,7 @@ func (a *taskAPI) ByBranch(branch string) (*sdk.Task, error) {
 		return nil, err
 	}
 	if len(tt) == 0 {
-		return nil, fmt.Errorf("%w: no task linked to branch %q", sdk.ErrNotFound, branch)
+		return nil, sdk.Errorf(sdk.ErrNotFound, "no task is linked to the branch %s.", branch)
 	}
 	return taskToSDK(tt[0]), nil
 }
@@ -436,7 +436,7 @@ func (a *taskAPI) Link(key, target, author string) error {
 		return taskErr(err)
 	}
 	if t.Path == "" {
-		return fmt.Errorf("%w: task has no spec document", sdk.ErrNoSpec)
+		return sdk.Errorf(sdk.ErrNoSpec, "the task has no spec document.")
 	}
 	return newLinkAPI(a.store, a.lim, a.ctx).Add(t.Path, target, "", author)
 }

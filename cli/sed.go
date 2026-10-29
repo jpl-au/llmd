@@ -11,6 +11,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -25,27 +26,22 @@ any character, which is useful when replacing paths. By default the
 search pattern must occur exactly once in the document; append the
 trailing 'g' flag (e.g. s/old/new/g) to substitute every occurrence.
 With several paths, the substitution is applied to each in turn.`, Usage: "sed [-i] 's/old/new/[g]' <path>...", MCP: true, NeedsAuthor: true,
+	Flags: []sdk.Flag{
+		{Name: "i", Type: "bool", Desc: "In place (always the case; accepted for familiarity)"},
+		{Name: "message", Type: "string", Desc: "Version message"},
+	},
 }
 
 func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
-	var expr string
-	var paths []string
-
-	for _, arg := range args {
-		if arg == "-i" {
-			continue // -i is default behaviour (always in-place)
-		}
-		if expr == "" {
-			expr = arg
-		} else {
-			paths = append(paths, arg)
-		}
+	flags, positional, err := sdk.ParseArgs(sedSpec.Flags, args)
+	if err != nil {
+		return nil, fmt.Errorf("sed: %w", err)
+	}
+	if len(positional) < 2 {
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "sed: an expression and a path are required.")
 	}
 
-	if expr == "" || len(paths) == 0 {
-		return nil, fmt.Errorf("sed: %w", sdk.ErrMissingArg)
-	}
-
+	expr, paths := positional[0], positional[1:]
 	old, new, global, err := parseSed(expr)
 	if err != nil {
 		return nil, fmt.Errorf("sed: %w", err)
@@ -55,9 +51,13 @@ func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
 	for _, path := range paths {
 		if err := ctx.Documents.Edit(path, old, new, sdk.EditOpts{
 			Author:     ctx.Author,
+			Message:    flags.String("message"),
 			ReplaceAll: global,
 		}); err != nil {
-			return nil, fmt.Errorf("sed: %s: %w", path, err)
+			if errors.Is(err, sdk.ErrNotUnique) {
+				return nil, sdk.Errorf(sdk.ErrNotUnique, "sed: %v Add surrounding text to make it unique, or end the expression with g to replace every one.", err)
+			}
+			return nil, fmt.Errorf("sed: %w", err)
 		}
 		lines = append(lines, "Edited "+path)
 	}
@@ -71,7 +71,7 @@ func sed(ctx sdk.Context, args []string) (sdk.Response, error) {
 // must match exactly once.
 func parseSed(expr string) (string, string, bool, error) {
 	if len(expr) < 4 || expr[0] != 's' {
-		return "", "", false, fmt.Errorf("%w: expected s/old/new/", sdk.ErrInvalidArg)
+		return "", "", false, sdk.Errorf(sdk.ErrInvalidArg, "%s is not a substitution. Write it as s/old/new/.", expr)
 	}
 
 	delim := expr[1]
@@ -82,7 +82,7 @@ func parseSed(expr string) (string, string, bool, error) {
 		idx++
 	}
 	if idx >= len(rest) {
-		return "", "", false, fmt.Errorf("%w: missing delimiter in sed expression", sdk.ErrInvalidArg)
+		return "", "", false, sdk.Errorf(sdk.ErrInvalidArg, "%s is not a substitution. Write it as s/old/new/.", expr)
 	}
 
 	old := rest[:idx]
@@ -105,7 +105,7 @@ func parseSed(expr string) (string, string, bool, error) {
 	}
 
 	if old == "" {
-		return "", "", false, fmt.Errorf("%w: empty search pattern", sdk.ErrInvalidArg)
+		return "", "", false, sdk.Errorf(sdk.ErrInvalidArg, "%s has an empty search pattern.", expr)
 	}
 
 	return old, new, global, nil

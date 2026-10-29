@@ -20,6 +20,7 @@ llmd revert <path> <version> --message "why"     Record a message with it
 - An author is required: `--author` for agents and scripts.
 - The version must exist; `llmd history <path>` lists them. The number
   may carry a `v` prefix: `v2` and `2` are the same.
+- A deleted document cannot be reverted: `llmd restore` it first.
 - Nothing is destroyed. The revert is a new version holding the old
   content, and every version in between stays in the history.
 

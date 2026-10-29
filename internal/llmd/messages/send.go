@@ -73,16 +73,14 @@ func (m *Messages) Send(ctx context.Context, opts SendOptions) (*message.Message
 	msg.Source = opts.Source
 
 	if m.bus != nil {
-		if err := m.bus.Emit(ctx, pkgevents.Event{
+		m.bus.Emit(ctx, pkgevents.Event{
 			Type:       pkgevents.MessageSent,
 			Key:        k,
 			Author:     opts.Author,
 			AssignedTo: opts.AssignedTo,
 			Timestamp:  now,
 			Metadata:   map[string]any{"message_type": opts.Type},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return msg, nil

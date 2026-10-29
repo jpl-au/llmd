@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 )
 
@@ -39,7 +41,7 @@ func (t *Tasks) AddColumn(ctx context.Context, name, after, author string) error
 	}
 
 	if slices.Contains(b.Columns, name) {
-		return fmt.Errorf("%w: %s", ErrColExists, name)
+		return errs.New(ErrColExists, "column %s already exists.", name)
 	}
 
 	if after == "" {
@@ -47,7 +49,7 @@ func (t *Tasks) AddColumn(ctx context.Context, name, after, author string) error
 	} else {
 		idx := slices.Index(b.Columns, after)
 		if idx < 0 {
-			return fmt.Errorf("%w: %s", ErrColNotFound, after)
+			return errs.New(ErrColNotFound, "there is no column %s. Run llmd task column list to see them.", after)
 		}
 		b.Columns = append(b.Columns[:idx+1], append([]string{name}, b.Columns[idx+1:]...)...)
 	}
@@ -67,7 +69,7 @@ func (t *Tasks) RemoveColumn(ctx context.Context, name, author string) error {
 	}
 
 	if !slices.Contains(b.Columns, name) {
-		return fmt.Errorf("%w: %s", ErrColNotFound, name)
+		return errs.New(ErrColNotFound, "there is no column %s. Run llmd task column list to see them.", name)
 	}
 
 	var count int
@@ -81,7 +83,11 @@ func (t *Tasks) RemoveColumn(ctx context.Context, name, author string) error {
 		return fmt.Errorf("checking column: %w", err)
 	}
 	if count > 0 {
-		return fmt.Errorf("%w: %s (%d tasks)", ErrColNotEmpty, name, count)
+		them := "them"
+		if count == 1 {
+			them = "it"
+		}
+		return errs.New(ErrColNotEmpty, "column %s still has %s. Move or delete %s first.", name, plural(count, "task"), them)
 	}
 
 	var filtered []string
@@ -106,10 +112,10 @@ func (t *Tasks) MoveColumn(ctx context.Context, name, after, author string) erro
 	}
 
 	if !slices.Contains(b.Columns, name) {
-		return fmt.Errorf("%w: %s", ErrColNotFound, name)
+		return errs.New(ErrColNotFound, "there is no column %s. Run llmd task column list to see them.", name)
 	}
 	if !slices.Contains(b.Columns, after) {
-		return fmt.Errorf("%w: %s", ErrColNotFound, after)
+		return errs.New(ErrColNotFound, "there is no column %s. Run llmd task column list to see them.", after)
 	}
 
 	var filtered []string
@@ -166,4 +172,12 @@ func parseBoard(value string) (*Board, error) {
 		return &Board{Columns: DefaultColumns}, nil
 	}
 	return &b, nil
+}
+
+// plural formats a count with its noun: "1 task", "3 tasks".
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }

@@ -39,7 +39,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 	// llmd tag -f <name> - find documents with tag
 	if find {
 		if len(positional) == 0 {
-			return nil, fmt.Errorf("tag: %w", sdk.ErrMissingArg)
+			return nil, sdk.Errorf(sdk.ErrMissingArg, "tag: a path is required.")
 		}
 		paths, err := ctx.Tags.Find(positional[0])
 		if err != nil {
@@ -78,7 +78,7 @@ func tag(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	// Checked here, not via NeedsAuthor - reads don't need an author.
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("tag: %w: author required for mutations", sdk.ErrMissingArg)
+		return nil, sdk.AuthorRequired("tag")
 	}
 
 	// llmd tag -d <path> <name> - remove

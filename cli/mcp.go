@@ -180,6 +180,9 @@ func responseText(r sdk.Response) string {
 		return string(b)
 	case sdk.Result:
 		if v.Text != "" {
+			if v.Note != "" {
+				return v.Text + "\n" + v.Note
+			}
 			return v.Text
 		}
 		b, err := json.Marshal(v.Data)

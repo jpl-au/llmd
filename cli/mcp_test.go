@@ -235,14 +235,14 @@ func TestMCPCallTool(t *testing.T) {
 			name:     "not found is an error result",
 			tool:     "cat",
 			input:    map[string]any{"args": []string{"docs/missing"}, "content": "", "author": ""},
-			wantText: []string{"not found"},
+			wantText: []string{"does not exist."},
 			wantErr:  true,
 		},
 		{
 			name:     "missing argument is an error result",
 			tool:     "audit",
 			input:    map[string]any{"args": []string{}, "content": "", "author": "bob"},
-			wantText: []string{"missing required argument"},
+			wantText: []string{"a subcommand is required."},
 			wantErr:  true,
 		},
 		{
@@ -261,7 +261,7 @@ func TestMCPCallTool(t *testing.T) {
 			name:     "queue requires an author",
 			tool:     "queue",
 			input:    map[string]any{"args": []string{"ls"}, "content": "", "author": ""},
-			wantText: []string{"author required"},
+			wantText: []string{"an author is required."},
 			wantErr:  true,
 		},
 		{

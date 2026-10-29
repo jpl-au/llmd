@@ -1,6 +1,7 @@
 package documents_test
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -75,7 +76,7 @@ func TestPurge(t *testing.T) {
 				}
 			}
 			for _, path := range tt.wantGone {
-				if _, err := s.Documents.Read(ctx, path); err != documents.ErrNotFound {
+				if _, err := s.Documents.Read(ctx, path); !errors.Is(err, documents.ErrNotFound) {
 					t.Errorf("Read(%q) after Purge error = %v, want %v", path, err, documents.ErrNotFound)
 				}
 			}

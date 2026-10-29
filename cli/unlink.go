@@ -20,7 +20,7 @@ Both the source and target document paths must be specified.`, Usage: "unlink <f
 
 func unlink(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("unlink: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "unlink: a source and a target are required.")
 	}
 
 	from, to := args[0], args[1]

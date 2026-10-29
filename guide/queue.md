@@ -37,7 +37,9 @@ llmd queue history [--limit N | --all]  Recent messages including acknowledged
   the message is a broadcast, and every consumer must acknowledge it
   separately. Use `--assign` for work; broadcasts are for awareness.
 - Every store change (document written, task moved, audit created)
-  also lands in the queue as a domain event, with no action needed.
+  also lands in the queue as a domain event, with no action needed,
+  once work.db exists: a store that has only ever held documents
+  queues nothing until the first task, audit or message creates it.
   The same change detected twice is inserted once.
 - `history` shows the 20 most recent messages. `--limit` changes the cap,
   `--all` lifts it.

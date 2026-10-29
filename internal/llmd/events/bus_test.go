@@ -32,7 +32,6 @@ func TestBus_Emit(t *testing.T) {
 		name       string
 		handlers   []error
 		event      events.Event
-		wantErr    error
 		wantEvents []int
 	}{
 		{
@@ -48,12 +47,12 @@ func TestBus_Emit(t *testing.T) {
 			wantEvents: []int{1, 1},
 		},
 		{
-			// h2 must not receive the event once h1 fails.
-			name:       "handler error stops delivery",
+			// The change is committed before the event is emitted,
+			// so a failing handler must not keep it from h2.
+			name:       "handler error does not stop delivery",
 			handlers:   []error{errHandler, nil},
 			event:      events.Event{Type: events.DocumentWritten, Path: "test"},
-			wantErr:    errHandler,
-			wantEvents: []int{0, 0},
+			wantEvents: []int{0, 1},
 		},
 		{
 			name:       "no handlers",
@@ -73,9 +72,7 @@ func TestBus_Emit(t *testing.T) {
 				bus.Subscribe(h)
 			}
 
-			if err := bus.Emit(t.Context(), tt.event); err != tt.wantErr {
-				t.Errorf("Emit() error = %v, want %v", err, tt.wantErr)
-			}
+			bus.Emit(t.Context(), tt.event)
 			for i, h := range handlers {
 				if len(h.events) != tt.wantEvents[i] {
 					t.Errorf("handler %d received %d events, want %d", i, len(h.events), tt.wantEvents[i])
@@ -111,9 +108,7 @@ func TestBus_HandlerOrder(t *testing.T) {
 	}))
 
 	event := events.Event{Type: events.DocumentWritten, Path: "test"}
-	if err := bus.Emit(t.Context(), event); err != nil {
-		t.Fatalf("Emit: %v", err)
-	}
+	bus.Emit(t.Context(), event)
 
 	if len(order) != 2 || order[0] != 1 || order[1] != 2 {
 		t.Errorf("expected order [1, 2], got %v", order)

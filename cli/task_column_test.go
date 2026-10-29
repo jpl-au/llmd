@@ -82,7 +82,7 @@ func TestTaskColumnAdd(t *testing.T) {
 		{name: "--after unknown column", args: []string{"column", "add", "testing", "--after", "nope"}, wantErr: sdk.ErrNotFound},
 		{name: "no name", args: []string{"column", "add"}, wantErr: sdk.ErrMissingArg},
 		{name: "unknown flag", args: []string{"column", "add", "testing", "--bogus"}, wantErr: sdk.ErrInvalidArg},
-		{name: "no author", noAuthor: true, args: []string{"column", "add", "testing"}, wantErrText: "author required"},
+		{name: "no author", noAuthor: true, args: []string{"column", "add", "testing"}, wantErrText: "an author is required."},
 	}
 
 	for _, tt := range tests {
@@ -128,10 +128,10 @@ func TestTaskColumnRm(t *testing.T) {
 			wantCols: []string{"backlog", "up-next", "in-progress", "review", "done", "blocked"},
 		},
 		{name: "column with tasks", occupied: true, args: []string{"column", "rm", "approval"}, wantErr: sdk.ErrInvalidArg},
-		{name: "column with tasks names the count", occupied: true, args: []string{"column", "rm", "approval"}, wantErrText: "(1 tasks)"},
+		{name: "column with tasks names the count", occupied: true, args: []string{"column", "rm", "approval"}, wantErrText: "column approval still has 1 task."},
 		{name: "unknown column", args: []string{"column", "rm", "nope"}, wantErr: sdk.ErrNotFound},
 		{name: "no name", args: []string{"column", "rm"}, wantErr: sdk.ErrMissingArg},
-		{name: "no author", noAuthor: true, args: []string{"column", "rm", "approval"}, wantErrText: "author required"},
+		{name: "no author", noAuthor: true, args: []string{"column", "rm", "approval"}, wantErrText: "an author is required."},
 	}
 
 	for _, tt := range tests {
@@ -193,7 +193,7 @@ func TestTaskColumnMv(t *testing.T) {
 		{name: "unknown anchor", args: []string{"column", "mv", "approval", "--after", "nope"}, wantErr: sdk.ErrNotFound},
 		{name: "no name", args: []string{"column", "mv", "--after", "backlog"}, wantErr: sdk.ErrMissingArg},
 		{name: "unknown flag", args: []string{"column", "mv", "approval", "--bogus"}, wantErr: sdk.ErrInvalidArg},
-		{name: "no author", noAuthor: true, args: []string{"column", "mv", "approval", "--after", "backlog"}, wantErrText: "author required"},
+		{name: "no author", noAuthor: true, args: []string{"column", "mv", "approval", "--after", "backlog"}, wantErrText: "an author is required."},
 	}
 
 	for _, tt := range tests {

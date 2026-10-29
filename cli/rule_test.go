@@ -14,11 +14,16 @@ import (
 // ruleCLI returns a context over a store that is also the working
 // directory: rules live in .llmd/rules and seeding them whitelists the
 // directory in .llmd/.gitignore, both relative to the cwd. The host is
-// returned so tests can reach the rules file directly.
+// returned so tests can reach the rules file directly. The agents the
+// tests name are registered, since rule set refuses one that is not.
 func ruleCLI(t *testing.T, author string) (*host.Host, sdk.Context) {
 	t.Helper()
 	h := host.TestSetup(t, host.TestWorkdir)
-	return h, h.Context(t.Context(), author)
+	c := h.Context(t.Context(), author)
+	for _, name := range []string{"claude-code", "gemini"} {
+		run(t, c, "agent", nil, "add", name)
+	}
+	return h, c
 }
 
 // ruleShow returns the stored rule set.
@@ -142,6 +147,13 @@ func TestRuleSet(t *testing.T) {
 			args:     []string{"set", "code", "--agent", "claude-code", "--role", "developer", "--success", "test", "--failure", "blocked", "--resume"},
 			wantText: []string{"code", "[claude-code, developer, resume]", "success:", "test", "failure:", "blocked"},
 			wantRule: sdk.ColumnRule{Agent: "claude-code", Role: "developer", Success: "test", Failure: "blocked", Resume: true},
+		},
+		{
+			// The rule would do nothing until a task entered the
+			// column, then fail with only a log line.
+			name:    "an agent that is not registered is refused",
+			args:    []string{"set", "code", "--agent", "nosuchagent"},
+			wantErr: sdk.ErrNotFound,
 		},
 		{
 			name:       "transitions only is a manual column",

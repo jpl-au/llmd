@@ -4,13 +4,19 @@
 package host
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"path/filepath"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/jpl-au/llmd/internal/errs"
+	docpath "github.com/jpl-au/llmd/internal/path"
 
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/internal/clock"
@@ -18,6 +24,7 @@ import (
 	igit "github.com/jpl-au/llmd/internal/git"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/tasks"
+	"github.com/jpl-au/llmd/internal/sqlite"
 	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/internal/term"
 	"github.com/jpl-au/llmd/internal/validate"
@@ -111,11 +118,30 @@ func New(opts ...Option) *Host {
 	return setup(nil, opts...)
 }
 
+// storeOptions opens stores with the database.* settings from the
+// config. A config that cannot be read leaves the defaults; main has
+// already warned about it.
+func storeOptions() []llmd.Option {
+	cfg, _ := config.Load()
+	return []llmd.Option{llmd.WithDatabase(DatabaseSettings(cfg))}
+}
+
+// DatabaseSettings returns the SQLite settings the config asks for,
+// with defaults in place of any value that is missing or invalid.
+func DatabaseSettings(cfg config.Config) sqlite.Settings {
+	mmap := cfg.CountSetting("database.mmap_size", 0)
+	return sqlite.Settings{
+		BusyTimeout: cfg.DurationSetting("database.busy_timeout"),
+		CacheMB:     cfg.CountSetting("database.cache_size", 1),
+		MMapMB:      &mmap,
+	}
+}
+
 // Open creates a Host backed by a store at the given path (or the
 // default path if empty). The caller must defer Close() to release
 // the underlying database connection.
 func Open(dbPath string, opts ...Option) (*Host, error) {
-	store, err := llmd.Open(dbPath)
+	store, err := llmd.Open(dbPath, storeOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +280,13 @@ func (h *Host) Watch(ctx context.Context, interval time.Duration) error {
 // the default path when empty), writes the default .llmd/.gitignore,
 // and returns the path created.
 func (h *Host) Init(dbPath string) (string, error) {
-	store, err := llmd.Init(dbPath)
+	store, err := llmd.Init(dbPath, storeOptions()...)
+	if errors.Is(err, llmd.ErrStoreExists) {
+		// Nothing is touched, the .gitignore included: rewriting it
+		// would drop the patterns config git allow added.
+		path, _ := docpath.ResolveDB(dbPath)
+		return path, errs.Mark(sdk.ErrExists, err)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -292,7 +324,10 @@ func (h *Host) Context(ctx context.Context, author string) sdk.Context {
 		sctx.Activities = newActivityAPI(store, ctx)
 		sctx.Mirror = newMirrorAPI(store, ctx)
 		sctx.Agents = newAgentAPI(store, h.git, ctx)
-		sctx.Rules = newRuleAPI(store.Dir())
+		sctx.Rules = newRuleAPI(store.Dir(), func(name string) error {
+			_, err := store.Agents.Agent(ctx, name)
+			return err
+		})
 		sctx.Hooks = newHookAPI(store, h.lim, h.git, h.hookLimit, ctx)
 	}
 	return sctx
@@ -302,8 +337,8 @@ func (h *Host) Context(ctx context.Context, author string) sdk.Context {
 type RunOpts struct {
 	Cmd    string
 	Args   []string
-	Author string // from --author flag; resolved from config if empty
-	Stdin  []byte
+	Author string    // from --author flag; resolved from config if empty
+	Stdin  io.Reader // the CLI's piped stdin, or nil; read only if the command asks
 	DB     string
 }
 
@@ -328,7 +363,7 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 
 	c := h.commands[opts.Cmd]
 	if c == nil {
-		err := fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, opts.Cmd)
+		err := sdk.Errorf(sdk.ErrUnknownCmd, "llmd: unknown command %s. Run llmd --help to list them.", opts.Cmd)
 		emit(err)
 		return nil, err
 	}
@@ -340,7 +375,7 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 	// this call so the receiver is never a half-built host.
 	target := h
 	if h.current() == nil {
-		store, err := llmd.Open(opts.DB)
+		store, err := llmd.Open(opts.DB, storeOptions()...)
 		switch {
 		case err == nil:
 			defer func() {
@@ -361,18 +396,24 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 				Error:   err.Error(),
 			})
 		default:
+			// The command could not start: say which, as its own
+			// errors do. A missing store is "not found" to callers.
+			err = fmt.Errorf("%s: %w", opts.Cmd, err)
+			if errors.Is(err, llmd.ErrNoStore) {
+				err = errs.Mark(sdk.ErrNotFound, err)
+			}
 			emit(err)
 			return nil, err
 		}
 	}
 
-	author, err := target.resolveAuthor(opts.Author, c.cmd.NeedsAuthor)
+	author, err := target.resolveAuthor(opts.Cmd, opts.Author, c.cmd.NeedsAuthor)
 	if err != nil {
 		emit(err)
 		return nil, err
 	}
 
-	resp, err := target.Exec(ctx, opts.Cmd, opts.Args, author, opts.Stdin, opts.DB)
+	resp, err := target.exec(ctx, opts.Cmd, opts.Args, author, opts.Stdin, opts.DB, term.Interactive())
 	emit(err)
 	return resp, err
 }
@@ -393,7 +434,7 @@ func (h *Host) storeless(cmd string) bool {
 // --author flag takes precedence. For interactive terminals, the
 // configured author is used as fallback. Non-interactive callers
 // must always provide --author explicitly.
-func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
+func (h *Host) resolveAuthor(cmd, flag string, required bool) (string, error) {
 	if flag != "" {
 		return flag, nil
 	}
@@ -415,9 +456,9 @@ func (h *Host) resolveAuthor(flag string, required bool) (string, error) {
 
 	// Author is required but missing - return a helpful error.
 	if term.Interactive() {
-		return "", fmt.Errorf("%w: author not configured - run 'llmd config author \"Your Name\"' or pass --author", sdk.ErrMissingArg)
+		return "", sdk.Errorf(sdk.ErrMissingArg, "%s: no author is set. Run llmd config author \"Your Name\", or pass --author.", cmd)
 	}
-	return "", fmt.Errorf("%w: --author is required for non-interactive use", sdk.ErrMissingArg)
+	return "", sdk.AuthorRequired(cmd)
 }
 
 // setup loads extensions and configures the command table. Called by
@@ -433,16 +474,16 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 	}
 
 	// Defaults for anything the options did not set.
-	if h.git == nil {
-		h.git = igit.New()
-	}
-	if !h.limSet || h.taskOrder == "" || !h.retentionSet || !h.hookLimitSet {
+	if h.git == nil || !h.limSet || h.taskOrder == "" || !h.retentionSet || !h.hookLimitSet {
 		cfg, err := config.Load()
 		if err != nil {
 			slog.Warn("loading config", "err", err)
 		}
+		if h.git == nil {
+			h.git = igit.New(cfg.DurationSetting("git.timeout"))
+		}
 		if !h.limSet {
-			h.lim = validate.LoadLimits(cfg.Limits)
+			h.lim = validate.LoadLimits(cfg)
 		}
 		if h.taskOrder == "" {
 			h.taskOrder = tasks.Order(cfg.Task.Order)
@@ -484,15 +525,26 @@ func (h *Host) addExtension(ext sdk.Extension) {
 // Exec dispatches a command to its owning extension. It creates fresh
 // per-request bridge instances bound to the given context, populates
 // an sdk.Context with them, and delegates to the extension's Exec method.
+// stdin is the request content (MCP, HTTP); nil or empty means none.
 // Returns sdk.ErrUnknownCmd if cmd is not registered.
 func (h *Host) Exec(ctx context.Context, cmd string, args []string, author string, stdin []byte, dbPath string) (sdk.Response, error) {
+	var in io.Reader
+	if len(stdin) > 0 {
+		in = bytes.NewReader(stdin)
+	}
+	return h.exec(ctx, cmd, args, author, in, dbPath, false)
+}
+
+// exec is Exec with the input as a reader, so the CLI can hand over
+// its stdin without reading it.
+func (h *Host) exec(ctx context.Context, cmd string, args []string, author string, stdin io.Reader, dbPath string, tty bool) (sdk.Response, error) {
 	entry, ok := h.commands[cmd]
 	if !ok {
-		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
+		return nil, sdk.Errorf(sdk.ErrUnknownCmd, "llmd: unknown command %s. Run llmd --help to list them.", cmd)
 	}
 
 	if entry.cmd.NeedsAuthor && author == "" {
-		return nil, fmt.Errorf("%w: author is required - pass --author, the MCP author field, or the HTTP Author header", sdk.ErrMissingArg)
+		return nil, sdk.AuthorRequired(cmd)
 	}
 
 	// Commands that need a store get a clear error when none is open
@@ -500,11 +552,12 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 	// server (mcp, serve) started without a .llmd directory and a
 	// tool call arrives.
 	if h.current() == nil && !h.storeless(cmd) && !entry.cmd.Streams {
-		return nil, fmt.Errorf("store not initialised - run llmd init")
+		return nil, fmt.Errorf("%s: there is no store here. Run llmd init to create one.", cmd)
 	}
 
 	sctx := h.Context(ctx, author)
 	sctx.Stdin = stdin
+	sctx.TTY = tty
 	sctx.DBPath = dbPath
 
 	resp, err := entry.ext.Exec(sctx, cmd, args)
@@ -512,7 +565,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 	// After a storeless command succeeds (e.g. init), try to open the
 	// store so subsequent calls on this host have a working connection.
 	if err == nil && h.current() == nil {
-		if store, serr := llmd.Open(dbPath); serr == nil {
+		if store, serr := llmd.Open(dbPath, storeOptions()...); serr == nil {
 			h.attach(store)
 			telemetry.Emit(telemetry.Entry{
 				Source:  "cli",

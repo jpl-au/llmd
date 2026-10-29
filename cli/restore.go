@@ -24,7 +24,7 @@ func restore(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("restore: %w", err)
 	}
 	if len(args) == 0 {
-		return nil, fmt.Errorf("restore: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "restore: a path is required.")
 	}
 
 	if err := ctx.Documents.Restore(args[0], sdk.RestoreOpts{Author: ctx.Author}); err != nil {

@@ -15,14 +15,15 @@ llmd sed -i 's/old/new/' <path>       Same; -i is accepted for muscle memory
 | Flag | Description |
 |------|-------------|
 | `-i` | Accepted but ignored; sed always edits in place |
+| `--message <string>` | Version message describing the change |
 
 ## Rules
 
 - An author is required: `--author` for agents and scripts.
 - Only the `s` (substitute) command is supported.
 - Without the trailing `g`, the pattern must occur exactly once in the
-  document. More than one match is refused with `search string is not
-  unique`; add `g` to replace them all.
+  document. More than one match is refused with `the old text appears N
+  times in <path>`; add `g` to replace them all.
 - The delimiter is the character right after `s` and can be any
   character, which helps when the pattern or replacement contains
   slashes.

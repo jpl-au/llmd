@@ -1,6 +1,7 @@
 package tags
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -31,7 +32,7 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := Validate(tt.input)
-			if err != tt.wantErr {
+			if !errors.Is(err, tt.wantErr) || (tt.wantErr == nil) != (err == nil) {
 				t.Errorf("Validate(%q) = %v, want %v", tt.input, err, tt.wantErr)
 			}
 		})

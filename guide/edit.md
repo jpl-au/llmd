@@ -20,12 +20,12 @@ llmd edit --all <path> <old> <new>      Replace every occurrence
 
 - An author is required: `--author` for agents and scripts.
 - `old` must appear exactly once. If it appears more than once, the
-  edit is refused with `search string is not unique`: add surrounding
-  context to `old` until it is unique, or pass `--all`.
-- If `old` does not appear at all, the edit is refused with `no match
-  found`. Re-read the document; the text has moved on.
-- If `old` and `new` are the same, the edit is refused with `old and
-  new are identical`.
+  edit is refused with `the old text appears N times in <path>`: add
+  surrounding context to `old` until it is unique, or pass `--all`.
+- If `old` does not appear at all, the edit is refused with `the old
+  text is not in <path>`. Re-read the document; the text has moved on.
+- If `old` and `new` are the same, the edit is refused with `the old and
+  new text are the same`.
 - Matching is literal. For a pattern with a flexible delimiter use
   `llmd sed`.
 - Each successful edit is a new version; nothing is overwritten.
@@ -50,14 +50,12 @@ llmd --author claude-code edit readme "WIP" "Released" --message "Mark as releas
 
 | Error | Meaning |
 |-------|---------|
-| `no match found` | `old` does not appear in the document. Re-read the file; your copy is stale. |
-| `search string is not unique` | `old` matches more than one place. Add context, or use `--all`. |
-| `old and new are identical` | The edit would change nothing. |
+| `the old text is not in <path>` | `old` does not appear in the document. Re-read the file; your copy is stale. |
+| `the old text appears N times in <path>` | `old` matches more than one place. Add context, or use `--all`. |
+| `the old and new text are the same` | The edit would change nothing. |
 
 ## Notes
 
 edit follows the convention every agent tool uses: the search string
 must appear exactly once, so the call either succeeds in one
-predictable place or fails loudly. The `Data` field of the response,
-via `--json` or MCP, carries the document metadata for agents that
-need it.
+predictable place or fails loudly.

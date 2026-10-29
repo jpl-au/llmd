@@ -10,10 +10,10 @@ package sdk
 type AgentStore interface {
 	// Register adds or updates an agent configuration. If an agent
 	// with the same name already exists, it is replaced.
-	Register(cfg AgentConfig, author string) error
+	Register(cfg AgentConfig) error
 
 	// Remove deletes an agent configuration by name.
-	Remove(name, author string) error
+	Remove(name string) error
 
 	// Agent returns a single agent configuration by name.
 	Agent(name string) (*AgentConfig, error)

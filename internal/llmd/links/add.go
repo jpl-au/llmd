@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
@@ -21,16 +23,16 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 
 	relation := l.resolvePath(ctx, from)
 	if err := l.requireDocument(ctx, relation); err != nil {
-		return nil, fmt.Errorf("resolving from: %w", err)
+		return nil, err
 	}
 	toPath := l.resolvePath(ctx, to)
 	if err := l.requireDocument(ctx, toPath); err != nil {
-		return nil, fmt.Errorf("resolving to: %w", err)
+		return nil, err
 	}
 
 	// Check for self-link
 	if relation == toPath {
-		return nil, ErrSelfLink
+		return nil, errs.New(ErrSelfLink, "%s cannot link to itself.", from)
 	}
 
 	// Check if link already exists
@@ -39,7 +41,7 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 		return nil, err
 	}
 	if existing != nil {
-		return existing, ErrExists
+		return existing, errs.New(ErrExists, "%s already links to %s.", from, to)
 	}
 
 	// Create link value
@@ -75,16 +77,14 @@ func (l *Links) Add(ctx context.Context, from, to string, opts Options) (*link.L
 	}
 
 	if l.bus != nil {
-		if err := l.bus.Emit(ctx, events.Event{
+		l.bus.Emit(ctx, events.Event{
 			Type:      events.LinkCreated,
 			Path:      relation,
 			Key:       k,
 			Author:    opts.Author,
 			Timestamp: now,
 			Metadata:  map[string]any{"to": toPath, "label": opts.Label},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return result, nil

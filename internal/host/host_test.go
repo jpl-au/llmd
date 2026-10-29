@@ -108,7 +108,7 @@ func TestRun(t *testing.T) {
 				}
 				return TestSetup(t, TestIsolated), ""
 			},
-			opts:     RunOpts{Cmd: "write", Args: []string{"docs/by-flag"}, Author: "alice", Stdin: []byte("# Flag")},
+			opts:     RunOpts{Cmd: "write", Args: []string{"docs/by-flag"}, Author: "alice", Stdin: strings.NewReader("# Flag")},
 			wantText: "docs/by-flag",
 		},
 		{
@@ -117,7 +117,7 @@ func TestRun(t *testing.T) {
 				isolatedCwd(t)
 				return TestSetup(t, TestIsolated), ""
 			},
-			opts:    RunOpts{Cmd: "write", Args: []string{"docs/no-author"}, Stdin: []byte("x")},
+			opts:    RunOpts{Cmd: "write", Args: []string{"docs/no-author"}, Stdin: strings.NewReader("x")},
 			wantErr: sdk.ErrMissingArg,
 		},
 		{
@@ -132,7 +132,7 @@ func TestRun(t *testing.T) {
 				}
 				return TestSetup(t, TestIsolated), ""
 			},
-			opts:    RunOpts{Cmd: "write", Args: []string{"docs/configured"}, Stdin: []byte("x")},
+			opts:    RunOpts{Cmd: "write", Args: []string{"docs/configured"}, Stdin: strings.NewReader("x")},
 			wantErr: sdk.ErrMissingArg,
 			skipTTY: true,
 		},
@@ -210,7 +210,7 @@ func TestResolveAuthor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			isolatedCwd(t)
 			h := New()
-			got, err := h.resolveAuthor(tt.flag, tt.required)
+			got, err := h.resolveAuthor("write", tt.flag, tt.required)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("resolveAuthor(%q, %v) error = %v, want %v", tt.flag, tt.required, err, tt.wantErr)
 			}

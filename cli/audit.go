@@ -36,7 +36,7 @@ Subcommands: add <target> [text] (body via content; --assign who, -s/--status s)
 // auditCmd dispatches to audit subcommands.
 func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("audit: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit: a subcommand is required. Run llmd audit --help to list them.")
 	}
 
 	sub := args[0]
@@ -46,11 +46,11 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	switch sub {
 	case "add", "reply", "resolve", "rm", "restore":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("audit %s: %w: author required for mutations", sub, sdk.ErrMissingArg)
+			return nil, sdk.AuthorRequired("audit " + sub)
 		}
 	case "status":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("audit status: %w: author required", sdk.ErrMissingArg)
+			return nil, sdk.AuthorRequired("audit status")
 		}
 	}
 
@@ -72,7 +72,7 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "status":
 		return auditStatus(ctx, args)
 	default:
-		return nil, fmt.Errorf("audit: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "audit: unknown subcommand %s. Run llmd audit --help to list them.", sub)
 	}
 }
 
@@ -90,7 +90,7 @@ func auditAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("audit add: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("audit add: %w: target", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit add: a target document or task is required.")
 	}
 
 	target := positional[0]
@@ -104,8 +104,12 @@ func auditAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 				return nil, fmt.Errorf("audit add: %w", err)
 			}
 			content = string(data)
-		} else if len(ctx.Stdin) > 0 {
-			content = string(ctx.Stdin)
+		} else {
+			data, err := ctx.OptionalInput()
+			if err != nil {
+				return nil, fmt.Errorf("audit add: reading stdin: %w", err)
+			}
+			content = string(data)
 		}
 	}
 
@@ -138,7 +142,7 @@ func auditReply(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("audit reply: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("audit reply: %w: audit ID", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit reply: an audit key is required.")
 	}
 
 	id := positional[0]
@@ -151,8 +155,12 @@ func auditReply(ctx sdk.Context, args []string) (sdk.Response, error) {
 				return nil, fmt.Errorf("audit reply: %w", err)
 			}
 			content = string(data)
-		} else if len(ctx.Stdin) > 0 {
-			content = string(ctx.Stdin)
+		} else {
+			data, err := ctx.OptionalInput()
+			if err != nil {
+				return nil, fmt.Errorf("audit reply: reading stdin: %w", err)
+			}
+			content = string(data)
 		}
 	}
 
@@ -240,7 +248,7 @@ func auditShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("audit show: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("audit show: %w: audit ID", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit show: an audit key is required.")
 	}
 
 	thread, err := ctx.Audits.Thread(positional[0])
@@ -300,7 +308,7 @@ func auditShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 // auditResolve marks an audit as approved.
 func auditResolve(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("audit resolve: %w: audit ID", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit resolve: an audit key is required.")
 	}
 
 	aud, err := ctx.Audits.Resolve(args[0], ctx.Author)
@@ -315,7 +323,7 @@ func auditResolve(ctx sdk.Context, args []string) (sdk.Response, error) {
 // auditRm soft-deletes an audit.
 func auditRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("audit rm: %w: audit ID", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit rm: an audit key is required.")
 	}
 
 	if err := ctx.Audits.Delete(args[0], ctx.Author); err != nil {
@@ -328,7 +336,7 @@ func auditRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 // auditRestore recovers a soft-deleted audit.
 func auditRestore(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("audit restore: %w: audit ID", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit restore: an audit key is required.")
 	}
 
 	aud, err := ctx.Audits.Restore(args[0], ctx.Author)

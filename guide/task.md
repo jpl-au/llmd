@@ -85,7 +85,7 @@ with different meanings.
   error, so a loop can stop.
 - Flags are not columns. A flagged task stays where it is. `human`
   means the task is for the user: agents leave it alone and `review`
-  hides it.
+  hides it, unless `--column` asks for its column.
 - The board shows the newest 10 done tasks and says how many more
   there are. `--all` or `--column done` shows them all.
 - `rm` deletes the task only. The spec document stays; remove it with
@@ -127,7 +127,7 @@ llmd --author reviewer task next --from review --to approval
 # Approve and record the git summary
 llmd --author reviewer task finish a1b2c3d4e5
 
-# Keep a task for yourself: agents pass it over, review hides it
+# Keep a task for yourself: agents pass it over, review hides it by default
 llmd --author alice task set a1b2c3d4e5 --flag human
 
 # Mark blocked, then clear it

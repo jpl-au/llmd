@@ -50,7 +50,7 @@ func (d *Documents) Read(ctx context.Context, path string, opts ...ReadOptions) 
 	if doc != nil {
 		doc.Resolved = document.ResolvedPath
 	}
-	return doc, err
+	return doc, d.explain(ctx, err, path, opt.Version)
 }
 
 // ReadByKey retrieves a document by its stable key. Without a version
@@ -92,7 +92,7 @@ func (d *Documents) ReadByKey(ctx context.Context, key string, opts ...ReadOptio
 	if doc != nil {
 		doc.Resolved = document.ResolvedKey
 	}
-	return doc, err
+	return doc, d.explain(ctx, err, key, nil)
 }
 
 // readInTx reads a document within an existing transaction.
@@ -128,10 +128,35 @@ func (d *Documents) readInTx(ctx context.Context, tx *sql.Tx, path string, opts 
 	if doc != nil {
 		doc.Resolved = document.ResolvedPath
 	}
+	switch err {
+	case ErrNotFound:
+		return doc, NotFound(path)
+	case ErrDeleted:
+		return doc, Deleted(path)
+	}
 	return doc, err
 }
 
 // scan scans a row into a Document.
+// explain names the document in the bare ErrNotFound or ErrDeleted that
+// scan returns. A missing version of a live document says which version
+// is missing; any other miss reports the document's state.
+func (d *Documents) explain(ctx context.Context, err error, name string, version *int) error {
+	switch err {
+	case ErrDeleted:
+		return Deleted(name)
+	case ErrNotFound:
+		if version == nil {
+			return NotFound(name)
+		}
+		if cerr := d.Check(ctx, name); cerr != nil {
+			return cerr
+		}
+		return NoVersion(ErrNotFound, name, *version)
+	}
+	return err
+}
+
 func (d *Documents) scan(row *sql.Row) (*document.Document, error) {
 	var doc document.Document
 	var meta sql.NullString

@@ -107,18 +107,18 @@ func TestHandleEvent(t *testing.T) {
 
 			bus := events.New()
 			store := New(dbFn, bus)
-			bus.Subscribe(NewHandler(store, func() bool { return tt.ready }))
+			h := NewHandler(store, func() bool { return tt.ready })
 
 			for i, e := range tt.events {
-				err := bus.Emit(ctx, e)
+				err := h.HandleEvent(ctx, e)
 				if tt.noDB {
 					if err == nil {
-						t.Errorf("Emit(%d) error = nil, want error when the work database is unavailable", i)
+						t.Errorf("HandleEvent(%d) error = nil, want error when the work database is unavailable", i)
 					}
 					continue
 				}
 				if err != nil {
-					t.Fatalf("Emit(%d) error = %v", i, err)
+					t.Fatalf("HandleEvent(%d) error = %v", i, err)
 				}
 			}
 			if tt.noDB {

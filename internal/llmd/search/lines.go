@@ -35,10 +35,7 @@ func (s *Search) lines(ctx context.Context, query string, opt Options) ([]Result
 
 	rows, err := s.db.Query(b.String(), args...).WithContext(ctx).Read()
 	if err != nil {
-		if strings.Contains(err.Error(), "fts5") {
-			return nil, ErrInvalidQuery
-		}
-		return nil, fmt.Errorf("fts query: %w", err)
+		return nil, queryError(err)
 	}
 	defer rows.Close()
 
@@ -103,7 +100,8 @@ func extractLines(content, query string, ctx int) []Match {
 //   - Prefix wildcards: "hel*" -> ["hel"] (wildcard stripped)
 //   - Negation: "-excluded" -> [] (negated terms dropped)
 //
-// FTS5 operators (AND, OR, NOT, NEAR) are filtered out.
+// FTS5 operators (AND, OR, NOT, NEAR) are filtered out, and NEAR's
+// parentheses and commas separate terms: NEAR(a b) -> ["a", "b"].
 // Returns lowercase terms for case-insensitive matching.
 func parseTerms(query string) []string {
 	var terms []string
@@ -120,7 +118,7 @@ func parseTerms(query string) []string {
 				}
 			}
 			inQuote = !inQuote
-		case r == ' ' && !inQuote:
+		case (r == ' ' || r == '(' || r == ')' || r == ',') && !inQuote:
 			if current.Len() > 0 {
 				terms = append(terms, strings.TrimSuffix(current.String(), "*"))
 				current.Reset()

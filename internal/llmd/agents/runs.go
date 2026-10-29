@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
@@ -49,6 +51,11 @@ type RecordOpts struct {
 	Author   string
 }
 
+// Running is ErrRunning for a task, with the way to end the run.
+func Running(taskKey string) error {
+	return errs.New(ErrRunning, "%s already has a running agent. Run llmd agent stop %s to end it.", taskKey, taskKey)
+}
+
 // Record inserts a new agent run and a "spawned" event, then emits
 // an AgentSpawned event. Returns ErrRunning if the task already has
 // a running agent.
@@ -57,34 +64,42 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 		return nil, err
 	}
 
-	running, err := a.hasRunning(ctx, opts.TaskKey)
-	if err != nil {
-		return nil, fmt.Errorf("checking running agents: %w", err)
-	}
-	if running {
-		return nil, fmt.Errorf("%w: %s - agent runs --task %s shows it, agent stop %s ends it", ErrRunning, opts.TaskKey, opts.TaskKey, opts.TaskKey)
-	}
-
 	now := clock.Now()
 
-	k, err := key.Insert("agent_runs.key", func(k string) error {
-		_, err := a.db.Query(`
-			INSERT INTO agent_runs (key, task_key, agent, branch, worktree, pid, author, started_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, k, opts.TaskKey, opts.Agent, opts.Branch, opts.Worktree, opts.PID, opts.Author, now).Exec()
-		return err
-	})
-	if err != nil {
-		return nil, fmt.Errorf("inserting agent run: %w", err)
-	}
+	// The running check and the inserts share one write transaction,
+	// so two spawns for the same task cannot both pass the check.
+	result, err := a.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		running, err := hasRunning(ctx, tx, opts.TaskKey)
+		if err != nil {
+			return nil, fmt.Errorf("checking running agents: %w", err)
+		}
+		if running {
+			return nil, Running(opts.TaskKey)
+		}
 
-	_, err = a.db.Query(`
-		INSERT INTO agent_events (run_key, event, created_at)
-		VALUES (?, 'spawned', ?)
-	`, k, now).Exec()
+		k, err := key.Insert("agent_runs.key", func(k string) error {
+			_, err := tx.ExecContext(ctx, `
+				INSERT INTO agent_runs (key, task_key, agent, branch, worktree, pid, author, started_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			`, k, opts.TaskKey, opts.Agent, opts.Branch, opts.Worktree, opts.PID, opts.Author, now)
+			return err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("inserting agent run: %w", err)
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO agent_events (run_key, event, created_at)
+			VALUES (?, 'spawned', ?)
+		`, k, now); err != nil {
+			return nil, fmt.Errorf("inserting spawned event: %w", err)
+		}
+		return k, nil
+	}).WithContext(ctx).Exec()
 	if err != nil {
-		return nil, fmt.Errorf("inserting spawned event: %w", err)
+		return nil, err
 	}
+	k := result.Value.(string)
 
 	r := &Run{
 		Key:       k,
@@ -100,7 +115,7 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 	}
 
 	if a.bus != nil {
-		if err := a.bus.Emit(ctx, pkgevents.Event{
+		a.bus.Emit(ctx, pkgevents.Event{
 			Type:      pkgevents.AgentSpawned,
 			Key:       k,
 			Author:    opts.Author,
@@ -110,9 +125,7 @@ func (a *Agents) Record(ctx context.Context, opts RecordOpts) (*Run, error) {
 				"agent":    opts.Agent,
 				"branch":   opts.Branch,
 			},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return r, nil
@@ -143,7 +156,7 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 		return err
 	}
 	if r.Status != "running" {
-		return fmt.Errorf("%w: %s (status: %s)", ErrNotRunning, r.Key, r.Status)
+		return errs.New(ErrNotRunning, "agent run %s is %s, not running.", r.Key, r.Status)
 	}
 
 	now := clock.Now()
@@ -192,15 +205,13 @@ func (a *Agents) Complete(ctx context.Context, taskKey string, opts CompleteOpts
 	}
 
 	if a.bus != nil {
-		if err := a.bus.Emit(ctx, pkgevents.Event{
+		a.bus.Emit(ctx, pkgevents.Event{
 			Type:      evtType,
 			Key:       r.Key,
 			Author:    r.Author,
 			Timestamp: now,
 			Metadata:  metadata,
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 	return nil
 }
@@ -215,7 +226,7 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 		return nil, err
 	}
 	if r.Status != "running" {
-		return nil, fmt.Errorf("%w: %s (status: %s)", ErrNotRunning, r.Key, r.Status)
+		return nil, errs.New(ErrNotRunning, "agent run %s is %s, not running.", r.Key, r.Status)
 	}
 
 	now := clock.Now()
@@ -232,7 +243,7 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 	r.StoppedAt = now
 
 	if a.bus != nil {
-		if err := a.bus.Emit(ctx, pkgevents.Event{
+		a.bus.Emit(ctx, pkgevents.Event{
 			Type:      pkgevents.AgentStopped,
 			Key:       r.Key,
 			Author:    author,
@@ -241,9 +252,7 @@ func (a *Agents) MarkStopped(ctx context.Context, taskKey, author string) (*Run,
 				"task_key": r.TaskKey,
 				"agent":    r.Agent,
 			},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 	return r, nil
 }
@@ -281,7 +290,11 @@ func (a *Agents) RunByTask(ctx context.Context, taskKey string) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	return scanRun(row)
+	r, err := scanRun(row)
+	if err == ErrRunNotFound {
+		return nil, errs.New(ErrRunNotFound, "task %s has no agent run.", taskKey)
+	}
+	return r, err
 }
 
 // ListOpts filters agent run queries. Status is filtered in Go

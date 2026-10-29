@@ -8,6 +8,7 @@ package cli
 // rewriting the entire document via write.
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/jpl-au/llmd/sdk"
@@ -32,7 +33,7 @@ func edit(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("edit: %w", err)
 	}
 	if len(positional) < 3 {
-		return nil, fmt.Errorf("edit: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "edit: a path, the old text and the new text are required.")
 	}
 
 	path, old, new := positional[0], positional[1], positional[2]
@@ -42,6 +43,9 @@ func edit(ctx sdk.Context, args []string) (sdk.Response, error) {
 		Message:    flags.String("message"),
 		ReplaceAll: flags.Bool("all"),
 	}); err != nil {
+		if errors.Is(err, sdk.ErrNotUnique) {
+			return nil, sdk.Errorf(sdk.ErrNotUnique, "edit: %v Add surrounding text to make it unique, or pass --all to replace every one.", err)
+		}
 		return nil, fmt.Errorf("edit: %w", err)
 	}
 

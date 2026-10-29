@@ -31,7 +31,6 @@ var (
 			MarginTop(1)
 
 	countBadge = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("15")).
 			Bold(true)
 
 	countLabel = lipgloss.NewStyle().
@@ -87,7 +86,7 @@ func status(ctx sdk.Context, args []string) (sdk.Response, error) {
 		"recent_activity":  activity,
 	}
 
-	if !isTTY() {
+	if !ctx.TTY {
 		return sdk.Result{Text: plainStatus(docs, cols, byStatus, activity), Data: data}, nil
 	}
 
@@ -100,7 +99,7 @@ func status(ctx sdk.Context, args []string) (sdk.Response, error) {
 		b.WriteString(emptyCol.Render("no documents"))
 		b.WriteByte('\n')
 	} else {
-		t := newTable("PATH", "VER", "AUTHOR", "DATE")
+		t := newTable(ctx.TTY, "PATH", "VER", "AUTHOR", "DATE")
 		for _, d := range docs {
 			date := time.UnixMilli(d.CreatedAt).Format("2006-01-02")
 			t.Row(d.Path, strconv.Itoa(d.Version), d.Author, date)

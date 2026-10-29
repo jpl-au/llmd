@@ -17,9 +17,9 @@ type MirrorStore interface {
 
 // PullResult contains the counts from a mirror pull.
 type PullResult struct {
-	Wrote   int
-	Skipped int
-	Removed int
+	Wrote   int `json:"wrote"`
+	Skipped int `json:"skipped"`
+	Removed int `json:"removed"`
 }
 
 // PushOpts configures a mirror push operation.
@@ -29,7 +29,7 @@ type PushOpts struct {
 
 // PushResult contains the counts from a mirror push.
 type PushResult struct {
-	Created []string
-	Updated []string
-	Skipped []string
+	Created []string `json:"created"`
+	Updated []string `json:"updated"`
+	Skipped []string `json:"skipped"`
 }

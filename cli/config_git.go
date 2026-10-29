@@ -30,7 +30,7 @@ func configGit(args []string) (sdk.Response, error) {
 	case "deny":
 		return configGitDeny(args[1:])
 	default:
-		return nil, fmt.Errorf("config git: %w: unknown subcommand %q", sdk.ErrInvalidArg, args[0])
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "config git: unknown subcommand %s. Use allow, deny or ls.", args[0])
 	}
 }
 
@@ -50,7 +50,7 @@ func configGitList() (sdk.Response, error) {
 
 func configGitAllow(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("config git allow: %w: pattern required", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "config git allow: a pattern is required.")
 	}
 	if err := config.GitAllow(args[0]); err != nil {
 		return nil, fmt.Errorf("config git allow: %w", err)
@@ -60,7 +60,7 @@ func configGitAllow(args []string) (sdk.Response, error) {
 
 func configGitDeny(args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("config git deny: %w: pattern required", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "config git deny: a pattern is required.")
 	}
 	if err := config.GitDeny(args[0]); err != nil {
 		return nil, fmt.Errorf("config git deny: %w", err)

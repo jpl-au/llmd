@@ -120,58 +120,58 @@ type TaskStore interface {
 type Task struct {
 	// Key is the stable 10-character base36 identifier for this task.
 	// Unique across all tasks and never changes.
-	Key string
+	Key string `json:"key"`
 
 	// Title is the human-readable summary of the task.
 	// Displayed in board views and tables.
-	Title string
+	Title string `json:"title"`
 
 	// Status is the column name this task belongs to (e.g. "backlog",
 	// "in-progress", "done"). Controlled by [TaskStore.Move].
-	Status string
+	Status string `json:"status"`
 
 	// Priority is the task's priority: 1 is the highest, larger
 	// numbers are lower, and zero means none. Never negative. With the
 	// default task order, tasks with a priority come before those
 	// without within a column, lowest number first.
-	Priority int
+	Priority int `json:"priority"`
 
 	// Position is the board order within the task's column. Lower
 	// values appear first. Managed automatically by Add and Move; can
 	// be overridden via [TaskSetOpts.Position]. With the default task
 	// order it breaks ties between equal priorities; with the position
 	// order it is the whole order.
-	Position int
+	Position int `json:"position"`
 
 	// AssignedTo is the person responsible for this task.
 	// Empty string means unassigned.
-	AssignedTo string
+	AssignedTo string `json:"assigned_to"`
 
 	// Branch is the git branch associated with this task.
 	// Set by "task start" or via [TaskSetOpts.Branch]. Used by
 	// "task diff" and "task files" to show git changes.
-	Branch string
+	Branch string `json:"branch"`
 
 	// Flags is a comma-separated set of flags (e.g. "blocked",
 	// "hold", "blocked,hold"). Flags are free-form strings managed
 	// via [TaskSetOpts.Flag] and [TaskSetOpts.Unflag].
-	Flags string
+	Flags string `json:"flags"`
 
 	// DependsOn is the key of another task this task depends on.
 	// Empty means no dependency.
-	DependsOn string
+	DependsOn string `json:"depends_on"`
 
 	// Path is the store document path for this task's spec body.
 	// Points to a document in the content table. May reference a
 	// document that has not yet been written (backlog tasks).
-	Path string
+	Path string `json:"path"`
 
 	// Author is the user who created this task.
-	Author string
+	Author string `json:"author"`
 
 	// CreatedAt is the Unix timestamp (milliseconds) when this task
 	// was created.
-	CreatedAt int64
+	CreatedAt int64 `json:"created_at"`
 }
 
 // HasFlag reports whether the task carries the named flag, such as
@@ -321,17 +321,17 @@ type NextOpts struct {
 // FinishResult contains the outcome of finishing a task.
 type FinishResult struct {
 	// Task is the updated task after moving to the done column.
-	Task *Task
+	Task *Task `json:"task"`
 
 	// FilesChanged is the number of files changed on the task's
 	// branch relative to the base. Zero when git is unavailable
 	// or the task has no branch.
-	FilesChanged int
+	FilesChanged int `json:"files_changed"`
 
 	// Commits is the number of commits on the task's branch that
 	// are not on the base. Zero when git is unavailable or the
 	// task has no branch.
-	Commits int
+	Commits int `json:"commits"`
 }
 
 // TaskEvent is a single audit log entry for a task. Every mutation to a
@@ -340,24 +340,24 @@ type FinishResult struct {
 // by [TaskStore.Log].
 type TaskEvent struct {
 	// Timestamp is the Unix timestamp (milliseconds) when the event occurred.
-	Timestamp int64
+	Timestamp int64 `json:"timestamp"`
 
 	// Subject is the task key this event applies to.
-	Subject string
+	Subject string `json:"subject"`
 
 	// Actor is the user who performed the action.
-	Actor string
+	Actor string `json:"actor"`
 
 	// Action describes what changed. Standard actions: "created",
 	// "moved", "edited:title", "edited:priority", "edited:assigned_to",
 	// "edited:branch", "edited:position", "flagged", "unflagged",
 	// "deleted", "restored".
-	Action string
+	Action string `json:"action"`
 
 	// OldValue is the previous value before the change. Empty for
 	// creation events.
-	OldValue string
+	OldValue string `json:"old_value"`
 
 	// NewValue is the value after the change. Empty for deletion events.
-	NewValue string
+	NewValue string `json:"new_value"`
 }

@@ -62,7 +62,7 @@ Flags blocked and hold pause a task; human marks it for the user: leave those al
 // ("task column add", "task column rm", etc.).
 func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task: a subcommand is required. Run llmd task --help to list them.")
 	}
 
 	sub := args[0]
@@ -72,14 +72,14 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	switch sub {
 	case "add", "move", "next", "set", "rm", "restore", "link", "start", "finish", "branch":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("task %s: %w: author required for mutations", sub, sdk.ErrMissingArg)
+			return nil, sdk.AuthorRequired("task " + sub)
 		}
 	case "column":
 		if len(args) > 0 {
 			switch args[0] {
 			case "add", "rm", "mv", "move":
 				if ctx.Author == "" {
-					return nil, fmt.Errorf("task column %s: %w: author required for mutations", args[0], sdk.ErrMissingArg)
+					return nil, sdk.AuthorRequired("task column " + args[0])
 				}
 			}
 		}
@@ -118,7 +118,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		case "mv", "move":
 			return taskMvColumn(ctx, args)
 		default:
-			return nil, fmt.Errorf("task column: %w: unknown subcommand %q", sdk.ErrInvalidArg, colSub)
+			return nil, sdk.Errorf(sdk.ErrInvalidArg, "task column: unknown subcommand %s. Run llmd task --help to list them.", colSub)
 		}
 	case "link":
 		return taskLink(ctx, args)
@@ -143,7 +143,7 @@ func taskCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "commits":
 		return taskCommits(ctx, args)
 	default:
-		return nil, fmt.Errorf("task: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task: unknown subcommand %s. Run llmd task --help to list them.", sub)
 	}
 }
 

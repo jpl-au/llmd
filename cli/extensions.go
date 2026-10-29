@@ -9,7 +9,7 @@ import (
 )
 
 var extensionsSpec = sdk.Command{
-	Name: "extensions", Desc: "List loaded extensions", Usage: "extensions",
+	Name: "extensions", Guide: "-", Desc: "List loaded extensions", Usage: "extensions",
 }
 
 // extensionsCmd lists all loaded compiled extensions. This is a storeless

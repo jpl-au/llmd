@@ -107,7 +107,7 @@ func TestTaskAdd(t *testing.T) {
 				}
 			},
 		},
-		{name: "--path missing document", args: []string{"Fix auth", "--path", "docs/missing"}, wantErrText: "document not found"},
+		{name: "--path missing document", args: []string{"Fix auth", "--path", "docs/missing"}, wantErrText: "docs/missing does not exist."},
 		{
 			name: "--path skips deduplication",
 			setup: func(t *testing.T, c sdk.Context) taskVars {
@@ -159,7 +159,7 @@ func TestTaskAdd(t *testing.T) {
 				return taskVars{"file": p}
 			},
 			args:        []string{"Fix auth", "--file", "{file}", "--path", "docs/spec"},
-			wantErrText: "mutually exclusive",
+			wantErrText: "use --file or --path, not both.",
 		},
 		{
 			name: "path deduplicates against an existing document",
@@ -226,7 +226,7 @@ func TestTaskAdd(t *testing.T) {
 		{name: "no title", args: nil, wantErr: sdk.ErrMissingArg},
 		{name: "empty title", args: []string{""}, wantErr: sdk.ErrMissingArg},
 		{name: "unknown flag", args: []string{"Fix auth", "--bogus"}, wantErr: sdk.ErrInvalidArg},
-		{name: "no author", noAuthor: true, args: []string{"Fix auth"}, wantErrText: "author required"},
+		{name: "no author", noAuthor: true, args: []string{"Fix auth"}, wantErrText: "an author is required."},
 	}
 
 	for _, tt := range tests {

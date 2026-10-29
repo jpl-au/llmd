@@ -14,8 +14,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/jpl-au/llmd/extension"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -104,7 +102,7 @@ var handlers = map[string]handler{
 func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
 	h, ok := handlers[cmd]
 	if !ok {
-		return nil, fmt.Errorf("%w: %s", sdk.ErrUnknownCmd, cmd)
+		return nil, sdk.Errorf(sdk.ErrUnknownCmd, "llmd: unknown command %s. Run llmd --help to list them.", cmd)
 	}
 	return h(ctx, args)
 }

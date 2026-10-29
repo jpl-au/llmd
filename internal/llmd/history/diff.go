@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/aymanbagabas/go-udiff"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
@@ -36,12 +38,12 @@ func (h *History) Diff(ctx context.Context, a, b string, opts ...DiffOptions) (*
 
 	docA, err := h.readIdentifier(ctx, a)
 	if err != nil {
-		return nil, fmt.Errorf("resolving %s: %w", a, err)
+		return nil, errs.Context(err, "reading %s", a)
 	}
 
 	docB, err := h.readIdentifier(ctx, b)
 	if err != nil {
-		return nil, fmt.Errorf("resolving %s: %w", b, err)
+		return nil, errs.Context(err, "reading %s", b)
 	}
 
 	// Compute unified diff

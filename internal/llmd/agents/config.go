@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -14,7 +16,7 @@ import (
 // Register writes an agent's config, prompts, and settings to disk.
 // Existing files are overwritten for config; prompts and settings
 // are only written if they don't already exist (seed behaviour).
-func (a *Agents) Register(_ context.Context, cfg sdk.AgentConfig, _ string) error {
+func (a *Agents) Register(_ context.Context, cfg sdk.AgentConfig) error {
 	if cfg.Name == "" {
 		return fmt.Errorf("agent name is required")
 	}
@@ -86,10 +88,10 @@ func (a *Agents) Settings(_ context.Context, name string) string {
 }
 
 // Remove deletes an agent's directory from disk.
-func (a *Agents) Remove(_ context.Context, name, _ string) error {
+func (a *Agents) Remove(_ context.Context, name string) error {
 	dir := filepath.Join(a.dir, name)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return fmt.Errorf("%w: %s", ErrNotFound, name)
+		return errs.New(ErrNotFound, "there is no agent %s.", name)
 	}
 	return os.RemoveAll(dir)
 }
@@ -98,7 +100,7 @@ func (a *Agents) Remove(_ context.Context, name, _ string) error {
 func (a *Agents) Agent(_ context.Context, name string) (*sdk.AgentConfig, error) {
 	data, err := os.ReadFile(filepath.Join(a.dir, name, "config.json"))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrNotFound, name)
+		return nil, errs.New(ErrNotFound, "there is no agent %s.", name)
 	}
 	var cfg sdk.AgentConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
@@ -152,7 +154,7 @@ func (a *Agents) Prompt(_ context.Context, name, role string) (string, string, e
 		return string(data), fallback, nil
 	}
 
-	return "", "", fmt.Errorf("%w: no prompt template for %s/%s", ErrNotFound, name, role)
+	return "", "", errs.New(ErrNotFound, "agent %s has no %s prompt.", name, role)
 }
 
 // WritePrompt writes a prompt template to disk.

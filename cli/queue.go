@@ -30,10 +30,10 @@ Subcommands: send <text> [--assign who], ls [--limit n], peek, ack <key>, histor
 // --author so the queue can bind acks to an identity.
 func queueCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("queue: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "queue: a subcommand is required. Run llmd queue --help to list them.")
 	}
 	if ctx.Author == "" {
-		return nil, fmt.Errorf("queue %s: %w: author required", args[0], sdk.ErrMissingArg)
+		return nil, sdk.AuthorRequired("queue " + args[0])
 	}
 
 	sub := args[0]
@@ -51,7 +51,7 @@ func queueCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "history":
 		return queueHistory(ctx, args)
 	default:
-		return nil, fmt.Errorf("queue: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "queue: unknown subcommand %s. Run llmd queue --help to list them.", sub)
 	}
 }
 
@@ -66,11 +66,15 @@ func queueSend(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	content := strings.Join(positional, " ")
-	if content == "" && len(ctx.Stdin) > 0 {
-		content = string(ctx.Stdin)
+	if content == "" {
+		data, err := ctx.OptionalInput()
+		if err != nil {
+			return nil, fmt.Errorf("queue send: reading stdin: %w", err)
+		}
+		content = string(data)
 	}
 	if content == "" {
-		return nil, fmt.Errorf("queue send: %w: content", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "queue send: no content. Pass the message as an argument or on stdin.")
 	}
 
 	msg, err := ctx.Queue.Send(sdk.SendOpts{
@@ -136,7 +140,7 @@ func queuePeek(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 func queueAck(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("queue ack: %w: message key", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "queue ack: a message key is required.")
 	}
 
 	if err := ctx.Queue.Ack(args[0], ctx.Author); err != nil {

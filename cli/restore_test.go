@@ -29,7 +29,7 @@ func TestRestore(t *testing.T) {
 		{
 			name:    "document that was never deleted",
 			args:    []string{"docs/live"},
-			wantErr: sdk.ErrNotFound,
+			wantErr: sdk.ErrExists,
 		},
 		{
 			name:    "missing document",
@@ -95,9 +95,9 @@ func TestRestore(t *testing.T) {
 			if got := text(run(t, c, "ls", nil, "-la")); strings.Contains(got, "(deleted)") {
 				t.Errorf("ls -la after restore = %q, must not flag anything deleted", got)
 			}
-			// Restoring twice fails: nothing is deleted any more.
-			if err := runErr(t, c, "restore", nil, "docs/a"); !errors.Is(err, sdk.ErrNotFound) {
-				t.Errorf("second restore error = %v, want %v", err, sdk.ErrNotFound)
+			// Restoring twice fails: the document is live again.
+			if err := runErr(t, c, "restore", nil, "docs/a"); !errors.Is(err, sdk.ErrExists) {
+				t.Errorf("second restore error = %v, want %v", err, sdk.ErrExists)
 			}
 		})
 	}

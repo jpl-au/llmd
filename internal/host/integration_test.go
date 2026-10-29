@@ -989,10 +989,7 @@ func TestListCapping(t *testing.T) {
 		r := dispatch(t, c, "ls", []string{"bulk/"}, "", nil)
 		out := text(r)
 		count := strings.Count(out, "\n") + 1
-		if count > 500 {
-			t.Errorf("ls returned %d rows, want <= 500", count)
-		}
-		if count < 500 {
+		if count != 500 {
 			t.Errorf("ls returned %d rows, want 500", count)
 		}
 	})

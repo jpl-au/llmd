@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/pkg/model/task"
 )
 
@@ -78,7 +80,7 @@ func (t *Tasks) Chain(ctx context.Context, key string) ([]*task.Task, error) {
 			break
 		}
 		if seen[tsk.DependsOn] {
-			return nil, fmt.Errorf("%w: %s", ErrCycle, tsk.DependsOn)
+			return nil, errs.New(ErrCycle, "the dependencies of %s loop back to %s.", key, tsk.DependsOn)
 		}
 		current = tsk.DependsOn
 	}

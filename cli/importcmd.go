@@ -38,7 +38,7 @@ func importCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		dir = positional[0]
 	}
 	if dir == "" {
-		return nil, fmt.Errorf("import: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "import: a directory is required.")
 	}
 	opts := sdk.ImportOpts{
 		Prefix: flags.String("prefix"),

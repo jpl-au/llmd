@@ -35,8 +35,8 @@ const padding = "0000000000"
 const stamps = 1024
 
 var (
-	ErrInvalidLength = errors.New("key must be 10 characters")
-	ErrInvalidChar   = errors.New("key must be lowercase base36")
+	ErrInvalidLength = errors.New("a key is 10 characters long.")
+	ErrInvalidChar   = errors.New("a key is lowercase letters and digits.")
 )
 
 // counter keeps keys apart within a process, however fast they are

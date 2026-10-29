@@ -2,11 +2,14 @@ package bulk
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jpl-au/llmd/internal/errs"
 
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 	"github.com/jpl-au/llmd/internal/llmd/hash"
@@ -58,6 +61,9 @@ func (b *Bulk) Import(ctx context.Context, path string, opts ImportOptions) (*Im
 	result := &ImportResult{}
 
 	info, err := os.Stat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, errs.New(fs.ErrNotExist, "%s does not exist.", path)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -178,12 +184,15 @@ func (b *Bulk) importFile(ctx context.Context, root *os.Root, rel, base string, 
 	contentStr = strings.ReplaceAll(contentStr, "\r", "\n")
 	contentHash := hash.XXH3(contentStr)
 
-	exists, err := b.docs.Exists(ctx, storePath)
-	if err != nil {
-		return "", 0, err
+	// A deleted document at the path is continued by the write, so it
+	// counts as an update, not a creation.
+	state := b.docs.Check(ctx, storePath)
+	if state != nil && !errors.Is(state, documents.ErrDeleted) && !errors.Is(state, documents.ErrNotFound) {
+		return "", 0, state
 	}
+	exists := !errors.Is(state, documents.ErrNotFound)
 
-	if exists {
+	if state == nil {
 		doc, err := b.docs.Read(ctx, storePath)
 		if err != nil {
 			return "", 0, err

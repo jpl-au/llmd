@@ -10,7 +10,6 @@
 package validate
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -24,11 +23,13 @@ type Limits struct {
 	MaxContentLen int
 }
 
-// LoadLimits converts config limit values into validation thresholds.
-func LoadLimits(lim config.LimitConfig) Limits {
+// LoadLimits converts config limit values into validation thresholds,
+// using the default for a value that is missing or not positive (a
+// limit of 0 would refuse every path or document).
+func LoadLimits(cfg config.Config) Limits {
 	return Limits{
-		MaxPathLen:    lim.PathLength,
-		MaxContentLen: lim.ContentSize,
+		MaxPathLen:    cfg.CountSetting("limits.path_length", 1),
+		MaxContentLen: cfg.CountSetting("limits.content_size", 1),
 	}
 }
 
@@ -37,7 +38,7 @@ func LoadLimits(lim config.LimitConfig) Limits {
 // tag names, or labels.
 func Null(s, label string) error {
 	if strings.ContainsRune(s, 0) {
-		return fmt.Errorf("%w: %s contains null byte", sdk.ErrInvalidArg, label)
+		return sdk.Errorf(sdk.ErrInvalidArg, "the %s contains a null byte.", label)
 	}
 	return nil
 }
@@ -49,7 +50,7 @@ func Path(path string, lim Limits) error {
 		return err
 	}
 	if len(path) > lim.MaxPathLen {
-		return fmt.Errorf("%w: path exceeds %d bytes", sdk.ErrInvalidArg, lim.MaxPathLen)
+		return sdk.Errorf(sdk.ErrInvalidArg, "the path is longer than %d bytes.", lim.MaxPathLen)
 	}
 	return nil
 }
@@ -58,10 +59,10 @@ func Path(path string, lim Limits) error {
 // bytes and enforces the configured maximum size.
 func Content(data []byte, lim Limits) error {
 	if len(data) > lim.MaxContentLen {
-		return fmt.Errorf("%w: content exceeds %d bytes", sdk.ErrInvalidArg, lim.MaxContentLen)
+		return sdk.Errorf(sdk.ErrInvalidArg, "the content is larger than %d bytes.", lim.MaxContentLen)
 	}
 	if slices.Contains(data, 0) {
-		return fmt.Errorf("%w: content contains null byte", sdk.ErrInvalidArg)
+		return sdk.Errorf(sdk.ErrInvalidArg, "the content contains a null byte.")
 	}
 	return nil
 }

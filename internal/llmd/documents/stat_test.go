@@ -1,6 +1,7 @@
 package documents_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jpl-au/llmd/internal/llmd"
@@ -69,7 +70,7 @@ func TestStat(t *testing.T) {
 			value, key := tt.setup(t, s)
 
 			stat, err := s.Documents.Stat(t.Context(), value)
-			if err != tt.wantErr {
+			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Stat(%q) error = %v, want %v", value, err, tt.wantErr)
 			}
 			if (stat != nil) != tt.wantStat {

@@ -1,7 +1,6 @@
 # llmd export
 
-Write documents from the store to the filesystem as `.md` files,
-keeping their path structure.
+Write documents from the store to the filesystem as `.md` files.
 
 ## Usage
 
@@ -24,8 +23,9 @@ directory, the current directory by default.
 
 - Read-only on the store, so no author is needed. `<path>` is
   required.
-- Document paths become file paths within the target directory:
-  `api/users` is written to `./api/users.md`.
+- A single document is written by its name: `api/users` becomes
+  `./users.md`. A prefix keeps the structure below it: `notes/` writes
+  `notes/sub/c` as `./sub/c.md`.
 - Existing files are skipped unless `--overwrite` is given. The output
   lists each file written, then `skipped N existing` when any were.
 

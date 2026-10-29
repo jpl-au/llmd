@@ -67,7 +67,7 @@ func grep(ctx sdk.Context, args []string) (sdk.Response, error) {
 		pathPrefix = positional[1]
 	}
 	if pattern == "" {
-		return nil, fmt.Errorf("grep: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "grep: a search pattern is required.")
 	}
 
 	// Resolve mode. Mutually exclusive flags; --sections is the

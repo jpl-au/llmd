@@ -35,6 +35,8 @@ import (
 type sseHub struct {
 	mu      sync.RWMutex
 	clients map[*sseClient]struct{}
+	closed  chan struct{} // closed by Close: every stream ends
+	once    sync.Once
 }
 
 // sseClient represents a connected SSE consumer. Events matching
@@ -46,7 +48,13 @@ type sseClient struct {
 }
 
 func newSSEHub() *sseHub {
-	return &sseHub{clients: make(map[*sseClient]struct{})}
+	return &sseHub{clients: make(map[*sseClient]struct{}), closed: make(chan struct{})}
+}
+
+// Close ends every stream, open now or opened later. The server calls
+// it when shutdown begins so connected clients do not hold it open.
+func (h *sseHub) Close() {
+	h.once.Do(func() { close(h.closed) })
 }
 
 // Broadcast sends an event to all connected clients whose filters
@@ -120,6 +128,9 @@ func (h *sseHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		case <-r.Context().Done():
 			slog.Debug("sse: client disconnected")
+			return
+		case <-h.closed:
+			slog.Debug("sse: server shutting down")
 			return
 		}
 	}

@@ -26,8 +26,8 @@ A document key works anywhere a path does, e.g. `abc123def:2`.
 - Reads need no author.
 - With one path, the document needs at least two versions; a document
   with one version has nothing to compare.
-- Diffs over 500 lines are cut off with a footer giving the total line
-  count and the +/- counts. `--all` shows everything; `--stat` shows
+- Diffs over 500 lines are cut off with a footer giving the number of
+  lines left out and the total +/- counts. `--all` shows everything; `--stat` shows
   only the counts.
 - Piped, the output is a plain unified diff. At a terminal additions
   are green, removals red, hunk headers cyan.

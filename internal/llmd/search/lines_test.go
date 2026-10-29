@@ -21,6 +21,7 @@ func TestParseTerms(t *testing.T) {
 		{"prefix* suffix*", []string{"prefix", "suffix"}},
 		{`mixed "quoted phrase" unquoted`, []string{"mixed", "quoted phrase", "unquoted"}},
 		{"NEAR/3 proximity", []string{"near/3", "proximity"}}, // NEAR not filtered (rare usage)
+		{"NEAR(deploy production)", []string{"deploy", "production"}},
 		{"", nil},
 	}
 

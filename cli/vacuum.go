@@ -31,7 +31,7 @@ func vacuumCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 	before, err := sdk.ParseSince(flags.String("older-than"))
 	if err != nil {
-		return nil, fmt.Errorf("vacuum --older-than: %w", err)
+		return nil, fmt.Errorf("vacuum: %w", err)
 	}
 
 	result, err := ctx.Documents.Vacuum(sdk.VacuumOpts{DryRun: flags.Bool("dry-run"), Before: before})

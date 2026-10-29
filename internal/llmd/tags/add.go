@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
@@ -35,7 +37,7 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 		return nil, err
 	}
 	if existing != nil {
-		return existing, ErrExists
+		return existing, errs.New(ErrExists, "%s already has the tag %s.", value, name)
 	}
 
 	now := clock.Now()
@@ -67,16 +69,14 @@ func (t *Tags) Add(ctx context.Context, value, name string, opts Options) (*tag.
 	}
 
 	if t.bus != nil {
-		if err := t.bus.Emit(ctx, events.Event{
+		t.bus.Emit(ctx, events.Event{
 			Type:      events.TagAdded,
 			Path:      relation,
 			Key:       k,
 			Author:    opts.Author,
 			Timestamp: now,
 			Metadata:  map[string]any{"tag": name},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return result, nil

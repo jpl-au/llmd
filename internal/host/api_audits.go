@@ -3,8 +3,8 @@ package host
 import (
 	"context"
 	"errors"
-	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
 	"github.com/jpl-au/llmd/internal/llmd"
 	"github.com/jpl-au/llmd/internal/llmd/audits"
 	"github.com/jpl-au/llmd/sdk"
@@ -32,11 +32,11 @@ func auditErr(err error) error {
 	}
 	switch {
 	case errors.Is(err, audits.ErrNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, audits.ErrMissingAuthor):
-		return fmt.Errorf("%w: %w", sdk.ErrMissingArg, err)
+		return errs.Mark(sdk.ErrMissingArg, err)
 	case errors.Is(err, audits.ErrMissingTarget):
-		return fmt.Errorf("%w: %w", sdk.ErrMissingArg, err)
+		return errs.Mark(sdk.ErrMissingArg, err)
 	default:
 		return err
 	}

@@ -47,7 +47,7 @@ func taskLog(ctx sdk.Context, args []string) (sdk.Response, error) {
 		headers = []string{"TIME", "TASK", "ACTOR", "ACTION", "OLD", "NEW"}
 	}
 
-	t := newTable(headers...).Style(func(row, col int) lipgloss.Style {
+	t := newTable(ctx.TTY, headers...).Style(func(row, col int) lipgloss.Style {
 		if row == table.HeaderRow {
 			return tblHeader
 		}

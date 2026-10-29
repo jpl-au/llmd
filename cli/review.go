@@ -27,8 +27,7 @@ Without a column, done tasks and tasks flagged human are left out;
 
 var (
 	reviewTitle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("15"))
+			Bold(true)
 
 	reviewKey = lipgloss.NewStyle().
 			Faint(true)
@@ -95,7 +94,7 @@ func review(ctx sdk.Context, args []string) (sdk.Response, error) {
 		data[i].Links = linkedDocs(ctx, t.Path)
 	}
 
-	if !isTTY() {
+	if !ctx.TTY {
 		specs, err := ctx.Tasks.CheckSpecs(tasks)
 		if err != nil {
 			slog.Debug("checking task specs for review", "error", err)

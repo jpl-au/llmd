@@ -67,7 +67,7 @@ MD
     # --- version history ---
     echo "# Updated" | $llmd --author "smoke" write docs/hello >/dev/null 2>&1
     out=$($llmd history docs/hello --json 2>&1)
-    if echo "$out" | grep -q '"Number"'; then
+    if echo "$out" | grep -q '"number"'; then
         log_pass "history returns version data"
     else
         log_fail "history returns version data: got '$out'"
@@ -79,7 +79,7 @@ MD
         echo "revision $i" | $llmd --author "smoke" write churn/doc >/dev/null 2>&1
     done
     out=$($llmd history churn/doc --json 2>&1)
-    count=$(echo "$out" | grep -c '"Number"')
+    count=$(echo "$out" | grep -c '"number"')
     if [ "$count" -eq 10 ]; then
         log_pass "history defaults to 10 versions"
     else
@@ -87,7 +87,7 @@ MD
     fi
 
     out=$($llmd history --all churn/doc --json 2>&1)
-    count=$(echo "$out" | grep -c '"Number"')
+    count=$(echo "$out" | grep -c '"number"')
     if [ "$count" -eq 15 ]; then
         log_pass "history --all returns every version"
     else
@@ -197,7 +197,7 @@ MD
     # of which mode is in play - that's what agents read via --json
     # or MCP.
     out=$($llmd --json grep "OAuth2" 2>&1)
-    if echo "$out" | grep -q '"Path"' && echo "$out" | grep -q '"Section"'; then
+    if echo "$out" | grep -q '"path"' && echo "$out" | grep -q '"section"'; then
         log_pass "grep --json returns structured GrepHit"
     else
         log_fail "grep --json returns structured GrepHit: got '$out'"

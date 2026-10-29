@@ -17,7 +17,7 @@ import (
 // pipes, --json, MCP and HTTP.
 func taskShow(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("task show: %w: id", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "task show: a task key is required.")
 	}
 
 	t, err := ctx.Tasks.Read(args[0])

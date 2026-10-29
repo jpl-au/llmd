@@ -95,23 +95,37 @@ func GitAllow(pattern string) error {
 // GitAllowIn adds a whitelist entry to <dir>/.gitignore so the pattern
 // is committed. The ! prefix is added automatically - callers pass
 // the bare pattern (e.g. "reports/" not "!reports/").
+//
+// A directory pattern ("reports/") also allows everything under it
+// ("reports/**"): the file's "*" matches the files inside too, so
+// allowing the directory alone commits nothing.
 func GitAllowIn(dir, pattern string) error {
 	pattern = strings.TrimSpace(pattern)
 	if pattern == "" {
-		return fmt.Errorf("empty pattern")
+		return fmt.Errorf("a pattern is required.")
 	}
-
-	entry := "!" + pattern
 
 	rules, err := GitRulesIn(dir)
 	if err != nil {
 		return err
 	}
-	if slices.Contains(rules, entry) {
-		return nil
+	for _, entry := range allowEntries(pattern) {
+		if slices.Contains(rules, entry) {
+			continue
+		}
+		if err := appendLine(dir, entry); err != nil {
+			return err
+		}
 	}
+	return nil
+}
 
-	return appendLine(dir, entry)
+// allowEntries are the whitelist lines that commit pattern.
+func allowEntries(pattern string) []string {
+	if strings.HasSuffix(pattern, "/") {
+		return []string{"!" + pattern, "!" + pattern + "**"}
+	}
+	return []string{"!" + pattern}
 }
 
 // GitDeny removes a whitelist entry from .llmd/.gitignore in the
@@ -124,8 +138,17 @@ func GitDeny(pattern string) error {
 // pattern is no longer committed. The ! prefix is added automatically.
 func GitDenyIn(dir, pattern string) error {
 	pattern = strings.TrimSpace(pattern)
-	entry := "!" + pattern
-	return removeLine(dir, entry)
+	entries := allowEntries(pattern)
+	if err := removeLine(dir, entries[0]); err != nil {
+		return err
+	}
+	for _, entry := range entries[1:] {
+		// Allowed before directories also allowed their contents.
+		if err := removeLine(dir, entry); err != nil && !strings.HasPrefix(err.Error(), "pattern not found") {
+			return err
+		}
+	}
+	return nil
 }
 
 // appendLine adds a line to the gitignore file in dir.

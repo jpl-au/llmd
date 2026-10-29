@@ -55,6 +55,20 @@ func TestWatch(t *testing.T) {
 		return nil
 	}
 
+	// waitForDB polls until db is among the changes after the first
+	// from, or gives up.
+	waitForDB := func(t *testing.T, from int, db string) {
+		t.Helper()
+		deadline := time.Now().Add(3 * time.Second)
+		for time.Now().Before(deadline) {
+			if got := snapshot(); len(got) > from && slices.Contains(got[from:], db) {
+				return
+			}
+			time.Sleep(interval)
+		}
+		t.Fatalf("saw %v, want %s among the changes after the first %d", snapshot(), db, from)
+	}
+
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- h.Watch(ctx, interval) }()
@@ -93,14 +107,16 @@ func TestWatch(t *testing.T) {
 		}
 	})
 
+	// A task add writes both files, the spec to llmd.db and the task
+	// to work.db, and polls may see them in either order or in
+	// different ticks: wait for work.db among the new changes rather
+	// than assume where it falls.
 	t.Run("a work.db created outside is reported", func(t *testing.T) {
+		before := len(snapshot())
 		if _, err := other.Tasks.Add(ctx, "Outside", []byte("# Outside\n\nspec"), tasks.AddOptions{Origin: origin}); err != nil {
 			t.Fatal(err)
 		}
-		got := waitFor(t, 2)
-		if got[len(got)-1] != "work.db" {
-			t.Errorf("changes = %v, want work.db last", got)
-		}
+		waitForDB(t, before, "work.db")
 	})
 
 	t.Run("further outside work changes are reported", func(t *testing.T) {
@@ -108,13 +124,7 @@ func TestWatch(t *testing.T) {
 		if _, err := other.Tasks.Add(ctx, "Again", []byte("# Again\n\nspec"), tasks.AddOptions{Origin: origin}); err != nil {
 			t.Fatal(err)
 		}
-		// A task add writes both files (the spec, then the task), and
-		// one poll may report them in either order, so look for work.db
-		// among the new changes rather than last.
-		got := waitFor(t, before+1)
-		if !slices.Contains(got[before:], "work.db") {
-			t.Errorf("new changes = %v, want work.db among them", got[before:])
-		}
+		waitForDB(t, before, "work.db")
 	})
 
 	cancel()

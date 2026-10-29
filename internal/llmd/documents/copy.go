@@ -2,13 +2,15 @@ package documents
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/jpl-au/llmd/internal/errs"
 
 	"github.com/jpl-au/llmd/pkg/model/document"
 )
 
-// Copy duplicates a document from src to dst.
-// Creates a new version 1 at dst with the content from src.
+// Copy duplicates a document from src to dst by writing src's content
+// to dst. A free dst gets version 1; a deleted document at dst is
+// continued, as any write to it is. A live dst is refused.
 func (d *Documents) Copy(ctx context.Context, src, dst string, opts CopyOptions) (*document.Document, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -20,7 +22,7 @@ func (d *Documents) Copy(ctx context.Context, src, dst string, opts CopyOptions)
 		return nil, err
 	}
 	if ok {
-		return nil, fmt.Errorf("destination already exists: %s", dst)
+		return nil, errs.New(ErrExists, "%s already exists.", dst)
 	}
 
 	// Read source

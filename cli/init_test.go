@@ -153,9 +153,11 @@ func TestInit(t *testing.T) {
 				}
 			}
 
-			// A second init must not overwrite the store.
-			if _, err := metaInit(t, h, tt.author, db); err == nil || !strings.Contains(err.Error(), "already exists") {
-				t.Errorf("second init --db %q error = %v, want already exists", db, err)
+			// A second init succeeds and changes nothing, so setup
+			// scripts can run it unconditionally.
+			again, err := metaInit(t, h, tt.author, db)
+			if err != nil || !strings.Contains(text(again), "already exists") {
+				t.Errorf("second init --db %q = %q, %v, want it to say the store already exists", db, text(again), err)
 			}
 		})
 	}

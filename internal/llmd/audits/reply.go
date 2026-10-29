@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/internal/llmd/key"
@@ -27,7 +29,7 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 	// Resolve to top-level parent.
 	parent, err := a.read(ctx, parentID)
 	if err != nil {
-		return nil, fmt.Errorf("reading parent: %w", err)
+		return nil, errs.Context(err, "reading parent")
 	}
 
 	threadID := parent.ID
@@ -76,16 +78,14 @@ func (a *Audits) Reply(ctx context.Context, parentID string, opts AddOptions) (*
 		if status == "approved" {
 			eventType = events.AuditResolved
 		}
-		if err := a.bus.Emit(ctx, events.Event{
+		a.bus.Emit(ctx, events.Event{
 			Type:      eventType,
 			Path:      parent.Target,
 			Key:       id,
 			Author:    opts.Author,
 			Timestamp: now,
 			Metadata:  map[string]any{"parent_id": threadID, "status": status},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return result, nil
@@ -101,7 +101,7 @@ func (a *Audits) read(ctx context.Context, id string) (*Audit, error) {
 	}
 	aud, err := scanAudit(row)
 	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
+		return nil, errs.New(ErrNotFound, "no audit %s.", id)
 	}
 	return aud, err
 }

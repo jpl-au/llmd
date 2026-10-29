@@ -5,10 +5,13 @@ package tasks
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"unicode"
+
+	"github.com/jpl-au/llmd/internal/errs"
 
 	"github.com/jpl-au/llmd/internal/clock"
 
@@ -24,7 +27,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		return nil, ErrMissingTitle
 	}
 	if opts.Priority < 0 {
-		return nil, ErrInvalidPriority
+		return nil, invalidPriority(opts.Priority)
 	}
 	if err := t.ensure(); err != nil {
 		return nil, err
@@ -44,23 +47,19 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		return nil, err
 	}
 	if !slices.Contains(cols, status) {
-		return nil, fmt.Errorf("%w: %s", ErrInvalidCol, status)
+		return nil, errs.New(ErrInvalidCol, "there is no column %s. Run llmd task column list to see them.", status)
 	}
 
 	// Determine document path.
 	//
-	// --path links to an existing store document. The document must exist.
+	// --path links to an existing store document. The document must be live.
 	// Body content (stdin/--file) creates a new document at tasks/<slug>.
 	// No body and no --path: task has no spec, sits in backlog.
 	var path string
 
 	if opts.Path != "" {
-		exists, eerr := t.docs.Exists(ctx, opts.Path)
-		if eerr != nil {
-			return nil, fmt.Errorf("checking document: %w", eerr)
-		}
-		if !exists {
-			return nil, fmt.Errorf("%w: %s", documents.ErrNotFound, opts.Path)
+		if err := t.docs.Check(ctx, opts.Path); err != nil {
+			return nil, err
 		}
 		path = opts.Path
 	} else {
@@ -146,16 +145,14 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 	}
 
 	if t.bus != nil {
-		if err := t.bus.Emit(ctx, events.Event{
+		t.bus.Emit(ctx, events.Event{
 			Type:      events.TaskCreated,
 			Path:      path,
 			Key:       k,
 			Author:    opts.Author,
 			Timestamp: now,
 			Metadata:  map[string]any{"title": title, "status": status},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return tsk, nil
@@ -178,15 +175,15 @@ func (t *Tasks) uniquePath(ctx context.Context, s string) (string, error) {
 	}
 }
 
-// pathTaken reports whether a document exists at path or a live task
-// already claims it as its spec path.
+// pathTaken reports whether a document, live or deleted, holds path or
+// a live task already claims it as its spec path. A deleted document
+// still owns its path: writing a spec there would continue it.
 func (t *Tasks) pathTaken(ctx context.Context, path string) (bool, error) {
-	exists, err := t.docs.Exists(ctx, path)
-	if err != nil {
-		return false, fmt.Errorf("checking document: %w", err)
-	}
-	if exists {
+	switch err := t.docs.Check(ctx, path); {
+	case err == nil, errors.Is(err, documents.ErrDeleted):
 		return true, nil
+	case !errors.Is(err, documents.ErrNotFound):
+		return false, err
 	}
 
 	var n int

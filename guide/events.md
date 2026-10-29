@@ -11,7 +11,7 @@ curl -N "http://localhost:5563/events?type=a,b"              Only these types
 llmd audit list --since 5m                                   Poll instead, from the CLI
 ```
 
-All 19 event types across 6 domains:
+All 25 event types across 8 domains:
 
 | Domain   | Event               | Fires when                      |
 |----------|---------------------|---------------------------------|
@@ -33,6 +33,12 @@ All 19 event types across 6 domains:
 | Task     | `task.updated`      | Task metadata changed           |
 | Task     | `task.deleted`      | Task soft-deleted               |
 | Task     | `task.restored`     | Deleted task restored           |
+| Agent    | `agent.spawned`     | Agent started on a task         |
+| Agent    | `agent.completed`   | Agent run finished successfully |
+| Agent    | `agent.failed`      | Agent run exited with an error  |
+| Agent    | `agent.stopped`     | Agent run stopped by hand       |
+| Queue    | `message.sent`      | Queue message sent              |
+| Queue    | `message.acknowledged` | Queue message acknowledged   |
 | Store    | `store.changed`     | Another process changed a database (see below) |
 
 Rules:
@@ -42,7 +48,9 @@ Rules:
   agent are other processes, and their writes reach the server only
   as `store.changed`.
 - `store.changed` names the file (`llmd.db` or `work.db`), nothing
-  more: reread what matters. It goes to SSE and webhook clients only.
+  more: reread what matters. It goes to SSE and webhook clients only,
+  within about two `server.watch_interval`s (1s by default) of the
+  change. `version` appears only on document events.
 - Slow SSE clients have events dropped rather than block the server.
 - Webhooks retry on network errors and 5xx responses, not on 4xx.
 
@@ -55,7 +63,6 @@ Every event is a JSON object:
   "type": "audit.created",
   "path": "docs/spec",
   "key": "abc123def",
-  "version": 0,
   "author": "Gemini",
   "timestamp": 1773700800000,
   "metadata": {

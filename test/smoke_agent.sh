@@ -117,7 +117,7 @@ _smoke_agent() {
     # --- agent runs --json includes session_id field ---
     # Create a task so we can simulate a run lifecycle via internal commands.
     echo "# Smoke task" | $llmd --author "smoke" task add "Smoke task" >/dev/null 2>&1
-    task_key=$($llmd --json task list 2>&1 | grep -o '"Key": *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"//')
+    task_key=$($llmd --json task list 2>&1 | grep -o '"key": *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"//')
 
     if [ -z "$task_key" ]; then
         log_fail "task creation for agent run test: no task key"

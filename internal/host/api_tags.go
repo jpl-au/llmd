@@ -3,8 +3,8 @@ package host
 import (
 	"context"
 	"errors"
-	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
 	"github.com/jpl-au/llmd/internal/llmd/documents"
 
 	"github.com/jpl-au/llmd/internal/llmd"
@@ -20,12 +20,12 @@ func tagErr(err error) error {
 		return nil
 	}
 	switch {
-	case errors.Is(err, tags.ErrNotFound), errors.Is(err, documents.ErrNotFound):
-		return fmt.Errorf("%w: %w", sdk.ErrNotFound, err)
+	case errors.Is(err, tags.ErrNotFound), errors.Is(err, documents.ErrNotFound), errors.Is(err, documents.ErrDeleted):
+		return errs.Mark(sdk.ErrNotFound, err)
 	case errors.Is(err, tags.ErrInvalid):
-		return fmt.Errorf("%w: %w", sdk.ErrInvalidArg, err)
+		return errs.Mark(sdk.ErrInvalidArg, err)
 	case errors.Is(err, tags.ErrExists):
-		return fmt.Errorf("%w: %w", sdk.ErrExists, err)
+		return errs.Mark(sdk.ErrExists, err)
 	default:
 		return err
 	}

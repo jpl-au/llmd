@@ -52,13 +52,7 @@ func (a *Audits) Status(ctx context.Context, author string, sinceMS int64) (*Sta
 			ORDER BY created_at DESC, id DESC
 			LIMIT 1
 		  ) IN ('pending', 'needs-work')
-		  AND (
-			SELECT assignee FROM audits
-			WHERE (id = top.id OR parent_id = top.id)
-			  AND deleted_at IS NULL
-			ORDER BY created_at DESC, id DESC
-			LIMIT 1
-		  ) = ?
+		  AND ` + effectiveAssignee + ` = ?
 	`)
 	args = append(args, author)
 

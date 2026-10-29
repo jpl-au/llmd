@@ -22,9 +22,10 @@ type commandGroup struct {
 var helpGroups = []commandGroup{
 	{"Reading", []string{"cat", "ls", "grep", "find", "glob"}},
 	{"Writing", []string{"write", "edit", "sed", "rm", "mv", "restore", "revert"}},
-	{"History", []string{"history", "diff"}},
+	{"History", []string{"history", "diff", "graph"}},
 	{"Tags & Links", []string{"tag", "link", "unlink"}},
-	{"Tasks", []string{"task", "agent", "hook", "status", "review"}},
+	{"Tasks", []string{"task", "agent", "rule", "hook", "status", "review"}},
+	{"Audits & Queue", []string{"audit", "queue"}},
 	{"Bulk", []string{"import", "export", "mirror"}},
 	{"Admin", []string{"init", "config", "vacuum", "version", "mcp", "serve", "extensions"}},
 	{"Help", []string{"guide"}},
@@ -41,9 +42,12 @@ Usage:
   llmd <command> [flags] [args...]
 
 Global Flags:
+  --author <name>     Who is making the change (required for agents and scripts)
   --db <path>         Use a specific database file
   --json              Output as JSON
+  --verbose           Debug logging on stderr
   --help              Show help
+  --version           Show version information
 
 `)
 	cmds := h.Commands()
@@ -82,7 +86,7 @@ func cmdHelp(c *sdk.Command, tty bool) string {
 	var b strings.Builder
 	if !tty {
 		b.WriteString(c.AgentHelp())
-		b.WriteString("\nGlobal: --author <name> (required to change anything), --json (structured output), --db <path>\n")
+		b.WriteString("\nGlobal: --author <name> (required to change anything), --json (structured output), --db <path>, --verbose\n")
 		return b.String()
 	}
 	fmt.Fprintf(&b, "%s - %s\n\n", c.Name, c.Desc)
@@ -112,6 +116,7 @@ func cmdHelp(c *sdk.Command, tty bool) string {
 	b.WriteString("  --author <name>     Author for mutations (required for LLMs/scripts)\n")
 	b.WriteString("  --db <path>         Use a specific database file\n")
 	b.WriteString("  --json              Output as JSON\n")
+	b.WriteString("  --verbose           Debug logging on stderr\n")
 	b.WriteString("  --help              Show help\n")
 	return b.String()
 }

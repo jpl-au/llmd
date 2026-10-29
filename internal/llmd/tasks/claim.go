@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 	"github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/pkg/model/task"
@@ -17,7 +19,7 @@ import (
 
 // ErrNoneReady is returned by Claim when no task in the source column
 // can be taken.
-var ErrNoneReady = errors.New("no task ready")
+var ErrNoneReady = errors.New("no task is ready.")
 
 // Flags that keep a task out of Claim's reach. A human task is work
 // for the user; hold and blocked mark work that must wait.
@@ -60,11 +62,11 @@ func (t *Tasks) Claim(ctx context.Context, author string, opts ClaimOptions) (*t
 	}
 	for _, c := range []string{from, to} {
 		if !slices.Contains(cols, c) {
-			return nil, fmt.Errorf("%w: %s", ErrInvalidCol, c)
+			return nil, errs.New(ErrInvalidCol, "there is no column %s. Run llmd task column list to see them.", c)
 		}
 	}
 	if from == to {
-		return nil, fmt.Errorf("%w: from and to are both %s", ErrInvalidCol, from)
+		return nil, errs.New(ErrInvalidCol, "--from and --to are both %s.", from)
 	}
 	assignee := opts.AssignedTo
 	if assignee == "" {
@@ -138,16 +140,14 @@ func (t *Tasks) Claim(ctx context.Context, author string, opts ClaimOptions) (*t
 	}
 
 	if t.bus != nil {
-		if err := t.bus.Emit(ctx, events.Event{
+		t.bus.Emit(ctx, events.Event{
 			Type:      events.TaskMoved,
 			Path:      tsk.Path,
 			Key:       tsk.Key,
 			Author:    author,
 			Timestamp: clock.Now(),
 			Metadata:  map[string]any{"from": from, "to": to, "assigned_to": assignee, "claimed": true},
-		}); err != nil {
-			return nil, fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return tsk, nil

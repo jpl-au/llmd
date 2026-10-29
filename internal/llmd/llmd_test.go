@@ -176,7 +176,7 @@ func TestWorkDB_Failure(t *testing.T) {
 			// opens but its schema cannot be created.
 			name: "existing work.db with incompatible schema",
 			breach: func(t *testing.T, _, workPath string) {
-				db, err := sqlite.Open(workPath)
+				db, err := sqlite.Open(workPath, sqlite.Settings{})
 				if err != nil {
 					t.Fatalf("sqlite.Open(%q) error = %v", workPath, err)
 				}

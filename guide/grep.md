@@ -35,10 +35,9 @@ Modes are mutually exclusive; `--sections` is the default.
   strips it from the index. Anchor the search with a word next to it.
 - A second argument restricts the search to documents under that path.
 - Hits never carry the whole document unless you pass `--full`.
-- At a terminal the output is rendered markdown. Piped, `--json` and
-  MCP get raw markdown; the structured `Data` is always a list of hits
-  with `Path`, `Line`, `Column`, `Text`, `Before`, `After` and
-  `Section`, whatever the mode.
+- At a terminal the output is rendered markdown; piped and over MCP it
+  is raw markdown. `--json` gives a list of hits with `path`, `line`,
+  `column`, `text`, `before`, `after` and `section`, whatever the mode.
 
 ## Examples
 
@@ -102,11 +101,9 @@ Set OAUTH_SECRET in your env file.
 ```
 
 On an interactive terminal the output is rendered as markdown via
-glamour. Pipes, redirects, `--json`, and MCP get raw markdown source.
-The structured `Data` field is always a `[]GrepHit` with `Path`,
-`Line`, `Column`, `Text`, `Before`, `After`, and `Section` populated -
-agents reading via `--json` or MCP get everything they need to act on
-each hit regardless of which mode produced it.
+glamour. Pipes, redirects and MCP get raw markdown source. `--json`
+gives the hits as a list with `path`, `line`, `column`, `text`,
+`before`, `after` and `section`, whichever mode produced them.
 
 ## Search syntax
 
@@ -141,5 +138,5 @@ llmd is an AI-first tool. The grep defaults are tuned so an agent
 searching a long document gets back the matching markdown section
 (bounded by headings), never the whole file. This keeps agent context
 windows under control without any flags. Humans get the same data
-glamour-rendered for the terminal; agents get raw markdown plus a
-structured `Data` field over `--json`/MCP.
+glamour-rendered for the terminal; agents get raw markdown, or the
+hits as JSON with `--json`.

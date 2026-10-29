@@ -56,6 +56,9 @@ func TestRulesShow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := TestSetup(t, TestIsolated)
 			c := h.Context(t.Context(), "alice")
+			// Rule set refuses an agent that is not registered.
+			registerAgent(t, c, "claude-code")
+			registerAgent(t, c, "gemini")
 			if tt.setup != nil {
 				tt.setup(t, h, c)
 			}
@@ -91,6 +94,9 @@ func TestRulesSet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := TestSetup(t, TestIsolated)
 			c := h.Context(t.Context(), "alice")
+			// Rule set refuses an agent that is not registered.
+			registerAgent(t, c, "claude-code")
+			registerAgent(t, c, "gemini")
 			if tt.setup != nil {
 				tt.setup(t, h, c)
 			}
@@ -151,6 +157,9 @@ func TestRulesUnset(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := TestSetup(t, TestIsolated)
 			c := h.Context(t.Context(), "alice")
+			// Rule set refuses an agent that is not registered.
+			registerAgent(t, c, "claude-code")
+			registerAgent(t, c, "gemini")
 			if tt.setup != nil {
 				tt.setup(t, h, c)
 			}

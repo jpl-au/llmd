@@ -179,7 +179,7 @@ var notFoundCases = []notFoundCase{
 
 	// AgentStore
 	{"AgentStore", "Remove", func(c sdk.Context) error {
-		return c.Agents.Remove("missing", "alice")
+		return c.Agents.Remove("missing")
 	}},
 	{"AgentStore", "Agent", func(c sdk.Context) error {
 		_, err := c.Agents.Agent("missing")

@@ -11,7 +11,6 @@ package tags
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/jpl-au/qwr"
 
@@ -23,9 +22,9 @@ import (
 const namespace = "core:tag"
 
 var (
-	ErrNotFound = errors.New("tag not found")
-	ErrExists   = errors.New("tag already exists")
-	ErrInvalid  = errors.New("invalid tag name")
+	ErrNotFound = errors.New("there is no such tag.")
+	ErrExists   = errors.New("the tag already exists.")
+	ErrInvalid  = errors.New("that is not a valid tag name.")
 )
 
 // Tags provides tag operations.
@@ -46,15 +45,9 @@ func (t *Tags) resolvePath(ctx context.Context, value string) string {
 	return path
 }
 
-// requireDocument returns documents.ErrNotFound unless a live document
-// exists at path. Tags may only be attached to documents that exist.
+// requireDocument returns documents.ErrNotFound or ErrDeleted unless a
+// live document exists at path. Tags may only be attached to live
+// documents.
 func (t *Tags) requireDocument(ctx context.Context, path string) error {
-	exists, err := t.docs.Exists(ctx, path)
-	if err != nil {
-		return fmt.Errorf("checking document: %w", err)
-	}
-	if !exists {
-		return fmt.Errorf("%s: %w", path, documents.ErrNotFound)
-	}
-	return nil
+	return t.docs.Check(ctx, path)
 }

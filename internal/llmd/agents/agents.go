@@ -25,14 +25,15 @@ package agents
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"path/filepath"
-	"sync"
 
 	"github.com/jpl-au/qwr"
 
 	"github.com/jpl-au/llmd/internal/llmd/events"
+	"github.com/jpl-au/llmd/internal/llmd/lazy"
 )
 
 // Schema is the DDL for the agent tables.
@@ -75,10 +76,10 @@ CREATE INDEX IF NOT EXISTS idx_agent_events_run ON agent_events(run_key);
 `
 
 var (
-	ErrNotFound    = errors.New("agent not found")
-	ErrRunNotFound = errors.New("agent run not found")
-	ErrRunning     = errors.New("agent already running for task")
-	ErrNotRunning  = errors.New("agent run is not running")
+	ErrNotFound    = errors.New("the agent does not exist.")
+	ErrRunNotFound = errors.New("the agent run does not exist.")
+	ErrRunning     = errors.New("the task already has a running agent.")
+	ErrNotRunning  = errors.New("the agent run is not running.")
 )
 
 // Agents provides agent configuration and run tracking. Config,
@@ -89,8 +90,7 @@ type Agents struct {
 	db   *qwr.Manager
 	dir  string // .llmd/agents/
 	bus  *events.Bus
-	once sync.Once
-	err  error
+	once lazy.Once
 }
 
 // New creates an Agents instance. The db function returns the work
@@ -112,22 +112,25 @@ func PromptPath(name, role string) string {
 
 // ensure opens the work database and creates the agent tables if needed.
 func (a *Agents) ensure() error {
-	a.once.Do(func() {
-		a.db = a.dbFn()
-		if a.db == nil {
-			a.err = fmt.Errorf("work database not available")
-			return
+	return a.once.Do(func() error {
+		db := a.dbFn()
+		if db == nil {
+			return fmt.Errorf("work database not available")
 		}
-		_, a.err = a.db.Query(Schema).Exec()
+		if _, err := db.Query(Schema).Exec(); err != nil {
+			return err
+		}
+		a.db = db
+		return nil
 	})
-	return a.err
 }
 
 // hasRunning checks whether a task already has a running agent.
 // A run is considered running when it has a "spawned" event but no
 // terminal event (completed, failed, stopped).
-func (a *Agents) hasRunning(ctx context.Context, taskKey string) (bool, error) {
-	row, err := a.db.Query(`
+func hasRunning(ctx context.Context, tx *sql.Tx, taskKey string) (bool, error) {
+	var count int
+	err := tx.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM agent_runs r
 		WHERE r.task_key = ?
 		AND NOT EXISTS (
@@ -135,12 +138,8 @@ func (a *Agents) hasRunning(ctx context.Context, taskKey string) (bool, error) {
 			WHERE e.run_key = r.key
 			AND e.event IN ('completed', 'failed', 'stopped')
 		)
-	`, taskKey).WithContext(ctx).ReadRow()
+	`, taskKey).Scan(&count)
 	if err != nil {
-		return false, err
-	}
-	var count int
-	if err := row.Scan(&count); err != nil {
 		return false, err
 	}
 	return count > 0, nil

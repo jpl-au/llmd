@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	"github.com/jpl-au/llmd/pkg/events"
@@ -38,19 +40,17 @@ func (t *Tags) Remove(ctx context.Context, value, name string, opts Options) err
 		return fmt.Errorf("checking rows affected: %w", err)
 	}
 	if rows == 0 {
-		return ErrNotFound
+		return errs.New(ErrNotFound, "%s has no tag %s.", value, name)
 	}
 
 	if t.bus != nil {
-		if err := t.bus.Emit(ctx, events.Event{
+		t.bus.Emit(ctx, events.Event{
 			Type:      events.TagRemoved,
 			Path:      relation,
 			Author:    opts.Author,
 			Timestamp: now,
 			Metadata:  map[string]any{"tag": name},
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return nil

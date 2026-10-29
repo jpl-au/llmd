@@ -95,8 +95,8 @@ func (s *Store) Vacuum(ctx context.Context, opts VacuumOptions) (*VacuumResult, 
 	if _, err := s.db.Query("VACUUM").WithContext(ctx).Exec(); err != nil {
 		return nil, fmt.Errorf("vacuuming database: %w", err)
 	}
-	if s.work != nil {
-		if _, err := s.work.Query("VACUUM").WithContext(ctx).Exec(); err != nil {
+	if work := s.openWork(); work != nil {
+		if _, err := work.Query("VACUUM").WithContext(ctx).Exec(); err != nil {
 			return nil, fmt.Errorf("vacuuming work database: %w", err)
 		}
 	}

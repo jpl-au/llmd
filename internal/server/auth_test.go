@@ -27,6 +27,7 @@ func TestAuth(t *testing.T) {
 		{name: "missing header", token: "s3cret", path: "/ls", wantStatus: http.StatusUnauthorized},
 		{name: "wrong token", token: "s3cret", header: "Bearer other", path: "/ls", wantStatus: http.StatusUnauthorized},
 		{name: "wrong scheme", token: "s3cret", header: "Basic s3cret", path: "/ls", wantStatus: http.StatusUnauthorized},
+		{name: "token without scheme", token: "s3cret", header: "s3cret", path: "/ls", wantStatus: http.StatusUnauthorized},
 		{name: "prefix only", token: "s3cret", header: "Bearer s3c", path: "/ls", wantStatus: http.StatusUnauthorized},
 		{name: "events stream", token: "s3cret", path: "/events", wantStatus: http.StatusUnauthorized},
 		{name: "unknown route", token: "s3cret", path: "/nope", wantStatus: http.StatusUnauthorized},

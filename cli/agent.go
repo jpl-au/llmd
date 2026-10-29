@@ -43,24 +43,22 @@ Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <n
 
 func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("agent: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent: a subcommand is required. Run llmd agent --help to list them.")
 	}
 
 	sub := args[0]
 	args = args[1:]
 
-	// stop requires an author (it's an operational action on a running
-	// task). add/rm are configuration - use "llmd" as default author
-	// so users don't need --author just to set up their tools.
+	// spawn, complete and stop act on a task and need an author. add
+	// and rm only write configuration files.
 	switch sub {
 	case "stop", "spawn", "complete":
 		if ctx.Author == "" {
-			return nil, fmt.Errorf("agent %s: %w: author required", sub, sdk.ErrMissingArg)
+			return nil, sdk.AuthorRequired("agent " + sub)
 		}
 	case "add", "rm":
-		if ctx.Author == "" {
-			ctx.Author = "llmd"
-		}
+		// Configuration, like llmd config: nothing is recorded, so no
+		// author is needed.
 	}
 
 	switch sub {
@@ -79,7 +77,7 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "spawn":
 		// agent spawn <task> <agent> → task start <task> --agent <agent>
 		if len(args) < 2 {
-			return nil, fmt.Errorf("agent spawn: %w: <task-key> <agent>", sdk.ErrMissingArg)
+			return nil, sdk.Errorf(sdk.ErrMissingArg, "agent spawn: a task key and an agent are required.")
 		}
 		return taskStart(ctx, []string{args[0], "--agent", args[1]})
 	case "run":
@@ -89,7 +87,7 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "stop":
 		return agentStop(ctx, args)
 	default:
-		return nil, fmt.Errorf("agent: %w: unknown subcommand %q", sdk.ErrInvalidArg, sub)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "agent: unknown subcommand %s. Run llmd agent --help to list them.", sub)
 	}
 }
 
@@ -103,8 +101,8 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent add: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("agent add: %w: name required\n\nBuilt-in agents: %s\nCustom: llmd agent add <name> --command <binary>",
-			sdk.ErrMissingArg, strings.Join(sortedProfileNames(), ", "))
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent add: an agent name is required. The built-in agents are %s, or add your own with --command <binary>.",
+			strings.Join(sortedProfileNames(), ", "))
 	}
 
 	name := positional[0]
@@ -115,7 +113,7 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	if profile != nil && command == "" {
 		// Known agent - use the built-in profile.
-		if err := ctx.Agents.Register(*profile, ctx.Author); err != nil {
+		if err := ctx.Agents.Register(*profile); err != nil {
 			return nil, fmt.Errorf("agent add: %w", err)
 		}
 		return sdk.Text(fmt.Sprintf(
@@ -129,7 +127,7 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if command == "" {
-		return nil, fmt.Errorf("agent add: %q is not a built-in agent - use --command to specify the binary\n\nBuilt-in agents: %s",
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "agent add: %s is not a built-in agent. Pass --command <binary>, or use one of %s.",
 			name, strings.Join(sortedProfileNames(), ", "))
 	}
 
@@ -139,7 +137,7 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		Command: command,
 		Args:    []string{"-p", "{{.Prompt}}"},
 	}
-	if err := ctx.Agents.Register(cfg, ctx.Author); err != nil {
+	if err := ctx.Agents.Register(cfg); err != nil {
 		return nil, fmt.Errorf("agent add: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf(
@@ -154,9 +152,9 @@ func agentAdd(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 func agentRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("agent rm: %w: name", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent rm: an agent name is required.")
 	}
-	if err := ctx.Agents.Remove(args[0], ctx.Author); err != nil {
+	if err := ctx.Agents.Remove(args[0]); err != nil {
 		return nil, fmt.Errorf("agent rm: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Removed agent %q", args[0])), nil
@@ -171,7 +169,7 @@ func agentList(ctx sdk.Context, _ []string) (sdk.Response, error) {
 		return sdk.Text("No agents registered\n\nAdd one with: llmd agent add claude-code"), nil
 	}
 
-	t := newTable("NAME", "COMMAND")
+	t := newTable(ctx.TTY, "NAME", "COMMAND")
 	for _, c := range cfgs {
 		t.Row(c.Name, c.Command)
 	}
@@ -181,14 +179,14 @@ func agentList(ctx sdk.Context, _ []string) (sdk.Response, error) {
 
 func agentConfig(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("agent config: %w: name", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent config: an agent name is required.")
 	}
 	cfg, err := ctx.Agents.Agent(args[0])
 	if err != nil {
 		return nil, fmt.Errorf("agent config: %w", err)
 	}
 
-	t := newTable("FIELD", "VALUE")
+	t := newTable(ctx.TTY, "FIELD", "VALUE")
 	t.Row("name", cfg.Name)
 	t.Row("command", cfg.Command)
 	if len(cfg.Args) > 0 {
@@ -206,7 +204,7 @@ func agentConfig(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 func agentPrompt(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) < 2 {
-		return nil, fmt.Errorf("agent prompt: %w: name and role required", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent prompt: an agent name and a role are required.")
 	}
 	name := args[0]
 	role := args[1]
@@ -247,7 +245,7 @@ func agentRuns(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return sdk.Text("No agent runs"), nil
 	}
 
-	t := newTable("RUN", "AGENT", "TASK", "STATUS", "BRANCH")
+	t := newTable(ctx.TTY, "RUN", "AGENT", "TASK", "STATUS", "BRANCH")
 	for _, r := range runs {
 		status := r.Status
 		if r.Status == sdk.AgentRunning {
@@ -269,7 +267,7 @@ func agentComplete(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent complete: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("agent complete: %w: task key", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent complete: a task key is required.")
 	}
 	key := positional[0]
 	exitCode := flags.Int("exit-code")
@@ -282,7 +280,7 @@ func agentComplete(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 func agentStop(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("agent stop: %w: task key", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent stop: a task key is required.")
 	}
 	if err := ctx.Agents.Stop(args[0], ctx.Author); err != nil {
 		return nil, fmt.Errorf("agent stop: %w", err)

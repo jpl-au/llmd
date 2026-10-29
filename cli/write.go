@@ -1,6 +1,6 @@
 package cli
 
-// write creates or updates a document. Content comes from ctx.Stdin
+// write creates or updates a document. Content comes from stdin
 // (piped input on CLI, Content field via MCP). If the document already
 // exists, a new version is created; if not, it's created at version 1.
 
@@ -25,15 +25,19 @@ func write(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("write: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("write: %w", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "write: a path is required.")
 	}
 
 	path := positional[0]
-	if len(ctx.Stdin) == 0 {
-		return nil, fmt.Errorf("write: %w: content on stdin", sdk.ErrMissingArg)
+	content, err := ctx.Input()
+	if err != nil {
+		return nil, fmt.Errorf("write: reading stdin: %w", err)
+	}
+	if len(content) == 0 {
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "write: no content. Pipe the document to llmd write %s.", path)
 	}
 
-	if err := ctx.Documents.Write(path, ctx.Stdin, sdk.WriteOpts{
+	if err := ctx.Documents.Write(path, content, sdk.WriteOpts{
 		Author:  ctx.Author,
 		Message: flags.String("message"),
 	}); err != nil {

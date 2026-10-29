@@ -18,10 +18,11 @@ llmd status [--limit N]
 ## Rules
 
 - Read-only. No author is needed.
-- Three sections, each capped at `--limit` items: recent documents (path,
-  version, author, date, newest first), the task board (a count per
-  column) and recent activity (document writes, tags, links and task
-  events, newest first).
+- Three sections: recent documents (path, version, author, and at a
+  terminal the date, newest first), the task board (a count per
+  column, every column) and recent activity (document writes, tags,
+  links and task events, newest first). `--limit` caps the documents
+  and the activity.
 - At a terminal the sections are styled tables. Piped, they are plain
   labelled sections: `Recent documents:`, `Task board:` and `Recent
   activity:`, one indented line per item.

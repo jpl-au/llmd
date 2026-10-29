@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/sdk"
@@ -30,13 +31,13 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent run: %w", err)
 	}
 	if len(positional) == 0 {
-		return nil, fmt.Errorf("agent run: %w: task key", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent run: a task key is required.")
 	}
 
 	taskKey := positional[0]
 	worktree := flags.String("worktree")
 	if worktree == "" {
-		return nil, fmt.Errorf("agent run: %w: --worktree required", sdk.ErrMissingArg)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "agent run: --worktree is required.")
 	}
 
 	// Read the resolved run config from the worktree.
@@ -69,7 +70,7 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 	// signal.NotifyContext) so that forward() is the sole handler.
 	// Without this, an interrupt cancels the parent context and kills
 	// the runner before it can manage the child's shutdown.
-	signal.Reset(os.Interrupt)
+	signal.Reset(os.Interrupt, syscall.SIGTERM)
 	defer forward(cmd)()
 
 	// Wait for the agent to finish.
@@ -103,8 +104,14 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 		moveTask(ctx, taskKey, cfg.Agent, cfg.OnFailure)
 	}
 
-	os.Exit(exitCode)
-	return nil, nil // unreachable
+	// The runner's exit code is the agent's, for whoever started it.
+	// Returning it, rather than calling os.Exit here, lets the store
+	// close and checkpoint on the way out, and keeps an MCP or HTTP
+	// caller's server running.
+	if exitCode != 0 {
+		return nil, &sdk.ExitError{Cmd: "agent run", Code: exitCode}
+	}
+	return sdk.Text(""), nil
 }
 
 // captureFailure reads the tail of the agent log and writes it as an

@@ -20,9 +20,14 @@ llmd mcp
   started with, and is rejected if there is none.
 - Tool names match command names, except four that would clash with an
   agent's own tools: `llmd_grep`, `llmd_find`, `llmd_glob`, `llmd_init`.
+- Not every command is a tool. Those for a person at a terminal or for
+  setup (`status`, `review`, `import`, `export`, `vacuum`, `mirror`,
+  `hook`, `config`, `serve`, `version`, `extensions`) are left out to
+  keep the tool list, which every session reads, small.
 - Responses are the plain text a piped `llmd` prints: raw markdown from
   `cat`, `guide` and `task show`, tab-separated lines from tables, one
-  seven-field line per task from `task list` and `review`.
+  seven-field line per task from `task list`. There is no `--json` over
+  MCP; a capped list ends with a note of how many were left out.
 - The server talks only over stdin and stdout; the agent's client
   starts it, not you.
 

@@ -8,7 +8,7 @@ and agents can read and change documents as files.
 ```
 llmd mirror                  Pull every document (the default)
 llmd mirror pull [<path>]    Pull documents, optionally under a path
-llmd mirror push [<path>]    Push edits back, optionally under a path
+llmd mirror push [<path>]    Push edits back, optionally only those under a path
 ```
 
 ## Rules
@@ -21,7 +21,10 @@ llmd mirror push [<path>]    Push edits back, optionally under a path
 - `push` needs an author: `--author` for agents and scripts, or the
   configured author at an interactive terminal. New and modified `.md`
   files become new document versions. Unchanged files are skipped.
-  When nothing changed it says `Nothing to push`.
+  The summary counts created, updated and unchanged files; with no
+  files in the mirror at all it says `Nothing to push`. A path limits
+  push to that part of the mirror, as it limits pull, so `pull docs`
+  then `push docs` keeps every path as it was.
 - Push never deletes a store document. Only pull removes files.
 - A subcommand other than `pull` or `push` is an error.
 

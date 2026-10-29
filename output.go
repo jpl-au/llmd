@@ -7,14 +7,16 @@ import (
 	"os"
 
 	"charm.land/glamour/v2"
+	"charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
 
 	"github.com/jpl-au/llmd/sdk"
 )
 
 // display writes an sdk.Response to stdout. JSON output is used when
-// jsonOut is true or the response type requires it. Returns a process
-// exit code.
+// jsonOut is true or the response type requires it, in the form
+// sdk.JSON gives, as the HTTP server does for Output: json. Returns a
+// process exit code.
 //
 // Markdown responses are rendered via glamour when stdout is an
 // interactive terminal and emitted raw otherwise, so pipes, redirects
@@ -23,40 +25,32 @@ import (
 // they may already contain lipgloss-styled output that must not be
 // touched.
 func display(result sdk.Response, jsonOut bool) int {
+	if _, always := result.(sdk.Data); jsonOut || always {
+		return writeJSON(sdk.JSON(result))
+	}
 	switch r := result.(type) {
 	case sdk.Text:
 		if string(r) != "" {
 			lipgloss.Fprintln(os.Stdout, string(r))
 		}
 	case sdk.Markdown:
-		if jsonOut && r.Data != nil {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(r.Data); err != nil {
-				return errorf(false, "encoding JSON: %v", err)
-			}
-		} else if r.Text != "" {
+		if r.Text != "" {
 			lipgloss.Fprintln(os.Stdout, renderMarkdown(r.Text))
 		}
 	case sdk.Result:
-		if jsonOut {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(r.Data); err != nil {
-				return errorf(false, "encoding JSON: %v", err)
-			}
-		} else if r.Text != "" {
+		if r.Text != "" {
 			lipgloss.Fprintln(os.Stdout, r.Text)
 		}
-	case sdk.Data:
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(r.V); err != nil {
-			return errorf(false, "encoding JSON: %v", err)
-		}
+	}
+	if r, ok := result.(sdk.Result); ok && r.Note != "" {
+		fmt.Fprintln(os.Stderr, r.Note)
 	}
 	return 0
 }
+
+// markdownTheme is the display.theme setting, set by run once the
+// config is loaded: "dark" or "light".
+var markdownTheme = "dark"
 
 // renderMarkdown returns a glamour-rendered version of the source for
 // interactive terminals, falling back to the raw source for
@@ -67,7 +61,13 @@ func renderMarkdown(src string) string {
 	if !isTTY() {
 		return src
 	}
-	rendered, err := glamour.Render(src, "dark")
+	// The style is set, not detected: asking the terminal for its
+	// background costs up to four seconds when it does not answer.
+	style := styles.DarkStyle
+	if markdownTheme == "light" {
+		style = styles.LightStyle
+	}
+	rendered, err := glamour.Render(src, style)
 	if err != nil {
 		slog.Debug("rendering markdown", "error", err)
 		return src
@@ -86,8 +86,21 @@ func isTTY() bool {
 	return f.Mode()&os.ModeCharDevice != 0
 }
 
+// writeJSON writes v to stdout as indented JSON and returns the exit
+// code.
+func writeJSON(v any) int {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		return errorf(false, "llmd: encoding JSON: %v", err)
+	}
+	return 0
+}
+
 // errorf writes an error to stderr (as JSON if jsonOut, plain text
-// otherwise) and returns exit code 1.
+// otherwise) and returns exit code 1. The message is the error's own
+// sentence, which already leads with the command: "cat: p does not
+// exist."
 func errorf(jsonOut bool, format string, args ...any) int {
 	msg := fmt.Sprintf(format, args...)
 	if jsonOut {
@@ -95,7 +108,7 @@ func errorf(jsonOut bool, format string, args ...any) int {
 			slog.Warn("writing error to stderr", "error", e)
 		}
 	} else {
-		if _, e := fmt.Fprintf(os.Stderr, "error: %s\n", msg); e != nil {
+		if _, e := fmt.Fprintln(os.Stderr, msg); e != nil {
 			slog.Warn("writing error to stderr", "error", e)
 		}
 	}

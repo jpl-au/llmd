@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jpl-au/llmd/internal/errs"
+
 	"github.com/jpl-au/llmd/internal/clock"
 
 	pkgevents "github.com/jpl-au/llmd/pkg/events"
@@ -20,10 +22,10 @@ func (m *Messages) Ack(ctx context.Context, key, consumer string) error {
 	// Look up the consumer's oldest pending message to enforce ordering.
 	oldest, err := m.Peek(ctx, consumer)
 	if err != nil {
-		return fmt.Errorf("ack: %w", err)
+		return errs.Context(err, "finding the oldest message")
 	}
 	if oldest.Key != key {
-		return fmt.Errorf("ack %s: expected %s: %w", key, oldest.Key, ErrOrderViolation)
+		return errs.New(ErrOrderViolation, "%s is not the oldest pending message. Acknowledge %s first.", key, oldest.Key)
 	}
 
 	now := clock.Now()
@@ -36,14 +38,12 @@ func (m *Messages) Ack(ctx context.Context, key, consumer string) error {
 	}
 
 	if m.bus != nil {
-		if err := m.bus.Emit(ctx, pkgevents.Event{
+		m.bus.Emit(ctx, pkgevents.Event{
 			Type:      pkgevents.MessageAcknowledged,
 			Key:       key,
 			Author:    consumer,
 			Timestamp: now,
-		}); err != nil {
-			return fmt.Errorf("emitting event: %w", err)
-		}
+		})
 	}
 
 	return nil
