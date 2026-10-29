@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -400,7 +401,7 @@ func TestRun(t *testing.T) {
 		{name: "command help", args: []string{"cat", "--help"}, wantOut: []string{"Usage: llmd cat", "Details: guide cat"}},
 		{name: "help for an unknown command", args: []string{"nope", "--help"}, wantCode: 1, wantErr: []string{"llmd: unknown command nope."}},
 		{name: "bad global flag", args: []string{"--db"}, wantCode: 1, wantErr: []string{"llmd: --db needs a path."}},
-		{name: "store missing", args: []string{"ls"}, wantCode: 1, wantErr: []string{"ls: there is no store at .llmd/llmd.db. Run llmd init to create one."}},
+		{name: "store missing", args: []string{"ls"}, wantCode: 1, wantErr: []string{"ls: there is no store at " + filepath.Join(".llmd", "llmd.db") + ". Run llmd init to create one."}},
 		{name: "init", args: []string{"init"}, wantOut: []string{"Initialised llmd store"}},
 		{name: "write from stdin", args: []string{"--author", "alice", "write", "docs/a"}, stdin: "# A\n", wantOut: []string{"Wrote docs/a"}},
 		{name: "cat", args: []string{"cat", "docs/a"}, wantOut: []string{"# A"}},
