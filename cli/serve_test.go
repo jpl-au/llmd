@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jpl-au/llmd/internal/host"
+	"github.com/jpl-au/llmd/host"
 )
 
 // TestServe covers the two cheap paths through serve: a malformed

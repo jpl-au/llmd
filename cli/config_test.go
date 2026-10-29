@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/config"
-	"github.com/jpl-au/llmd/internal/host"
+	"github.com/jpl-au/llmd/config"
+	"github.com/jpl-au/llmd/host"
 	"github.com/jpl-au/llmd/sdk"
 )
 

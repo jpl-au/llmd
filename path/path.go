@@ -1,0 +1,158 @@
+// Package path provides document path normalisation and validation utilities.
+//
+// All document paths in llmd pass through this package before storage or
+// retrieval. Validation ensures paths are safe for database storage.
+//
+// Security: Path traversal attacks are blocked by rejecting any path
+// containing "..". Combined with normalisation at the API boundary, this
+// provides defence-in-depth against escaping the document store.
+//
+// Normalisation rules:
+//   - Paths use forward slashes (cross-platform)
+//   - No leading or trailing slashes
+//   - No "." or ".." components
+//   - Empty paths are rejected
+//   - .md extension is stripped (docs/readme.md becomes docs/readme)
+//
+// Document paths are DB keys, not filesystem paths. Normalise and Direct
+// use the path package (always forward-slash) so behaviour is identical on
+// all platforms. Filesystem path construction (ResolveDB) uses
+// filepath, which is platform-aware.
+package path
+
+import (
+	"errors"
+	slashpath "path"
+	"path/filepath"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/jpl-au/llmd/errs"
+)
+
+// ErrInvalid indicates the provided document path is invalid.
+var ErrInvalid = errors.New("that is not a valid path.")
+
+// ErrTooLong indicates the document path exceeds the configured maximum length.
+var ErrTooLong = errors.New("the path is too long.")
+
+// ErrInvalidDB indicates the --db shorthand name is invalid.
+var ErrInvalidDB = errors.New("that is not a valid store name.")
+
+// ResolveDB converts a --db shorthand name to a full store path.
+// An empty string returns the default path (.llmd/llmd.db). A bare
+// name like "docs" becomes .llmd/llmd-docs.db. Absolute paths,
+// Windows volume names (e.g. C:), and .db suffixes are returned
+// unchanged - no sanitisation is applied since the user is providing
+// a real path.
+//
+// Shorthand names are sanitised: spaces become dashes, consecutive
+// dashes collapse, and leading/trailing dashes are trimmed. Names
+// containing control characters, Windows-illegal characters
+// (< > : " | ? *), or path traversal (..) are rejected.
+func ResolveDB(name string) (string, error) {
+	if name == "" {
+		return filepath.Join(".llmd", "llmd.db"), nil
+	}
+
+	// Explicit paths are returned as-is.
+	if filepath.IsAbs(name) || filepath.VolumeName(name) != "" || strings.ContainsAny(name, "/\\") || strings.HasSuffix(name, ".db") {
+		return name, nil
+	}
+
+	// Shorthand name - sanitise.
+	sanitised, err := sanitiseDBName(name)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(".llmd", "llmd-"+sanitised+".db"), nil
+}
+
+// sanitiseDBName validates and cleans a bare --db shorthand name.
+func sanitiseDBName(name string) (string, error) {
+	// Reject control characters (0–31) and null bytes.
+	for i := 0; i < len(name); i++ {
+		if name[i] <= 0x1f {
+			return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It contains a control character.", name)
+		}
+	}
+
+	// Reject non-UTF-8 sequences.
+	if !utf8.ValidString(name) {
+		return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It is not valid UTF-8.", name)
+	}
+
+	// Reject Windows-illegal characters.
+	if strings.ContainsAny(name, `<>:"|?*`) {
+		return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It cannot contain < > : \" | ? or *.", name)
+	}
+
+	// Reject path traversal.
+	if strings.Contains(name, "..") {
+		return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It cannot contain .. or a slash.", name)
+	}
+
+	// Convert spaces to dashes, collapse consecutive dashes, trim.
+	s := strings.ReplaceAll(name, " ", "-")
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
+	s = strings.Trim(s, "-")
+
+	if s == "" {
+		return "", errs.New(ErrInvalidDB, "%q is not a valid store name. It has no usable characters.", name)
+	}
+
+	return s, nil
+}
+
+// invalidPath is ErrInvalid naming the rejected path and the rule.
+func invalidPath(p string) error {
+	return errs.New(ErrInvalid, "%s is not a valid path. Paths are relative, such as notes/plan, and cannot climb out of the store.", p)
+}
+
+// Normalise cleans and validates a document path.
+// It ensures paths use forward slashes, have no leading/trailing slashes,
+// and contain no directory traversal sequences.
+//
+// Document paths are DB keys, not filesystem paths, so this function uses
+// the path package (always forward-slash) and behaves identically on all
+// platforms. Backslashes in user input are converted to forward slashes so
+// that Windows-style paths are accepted on any platform.
+func Normalise(p string) (string, error) {
+	if p == "" {
+		return "", errs.New(ErrInvalid, "a path is required.")
+	}
+	orig := p
+
+	// Convert backslashes to forward slashes. filepath.ToSlash won't do
+	// this on Unix (where backslash is a valid filename character), but we
+	// want to accept Windows-style input on any platform.
+	p = strings.ReplaceAll(p, "\\", "/")
+
+	p = slashpath.Clean(p)
+
+	// Reject absolute paths - document paths must always be relative.
+	if slashpath.IsAbs(p) {
+		return "", invalidPath(orig)
+	}
+
+	// Remove leading/trailing slashes left after cleaning.
+	p = strings.TrimPrefix(p, "/")
+	p = strings.TrimSuffix(p, "/")
+
+	// Strip .md extension (case-insensitive).
+	if len(p) > 3 && strings.EqualFold(p[len(p)-3:], ".md") {
+		p = p[:len(p)-3]
+	}
+
+	if p == "" || p == "." || p == ".." {
+		return "", invalidPath(orig)
+	}
+
+	if strings.Contains(p, "..") {
+		return "", invalidPath(orig)
+	}
+
+	return p, nil
+}

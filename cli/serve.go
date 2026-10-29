@@ -3,9 +3,9 @@
 package cli
 
 import (
-	"github.com/jpl-au/llmd/internal/config"
-	"github.com/jpl-au/llmd/internal/server"
+	"github.com/jpl-au/llmd/config"
 	"github.com/jpl-au/llmd/sdk"
+	"github.com/jpl-au/llmd/server"
 )
 
 var serveSpec = sdk.Command{

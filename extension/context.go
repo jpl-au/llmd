@@ -14,14 +14,14 @@ package extension
 import (
 	"github.com/jpl-au/qwr"
 
-	"github.com/jpl-au/llmd/internal/llmd"
+	"github.com/jpl-au/llmd/engine"
 )
 
 // Context provides extensions controlled access to llmd internals.
 // Extensions receive this during initialisation to access shared resources.
 type Context interface {
 	// Store returns the document store for CRUD operations.
-	Store() *llmd.Store
+	Store() *engine.Store
 
 	// DB exposes the database for extensions needing custom tables.
 	// Extensions should create their own tables, not modify core tables.
@@ -36,7 +36,7 @@ type Context interface {
 // initialisation and passed to extensions that implement [Initializable].
 // The struct is unexported to enforce construction via NewContext.
 type extContext struct {
-	store *llmd.Store
+	store *engine.Store
 	db    *qwr.Manager
 	cfg   map[string]string
 }
@@ -44,7 +44,7 @@ type extContext struct {
 // NewContext creates a new extension context with the given store,
 // database connection, and user configuration. Called during host
 // initialisation to build the context passed to [Initializable.Init].
-func NewContext(store *llmd.Store, db *qwr.Manager, cfg map[string]string) Context {
+func NewContext(store *engine.Store, db *qwr.Manager, cfg map[string]string) Context {
 	return &extContext{
 		store: store,
 		db:    db,
@@ -53,7 +53,7 @@ func NewContext(store *llmd.Store, db *qwr.Manager, cfg map[string]string) Conte
 }
 
 // Store returns the document store, the primary interface for document CRUD.
-func (c *extContext) Store() *llmd.Store {
+func (c *extContext) Store() *engine.Store {
 	return c.store
 }
 

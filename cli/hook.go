@@ -19,7 +19,7 @@ import (
 	"github.com/jpl-au/llmd/assets/platform/claude"
 	"github.com/jpl-au/llmd/assets/platform/gemini"
 	"github.com/jpl-au/llmd/assets/platform/generic"
-	"github.com/jpl-au/llmd/internal/config"
+	"github.com/jpl-au/llmd/config"
 	"github.com/jpl-au/llmd/sdk"
 )
 

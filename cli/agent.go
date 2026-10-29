@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/jpl-au/llmd/assets"
-	"github.com/jpl-au/llmd/internal/llmd/agents"
+	"github.com/jpl-au/llmd/engine/agents"
 	"github.com/jpl-au/llmd/sdk"
 )
 

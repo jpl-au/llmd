@@ -4,7 +4,7 @@ import (
 	"maps"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/host"
+	"github.com/jpl-au/llmd/host"
 	"github.com/jpl-au/llmd/sdk"
 )
 

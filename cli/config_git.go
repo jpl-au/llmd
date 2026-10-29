@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jpl-au/llmd/internal/config"
+	"github.com/jpl-au/llmd/config"
 	"github.com/jpl-au/llmd/sdk"
 )
 

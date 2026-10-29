@@ -1,0 +1,105 @@
+// resolve.go handles resolving audits and soft-deleting.
+
+package audits
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+
+	"github.com/jpl-au/llmd/errs"
+
+	"github.com/jpl-au/llmd/clock"
+
+	"github.com/jpl-au/llmd/pkg/events"
+)
+
+// Resolve inserts a new entry with status "approved" and empty content.
+// Internally equivalent to Reply with status approved.
+func (a *Audits) Resolve(ctx context.Context, id, author string) (*Audit, error) {
+	return a.Reply(ctx, id, AddOptions{
+		Author: author,
+		Status: "approved",
+	})
+}
+
+// Restore undeletes a soft-deleted audit by clearing deleted_at.
+func (a *Audits) Restore(ctx context.Context, id, author string) (*Audit, error) {
+	if author == "" {
+		return nil, ErrMissingAuthor
+	}
+	if err := a.ensure(); err != nil {
+		return nil, err
+	}
+
+	// Only a soft-deleted audit can be restored; a live or unknown
+	// id is reported as not found, matching documents.Restore.
+	row, err := a.db.Query(`
+		SELECT `+columns+` FROM audits WHERE id = ? AND deleted_at IS NOT NULL
+	`, id).WithContext(ctx).ReadRow()
+	if err != nil {
+		return nil, err
+	}
+	aud, err := scanAudit(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errs.New(ErrNotFound, "no deleted audit %s.", id)
+		}
+		return nil, fmt.Errorf("reading audit: %w", err)
+	}
+
+	_, err = a.db.Query(`
+		UPDATE audits SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL
+	`, id).WithContext(ctx).Exec()
+	if err != nil {
+		return nil, fmt.Errorf("restoring audit: %w", err)
+	}
+
+	if a.bus != nil {
+		a.bus.Emit(ctx, events.Event{
+			Type:      events.AuditRestored,
+			Path:      aud.Target,
+			Key:       id,
+			Author:    author,
+			Timestamp: clock.Now(),
+		})
+	}
+
+	return aud, nil
+}
+
+// Delete soft-deletes an audit by setting deleted_at.
+func (a *Audits) Delete(ctx context.Context, id, author string) error {
+	if author == "" {
+		return ErrMissingAuthor
+	}
+	if err := a.ensure(); err != nil {
+		return err
+	}
+
+	// Verify the audit exists.
+	_, err := a.Read(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	now := clock.Now()
+	_, err = a.db.Query(`
+		UPDATE audits SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL
+	`, now, id).WithContext(ctx).Exec()
+	if err != nil {
+		return fmt.Errorf("deleting audit: %w", err)
+	}
+
+	if a.bus != nil {
+		a.bus.Emit(ctx, events.Event{
+			Type:      events.AuditDeleted,
+			Key:       id,
+			Author:    author,
+			Timestamp: now,
+		})
+	}
+
+	return nil
+}

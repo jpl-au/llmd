@@ -22,8 +22,8 @@ import (
 	"log/slog"
 
 	"github.com/jpl-au/llmd/app"
-	"github.com/jpl-au/llmd/internal/telemetry"
 	"github.com/jpl-au/llmd/sdk"
+	"github.com/jpl-au/llmd/telemetry"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

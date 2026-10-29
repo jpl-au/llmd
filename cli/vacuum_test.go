@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jpl-au/llmd/internal/clock/clocktest"
-	"github.com/jpl-au/llmd/internal/host"
+	"github.com/jpl-au/llmd/clock/clocktest"
+	"github.com/jpl-au/llmd/host"
 	"github.com/jpl-au/llmd/sdk"
 )
 

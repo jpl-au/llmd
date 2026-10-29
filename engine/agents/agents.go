@@ -1,0 +1,146 @@
+// Package agents manages agent configurations and execution records.
+//
+// Agent configurations, prompt templates, and runtime settings are
+// stored as plain files under .llmd/agents/:
+//
+//	.llmd/agents/
+//	  claude-code/
+//	    config.json        operational config
+//	    settings.json      runtime settings (permissions, hooks)
+//	    developer.md       prompt template
+//	    auditor.md         prompt template
+//	  default/
+//	    developer.md       fallback prompt templates
+//	    auditor.md
+//
+// Files are seeded from embedded assets on registration and can be
+// edited directly. The filesystem is the source of truth.
+//
+// Agent activity (run tracking) is stored in SQLite for querying.
+//
+// This package handles data operations only. Process management
+// (worktree creation, subprocess spawning, context assembly) lives
+// in the host bridge layer.
+package agents
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"path/filepath"
+
+	"github.com/jpl-au/qwr"
+
+	"github.com/jpl-au/llmd/engine/events"
+	"github.com/jpl-au/llmd/engine/lazy"
+)
+
+// Schema is the DDL for the agent tables.
+//
+// agent_runs is an immutable record created at spawn time. One row per
+// run, holding identity and configuration.
+//
+// agent_events is an append-only lifecycle log. Each row is a state
+// transition (spawned, completed, failed, stopped). Terminal events
+// carry execution stats.
+const Schema = `
+CREATE TABLE IF NOT EXISTS agent_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    task_key TEXT NOT NULL,
+    agent TEXT NOT NULL,
+    branch TEXT,
+    worktree TEXT,
+    pid INTEGER NOT NULL DEFAULT 0,
+    author TEXT NOT NULL,
+    started_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_key TEXT NOT NULL,
+    event TEXT NOT NULL,
+    exit_code INTEGER,
+    monetary_cost REAL,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    model TEXT,
+    session_id TEXT,
+    created_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_key ON agent_runs(key);
+CREATE INDEX IF NOT EXISTS idx_agent_runs_task ON agent_runs(task_key);
+CREATE INDEX IF NOT EXISTS idx_agent_events_run ON agent_events(run_key);
+`
+
+var (
+	ErrNotFound    = errors.New("the agent does not exist.")
+	ErrRunNotFound = errors.New("the agent run does not exist.")
+	ErrRunning     = errors.New("the task already has a running agent.")
+	ErrNotRunning  = errors.New("the agent run is not running.")
+)
+
+// Agents provides agent configuration and run tracking. Config,
+// prompts, and settings are plain files under dir. Run tracking
+// uses the work database.
+type Agents struct {
+	dbFn func() *qwr.Manager
+	db   *qwr.Manager
+	dir  string // .llmd/agents/
+	bus  *events.Bus
+	once lazy.Once
+}
+
+// New creates an Agents instance. The db function returns the work
+// database manager, opening it on demand if needed. dir is the base
+// directory for agent files (typically .llmd/agents/).
+func New(db func() *qwr.Manager, dir string, bus *events.Bus) *Agents {
+	return &Agents{dbFn: db, dir: dir, bus: bus}
+}
+
+// ConfigPath returns the filesystem path for an agent's config.
+func ConfigPath(name string) string {
+	return filepath.Join(".llmd", "agents", name, "config.json")
+}
+
+// PromptPath returns the filesystem path for an agent's prompt template.
+func PromptPath(name, role string) string {
+	return filepath.Join(".llmd", "agents", name, role+".md")
+}
+
+// ensure opens the work database and creates the agent tables if needed.
+func (a *Agents) ensure() error {
+	return a.once.Do(func() error {
+		db := a.dbFn()
+		if db == nil {
+			return fmt.Errorf("work database not available")
+		}
+		if _, err := db.Query(Schema).Exec(); err != nil {
+			return err
+		}
+		a.db = db
+		return nil
+	})
+}
+
+// hasRunning checks whether a task already has a running agent.
+// A run is considered running when it has a "spawned" event but no
+// terminal event (completed, failed, stopped).
+func hasRunning(ctx context.Context, tx *sql.Tx, taskKey string) (bool, error) {
+	var count int
+	err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM agent_runs r
+		WHERE r.task_key = ?
+		AND NOT EXISTS (
+			SELECT 1 FROM agent_events e
+			WHERE e.run_key = r.key
+			AND e.event IN ('completed', 'failed', 'stopped')
+		)
+	`, taskKey).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

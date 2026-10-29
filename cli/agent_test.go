@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/host"
-	"github.com/jpl-au/llmd/internal/llmd"
-	"github.com/jpl-au/llmd/internal/llmd/agents"
+	"github.com/jpl-au/llmd/engine"
+	"github.com/jpl-au/llmd/engine/agents"
+	"github.com/jpl-au/llmd/host"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -31,9 +31,9 @@ func agentDir(h *host.Host) string {
 // worktree mean stop has nothing to signal or clean up.
 func agentSeedRun(t *testing.T, h *host.Host, taskKey, agent string, pid int) {
 	t.Helper()
-	store, err := llmd.Open(filepath.Join(h.Dir(), ".llmd", "llmd.db"))
+	store, err := engine.Open(filepath.Join(h.Dir(), ".llmd", "llmd.db"))
 	if err != nil {
-		t.Fatalf("llmd.Open: %v", err)
+		t.Fatalf("engine.Open: %v", err)
 	}
 	defer func() {
 		if err := store.Close(); err != nil {

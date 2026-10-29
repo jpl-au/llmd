@@ -3,7 +3,7 @@ package sdk
 import (
 	"fmt"
 
-	"github.com/jpl-au/llmd/internal/errs"
+	"github.com/jpl-au/llmd/errs"
 )
 
 // Errorf returns an error of the given kind (ErrNotFound, ErrMissingArg,

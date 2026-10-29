@@ -18,8 +18,8 @@ one consumer, it must be available to all of them through the SDK.
 
 Every domain follows the same pattern:
 1. Define the interface in `sdk/`
-2. Implement in `internal/`
-3. Bridge in `internal/host/`
+2. Implement in a domain package (`engine/` for the store)
+3. Bridge in `host/`
 4. Consumer layers (CLI, MCP, HTTP) are thin callers - no domain logic
 
 Use structs-as-options for method parameters so that internal changes
@@ -35,31 +35,31 @@ sdk/                        API surface: interfaces, types, flag parsing, sentin
 app/                        Build-time metadata: version tag, commit, build time
 cli/                        Thin CLI dispatch: calls SDK, formats output
 extension/                  Caddy-style compile-time plugin registry
-internal/host/              SDK bridge: translates SDK calls to internal packages
-internal/llmd/              Store: opens databases, coordinates sub-packages
-internal/llmd/documents/    Document CRUD, versioning, soft-delete
-internal/llmd/history/      Version listings, unified diffs, reverts
-internal/llmd/search/       FTS5 full-text search and glob matching
-internal/llmd/fts/          Keeps the FTS5 index in step inside each document transaction
-internal/llmd/tasks/        Task board: columns, metadata, audit log
-internal/llmd/tags/         Key-value tags attached to documents
-internal/llmd/links/        Directed relationships between documents
-internal/llmd/bulk/         Import from / export to filesystem (os.OpenRoot confined)
-internal/llmd/events/       Internal synchronous event bus
-internal/llmd/entities/     Named entity extraction
-internal/llmd/audits/       Agent-to-agent and human-to-agent review threads
-internal/llmd/audit/        Change log
-internal/llmd/key/          ID generation: 10-char base36 from ms timestamps
-internal/llmd/lazy/         One-time setup that retries after a failure (unlike sync.Once)
-internal/llmd/hash/         Content hashing (xxh3)
-internal/llmd/meta/         Document metadata helpers
-internal/git/               Git CLI wrapper: sdk.GitStore implementation (build-tagged)
-internal/config/            Configuration files and .llmd/.gitignore management
-internal/line/              Platform-aware line ending conversion (build-tagged)
-internal/validate/          Input validation: null bytes, path length, content size
-internal/server/            HTTP API server: thin transport over sdk.Runtime.Dispatch
-internal/term/              Terminal detection and stdin reading utilities
-internal/sql/               Schema for llmd.db
+host/                       SDK bridge: translates SDK calls to the domain packages
+engine/                     Store: opens databases, coordinates sub-packages
+engine/documents/           Document CRUD, versioning, soft-delete
+engine/history/             Version listings, unified diffs, reverts
+engine/search/              FTS5 full-text search and glob matching
+engine/fts/                 Keeps the FTS5 index in step inside each document transaction
+engine/tasks/               Task board: columns, metadata, audit log
+engine/tags/                Key-value tags attached to documents
+engine/links/               Directed relationships between documents
+engine/bulk/                Import from / export to filesystem (os.OpenRoot confined)
+engine/events/              Internal synchronous event bus
+engine/entities/            Named entity extraction
+engine/audits/              Agent-to-agent and human-to-agent review threads
+engine/audit/               Change log
+engine/key/                 ID generation: 10-char base36 from ms timestamps
+engine/lazy/                One-time setup that retries after a failure (unlike sync.Once)
+engine/hash/                Content hashing (xxh3)
+engine/meta/                Document metadata helpers
+git/                        Git CLI wrapper: sdk.GitStore implementation (build-tagged)
+config/                     Configuration files and .llmd/.gitignore management
+line/                       Platform-aware line ending conversion (build-tagged)
+validate/                   Input validation: null bytes, path length, content size
+server/                     HTTP API server: thin transport over sdk.Runtime.Dispatch
+term/                       Terminal detection and stdin reading utilities
+sql/                        Schema for llmd.db
 pkg/model/core/             Core model types (Origin)
 pkg/events/                 Shared event type definitions
 guide/                      User-facing command guides (markdown)
@@ -67,18 +67,18 @@ guide/                      User-facing command guides (markdown)
 
 ## Command Flow
 
-The CLI entry point is split across focused files in the `main` package:
+The root `main.go` blank-imports the built-in commands (`cli`) and calls `cmd.Execute`. The entry point is split across focused files in the `cmd` package:
 
-- `main.go` - orchestration only (~114 lines)
+- `cmd.go` - `Execute()` orchestration only
 - `flags.go` - `parseGlobal()` extracts global flags from args
 - `output.go` - `display()` renders sdk.Response, `errorf()` formats errors
 - `log.go` - `initLog()` configures slog
 - `help.go` - `printHelp()`, `printCmdHelp()`
 
-Terminal detection and stdin reading live in `internal/term/`.
+Terminal detection and stdin reading live in `term/`.
 
 ```
-main.go → run()
+main.go → cmd.Execute()
   ↓ parseGlobal(args) - flags.go
   ↓ config.Load() + initLog() - log.go
   ↓ signal.NotifyContext - Ctrl+C cancellation
@@ -87,7 +87,7 @@ main.go → run()
   │   ├─ load compiled extensions via extension.All()
   │   └─ wire extension EventHandlers to internal bus
   ↓ resolve author (flag → config → term.Interactive() fallback)
-  ↓ term.Stdin() - internal/term/ (a source; nothing is read yet)
+  ↓ term.Stdin() - term/ (a source; nothing is read yet)
   ↓ host.Exec(ctx, cmd, args, author, stdin, dbPath)
   │   └─ host.Context(ctx, author): per-request bridges bound to ctx,
   │      plus the host itself as sdk.Runtime
@@ -177,16 +177,16 @@ Focused interfaces per domain, each following the SDK-first pattern:
 
 | Interface | Defined in | Implemented by | Wired in |
 |-----------|-----------|----------------|----------|
-| `sdk.DocumentStore` | `sdk/documents.go` | `internal/host/api_documents.go` (`documentAPI`) | `internal/host/host.go` |
-| `sdk.TaskStore` | `sdk/tasks.go` | `internal/host/api_tasks.go` (`taskAPI`) | `internal/host/host.go` |
-| `sdk.LinkStore` | `sdk/links.go` | `internal/host/api_links.go` (`linkAPI`) | `internal/host/host.go` |
-| `sdk.TagStore` | `sdk/tags.go` | `internal/host/api_tags.go` (`tagAPI`) | `internal/host/host.go` |
-| `sdk.AuditStore` | `sdk/audits.go` | `internal/host/api_audits.go` (`auditAPI`) | `internal/host/host.go` |
-| `sdk.ActivityStore` | `sdk/activity.go` | `internal/host/api_activity.go` (`activityAPI`) | `internal/host/host.go` |
-| `sdk.HookStore` | `sdk/hooks.go` | `internal/host/api_hooks.go` (`hookAPI`) | `internal/host/host.go` |
-| `sdk.GitStore` | `sdk/git.go` | `internal/git/git.go` (`Git`) | `internal/host/host.go` |
+| `sdk.DocumentStore` | `sdk/documents.go` | `host/api_documents.go` (`documentAPI`) | `host/host.go` |
+| `sdk.TaskStore` | `sdk/tasks.go` | `host/api_tasks.go` (`taskAPI`) | `host/host.go` |
+| `sdk.LinkStore` | `sdk/links.go` | `host/api_links.go` (`linkAPI`) | `host/host.go` |
+| `sdk.TagStore` | `sdk/tags.go` | `host/api_tags.go` (`tagAPI`) | `host/host.go` |
+| `sdk.AuditStore` | `sdk/audits.go` | `host/api_audits.go` (`auditAPI`) | `host/host.go` |
+| `sdk.ActivityStore` | `sdk/activity.go` | `host/api_activity.go` (`activityAPI`) | `host/host.go` |
+| `sdk.HookStore` | `sdk/hooks.go` | `host/api_hooks.go` (`hookAPI`) | `host/host.go` |
+| `sdk.GitStore` | `sdk/git.go` | `git/git.go` (`Git`) | `host/host.go` |
 
-Each bridge type in `internal/host/` holds a `context.Context` field and
+Each bridge type in `host/` holds a `context.Context` field and
 translates SDK flat arguments into internal option structs, passing the
 bound context to every internal store call. All mutating operations stamp
 a `core.Origin{Source: "cli"}` for audit tracking.
@@ -209,7 +209,7 @@ webhooks), `Watch` (changes made by other processes, for the server)
 and `Init` (the `init` command). Tests get the same context a
 command would via `host.TestSetup(t, mode).Context(ctx, author)`.
 
-`sdk.GitStore` has no host bridge - `internal/git.Git` implements it
+`sdk.GitStore` has no host bridge - `git.Git` implements it
 directly. It is a system utility independent of the store, so a bridge
 would add indirection without value. The host owns one instance and
 passes it to the task and agent bridges and onto the context.
@@ -265,18 +265,20 @@ duplicate names to catch programmer errors early. Extensions implement
 `sdk.Plugin` (Name, Commands, Exec) and receive raw args, parsing flags
 themselves.
 
+A binary that adds extensions follows the Caddy model: its own root `main.go` blank-imports `cli` and its extension packages, then calls `cmd.Execute(os.Args[1:])`. The `cmd` package comment shows the full file.
+
 ## Event System
 
 Three separate event mechanisms serve different layers:
 
-1. **Internal bus** (`internal/llmd/events/`) - synchronous, in-process,
+1. **Internal bus** (`engine/events/`) - synchronous, in-process,
    fired after the change commits. Subscribers are the message queue,
    extensions, the agent pipeline and the server's SSE and webhook
    clients. A failing handler is logged and the rest still run; `Emit`
    returns nothing, because the change it reports has already
    committed. Anything that must never miss a change belongs in the
    transaction instead: the FTS5 index is not a subscriber, it is
-   updated by `internal/llmd/fts` inside each document transaction.
+   updated by `engine/fts` inside each document transaction.
    Uses `pkg/events.Event` as the event type.
 
 2. **Shared event types** (`pkg/events/`) - struct definitions for
@@ -285,7 +287,7 @@ Three separate event mechanisms serve different layers:
 
    The bus is in-process: it sees only this process's mutations. For
    mutations by other processes, `sdk.Runtime.Watch` polls SQLite's
-   `data_version` on each database (`internal/llmd/watch.go`) and hands
+   `data_version` on each database (`engine/watch.go`) and hands
    the host's Subscribe callbacks a `store.changed` event. That event
    deliberately bypasses the bus, so the search index, message queue
    and extensions never see it; `llmd serve` starts the watcher. Our
@@ -296,11 +298,11 @@ Three separate event mechanisms serve different layers:
    for extensions. Eight event types: document write/delete/restore/move, tag
    add/remove, link create/remove. Extensions implement `EventHandler` to
    observe. The host bridges internal bus events to extension handlers via
-   `internal/host/events.go`. Extensions cannot veto operations.
+   `host/events.go`. Extensions cannot veto operations.
 
 ## Key Generation
 
-`internal/llmd/key/` generates 10-character base36 identifiers from millisecond
+`engine/key/` generates 10-character base36 identifiers from millisecond
 timestamps plus an atomic counter. These are NOT nanoid. Format: lowercase
 alphanumeric, lexicographically sortable by creation time. Used for all entity
 IDs (documents, tasks, audits). **IDs are bare keys with no prefix**  - 
@@ -335,26 +337,26 @@ every layer:
   into that directory for cwd-relative behaviour (git, `.llmd/config`,
   `.llmd/.gitignore`). Host tests use `TestIsolated`; CLI git tests use
   `TestWorkdir`.
-- `llmdtest.Open(t)` (`internal/llmd/llmdtest`) returns an `*llmd.Store`
+- `enginetest.Open(t)` (`engine/enginetest`) returns an `*engine.Store`
   initialised under a temp directory, for package tests that go through
   the store.
-- `sqlitetest.Open(t, name)` (`internal/sqlite/sqlitetest`) returns a
+- `sqlitetest.Open(t, name)` (`sqlite/sqlitetest`) returns a
   bare `*qwr.Manager` on a temp file with production settings, for
   packages that are constructed directly from a database (tasks,
   audits, messages, agents, sql).
 
-Database settings live in one place, `internal/sqlite.Open`, used by
+Database settings live in one place, `sqlite.Open`, used by
 the store for llmd.db and work.db and by the test helpers.
 
 **Table-driven by default** - tests that exercise one operation with
 several inputs or expectations are written as a single `TestX` with a
 `tests := []struct{ name string; ... }` table and `t.Run(tt.name, ...)`
-subtests. See `sdk/flags_test.go`, `internal/path/path_test.go` and
-`internal/llmd/key/key_test.go` for the idiom. Conventions:
+subtests. See `sdk/flags_test.go`, `path/path_test.go` and
+`engine/key/key_test.go` for the idiom. Conventions:
 
 - Declarative `want` / `wantErr` fields over check callbacks; compare
   errors with `errors.Is` against the package sentinels.
-- A `setup func(t *testing.T, s *llmd.Store)` field when cases need
+- A `setup func(t *testing.T, s *engine.Store)` field when cases need
   different precondition state.
 - Every subtest opens its own store (`testStore(t)` or
   `host.TestSetup`). `host.TestWorkdir` and the git tests change the
@@ -391,8 +393,8 @@ Shared styles live in `cli/styles.go`: table styles (`tblHeader`, `tblCell`,
 The `status` command uses a unified activity feed (`ctx.Activities.Recent()`)
 that queries documents, entities (tags/links), and task audit events in parallel,
 then merges by timestamp. The feed is defined as `sdk.ActivityStore` (in
-`sdk/activity.go`), implemented in `internal/llmd/activity.go`, bridged through
-`internal/host/api_activity.go` (`activityAPI`), and wired in `internal/host/host.go`.
+`sdk/activity.go`), implemented in `engine/activity.go`, bridged through
+`host/api_activity.go` (`activityAPI`), and wired in `host/host.go`.
 
 Task audit actions use past tense: `"created"`, `"moved"`, `"deleted"`,
 `"restored"`, `"edited:*"`, `"flagged"`, `"unflagged"`.
@@ -411,16 +413,16 @@ dispatch on top.
 | `Start(key, author, StartOpts)` | Move to column + record current git branch (git optional) |
 | `StartBranch(key, author, StartBranchOpts)` | Create branch from title slug, checkout, record, move to column |
 | `Finish(key, author, FinishOpts)` | Move to done + return `FinishResult` with git summary counts |
-| `Next(author, NextOpts)` | Claim the first ready task of a column: move + assign in one transaction (`internal/llmd/tasks/claim.go`) |
+| `Next(author, NextOpts)` | Claim the first ready task of a column: move + assign in one transaction (`engine/tasks/claim.go`) |
 | `ByBranch(branch)` | Find task linked to a branch name |
 
-Within a column, `List` and `Next` share one order (`internal/llmd/tasks/order.go`):
+Within a column, `List` and `Next` share one order (`engine/tasks/order.go`):
 by default priority first (1 is the highest, 0 is none, negatives are
 refused), then position; `task.order: position` in the config makes
 position the whole order. The host reads the key in `setup` and applies
 it on `attach` with `Tasks.SetOrder`; tests pass `host.WithTaskOrder`.
 
-Implementation lives in `internal/host/api_tasks.go`. The `branchSlug`
+Implementation lives in `host/api_tasks.go`. The `branchSlug`
 helper (title → git-safe branch name) is unexported in the same file.
 
 ### CLI subcommands
@@ -515,8 +517,8 @@ lazily on first use. Messages carry a `source_key` for cross-process
 deduplication and an `assigned_to` for directed messages.
 
 **SDK interface:** `QueueStore` in `sdk/queue.go` with `Send`, `Pending`,
-`Peek`, `Ack`, `History`. Implementation in `internal/llmd/messages/`.
-Host bridge in `internal/host/api_queue.go`.
+`Peek`, `Ack`, `History`. Implementation in `engine/messages/`.
+Host bridge in `host/api_queue.go`.
 
 **Event bus wiring:** `messages.QueueHandler` subscribes to the internal
 bus and publishes domain events as queue messages. Skips `message.*` events
@@ -605,7 +607,7 @@ Keys resolve to their document in any state (`KeyToPath`), so a key
 reaches the same result as its path. A deleted document still owns its
 path: `task add` picks `tasks/<slug>-2` rather than continuing one.
 `vacuum` purges only documents deleted as a whole. Changing a rule
-means changing `TestDocumentStates` (`internal/llmd/lifecycle_test.go`).
+means changing `TestDocumentStates` (`engine/lifecycle_test.go`).
 
 **Search index:** `content_fts` is an external-content FTS5 table, so
 removing a row means replaying the exact values it was indexed with,
@@ -724,7 +726,7 @@ operations succeed without an author.
 
 ## HTTP Server
 
-The HTTP server (`internal/server/`) exposes llmd commands as HTTP endpoints.
+The HTTP server (`server/`) exposes llmd commands as HTTP endpoints.
 It follows the same pattern as the MCP server - a thin transport layer over
 `sdk.Runtime.Dispatch`. Commands are registered automatically by walking
 `sdk.Runtime.Commands()`, so plugins get HTTP routes for free.
@@ -761,7 +763,7 @@ not JSON envelopes. This matches the CLI where stdin is the document body.
 `sdk.JSON(resp)`, the same value the CLI prints for `--json` (see JSON
 output).
 
-**Error mapping:** `statusOf` (`internal/server/handler.go`) maps every
+**Error mapping:** `statusOf` (`server/handler.go`) maps every
 SDK error kind to a status, and `TestStatusOfEveryKind` fails when one
 is missing: `ErrNotFound`, `ErrUnknownCmd` → 404; `ErrMissingArg`,
 `ErrInvalidArg` → 400; `ErrExists`, `ErrOrderViolation`, `ErrCycle`,
@@ -796,7 +798,7 @@ Go 1.22's enhanced `net/http` routing with middleware support.
 
 ## Configuration
 
-`internal/config` reads `.llmd/config.yaml`, or `~/.llmd/config.yaml`
+`config` reads `.llmd/config.yaml`, or `~/.llmd/config.yaml`
 when there is no local file. Every key has its default in
 `config.Defaults()`, so `llmd config` shows what is in effect. YAML is
 decoded leniently: unknown keys are ignored.
@@ -851,7 +853,7 @@ llmd config git deny "reports/"    # stop allowing reports/
 ## Logging
 
 Uses `log/slog` from the standard library. The logger is initialised in
-`main.go` before any host creation.
+`cmd.Execute` before any host creation.
 
 **Defaults:** level `warn`, format `text`, output to stderr. The CLI is
 quiet unless something needs attention.
@@ -883,7 +885,7 @@ agent, and is the same from the CLI, MCP and HTTP:
 - No `x: y: z` chains and no ` - ` asides.
 
 The error's *kind* is for code, not the message. Build errors with
-`errs.New(kind, format, args...)` (internal packages) or
+`errs.New(kind, format, args...)` (domain packages) or
 `sdk.Errorf(kind, ...)` (commands and extensions): `errors.Is(err,
 kind)` holds and the transports map the kind to an exit code or HTTP
 status, but the kind's own text is not added. The host classifies an
@@ -912,7 +914,7 @@ adds a kind and no text. Never write `fmt.Errorf("%w: ...", ErrX)`.
 
 `TestErrorStyle` (`cli/errstyle_test.go`) runs failing commands and
 checks every message against the style; `TestNoStackedErrors`
-(`internal/errs/style_test.go`) rejects the source patterns that
+(`errs/style_test.go`) rejects the source patterns that
 stacked phrases. Add a case to the first when adding an error a user
 can reach.
 
@@ -923,7 +925,7 @@ can reach.
 
 - **Task Move requires a spec** - Tasks cannot leave the backlog until
   their spec document has content beyond the title heading. `hasSpec()`
-  in `internal/llmd/tasks/move.go` strips the first line (the `# Title`
+  in `engine/tasks/move.go` strips the first line (the `# Title`
   heading) and checks whether any non-whitespace content remains. A
   document with only `# Title` fails; use multi-line content like
   `[]byte("# Title\n\nBody content.")` in tests.

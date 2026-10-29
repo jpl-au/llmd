@@ -1,0 +1,173 @@
+package agents
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/jpl-au/llmd/errs"
+
+	"github.com/jpl-au/llmd/assets"
+	"github.com/jpl-au/llmd/sdk"
+)
+
+// Register writes an agent's config, prompts, and settings to disk.
+// Existing files are overwritten for config; prompts and settings
+// are only written if they don't already exist (seed behaviour).
+func (a *Agents) Register(_ context.Context, cfg sdk.AgentConfig) error {
+	if cfg.Name == "" {
+		return fmt.Errorf("agent name is required")
+	}
+	if cfg.Command == "" {
+		return fmt.Errorf("agent command is required")
+	}
+
+	dir := filepath.Join(a.dir, cfg.Name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating agent directory: %w", err)
+	}
+
+	// Write config.json (always overwrite).
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encoding agent config: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), data, 0644); err != nil {
+		return fmt.Errorf("writing agent config: %w", err)
+	}
+
+	// Seed default prompt templates (write only if missing).
+	for role, content := range assets.Agent.Templates() {
+		if err := a.seed(filepath.Join(dir, role+".md"), content); err != nil {
+			return err
+		}
+	}
+
+	// Seed default prompt templates into default/ too.
+	defaultDir := filepath.Join(a.dir, "default")
+	if err := os.MkdirAll(defaultDir, 0755); err != nil {
+		return fmt.Errorf("creating %s: %w", defaultDir, err)
+	}
+	for role, content := range assets.Agent.Templates() {
+		if err := a.seed(filepath.Join(defaultDir, role+".md"), content); err != nil {
+			return err
+		}
+	}
+
+	// Seed runtime settings if available.
+	if s := assets.Agent.Settings(cfg.Name); s != "" {
+		if err := a.seed(filepath.Join(dir, "settings.json"), s); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// seed writes content to path only if the file does not exist.
+func (a *Agents) seed(path, content string) error {
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("seeding %s: %w", path, err)
+	}
+	return nil
+}
+
+// Settings returns the runtime settings for an agent, or empty
+// string if no settings file exists.
+func (a *Agents) Settings(_ context.Context, name string) string {
+	data, err := os.ReadFile(filepath.Join(a.dir, name, "settings.json"))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// Remove deletes an agent's directory from disk.
+func (a *Agents) Remove(_ context.Context, name string) error {
+	dir := filepath.Join(a.dir, name)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return errs.New(ErrNotFound, "there is no agent %s.", name)
+	}
+	return os.RemoveAll(dir)
+}
+
+// Agent reads a single agent configuration by name.
+func (a *Agents) Agent(_ context.Context, name string) (*sdk.AgentConfig, error) {
+	data, err := os.ReadFile(filepath.Join(a.dir, name, "config.json"))
+	if err != nil {
+		return nil, errs.New(ErrNotFound, "there is no agent %s.", name)
+	}
+	var cfg sdk.AgentConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing agent config for %s: %w", name, err)
+	}
+	return &cfg, nil
+}
+
+// Agents returns all registered agent configurations by scanning
+// the agents directory for subdirectories containing config.json.
+func (a *Agents) Agents(_ context.Context) ([]sdk.AgentConfig, error) {
+	entries, err := os.ReadDir(a.dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var configs []sdk.AgentConfig
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "default" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(a.dir, e.Name(), "config.json"))
+		if err != nil {
+			continue
+		}
+		var cfg sdk.AgentConfig
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			continue
+		}
+		configs = append(configs, cfg)
+	}
+	return configs, nil
+}
+
+// Prompt reads a prompt template from disk. Follows the fallback
+// chain: .llmd/agents/<name>/<role>.md then
+// .llmd/agents/default/<role>.md.
+func (a *Agents) Prompt(_ context.Context, name, role string) (string, string, error) {
+	// Agent-specific template.
+	path := filepath.Join(a.dir, name, role+".md")
+	if data, err := os.ReadFile(path); err == nil {
+		return string(data), path, nil
+	}
+
+	// Default fallback.
+	fallback := filepath.Join(a.dir, "default", role+".md")
+	if data, err := os.ReadFile(fallback); err == nil {
+		return string(data), fallback, nil
+	}
+
+	return "", "", errs.New(ErrNotFound, "agent %s has no %s prompt.", name, role)
+}
+
+// WritePrompt writes a prompt template to disk.
+func (a *Agents) WritePrompt(_ context.Context, name, role, content, _ string) error {
+	dir := filepath.Join(a.dir, name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating agent directory: %w", err)
+	}
+	path := filepath.Join(dir, role+".md")
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// Dir returns the base directory.
+func (a *Agents) Dir() string {
+	return a.dir
+}

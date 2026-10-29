@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/jpl-au/llmd/internal/llmd/agents"
+	"github.com/jpl-au/llmd/engine/agents"
 	"github.com/jpl-au/llmd/sdk"
 )
 
@@ -69,7 +69,7 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent run: starting agent: %w", err)
 	}
 
-	// Clear any signal handlers registered by the parent (main.go's
+	// Clear any signal handlers registered by the parent (cmd.Execute's
 	// signal.NotifyContext) so that forward() is the sole handler.
 	// Without this, an interrupt cancels the parent context and kills
 	// the runner before it can manage the child's shutdown.

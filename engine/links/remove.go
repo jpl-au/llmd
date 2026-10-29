@@ -1,0 +1,91 @@
+package links
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+
+	"github.com/jpl-au/llmd/errs"
+
+	"github.com/jpl-au/llmd/clock"
+
+	"github.com/jpl-au/llmd/pkg/events"
+	"github.com/jpl-au/llmd/pkg/model/link"
+)
+
+// Remove removes a link between two documents.
+// If opts.Label is empty, removes all links from→to.
+// from and to can be document paths or keys.
+func (l *Links) Remove(ctx context.Context, from, to string, opts Options) error {
+	relation := l.resolvePath(ctx, from)
+	toPath := l.resolvePath(ctx, to)
+
+	// Find matching links
+	rows, err := l.db.Query(`
+		SELECT key, value
+		FROM entities
+		WHERE namespace = ? AND relation = ? AND deleted_at IS NULL
+	`, namespace, relation).WithContext(ctx).Read()
+	if err != nil {
+		return fmt.Errorf("querying links: %w", err)
+	}
+	defer rows.Close()
+
+	var keysToDelete []string
+	for rows.Next() {
+		var k, valueStr string
+		if err := rows.Scan(&k, &valueStr); err != nil {
+			return fmt.Errorf("scanning link: %w", err)
+		}
+
+		var v link.Value
+		if err := json.Unmarshal([]byte(valueStr), &v); err != nil {
+			return fmt.Errorf("unmarshaling link: %w", err)
+		}
+
+		// Match by target, and optionally by label
+		if v.To == toPath {
+			if opts.Label == "" || v.Label == opts.Label {
+				keysToDelete = append(keysToDelete, k)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if len(keysToDelete) == 0 {
+		return errs.New(ErrNotFound, "%s has no link to %s.", from, to)
+	}
+
+	// Soft delete the matching links in a single transaction.
+	now := clock.Now()
+	_, err = l.db.TransactionFunc(func(tx *sql.Tx) (any, error) {
+		for _, k := range keysToDelete {
+			_, err := tx.ExecContext(ctx, `
+				UPDATE entities SET deleted_at = ? WHERE key = ?
+			`, now, k)
+			if err != nil {
+				return nil, fmt.Errorf("deleting link: %w", err)
+			}
+		}
+		return nil, nil
+	}).WithContext(ctx).Exec()
+
+	if err != nil {
+		return err
+	}
+
+	if l.bus != nil {
+		l.bus.Emit(ctx, events.Event{
+			Type:      events.LinkRemoved,
+			Path:      relation,
+			Author:    opts.Author,
+			Timestamp: now,
+			Metadata:  map[string]any{"to": toPath, "label": opts.Label},
+		})
+	}
+
+	return nil
+}

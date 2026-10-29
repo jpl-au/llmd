@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/jpl-au/llmd/internal/clock/clocktest"
+	"github.com/jpl-au/llmd/clock/clocktest"
 	"github.com/jpl-au/llmd/sdk"
 )
 
