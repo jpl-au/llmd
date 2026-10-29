@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
+	"strings"
 
 	"charm.land/glamour/v2"
 	"charm.land/glamour/v2/styles"
@@ -108,9 +110,47 @@ func errorf(jsonOut bool, format string, args ...any) int {
 			slog.Warn("writing error to stderr", "error", e)
 		}
 	} else {
-		if _, e := fmt.Fprintln(os.Stderr, msg); e != nil {
+		// lipgloss drops the colour when stderr is not a terminal.
+		if _, e := lipgloss.Fprintln(os.Stderr, highlightCommands(msg)); e != nil {
 			slog.Warn("writing error to stderr", "error", e)
 		}
 	}
 	return 1
+}
+
+// commandStyle marks a command an error message tells the reader to
+// run, in the terminal's own cyan.
+var commandStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+
+// highlightCommands colours each "llmd <command>" an error message
+// names. A command runs from "llmd" to the first word that ends a
+// sentence or clause (".", ",", ";") or starts what follows it ("to",
+// "first", "then"), as in "Run llmd init to create one." The "llmd:"
+// prefix of the CLI's own errors is not a command and is left alone.
+func highlightCommands(msg string) string {
+	words := strings.Split(msg, " ")
+	for i := 0; i < len(words); i++ {
+		if words[i] != "llmd" {
+			continue
+		}
+		end, trail := i+1, ""
+		for ; end < len(words); end++ {
+			w := words[end]
+			cut := strings.TrimRight(w, ".,;")
+			if cut == "to" || cut == "first" || cut == "then" {
+				break
+			}
+			if cut != w {
+				words[end], trail = cut, w[len(cut):]
+				end++
+				break
+			}
+		}
+		if end == i+1 {
+			continue // "llmd" alone names no command
+		}
+		cmd := commandStyle.Render(strings.Join(words[i:end], " ")) + trail
+		words = slices.Replace(words, i, end, cmd)
+	}
+	return strings.Join(words, " ")
 }
