@@ -49,6 +49,9 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 	// Start the agent subprocess.
 	cmd := exec.Command(cfg.Command, cfg.Args...)
 	cmd.Dir = worktree
+	if cfg.Dir != "" {
+		cmd.Dir = cfg.Dir
+	}
 	cmd.Env = os.Environ()
 	setup(cmd)
 

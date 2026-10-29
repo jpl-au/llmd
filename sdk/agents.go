@@ -159,6 +159,12 @@ type SpawnOpts struct {
 	// status.
 	Role string
 
+	// Worktree overrides the agent.worktree config for this spawn:
+	// true gives the agent its own git worktree, false runs it in the
+	// main checkout. Nil uses the config. Auditors always run in the
+	// main checkout.
+	Worktree *bool
+
 	// OnSuccess is the column to move to on exit 0. When empty,
 	// the task is not moved.
 	OnSuccess string

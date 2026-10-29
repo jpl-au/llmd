@@ -10,7 +10,7 @@ llmd agent rm <name>                        Remove an agent
 llmd agent ls                               List registered agents
 llmd agent config <name>                    Show agent configuration
 llmd agent prompt <name> <role>             Show prompt template
-llmd agent spawn <task-key> <agent>         Spawn agent for a task
+llmd agent spawn <task-key> <agent>         Spawn agent for a task [--no-worktree]
 llmd agent run <task-key> --worktree <path> Run agent lifecycle (internal)
 llmd agent runs [--status S] [--task K]     List agent runs
 llmd agent complete <task-key> --exit-code  Record run completion
@@ -29,7 +29,9 @@ Built-in agents: `claude-code`, `gemini`, `aider`. `llmd task start
 | `--task <key>` | runs | Filter runs by task key |
 | `--agent <name>` | runs | Filter runs by agent name |
 | `--exit-code <n>` | complete | Process exit code to record |
-| `--worktree <path>` | run | The worktree the agent runs in (internal) |
+| `--worktree`, `--no-worktree` | spawn | Own git worktree or the main checkout, whatever `agent.worktree` says |
+| `--budget <usd>` | spawn | Most the agent may spend |
+| `--worktree <path>` | run | The directory holding the run config (internal) |
 
 ## Rules
 
@@ -44,6 +46,17 @@ Built-in agents: `claude-code`, `gemini`, `aider`. `llmd task start
 - A spawn creates a branch if the task has none, a worktree at
   `.llmd/worktrees/<task-key>/`, a run config `.llmd-run.json` in it,
   and starts `llmd agent run` as a detached process.
+- Worktrees are on by default. `llmd config agent.worktree false`
+  (or `--global` for every project) runs agents in the main checkout
+  instead; `--worktree` and `--no-worktree` decide for one spawn.
+  Auditors always run in the main checkout.
+- An agent in the main checkout works on the branch checked out
+  there, creates no branch or worktree, and keeps its run config,
+  settings and log under `.llmd/runs/<task-key>/`. Its settings are
+  passed by flag (`--settings` for Claude Code), so your own
+  `.claude/settings.json` is never touched.
+- With `server.token` set, prompts and hooks send it
+  (`{{.Auth}}`).
 - Where the task goes when the agent exits comes from the column's
   rule (`guide rule`): success and failure columns. On failure the
   agent's last output is recorded as an audit note on the task.
@@ -155,6 +168,7 @@ Templates use Go `text/template` syntax. Available fields:
 | `{{.AssignedTo}}` | Who the task is assigned to |
 | `{{.Agent}}` | Agent name |
 | `{{.URL}}` | HTTP API URL of the running `llmd serve` |
+| `{{.Auth}}` | curl flags that send `server.token`, with a leading space; empty without a token (`curl -sf{{.Auth}} {{.URL}}/...`) |
 | `{{.SpecPath}}` | Path to the task's spec document |
 | `{{.OnSuccess}}` | Column to move to on success (from rule) |
 | `{{.OnFailure}}` | Column to move to on failure (from rule) |
@@ -165,8 +179,8 @@ When spawning, the template is resolved in order:
 2. `.llmd/agents/default/<role>.md` - shared default template
 3. Built-in embedded template
 
-`settings.json` is templated too, with `{{.Agent}}`, `{{.TaskID}}` and
-`{{.URL}}`: the built-in Claude Code hook posts its event to
+`settings.json` is templated too, with `{{.Agent}}`, `{{.TaskID}}`,
+`{{.URL}}` and `{{.Auth}}`: the built-in Claude Code hook posts its event to
 `{{.URL}}/hook`.
 
 ## Run tracking

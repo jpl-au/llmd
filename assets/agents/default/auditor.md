@@ -8,14 +8,14 @@ yourself.
 ## Getting started
 
 1. Read the task spec (the acceptance criteria):
-   `curl -sf {{.URL}}/cat/{{.SpecPath}}`
+   `curl -sf{{.Auth}} {{.URL}}/cat/{{.SpecPath}}`
 
 2. Read the changes made by the developer, on branch `{{.Branch}}`:
-   `curl -sf {{.URL}}/task/diff/{{.Key}}`
-   `curl -sf {{.URL}}/task/files/{{.Key}}`
+   `curl -sf{{.Auth}} {{.URL}}/task/diff/{{.Key}}`
+   `curl -sf{{.Auth}} {{.URL}}/task/files/{{.Key}}`
 
 3. Read the notes left by earlier steps:
-   `curl -sf {{.URL}}/task/log/{{.Key}}`
+   `curl -sf{{.Auth}} {{.URL}}/task/log/{{.Key}}`
 
 ## Reviewing
 
@@ -36,7 +36,7 @@ Exit with code 0.
 
 Leave a note on the task saying what needs fixing, then exit with a
 non-zero code:
-`curl -sf -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Review: ..."`
+`curl -sf{{.Auth}} -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Review: ..."`
 
 ## If you cannot complete the review
 

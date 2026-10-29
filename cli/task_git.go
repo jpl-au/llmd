@@ -20,6 +20,8 @@ var taskStartFlags = []sdk.Flag{
 	{Name: "assign", Type: "string", Desc: "Assignee"},
 	{Name: "agent", Type: "string", Desc: "Spawn this agent on the task; it becomes the assignee"},
 	{Name: "budget", Type: "string", Desc: "Max agent budget in USD for this spawn"},
+	{Name: "worktree", Type: "bool", Desc: "Spawn the agent in its own git worktree (the default; overrides agent.worktree)"},
+	{Name: "no-worktree", Type: "bool", Desc: "Spawn the agent in the main checkout (overrides agent.worktree)"},
 }
 
 // taskStart moves a task to in-progress and records the current git
@@ -45,6 +47,14 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 			return nil, sdk.Errorf(sdk.ErrInvalidArg, "task start: use --agent or --assign, not both. The spawned agent is the assignee.")
 		}
 		var opts sdk.SpawnOpts
+		switch {
+		case flags.Bool("worktree") && flags.Bool("no-worktree"):
+			return nil, sdk.Errorf(sdk.ErrInvalidArg, "task start: use --worktree or --no-worktree, not both.")
+		case flags.Bool("worktree"):
+			opts.Worktree = new(true)
+		case flags.Bool("no-worktree"):
+			opts.Worktree = new(false)
+		}
 		if b := flags.String("budget"); b != "" {
 			if _, err := fmt.Sscanf(b, "%f", &opts.MaxBudget); err != nil {
 				return nil, sdk.Errorf(sdk.ErrInvalidArg, "task start: %s is not a budget. %w", b, err)
@@ -56,8 +66,12 @@ func taskStart(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if err != nil {
 			return nil, fmt.Errorf("task start: %w", err)
 		}
+		where := r.Worktree
+		if where == "" {
+			where = "none, in the main checkout"
+		}
 		text := fmt.Sprintf("Started %s with agent %s (run %s, pid %d)\n  Worktree: %s\n  Branch:   %s",
-			key, agent, r.Key, r.PID, r.Worktree, r.Branch)
+			key, agent, r.Key, r.PID, where, r.Branch)
 		return sdk.Result{Text: text, Data: r}, nil
 	}
 

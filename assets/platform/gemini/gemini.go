@@ -16,6 +16,9 @@ type P struct{}
 // SettingsPath returns empty; Gemini has no runtime settings file.
 func (P) SettingsPath() string { return "" }
 
+// SettingsArgs returns nil; there are no runtime settings to load.
+func (P) SettingsArgs(string) []string { return nil }
+
 // BudgetArgs returns nil; Gemini has no budget mechanism.
 func (P) BudgetArgs(float64) []string { return nil }
 

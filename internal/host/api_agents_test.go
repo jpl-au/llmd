@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/internal/llmd/agents"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -239,6 +238,7 @@ func TestAgentsComplete(t *testing.T) {
 		seed       bool
 		agent      string
 		log        string                            // written to <worktree>/.llmd-agent.log when set
+		inPlace    bool                              // the run has no worktree
 		before     func(t *testing.T, c sdk.Context) // runs after seeding
 		exitCode   int
 		wantErr    error
@@ -249,6 +249,9 @@ func TestAgentsComplete(t *testing.T) {
 		{name: "non-zero exit fails", seed: true, agent: "claude-code", exitCode: 3, wantStatus: sdk.AgentFailed},
 		{name: "stats from the log", seed: true, agent: "claude-code", log: claudeLog, exitCode: 0, wantStatus: sdk.AgentCompleted, wantStats: true},
 		{name: "platform without stats", seed: true, agent: "my-agent", log: claudeLog, exitCode: 0, wantStatus: sdk.AgentCompleted},
+		// A run in the main checkout records no worktree; its log is in
+		// .llmd/runs/<task>/.
+		{name: "stats from an in-place run", seed: true, inPlace: true, agent: "claude-code", log: claudeLog, exitCode: 0, wantStatus: sdk.AgentCompleted, wantStats: true},
 		{name: "no run", wantErr: sdk.ErrNotFound},
 		{
 			name: "already completed", seed: true, agent: "claude-code",
@@ -274,11 +277,23 @@ func TestAgentsComplete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h, c := agentHost(t)
 			worktree := t.TempDir()
+			logDir := worktree
+			if tt.inPlace {
+				worktree = ""
+				dir, err := newAgentAPI(h.current(), h.git, true, t.Context()).runDir("task")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				logDir = dir
+			}
 			if tt.seed {
 				seedRun(t, h, agents.RecordOpts{TaskKey: "task", Agent: tt.agent, Worktree: worktree})
 			}
 			if tt.log != "" {
-				if err := os.WriteFile(filepath.Join(worktree, ".llmd-agent.log"), []byte(tt.log), 0o644); err != nil {
+				if err := os.WriteFile(filepath.Join(logDir, ".llmd-agent.log"), []byte(tt.log), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -482,7 +497,7 @@ func TestBuildResumePrompt(t *testing.T) {
 				}
 			}
 
-			a := newAgentAPI(h.current(), h.git, t.Context())
+			a := newAgentAPI(h.current(), h.git, true, t.Context())
 			got := a.buildResumePrompt(task.Key, since)
 			generic := "Resume work on task " + task.Key + ". Review any recent feedback and address outstanding issues."
 			if tt.wantGeneric {
@@ -533,65 +548,46 @@ func TestHasFlag(t *testing.T) {
 	}
 }
 
-// TestWriteSettings covers the platform deciding where settings go:
-// Claude Code has a settings path, the others do not, and a worktree
-// that cannot hold the file is logged and skipped.
+// TestWriteSettings covers writing an agent's settings file, creating
+// its directory, and the failures that leave the agent without one.
 func TestWriteSettings(t *testing.T) {
 	tests := []struct {
-		name     string
-		agent    string
-		worktree func(t *testing.T) string
-		wantFile string // relative to the worktree; empty means nothing written
+		name string
+		path func(t *testing.T) string
+		want bool
 	}{
-		{"claude writes settings", "claude-code", func(t *testing.T) string { return t.TempDir() }, filepath.Join(".claude", "settings.json")},
-		{"gemini has no settings path", "gemini", func(t *testing.T) string { return t.TempDir() }, ""},
-		{"generic has no settings path", "my-agent", func(t *testing.T) string { return t.TempDir() }, ""},
-		{
-			name:  "unwritable worktree is skipped",
-			agent: "claude-code",
-			worktree: func(t *testing.T) string {
-				// A regular file where the worktree directory should be.
-				path := filepath.Join(t.TempDir(), "file")
-				if err := os.WriteFile(path, []byte("x"), 0o644); err != nil {
-					t.Fatal(err)
-				}
-				return path
-			},
-		},
-		{
-			name:  "unwritable settings file is skipped",
-			agent: "claude-code",
-			worktree: func(t *testing.T) string {
-				// A directory where the settings file should be.
-				dir := t.TempDir()
-				if err := os.MkdirAll(filepath.Join(dir, ".claude", "settings.json"), 0o755); err != nil {
-					t.Fatal(err)
-				}
-				return dir
-			},
-		},
+		{"creates the directory", func(t *testing.T) string {
+			return filepath.Join(t.TempDir(), ".claude", "settings.json")
+		}, true},
+		{"unwritable directory", func(t *testing.T) string {
+			// A regular file where the directory should be.
+			file := filepath.Join(t.TempDir(), "file")
+			if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			return filepath.Join(file, "settings.json")
+		}, false},
+		{"unwritable file", func(t *testing.T) string {
+			// A directory where the settings file should be.
+			path := filepath.Join(t.TempDir(), "settings.json")
+			if err := os.MkdirAll(path, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			return path
+		}, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h, _ := agentHost(t)
-			a := newAgentAPI(h.current(), h.git, t.Context())
-			worktree := tt.worktree(t)
-
-			a.writeSettings(worktree, assets.Agent.Platform(tt.agent), `{"hooks":{}}`)
-
-			if tt.wantFile == "" {
-				if info, err := os.Stat(filepath.Join(worktree, ".claude", "settings.json")); err == nil && !info.IsDir() {
-					t.Errorf("writeSettings(%s) wrote a settings file, want nothing", tt.agent)
-				}
+			path := tt.path(t)
+			if got := writeSettings(path, `{"hooks":{}}`); got != tt.want {
+				t.Fatalf("writeSettings(%s) = %v, want %v", path, got, tt.want)
+			}
+			if !tt.want {
 				return
 			}
-			data, err := os.ReadFile(filepath.Join(worktree, tt.wantFile))
-			if err != nil {
-				t.Fatalf("writeSettings(%s) did not write %s: %v", tt.agent, tt.wantFile, err)
-			}
-			if string(data) != `{"hooks":{}}` {
-				t.Errorf("%s = %q, want the settings content", tt.wantFile, data)
+			if data, err := os.ReadFile(path); err != nil || string(data) != `{"hooks":{}}` {
+				t.Errorf("ReadFile(%s) = %q, %v, want the settings content", path, data, err)
 			}
 		})
 	}

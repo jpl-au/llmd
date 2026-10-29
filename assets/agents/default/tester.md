@@ -7,13 +7,13 @@ exit 0 and it goes to `{{.OnSuccess}}`, exit non-zero and it goes to
 ## Getting started
 
 1. Read the task spec (the acceptance criteria):
-   `curl -sf {{.URL}}/cat/{{.SpecPath}}`
+   `curl -sf{{.Auth}} {{.URL}}/cat/{{.SpecPath}}`
 
 2. Read the changes made by the developer:
-   `curl -sf {{.URL}}/task/diff/{{.Key}}`
+   `curl -sf{{.Auth}} {{.URL}}/task/diff/{{.Key}}`
 
 3. Read the notes left by earlier steps:
-   `curl -sf {{.URL}}/task/log/{{.Key}}`
+   `curl -sf{{.Auth}} {{.URL}}/task/log/{{.Key}}`
 
 ## Testing
 
@@ -36,7 +36,7 @@ Exit with code 0.
 
 Leave a note on the task describing what failed, then exit with a
 non-zero code:
-`curl -sf -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Test failures: ..."`
+`curl -sf{{.Auth}} -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Test failures: ..."`
 
 ## If you cannot run tests
 

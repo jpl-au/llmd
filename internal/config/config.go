@@ -35,6 +35,14 @@ type Config struct {
 	Git      GitConfig                `yaml:"git,omitempty"`
 	Database DatabaseConfig           `yaml:"database,omitempty"`
 	Display  DisplayConfig            `yaml:"display,omitempty"`
+	Agent    AgentConfig              `yaml:"agent,omitempty"`
+}
+
+// AgentConfig holds settings for spawned agents.
+type AgentConfig struct {
+	// Worktree is whether a spawned agent works in its own git
+	// worktree (true, the default) or in the main checkout.
+	Worktree *bool `yaml:"worktree,omitempty"`
 }
 
 // DisplayConfig holds settings for output at a terminal.
@@ -78,6 +86,15 @@ type HookConfig struct {
 	// shown. 0 prints every message. A pointer so that an explicit 0
 	// survives the round trip through the file.
 	Limit *int `yaml:"limit,omitempty"`
+}
+
+// AgentWorktree reports whether spawned agents get their own git
+// worktree, the default when the key is unset.
+func (c Config) AgentWorktree() bool {
+	if c.Agent.Worktree == nil {
+		return *Defaults().Agent.Worktree
+	}
+	return *c.Agent.Worktree
 }
 
 // HookLimit returns the configured limit, or the default when unset.
@@ -192,6 +209,9 @@ func Defaults() Config {
 		},
 		Hook: HookConfig{
 			Limit: new(10),
+		},
+		Agent: AgentConfig{
+			Worktree: new(true),
 		},
 	}
 }
@@ -334,6 +354,7 @@ func Keys() []string {
 		"database.cache_size",
 		"database.mmap_size",
 		"display.theme",
+		"agent.worktree",
 	}
 }
 
@@ -398,6 +419,11 @@ func (c Config) Field(key string) (string, bool) {
 		return strconv.Itoa(*c.Database.MMapSize), true
 	case "display.theme":
 		return c.Display.Theme, c.Display.Theme != ""
+	case "agent.worktree":
+		if c.Agent.Worktree == nil {
+			return "", false
+		}
+		return strconv.FormatBool(*c.Agent.Worktree), true
 	default:
 		return "", false
 	}
@@ -474,6 +500,12 @@ func (c *Config) Set(key, value string) error {
 			return fmt.Errorf("display.theme must be dark or light.")
 		}
 		c.Display.Theme = value
+	case "agent.worktree":
+		b, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("agent.worktree must be true or false.")
+		}
+		c.Agent.Worktree = &b
 	default:
 		return fmt.Errorf("there is no config key %s. Run llmd config to list them.", key)
 	}

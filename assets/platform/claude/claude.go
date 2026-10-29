@@ -18,6 +18,12 @@ func (P) SettingsPath() string {
 	return ".claude/settings.json"
 }
 
+// SettingsArgs returns the --settings flag, which loads settings from
+// a file on top of the project's own.
+func (P) SettingsArgs(path string) []string {
+	return []string{"--settings", path}
+}
+
 // BudgetArgs returns the --max-budget-usd flag for cost control.
 func (P) BudgetArgs(budget float64) []string {
 	return []string{fmt.Sprintf("--max-budget-usd=%.2f", budget)}

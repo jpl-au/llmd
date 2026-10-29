@@ -49,6 +49,8 @@ type Host struct {
 	retentionSet bool          // retention was set by an option, not the config
 	hookLimit    int           // most pending messages the session-start hook prints; see hookLimitSet
 	hookLimitSet bool          // hookLimit was set by an option, not the config
+	worktree     bool          // spawned agents get their own git worktree; see worktreeSet
+	worktreeSet  bool          // worktree was set by an option, not the config
 	git          sdk.GitStore
 	commands     map[string]*cmdEntry
 	extensions   []sdk.Extension
@@ -102,6 +104,16 @@ func WithHookLimit(n int) Option {
 	return func(h *Host) {
 		h.hookLimit = n
 		h.hookLimitSet = true
+	}
+}
+
+// WithAgentWorktree sets whether spawned agents work in their own git
+// worktree or in the main checkout. The default comes from the
+// agent.worktree key of the configuration file, which is true.
+func WithAgentWorktree(on bool) Option {
+	return func(h *Host) {
+		h.worktree = on
+		h.worktreeSet = true
 	}
 }
 
@@ -193,7 +205,7 @@ func (h *Host) attach(store *llmd.Store) {
 	// with pipeline configuration.
 	store.Bus().Subscribe(&pipelineHandler{
 		dir:   store.Dir(),
-		agent: newAgentAPI(store, h.git, context.Background()),
+		agent: newAgentAPI(store, h.git, h.worktree, context.Background()),
 	})
 
 	// Wire extension event handlers to the internal bus so extensions
@@ -323,7 +335,7 @@ func (h *Host) Context(ctx context.Context, author string) sdk.Context {
 		sctx.Queue = newQueueAPI(store, ctx)
 		sctx.Activities = newActivityAPI(store, ctx)
 		sctx.Mirror = newMirrorAPI(store, ctx)
-		sctx.Agents = newAgentAPI(store, h.git, ctx)
+		sctx.Agents = newAgentAPI(store, h.git, h.worktree, ctx)
 		sctx.Rules = newRuleAPI(store.Dir(), func(name string) error {
 			_, err := store.Agents.Agent(ctx, name)
 			return err
@@ -474,7 +486,7 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 	}
 
 	// Defaults for anything the options did not set.
-	if h.git == nil || !h.limSet || h.taskOrder == "" || !h.retentionSet || !h.hookLimitSet {
+	if h.git == nil || !h.limSet || h.taskOrder == "" || !h.retentionSet || !h.hookLimitSet || !h.worktreeSet {
 		cfg, err := config.Load()
 		if err != nil {
 			slog.Warn("loading config", "err", err)
@@ -500,6 +512,10 @@ func setup(store *llmd.Store, opts ...Option) *Host {
 		if !h.hookLimitSet {
 			h.hookLimit = cfg.HookLimit()
 			h.hookLimitSet = true
+		}
+		if !h.worktreeSet {
+			h.worktree = cfg.AgentWorktree()
+			h.worktreeSet = true
 		}
 	}
 

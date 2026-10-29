@@ -13,6 +13,10 @@ const runConfigFile = ".llmd-run.json"
 // to the worktree by Spawn and read by the agent run command. This
 // replaces the bash wrapper template with a cross-platform JSON file.
 type RunConfig struct {
+	// Dir is where the agent works, when that is not the directory
+	// holding this file: an agent in the main checkout keeps its run
+	// files under .llmd/runs/<task>/. Empty means this directory.
+	Dir       string   `json:"dir,omitempty"`
 	TaskKey   string   `json:"task_key"`
 	Agent     string   `json:"agent"`
 	Role      string   `json:"role"`

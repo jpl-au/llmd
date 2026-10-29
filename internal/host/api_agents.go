@@ -31,13 +31,14 @@ import (
 // creation, context assembly, subprocess spawning) in the bridge layer.
 // This follows the same pattern as taskAPI handling git operations.
 type agentAPI struct {
-	ctx   context.Context
-	store *llmd.Store
-	git   sdk.GitStore
+	ctx      context.Context
+	store    *llmd.Store
+	git      sdk.GitStore
+	worktree bool // agents get their own worktree unless SpawnOpts says otherwise
 }
 
-func newAgentAPI(store *llmd.Store, git sdk.GitStore, ctx context.Context) *agentAPI {
-	return &agentAPI{ctx: ctx, store: store, git: git}
+func newAgentAPI(store *llmd.Store, git sdk.GitStore, worktree bool, ctx context.Context) *agentAPI {
+	return &agentAPI{ctx: ctx, store: store, git: git, worktree: worktree}
 }
 
 func agentErr(err error) error {
@@ -177,27 +178,41 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// Agents reach llmd through the HTTP server: their prompts and
 	// hooks call it, so they work from a worktree that has no store.
 	// Refuse before anything is created when it is not running.
-	llmdURL, err := serverURL()
+	llmdURL, auth, err := serverURL()
 	if err != nil {
 		return nil, err
 	}
 
-	// Determine the branch name.
+	// Auditors review existing work - they don't need an isolated
+	// worktree. They run from the main working directory and read
+	// the developer's diff via task commands. Other roles run there
+	// too when worktrees are turned off, by agent.worktree or for this
+	// spawn.
+	worktree := a.worktree
+	if opts.Worktree != nil {
+		worktree = *opts.Worktree
+	}
+	inPlace := cfg.Role == "auditor" || !worktree
+
+	// Determine the branch name. An agent in the main checkout works
+	// on whatever branch is checked out there.
 	branch := t.Branch
-	needsBranch := branch == ""
+	needsBranch := branch == "" && !inPlace
 	if needsBranch {
 		branch = "task/" + branchSlug(t.Title)
 	}
+	if branch == "" {
+		if b, err := a.git.Branch(); err == nil {
+			branch = b
+		}
+	}
 
-	// Auditors review existing work - they don't need an isolated
-	// worktree. They run from the main working directory and read
-	// the developer's diff via task commands.
 	// created is whether this spawn made the worktree: only then may a
 	// failure below remove it. A reused worktree belongs to an earlier
 	// pipeline step, or to an agent that is still running.
 	var absWorktree string
 	created := false
-	if cfg.Role == "auditor" {
+	if inPlace {
 		absWorktree, err = filepath.Abs(".")
 		if err != nil {
 			return nil, fmt.Errorf("resolving working directory: %w", err)
@@ -237,17 +252,43 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
+	// runDir holds the run config, settings and log. A worktree is
+	// the agent's own, so they go in it; in the main checkout they go
+	// under .llmd/runs/<task>/, so two agents there keep theirs apart.
+	runDir := absWorktree
+	if inPlace {
+		runDir, err = a.runDir(taskKey)
+		if err != nil {
+			return nil, err
+		}
+		if err := os.MkdirAll(runDir, 0755); err != nil {
+			return nil, fmt.Errorf("creating run directory: %w", err)
+		}
+	}
+
 	// Resolve platform-specific behaviour for this agent.
 	plat := assets.Agent.Platform(agent)
 
-	// Write agent runtime settings (e.g. permissions, hooks) into
-	// the working directory. Settings are templated with task-specific
-	// values so hooks can reference the task ID and agent name.
-	if settings := a.store.Agents.Settings(a.ctx, agent); settings != "" {
+	// Write agent runtime settings (e.g. permissions, hooks).
+	// Settings are templated with task-specific values so hooks can
+	// reference the task ID and agent name. In a worktree they go
+	// where the platform reads them. The main checkout's settings file
+	// is the person's own, so there they go under .llmd/runs/ and are
+	// passed to the agent by flag from the run directory.
+	var settingsArgs []string
+	if settings := a.store.Agents.Settings(a.ctx, agent); settings != "" && plat.SettingsPath() != "" {
 		templated := strings.ReplaceAll(settings, "{{.Agent}}", agent)
 		templated = strings.ReplaceAll(templated, "{{.TaskID}}", taskKey)
 		templated = strings.ReplaceAll(templated, "{{.URL}}", llmdURL)
-		a.writeSettings(absWorktree, plat, templated)
+		templated = strings.ReplaceAll(templated, "{{.Auth}}", auth)
+		if inPlace {
+			path := filepath.Join(runDir, "settings.json")
+			if writeSettings(path, templated) {
+				settingsArgs = plat.SettingsArgs(path)
+			}
+		} else {
+			writeSettings(filepath.Join(absWorktree, plat.SettingsPath()), templated)
+		}
 	}
 
 	// Resume is requested either explicitly via SpawnOpts (set by the
@@ -292,6 +333,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 				AssignedTo: t.AssignedTo,
 				Agent:      agent,
 				URL:        llmdURL,
+				Auth:       auth,
 				SpecPath:   t.Path,
 				OnSuccess:  opts.OnSuccess,
 				OnFailure:  opts.OnFailure,
@@ -312,9 +354,16 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	if budget > 0 {
 		cmdArgs = append(cmdArgs, plat.BudgetArgs(budget)...)
 	}
+	cmdArgs = append(cmdArgs, settingsArgs...)
 
-	// Write the resolved run config so agent run can read it.
-	if err := agents.WriteRunConfig(absWorktree, agents.RunConfig{
+	// Write the resolved run config so agent run can read it. Dir is
+	// where the agent works when that is not the run directory.
+	dir := ""
+	if inPlace {
+		dir = absWorktree
+	}
+	if err := agents.WriteRunConfig(runDir, agents.RunConfig{
+		Dir:       dir,
 		TaskKey:   taskKey,
 		Agent:     agent,
 		Role:      cfg.Role,
@@ -342,7 +391,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		}
 	}
 
-	cmd := exec.Command(llmdPath, "--author", agent, "agent", "run", taskKey, "--worktree", absWorktree)
+	cmd := exec.Command(llmdPath, "--author", agent, "agent", "run", taskKey, "--worktree", runDir)
 	cmd.Dir, err = filepath.Abs(".")
 	if err != nil {
 		return nil, fmt.Errorf("resolving working directory: %w", err)
@@ -359,12 +408,17 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, fmt.Errorf("starting agent process: %w", err)
 	}
 
-	// Record the run.
+	// Record the run. A run in the main checkout has no worktree, so
+	// task finish and agent stop leave the checkout alone.
+	recorded := absWorktree
+	if inPlace {
+		recorded = ""
+	}
 	r, err := a.store.Agents.Record(a.ctx, agents.RecordOpts{
 		TaskKey:  taskKey,
 		Agent:    agent,
 		Branch:   branch,
-		Worktree: absWorktree,
+		Worktree: recorded,
 		PID:      cmd.Process.Pid,
 		Author:   author,
 	})
@@ -454,7 +508,13 @@ func (a *agentAPI) Complete(taskKey string, exitCode int) error {
 
 	// Extract stats from the agent's output log.
 	plat := assets.Agent.Platform(r.Agent)
-	logPath := filepath.Join(r.Worktree, ".llmd-agent.log")
+	dir := r.Worktree
+	if dir == "" {
+		if dir, err = a.runDir(taskKey); err != nil {
+			return err
+		}
+	}
+	logPath := filepath.Join(dir, ".llmd-agent.log")
 	stats, err := plat.Stats(logPath)
 	if err != nil {
 		slog.Debug("extracting agent stats", "task", taskKey, "error", err)
@@ -568,35 +628,49 @@ func hasFlag(flags, flag string) bool {
 }
 
 // serverURL returns the URL of the running llmd serve, read from
-// server.addr, or an error saying to run it.
-func serverURL() (string, error) {
+// server.addr, or an error saying to run it. auth is what an agent's
+// curl adds to send server.token: a leading space and the header, or
+// empty when no token is set.
+func serverURL() (url, auth string, err error) {
 	addr := config.DefaultAddr
-	if c, err := config.Load(); err == nil && c.Server.Addr != "" {
+	c, err := config.Load()
+	if err == nil && c.Server.Addr != "" {
 		addr = c.Server.Addr
 	}
-	url := "http://" + addr
+	if c.Server.Token != "" {
+		auth = " -H 'Authorization: Bearer " + c.Server.Token + "'"
+	}
+	url = "http://" + addr
 	client := http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Get(url + "/version")
 	if err != nil {
-		return "", sdk.Errorf(sdk.ErrUnavailable, "unable to spawn agents. Please run llmd serve.")
+		return "", "", sdk.Errorf(sdk.ErrUnavailable, "unable to spawn agents. Please run llmd serve.")
 	}
 	resp.Body.Close()
-	return url, nil
+	return url, auth, nil
 }
 
-// writeSettings writes agent runtime settings into the worktree at
-// the path determined by the platform.
-func (a *agentAPI) writeSettings(worktree string, plat platform.Platform, content string) {
-	rel := plat.SettingsPath()
-	if rel == "" {
-		return
+// runDir returns the directory that holds the run files of an agent
+// working in the main checkout.
+func (a *agentAPI) runDir(taskKey string) (string, error) {
+	dir, err := filepath.Abs(filepath.Join(a.store.Dir(), "runs", taskKey))
+	if err != nil {
+		return "", fmt.Errorf("resolving run directory: %w", err)
 	}
-	path := filepath.Join(worktree, rel)
+	return dir, nil
+}
+
+// writeSettings writes agent runtime settings to path and reports
+// whether it did. A failure is logged: the agent still runs, without
+// its settings.
+func writeSettings(path, content string) bool {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		slog.Warn("creating agent settings directory", "path", filepath.Dir(path), "error", err)
-		return
+		return false
 	}
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		slog.Warn("writing agent settings", "path", path, "error", err)
+		return false
 	}
+	return true
 }

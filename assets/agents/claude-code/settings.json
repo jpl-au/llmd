@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "curl -sf -X POST '{{.URL}}/hook?task={{.TaskID}}' -H 'Author: {{.Agent}}' --data-binary @- >/dev/null || true"
+            "command": "curl -sf{{.Auth}} -X POST '{{.URL}}/hook?task={{.TaskID}}' -H 'Author: {{.Agent}}' --data-binary @- >/dev/null || true"
           }
         ]
       }

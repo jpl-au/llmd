@@ -19,6 +19,7 @@ type PromptData struct {
 	AssignedTo string
 	Agent      string
 	URL        string // HTTP API URL of the running llmd serve
+	Auth       string // curl flags that send server.token, with a leading space; empty without one
 	SpecPath   string
 	OnSuccess  string // column to move to on success
 	OnFailure  string // column to move to on failure

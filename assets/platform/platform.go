@@ -19,6 +19,12 @@ type Platform interface {
 	// settings should be written. Empty means not supported.
 	SettingsPath() string
 
+	// SettingsArgs returns CLI flags that load runtime settings from
+	// path, for an agent that runs in the main checkout, where writing
+	// SettingsPath would replace the person's own settings. Nil means
+	// the platform cannot take settings that way.
+	SettingsArgs(path string) []string
+
 	// BudgetArgs returns CLI flags for cost control. Nil means the
 	// platform has no budget mechanism.
 	BudgetArgs(budget float64) []string

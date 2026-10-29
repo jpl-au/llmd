@@ -25,7 +25,7 @@ Subcommands:
   ls                               list registered agents
   config <name>                    show agent configuration
   prompt <name> <role>             show prompt template
-  spawn <task-key> <agent>         spawn agent for a task
+  spawn <task-key> <agent>         spawn agent for a task [--no-worktree] [--budget usd]
   runs [--status S] [--task K]     list agent runs
   complete <task-key> [--exit N]   record an agent's exit
   stop <task-key>                  stop a running agent
@@ -33,7 +33,7 @@ Subcommands:
 
 Built-in agents: claude-code, gemini, aider
 See "llmd guide agent" for full documentation.`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Brief: `Run AI agents on tasks in isolated git worktrees. Built-in: claude-code, gemini, aider.
-Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <name> <role>, spawn <task> <agent>, runs [--status s] [--task k], complete <task> --exit-code n, stop <task>. Or: task start <id> --agent <name>.`, Flags: []sdk.Flag{
+Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <name> <role>, spawn <task> <agent> [--no-worktree], runs [--status s] [--task k], complete <task> --exit-code n, stop <task>. Or: task start <id> --agent <name>.`, Flags: []sdk.Flag{
 		{Name: "command", Type: "string", Desc: "Command to run (for custom agents)"},
 		{Name: "status", Type: "string", Desc: "Filter runs by status"},
 		{Name: "task", Type: "string", Desc: "Filter runs by task key"},
@@ -79,7 +79,7 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if len(args) < 2 {
 			return nil, sdk.Errorf(sdk.ErrMissingArg, "agent spawn: a task key and an agent are required.")
 		}
-		return taskStart(ctx, []string{args[0], "--agent", args[1]})
+		return taskStart(ctx, append([]string{args[0], "--agent", args[1]}, args[2:]...))
 	case "run":
 		return agentRun(ctx, args)
 	case "complete":

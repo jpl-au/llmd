@@ -47,6 +47,8 @@ with different meanings.
 | `--assign <name>` | add, set, list, next, start | Assignee |
 | `--agent <name>` | start | Spawn this registered agent on the task; it becomes the assignee |
 | `--budget <usd>` | start | Most the spawned agent may spend |
+| `--worktree` | start | Spawn the agent in its own git worktree, whatever `agent.worktree` says |
+| `--no-worktree` | start | Spawn the agent in the main checkout, whatever `agent.worktree` says |
 | `--depends-on <id>` | add, set | Task that must be done first; empty value clears it |
 | `--path <path>` | add | Use an existing store document as the spec |
 | `--file <file>` | add | Read the spec from a file on disk |
@@ -63,7 +65,6 @@ with different meanings.
 | `--after <col>` | column add, column mv | Place the column after this one |
 | `--base <branch>` | diff, files, commits, finish | Base branch (default: main or master) |
 | `--stat` | diff | Diffstat only |
-| `--budget <usd>` | start | Spending limit for a spawned agent |
 | `-n`, `--limit <int>` | log | Most recent events to show |
 
 ## Rules

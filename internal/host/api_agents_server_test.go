@@ -32,31 +32,37 @@ func TestServerURL(t *testing.T) {
 	running := strings.TrimPrefix(srv.URL, "http://")
 
 	tests := []struct {
-		name    string
-		addr    string
-		want    string
-		wantErr error
+		name     string
+		addr     string
+		token    string
+		want     string
+		wantAuth string
+		wantErr  error
 	}{
 		{name: "server running", addr: running, want: srv.URL},
+		{name: "token sent as a header", addr: running, token: "s3cret", want: srv.URL, wantAuth: " -H 'Authorization: Bearer s3cret'"},
 		{name: "server not running", addr: closed, wantErr: sdk.ErrUnavailable},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			TestSetup(t, TestWorkdir)
 			cfg := "server:\n  addr: " + tt.addr + "\n"
+			if tt.token != "" {
+				cfg += "  token: " + tt.token + "\n"
+			}
 			if err := os.WriteFile(filepath.Join(".llmd", "config.yaml"), []byte(cfg), 0o644); err != nil {
 				t.Fatal(err)
 			}
 
-			got, err := serverURL()
+			got, auth, err := serverURL()
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("serverURL() error = %v, want %v", err, tt.wantErr)
 			}
 			if err != nil && !strings.Contains(err.Error(), "llmd serve") {
 				t.Errorf("serverURL() error = %q, want it to name llmd serve", err)
 			}
-			if got != tt.want {
-				t.Errorf("serverURL() = %q, want %q", got, tt.want)
+			if got != tt.want || auth != tt.wantAuth {
+				t.Errorf("serverURL() = %q, %q, want %q, %q", got, auth, tt.want, tt.wantAuth)
 			}
 		})
 	}

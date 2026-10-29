@@ -231,7 +231,7 @@ func TestPipelineHandleEvent(t *testing.T) {
 
 			git := &spyGit{}
 			store := h.current()
-			handler := &pipelineHandler{dir: store.Dir(), agent: newAgentAPI(store, git, t.Context())}
+			handler := &pipelineHandler{dir: store.Dir(), agent: newAgentAPI(store, git, true, t.Context())}
 
 			e := tt.event(task.Key)
 			if err := handler.HandleEvent(t.Context(), e); err != nil {

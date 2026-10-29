@@ -8,12 +8,12 @@ not move it yourself.
 ## Getting started
 
 1. Read the task spec:
-   `curl -sf {{.URL}}/cat/{{.SpecPath}}`
+   `curl -sf{{.Auth}} {{.URL}}/cat/{{.SpecPath}}`
 
 2. Read the documents linked to the task, and the notes left by
    earlier steps:
-   `curl -sf {{.URL}}/task/links/{{.Key}}`
-   `curl -sf {{.URL}}/task/log/{{.Key}}`
+   `curl -sf{{.Auth}} {{.URL}}/task/links/{{.Key}}`
+   `curl -sf{{.Auth}} {{.URL}}/task/log/{{.Key}}`
 
 ## Doing the work
 
@@ -32,4 +32,4 @@ the reviewer.
 
 Leave a note on the task saying what blocked you, then exit with a
 non-zero code. Do not retry endlessly.
-`curl -sf -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Blocked: ..."`
+`curl -sf{{.Auth}} -X POST {{.URL}}/audit/add/{{.Key}} -H "Author: {{.Agent}}" -d "Blocked: ..."`
