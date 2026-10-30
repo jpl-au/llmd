@@ -1,6 +1,8 @@
 package sdk
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -73,7 +75,7 @@ func TestCommandAgentHelp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.cmd.AgentHelp()
+			got := tt.cmd.AgentHelp("llmd")
 			for _, w := range tt.want {
 				if !strings.Contains(got, w) {
 					t.Errorf("AgentHelp() = %q, want to contain %q", got, w)
@@ -85,5 +87,27 @@ func TestCommandAgentHelp(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestProgram checks that Program is the name the binary was started
+// as, without its directory or the .exe Windows adds, and llmd when
+// there is no name.
+func TestProgram(t *testing.T) {
+	tests := []struct {
+		arg0 string
+		want string
+	}{
+		{filepath.Join("usr", "local", "bin", "gdd"), "gdd"},
+		{"gdd.exe", "gdd"},
+		{"", "llmd"},
+	}
+	orig := os.Args
+	t.Cleanup(func() { os.Args = orig })
+	for _, tt := range tests {
+		os.Args = []string{tt.arg0}
+		if got := Program(); got != tt.want {
+			t.Errorf("Program() with os.Args[0] %q = %q, want %q", tt.arg0, got, tt.want)
+		}
 	}
 }

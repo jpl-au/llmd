@@ -122,7 +122,7 @@ func registerTool(server *mcp.Server, rt sdk.Runtime, cmd *sdk.Command, author s
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        name,
-		Description: cmd.AgentHelp(),
+		Description: cmd.AgentHelp(sdk.Program()),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input toolInput) (*mcp.CallToolResult, any, error) {
 		var stdin []byte
 		if input.Content != "" {

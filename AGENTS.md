@@ -267,7 +267,9 @@ duplicate names to catch programmer errors early. Extensions implement
 `sdk.Plugin` (Name, Commands, Exec) and receive raw args, parsing flags
 themselves.
 
-A binary that adds extensions follows the Caddy model: its own root `main.go` blank-imports `cli` and its extension packages, then calls `cmd.Execute(os.Args[1:])`. The `cmd` package comment shows the full file.
+A binary that adds extensions follows the Caddy model: its own root `main.go` blank-imports `cli` and its extension packages, then calls `cmd.Execute(os.Args[1:])`. The `cmd` package comment shows the full file. Help names the binary as it was started (`sdk.Program()`), so a `gdd` build shows `gdd <command>`.
+
+An extension documents its commands with its own guide pages: it embeds the markdown files and calls `guide.Add` in `init()`. `llmd guide <page>` then shows them, and a command's help can point to them through `Command.Guide`. A page name llmd or another extension already has panics.
 
 A build can also bring its own harness: an `sdk.Harness` that runs agent programs, registered with `harness.Register` from `ai/harness` in `init()`. `llmd agent run` gives the harness an `sdk.RunSpec` (prompt, session to resume, settings file, budget, folder, log) and records the `sdk.RunResult` it returns. The store names each agent's harness in its `settings` table (`agent.<name>.harness`); `agent.harness` in the configuration file overrides it for one computer. llmd's own harness is `llmd`.
 
@@ -649,9 +651,9 @@ read them:
 
 | Rendering | Where | Built by |
 |-----------|-------|----------|
-| Terminal `--help` | `llmd <cmd> --help` at a TTY | `cmdHelp(c, true)` in `help.go`: whole `Desc`, usage, flags, global flags |
-| Agent `--help` | `llmd <cmd> --help` piped | `cmdHelp(c, false)`: `c.AgentHelp()` plus one line of global flags |
-| MCP tool list | every MCP session start | `registerTool` in `cli/mcp.go`: `c.AgentHelp()` |
+| Terminal `--help` | `llmd <cmd> --help` at a TTY | `cmdHelp(c, program, true)` in `help.go`: whole `Desc`, usage, flags, global flags |
+| Agent `--help` | `llmd <cmd> --help` piped | `cmdHelp(c, program, false)`: `c.AgentHelp(program)` plus one line of global flags |
+| MCP tool list | every MCP session start | `registerTool` in `cli/mcp.go`: `c.AgentHelp(sdk.Program())` |
 
 `Command.Guide` names the guide page a command's help points to
 ("Details: guide <page>"): empty for the command's own name, `-` for

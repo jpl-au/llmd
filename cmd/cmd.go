@@ -92,15 +92,16 @@ func Execute(args []string) int {
 		g.Cmd, g.Args = "version", nil
 	}
 
+	program := sdk.Program()
 	if g.Cmd == "" {
-		printHelp(h)
+		printHelp(h, program)
 		return 0
 	}
 
 	if g.Help {
 		cmds := h.Commands()
 		if c := cmds[g.Cmd]; c != nil {
-			printCmdHelp(c)
+			printCmdHelp(c, program)
 			return 0
 		}
 		return errorf(g.JSON, "llmd: unknown command %s. Run llmd --help to list them.", g.Cmd)
@@ -139,7 +140,7 @@ func Execute(args []string) int {
 		code := errorf(g.JSON, "%v", err)
 		if errors.Is(err, sdk.ErrMissingArg) && !g.JSON {
 			if c := cmds[g.Cmd]; c != nil {
-				printCmdHelp(c)
+				printCmdHelp(c, program)
 			}
 		}
 		return code

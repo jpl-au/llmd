@@ -32,14 +32,15 @@ var helpGroups = []commandGroup{
 }
 
 // printHelp displays grouped top-level usage. Each command shows only
-// the first line of its description.
-func printHelp(h *host.Host) {
-	fmt.Print(`llmd - a versioned document store with task boards and agent orchestration
+// the first line of its description. program is the binary's name,
+// which every command line in the help starts with.
+func printHelp(h *host.Host, program string) {
+	fmt.Printf(`%[1]s - a versioned document store with task boards and agent orchestration
 
-AI agents: run "llmd guide" to get started.
+AI agents: run "%[1]s guide" to get started.
 
 Usage:
-  llmd <command> [flags] [args...]
+  %[1]s <command> [flags] [args...]
 
 Global Flags:
   --author <name>     Who is making the change (required for agents and scripts)
@@ -49,7 +50,7 @@ Global Flags:
   --help              Show help
   --version           Show version information
 
-`)
+`, program)
 	cmds := h.Commands()
 	for _, g := range append(helpGroups, extensionGroups(h.Extensions())...) {
 		fmt.Printf("%s:\n", g.label)
@@ -67,7 +68,7 @@ Global Flags:
 		fmt.Println()
 	}
 
-	fmt.Println(`Use "llmd <command> --help" for more information about a command.`)
+	fmt.Printf("Use \"%s <command> --help\" for more information about a command.\n", program)
 }
 
 // extensionGroups returns a group for each extension whose commands are
@@ -98,8 +99,8 @@ func extensionGroups(exts []sdk.Extension) []commandGroup {
 // printCmdHelp displays help for a single command: the full form for
 // a person at a terminal, the agent form when stdout is a pipe, as it
 // is for a model running llmd in a shell.
-func printCmdHelp(c *sdk.Command) {
-	fmt.Print(cmdHelp(c, isTTY()))
+func printCmdHelp(c *sdk.Command, program string) {
+	fmt.Print(cmdHelp(c, program, isTTY()))
 }
 
 // cmdHelp renders a command's help. For a terminal it is the whole
@@ -107,16 +108,16 @@ func printCmdHelp(c *sdk.Command) {
 // global flags. For a pipe it is the command's AgentHelp, the same
 // text the MCP tool list carries, followed by the global flags an
 // agent on the command line needs.
-func cmdHelp(c *sdk.Command, tty bool) string {
+func cmdHelp(c *sdk.Command, program string, tty bool) string {
 	var b strings.Builder
 	if !tty {
-		b.WriteString(c.AgentHelp())
+		b.WriteString(c.AgentHelp(program))
 		b.WriteString("\nGlobal: --author <name> (required to change anything), --json (structured output), --db <path>, --verbose\n")
 		return b.String()
 	}
 	fmt.Fprintf(&b, "%s - %s\n\n", c.Name, c.Desc)
 	if c.Usage != "" {
-		fmt.Fprintf(&b, "Usage:\n  llmd %s\n\n", c.Usage)
+		fmt.Fprintf(&b, "Usage:\n  %s %s\n\n", program, c.Usage)
 	}
 	if len(c.Flags) > 0 {
 		b.WriteString("Flags:\n")

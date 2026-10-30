@@ -7,8 +7,20 @@ package sdk
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 )
+
+// Program returns the name the running binary was started as: llmd,
+// or the name of a build that adds extensions to it, such as gdd. Help
+// names it so that every usage line is the command a person types.
+func Program() string {
+	if len(os.Args) == 0 || os.Args[0] == "" {
+		return "llmd"
+	}
+	return strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
+}
 
 // Summary returns the first paragraph of Desc: the one or two lines
 // that say what the command does, without the explanation that
@@ -29,7 +41,9 @@ func (c *Command) Summary() string {
 // pointer. The prose of Desc that --help shows a person is left out.
 //
 // The MCP tool list and the --help of a piped llmd both show this.
-func (c *Command) AgentHelp() string {
+// program is the binary's name the usage line starts with, normally
+// [Program].
+func (c *Command) AgentHelp(program string) string {
 	var b strings.Builder
 	if c.Brief != "" {
 		b.WriteString(c.Brief)
@@ -37,7 +51,7 @@ func (c *Command) AgentHelp() string {
 		b.WriteString(c.Summary())
 	}
 	if c.Usage != "" {
-		b.WriteString("\nUsage: llmd " + c.Usage)
+		b.WriteString("\nUsage: " + program + " " + c.Usage)
 	}
 	if c.Brief == "" && len(c.Flags) > 0 {
 		b.WriteString("\nFlags:")
