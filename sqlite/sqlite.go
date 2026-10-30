@@ -22,7 +22,30 @@ type Settings struct {
 	// MMapMB is how much of each file, in MB, is memory-mapped. Nil
 	// means the default; 0 turns memory-mapping off.
 	MMapMB *int
+	// Synchronous is how often writes are flushed to disk. Empty, or
+	// a value it does not name, means SyncNormal.
+	Synchronous Synchronous
 }
+
+// Synchronous is how often SQLite flushes writes to disk, named after
+// SQLite's synchronous PRAGMA. A crash of llmd itself loses nothing
+// with any value; the values differ in what a power failure or an
+// operating system crash can do.
+type Synchronous string
+
+// The values of Synchronous.
+const (
+	// SyncFull flushes after every write, so a power failure loses
+	// nothing. Every write waits for the disk.
+	SyncFull Synchronous = "full"
+	// SyncNormal flushes at checkpoints. A power failure can lose the
+	// last writes but leaves the database intact.
+	SyncNormal Synchronous = "normal"
+	// SyncOff never flushes. A power failure can corrupt the
+	// database, so it suits only databases that can be rebuilt, such
+	// as the ones tests and CI create.
+	SyncOff Synchronous = "off"
+)
 
 // Defaults for Settings.
 const (
@@ -54,12 +77,21 @@ func Open(path string, s Settings) (*qwr.Manager, error) {
 		mmap = *s.MMapMB
 	}
 	tune := func(p *profile.Profile) *profile.Profile {
-		return p.
+		p = p.
 			WithPageSize(8192).
 			WithAutoVacuum(profile.AutoVacuumNone).
 			WithBusyTimeout(int(busy / time.Millisecond)).
 			WithCacheSize(-cache * 1024). // negative: KiB, not pages
 			WithMMapSize(int64(mmap) << 20)
+		switch s.Synchronous {
+		case SyncFull:
+			p = p.WithSynchronous(profile.SyncFull)
+		case SyncOff:
+			p = p.WithSynchronous(profile.SyncOff)
+		default:
+			p = p.WithSynchronous(profile.SyncNormal)
+		}
+		return p
 	}
 	return qwr.New(path).
 		Reader(tune(profile.ReadBalanced())).

@@ -103,6 +103,7 @@ llmd config git deny "llmd-docs.db"
 | `agent.harness` | The harness that runs agents on this computer, in place of the one the store names for each agent (`agent harness`). Empty, the default, leaves the choice to the store |
 | `display.theme` | Colours for markdown rendered at a terminal: `dark` (default) for a dark background, `light` for a light one |
 | `database.mmap_size` | How much of each database file, in MB, is memory-mapped (default `256`); `0` turns memory-mapping off |
+| `database.synchronous` | How often writes are flushed to disk: `full` after every write, `normal` (default) at checkpoints, or `off` never. With `normal`, a power failure or operating system crash can lose the last writes but leaves the database intact. With `off`, it can corrupt the database, so keep `off` for stores you can rebuild, such as in CI. A crash of llmd itself loses nothing with any value |
 
 Example config.yaml:
 

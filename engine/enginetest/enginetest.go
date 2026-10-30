@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jpl-au/llmd/engine"
+	"github.com/jpl-au/llmd/sqlite/sqlitetest"
 )
 
 // Open initialises a new store under a temporary directory and closes
@@ -16,7 +17,7 @@ import (
 func Open(tb testing.TB) *engine.Store {
 	tb.Helper()
 	path := filepath.Join(tb.TempDir(), ".llmd", "llmd.db")
-	s, err := engine.Init(path)
+	s, err := engine.Init(path, engine.WithDatabase(sqlitetest.Settings()))
 	if err != nil {
 		tb.Fatalf("engine.Init(%s): %v", path, err)
 	}

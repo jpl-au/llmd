@@ -64,6 +64,8 @@ func TestSet(t *testing.T) {
 		{key: "database.cache_size", value: "0", wantErr: "database.cache_size must be a positive whole number."},
 		{key: "database.mmap_size", value: "0"},
 		{key: "database.mmap_size", value: "-1", wantErr: "database.mmap_size must be 0 or a positive whole number."},
+		{key: "database.synchronous", value: "off"},
+		{key: "database.synchronous", value: "sometimes", wantErr: "database.synchronous must be full, normal or off."},
 		{key: "limits.path_length", value: "0", wantErr: "limits.path_length must be a positive whole number."},
 		{key: "limits.content_size", value: "1048576"},
 		{key: "agent.worktree", value: "false"},

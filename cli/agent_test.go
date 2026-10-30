@@ -11,6 +11,7 @@ import (
 	"github.com/jpl-au/llmd/engine/agents"
 	"github.com/jpl-au/llmd/host"
 	"github.com/jpl-au/llmd/sdk"
+	"github.com/jpl-au/llmd/sqlite/sqlitetest"
 )
 
 // agentSetup is newCLI that also returns the host, for tests that need
@@ -31,7 +32,7 @@ func agentDir(h *host.Host) string {
 // worktree mean stop has nothing to signal or clean up.
 func agentSeedRun(t *testing.T, h *host.Host, taskKey, agent string, pid int) {
 	t.Helper()
-	store, err := engine.Open(filepath.Join(h.Dir(), ".llmd", "llmd.db"))
+	store, err := engine.Open(filepath.Join(h.Dir(), ".llmd", "llmd.db"), engine.WithDatabase(sqlitetest.Settings()))
 	if err != nil {
 		t.Fatalf("engine.Open: %v", err)
 	}

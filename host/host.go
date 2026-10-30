@@ -136,6 +136,7 @@ func DatabaseSettings(cfg config.Config) sqlite.Settings {
 		BusyTimeout: cfg.DurationSetting("database.busy_timeout"),
 		CacheMB:     cfg.CountSetting("database.cache_size", 1),
 		MMapMB:      &mmap,
+		Synchronous: sqlite.Synchronous(cfg.Database.Synchronous),
 	}
 }
 

@@ -81,6 +81,10 @@ type DatabaseConfig struct {
 	// MMapSize is how much of each file, in MB, is memory-mapped; 0
 	// turns memory-mapping off.
 	MMapSize *int `yaml:"mmap_size,omitempty"`
+	// Synchronous is how often writes are flushed to disk: "full",
+	// "normal" (the default) or "off". Off is fastest, but a power
+	// failure or operating system crash can then corrupt the database.
+	Synchronous string `yaml:"synchronous,omitempty"`
 }
 
 // HookConfig holds agent hook settings.
@@ -197,6 +201,7 @@ func Defaults() Config {
 			BusyTimeout: "5s",
 			CacheSize:   64,
 			MMapSize:    new(256),
+			Synchronous: "normal",
 		},
 		Display: DisplayConfig{
 			Theme: "dark",
@@ -357,6 +362,7 @@ func Keys() []string {
 		"database.busy_timeout",
 		"database.cache_size",
 		"database.mmap_size",
+		"database.synchronous",
 		"display.theme",
 		"agent.worktree",
 		"agent.harness",
@@ -422,6 +428,8 @@ func (c Config) Field(key string) (string, bool) {
 			return "", false
 		}
 		return strconv.Itoa(*c.Database.MMapSize), true
+	case "database.synchronous":
+		return c.Database.Synchronous, c.Database.Synchronous != ""
 	case "display.theme":
 		return c.Display.Theme, c.Display.Theme != ""
 	case "agent.worktree":
@@ -502,6 +510,11 @@ func (c *Config) Set(key, value string) error {
 			return err
 		}
 		c.Database.MMapSize = &n
+	case "database.synchronous":
+		if value != "full" && value != "normal" && value != "off" {
+			return fmt.Errorf("database.synchronous must be full, normal or off.")
+		}
+		c.Database.Synchronous = value
 	case "display.theme":
 		if value != "dark" && value != "light" {
 			return fmt.Errorf("display.theme must be dark or light.")

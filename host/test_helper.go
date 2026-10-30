@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jpl-au/llmd/engine"
+	"github.com/jpl-au/llmd/sqlite/sqlitetest"
 )
 
 // TestMode controls how TestSetup initialises the store. Both modes
@@ -43,7 +44,7 @@ func TestHome(t *testing.T) string {
 }
 
 // TestSetup initialises a store and returns a Host over it, with
-// cleanup registered. Use h.Context(t.Context(), author) for the
+// cleanup registered. The store is opened with [sqlitetest.Settings]. Use h.Context(t.Context(), author) for the
 // sdk.Context a command would receive and h.Dir() for the directory
 // that holds the .llmd store.
 func TestSetup(t *testing.T, mode TestMode, opts ...Option) *Host {
@@ -51,10 +52,11 @@ func TestSetup(t *testing.T, mode TestMode, opts ...Option) *Host {
 
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, ".llmd", "llmd.db")
+	db := engine.WithDatabase(sqlitetest.Settings())
 
 	switch mode {
 	case TestIsolated:
-		store, err := engine.Init(dbPath)
+		store, err := engine.Init(dbPath, db)
 		if err != nil {
 			t.Fatalf("engine.Init: %v", err)
 		}
@@ -79,7 +81,7 @@ func TestSetup(t *testing.T, mode TestMode, opts ...Option) *Host {
 			t.Fatal(err)
 		}
 
-		store, err := engine.Init(dbPath)
+		store, err := engine.Init(dbPath, db)
 		if err != nil {
 			t.Fatalf("engine.Init: %v", err)
 		}
@@ -87,10 +89,11 @@ func TestSetup(t *testing.T, mode TestMode, opts ...Option) *Host {
 			t.Fatalf("closing init store: %v", err)
 		}
 
-		h, err := Open(dbPath, opts...)
+		store, err = engine.Open(dbPath, db)
 		if err != nil {
-			t.Fatalf("host.Open: %v", err)
+			t.Fatalf("engine.Open: %v", err)
 		}
+		h := setup(store, opts...)
 		t.Cleanup(func() {
 			if err := h.Close(); err != nil {
 				t.Errorf("closing host: %v", err)
