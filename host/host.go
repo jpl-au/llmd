@@ -150,6 +150,20 @@ func Open(dbPath string, opts ...Option) (*Host, error) {
 	return setup(store, opts...), nil
 }
 
+// Open implements [sdk.Runtime]. It opens the store at dbPath as a host
+// of its own, with this host's options and extensions, so the store is
+// used exactly as this one is.
+func (h *Host) Open(dbPath string) (sdk.Store, error) {
+	other, err := Open(dbPath, h.opts...)
+	switch {
+	case errors.Is(err, engine.ErrNoStore):
+		return nil, errs.Mark(sdk.ErrNotFound, err)
+	case err != nil:
+		return nil, err
+	}
+	return other, nil
+}
+
 // Close closes the underlying store. Safe to call on a storeless host.
 func (h *Host) Close() error {
 	if store := h.current(); store != nil {

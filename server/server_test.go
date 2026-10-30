@@ -53,6 +53,8 @@ func (s *stub) Watch(ctx context.Context, _ time.Duration) error {
 }
 func (s *stub) Init(string) (string, error) { return "", errors.New("init not supported") }
 
+func (s *stub) Open(string) (sdk.Store, error) { return nil, errors.New("open not supported") }
+
 func (s *stub) Subscribe(fn func(events.Event)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

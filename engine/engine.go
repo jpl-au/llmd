@@ -26,6 +26,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -151,13 +152,30 @@ func Open(path string, opts ...Option) (*Store, error) {
 	return open(path, opts)
 }
 
+// workDBPath returns the path of the work database of the store at
+// path. The default store, llmd.db, keeps work.db beside it. Every other
+// store keeps its own, so stores in one folder never share a board:
+// llmd-adrift.db keeps work-adrift.db, and notes.db keeps notes-work.db.
+func workDBPath(path string) string {
+	dir, base := filepath.Dir(path), filepath.Base(path)
+	name := strings.TrimSuffix(base, filepath.Ext(base))
+	switch {
+	case name == "llmd":
+		return filepath.Join(dir, "work.db")
+	case strings.HasPrefix(name, "llmd-"):
+		return filepath.Join(dir, "work-"+strings.TrimPrefix(name, "llmd-")+".db")
+	default:
+		return filepath.Join(dir, name+"-work.db")
+	}
+}
+
 // open is the shared implementation for Init and Open. Database
 // settings live in sqlite so llmd.db and work.db are opened
 // identically.
 func open(path string, opts []Option) (*Store, error) {
 	s := &Store{
 		path:     path,
-		workPath: filepath.Join(filepath.Dir(path), "work.db"),
+		workPath: workDBPath(path),
 	}
 	for _, o := range opts {
 		o(s)

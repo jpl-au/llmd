@@ -208,7 +208,7 @@ carried on every context. It is for commands that reach back into the
 host rather than into a domain: `Dispatch` (the MCP and HTTP servers),
 `Commands` (tool and route registration), `Subscribe` (SSE and
 webhooks), `Watch` (changes made by other processes, for the server)
-and `Init` (the `init` command). Tests get the same context a
+and `Init` (the `init` command). `Open` opens another existing store beside the runtime's own and returns an `sdk.Store`: its `Context`, `Subscribe` and `Watch` work as the runtime's do, for an extension that works with several stores at once (gdd opens one per game). Tests get the same context a
 command would via `host.TestSetup(t, mode).Context(ctx, author)`.
 
 `sdk.GitStore` has no host bridge - `git.Git` implements it
@@ -623,7 +623,7 @@ it on the same transaction, so the index commits or rolls back with
 the change. A write that changes nothing adds no version and emits no
 event.
 
-**Work database:** `Store.WorkDB` opens work.db under a mutex, and each
+**Work database:** each store keeps its own work database beside it: `llmd.db` keeps `work.db`, a named store `llmd-<name>.db` keeps `work-<name>.db`, and any other `name.db` keeps `name-work.db` (`workDBPath`), so stores in one folder never share a board. `Store.WorkDB` opens it under a mutex, and each
 work domain guards its setup with `lazy.Once`, so concurrent server
 requests open it once and a failed open is retried on the next call.
 `Agents.Record` checks for a running agent and inserts the run in one

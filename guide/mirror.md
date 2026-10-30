@@ -15,6 +15,7 @@ llmd mirror push [<path>]    Push edits back, optionally only those under a path
 
 - Mirrored files live under `.llmd/<dbname>/`: `.llmd/llmd/` for the
   default store, `.llmd/llmd-docs/` for `--db docs`.
+- Each store has its own tasks, comments and agent runs: `--db docs` keeps them in `.llmd/work-docs.db`, apart from the default store's `.llmd/work.db`.
 - `pull` needs no author. It writes store documents as `.md` files,
   skips unchanged files, and removes stale files whose documents have
   since been deleted or renamed.

@@ -4,9 +4,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/jpl-au/llmd/engine"
 	pkgevents "github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/sdk"
 	"github.com/jpl-au/llmd/term"
@@ -415,5 +417,47 @@ func TestCloseStoreless(t *testing.T) {
 	}
 	if c := h.Context(t.Context(), "alice"); c.Documents != nil || c.Runtime != h {
 		t.Errorf("Context() on a storeless host = %+v, want nil bridges and the host as Runtime", c)
+	}
+}
+
+// TestOpenBeside checks that a store opened beside the host's own is used as
+// the host's is, keeps its documents apart, reports its own events, and
+// that a path with no store is ErrNotFound.
+func TestOpenBeside(t *testing.T) {
+	h := TestSetup(t, TestIsolated)
+	path := filepath.Join(t.TempDir(), ".llmd", "llmd.db")
+	created, err := engine.Init(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := created.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	other, err := h.Open(path)
+	if err != nil {
+		t.Fatalf("Open(%s) error = %v", path, err)
+	}
+	t.Cleanup(func() {
+		if err := other.Close(); err != nil {
+			t.Errorf("closing the opened store: %v", err)
+		}
+	})
+	var got []string
+	other.Subscribe(func(e pkgevents.Event) { got = append(got, e.Type) })
+
+	if err := other.Context(t.Context(), "alice").Documents.Write("notes", []byte("in the other store"), sdk.WriteOpts{Author: "alice"}); err != nil {
+		t.Fatalf("Write in the opened store error = %v", err)
+	}
+	if !slices.Contains(got, pkgevents.DocumentWritten) {
+		t.Errorf("events of the opened store = %v, want %s", got, pkgevents.DocumentWritten)
+	}
+	if ok, err := h.Context(t.Context(), "alice").Documents.Exists("notes"); err != nil || ok {
+		t.Errorf("host's own store Exists(notes) = %v, %v, want false: the stores must stay apart", ok, err)
+	}
+
+	missing, err := h.Open(filepath.Join(t.TempDir(), ".llmd", "llmd.db"))
+	if !errors.Is(err, sdk.ErrNotFound) || missing != nil {
+		t.Errorf("Open(no store) = %v, %v, want nil and ErrNotFound", missing, err)
 	}
 }

@@ -48,7 +48,7 @@ Rules:
   serve` sees its own; the command line, an MCP session and a spawned
   agent are other processes, and their writes reach the server only
   as `store.changed`.
-- `store.changed` names the file (`llmd.db` or `work.db`), nothing
+- `store.changed` names the file (`llmd.db` or `work.db`, or a named store's own files such as `llmd-docs.db` and `work-docs.db`), nothing
   more: reread what matters. It goes to SSE and webhook clients only,
   within about two `server.watch_interval`s (1s by default) of the
   change. `version` appears only on document events.

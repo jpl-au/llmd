@@ -10,6 +10,7 @@ import (
 
 	"github.com/jpl-au/llmd/engine/documents"
 	"github.com/jpl-au/llmd/engine/messages"
+	"github.com/jpl-au/llmd/engine/tasks"
 	pkgevents "github.com/jpl-au/llmd/pkg/events"
 	"github.com/jpl-au/llmd/sqlite"
 )
@@ -329,5 +330,57 @@ func TestAccessors(t *testing.T) {
 	}
 	if n != 1 {
 		t.Errorf("DB() content rows for docs/a = %d, want 1", n)
+	}
+}
+
+// TestWorkDBPath checks which work database each store keeps.
+func TestWorkDBPath(t *testing.T) {
+	dir := filepath.Join("games", ".llmd")
+	tests := []struct{ store, want string }{
+		{"llmd.db", "work.db"},
+		{"llmd-adrift.db", "work-adrift.db"},
+		{"notes.db", "notes-work.db"},
+	}
+	for _, tt := range tests {
+		if got := workDBPath(filepath.Join(dir, tt.store)); got != filepath.Join(dir, tt.want) {
+			t.Errorf("workDBPath(%s) = %s, want %s", tt.store, got, tt.want)
+		}
+	}
+}
+
+// TestStoresKeepTheirOwnWork checks that two stores in one folder keep
+// separate boards: a task added to one is not on the other. They once
+// shared work.db, so every named store showed every other store's tasks.
+func TestStoresKeepTheirOwnWork(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), ".llmd")
+	open := func(name string) *Store {
+		s, err := Init(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatalf("Init(%s) error = %v", name, err)
+		}
+		t.Cleanup(func() {
+			if err := s.Close(); err != nil {
+				t.Errorf("closing %s: %v", name, err)
+			}
+		})
+		return s
+	}
+	main, adrift := open("llmd.db"), open("llmd-adrift.db")
+
+	if _, err := adrift.Tasks.Add(t.Context(), "Grow the raft", nil, tasks.AddOptions{Author: "test", Source: "cli"}); err != nil {
+		t.Fatalf("Tasks.Add error = %v", err)
+	}
+	for _, tt := range []struct {
+		name  string
+		store *Store
+		want  int
+	}{{"llmd.db", main, 0}, {"llmd-adrift.db", adrift, 1}} {
+		got, err := tt.store.Tasks.List(t.Context(), tasks.ListOptions{})
+		if err != nil {
+			t.Fatalf("%s Tasks.List error = %v", tt.name, err)
+		}
+		if len(got) != tt.want {
+			t.Errorf("%s has %d tasks, want %d", tt.name, len(got), tt.want)
+		}
 	}
 }

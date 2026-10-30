@@ -107,6 +107,24 @@ type Runtime interface {
 	// there it changes nothing and returns its path with an ErrExists
 	// error.
 	Init(dbPath string) (string, error)
+
+	// Open opens the existing store at dbPath beside the runtime's own, for an extension that works with several stores at once, such as a view over several projects. The store stays open until its Close. A path with no store is ErrNotFound.
+	Open(dbPath string) (Store, error)
+}
+
+// Store is a store a runtime opened with Open. It is used as the runtime's own store is: Context gives the domain stores, bound to a context and acting as an author, and Subscribe and Watch report its changes.
+type Store interface {
+	// Context returns the domain stores of this store, bound to ctx and acting as author.
+	Context(ctx context.Context, author string) Context
+
+	// Subscribe registers a callback that receives every event of this store, as Runtime.Subscribe does.
+	Subscribe(fn func(events.Event))
+
+	// Watch reports changes other processes make to this store, as Runtime.Watch does.
+	Watch(ctx context.Context, interval time.Duration) error
+
+	// Close closes the store.
+	Close() error
 }
 
 // Extension is the interface that command providers implement. The host
