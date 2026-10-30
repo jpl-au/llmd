@@ -515,6 +515,42 @@ func TestDocumentsVacuum(t *testing.T) {
 	}
 }
 
+// TestDocumentsReferences checks the references read from markdown: a
+// document's links to documents that exist, in order, and the
+// documents that link to it, with links to missing documents, to
+// itself and from deleted documents left out.
+func TestDocumentsReferences(t *testing.T) {
+	c := testHost(t)
+	writeDoc(t, c, "gdd/index", "[One](01.md) and [Two](02.md) and [Gone](99.md)")
+	writeDoc(t, c, "gdd/01", "[Index](index.md), [Two](02.md#rules), [Self](01.md)")
+	writeDoc(t, c, "gdd/02", "No links.")
+	writeDoc(t, c, "gdd/old", "[One](01.md)")
+	if err := c.Documents.Delete("gdd/old", sdk.DeleteOpts{Author: "alice"}); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		path    string
+		wantOut []string
+		wantIn  []string
+	}{
+		{"gdd/index", []string{"gdd/01", "gdd/02"}, []string{"gdd/01"}},
+		{"gdd/01", []string{"gdd/index", "gdd/02"}, []string{"gdd/index"}},
+		{"gdd/02", nil, []string{"gdd/01", "gdd/index"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got, err := c.Documents.References(tt.path)
+			if err != nil {
+				t.Fatalf("References(%q) error = %v", tt.path, err)
+			}
+			if !slices.Equal(got.Out, tt.wantOut) || !slices.Equal(got.In, tt.wantIn) {
+				t.Errorf("References(%q) = out %q in %q, want out %q in %q", tt.path, got.Out, got.In, tt.wantOut, tt.wantIn)
+			}
+		})
+	}
+}
+
 func TestDocumentsImport(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -527,7 +563,7 @@ func TestDocumentsImport(t *testing.T) {
 		{
 			name:        "creates documents",
 			files:       map[string]string{"one.md": "first", "two.md": "second"},
-			opts:        sdk.ImportOpts{},
+			opts:        sdk.ImportOpts{Author: "alice"},
 			wantCreated: 2,
 			wantExists:  map[string]bool{"one": true, "two": true},
 			wantContent: map[string]string{"one": "first"},
@@ -535,14 +571,14 @@ func TestDocumentsImport(t *testing.T) {
 		{
 			name:        "dry run",
 			files:       map[string]string{"doc.md": "content"},
-			opts:        sdk.ImportOpts{DryRun: true},
+			opts:        sdk.ImportOpts{Author: "alice", DryRun: true},
 			wantCreated: 1,
 			wantExists:  map[string]bool{"doc.md": false, "doc": false},
 		},
 		{
 			name:        "with prefix",
 			files:       map[string]string{"note.md": "x"},
-			opts:        sdk.ImportOpts{Prefix: "imported/"},
+			opts:        sdk.ImportOpts{Author: "alice", Prefix: "imported/"},
 			wantCreated: 1,
 			wantExists:  map[string]bool{"imported/note": true},
 		},
@@ -580,6 +616,16 @@ func TestDocumentsImport(t *testing.T) {
 				}
 				if string(got) != want {
 					t.Errorf("Read(%q) = %q, want %q", path, got, want)
+				}
+			}
+			// Every version is recorded under the author who imported it.
+			docs, err := c.Documents.List("", sdk.ListOpts{})
+			if err != nil {
+				t.Fatalf("List error = %v", err)
+			}
+			for _, d := range docs {
+				if d.Author != "alice" {
+					t.Errorf("%s author = %q, want alice", d.Path, d.Author)
 				}
 			}
 		})

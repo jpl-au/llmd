@@ -3,12 +3,14 @@ package host
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/jpl-au/llmd/engine"
 	"github.com/jpl-au/llmd/engine/bulk"
 	"github.com/jpl-au/llmd/engine/documents"
 	"github.com/jpl-au/llmd/engine/history"
+	"github.com/jpl-au/llmd/engine/refs"
 	"github.com/jpl-au/llmd/engine/resolve"
 	"github.com/jpl-au/llmd/engine/search"
 	"github.com/jpl-au/llmd/errs"
@@ -482,11 +484,11 @@ func (a *documentAPI) Vacuum(opts sdk.VacuumOpts) (sdk.VacuumResult, error) {
 }
 
 // Import reads markdown files from a filesystem directory into the store.
-// Files are attributed to the "import" author. Results report which
+// Files are attributed to opts.Author. Results report which
 // documents were created, updated, or skipped.
 func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult, error) {
 	r, err := a.store.Bulk.Import(a.ctx, dir, bulk.ImportOptions{
-		Origin: origin("import"),
+		Origin: origin(opts.Author),
 		Prefix: opts.Prefix,
 		DryRun: opts.DryRun,
 	})
@@ -503,6 +505,49 @@ func (a *documentAPI) Import(dir string, opts sdk.ImportOpts) (*sdk.ImportResult
 		out.Errors = append(out.Errors, e.Path+": "+e.Err.Error())
 	}
 	return out, nil
+}
+
+// References reads the references to and from a document out of the
+// markdown of every live document. Nothing is stored, so the answer is
+// always in step with the content, at the cost of one read of each
+// document.
+func (a *documentAPI) References(path string) (*sdk.References, error) {
+	p, _, err := a.resolveDoc(path, 0)
+	if err != nil {
+		return nil, err
+	}
+	content, err := a.Read(p, sdk.ReadOpts{})
+	if err != nil {
+		return nil, err
+	}
+	docs, err := a.List("", sdk.ListOpts{})
+	if err != nil {
+		return nil, err
+	}
+	exists := make(map[string]bool, len(docs))
+	for _, d := range docs {
+		exists[d.Path] = true
+	}
+
+	result := &sdk.References{}
+	for _, target := range refs.Targets(p, string(content)) {
+		if exists[target] && target != p {
+			result.Out = append(result.Out, target)
+		}
+	}
+	for _, d := range docs {
+		if d.Path == p {
+			continue
+		}
+		body, err := a.Read(d.Path, sdk.ReadOpts{})
+		if err != nil {
+			return nil, err
+		}
+		if slices.Contains(refs.Targets(d.Path, string(body)), p) {
+			result.In = append(result.In, d.Path)
+		}
+	}
+	return result, nil
 }
 
 // Preview returns the first n non-blank lines of a document, skipping

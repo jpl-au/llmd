@@ -299,6 +299,15 @@ func TestInitLog(t *testing.T) {
 // and shows one line) and per-command help (usage, flags with their
 // types, global flags).
 func TestHelp(t *testing.T) {
+	t.Run("an added extension's commands are listed under its name", func(t *testing.T) {
+		builtin := helpExtension{name: "cli", commands: []string{"cat", "stat"}}
+		added := helpExtension{name: "gdd", commands: []string{"open"}}
+		got := extensionGroups([]sdk.Extension{builtin, added})
+		if len(got) != 2 || got[0].label != "cli" || !slices.Equal(got[0].names, []string{"stat"}) || got[1].label != "gdd" || !slices.Equal(got[1].names, []string{"open"}) {
+			t.Errorf("extensionGroups() = %+v, want cli [stat] and gdd [open]", got)
+		}
+	})
+
 	h := host.New()
 	out := capture(t, &os.Stdout, func() { printHelp(h) })
 	cmds := h.Commands()
@@ -442,3 +451,21 @@ func TestRun(t *testing.T) {
 		})
 	}
 }
+
+// helpExtension is an extension with only names, for the help listing.
+type helpExtension struct {
+	name     string
+	commands []string
+}
+
+func (e helpExtension) Name() string { return e.name }
+
+func (e helpExtension) Commands() []sdk.Command {
+	cmds := make([]sdk.Command, len(e.commands))
+	for i, name := range e.commands {
+		cmds[i] = sdk.Command{Name: name}
+	}
+	return cmds
+}
+
+func (helpExtension) Exec(sdk.Context, string, []string) (sdk.Response, error) { return nil, nil }

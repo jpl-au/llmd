@@ -41,6 +41,7 @@ func importCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, sdk.Errorf(sdk.ErrMissingArg, "import: a directory is required.")
 	}
 	opts := sdk.ImportOpts{
+		Author: ctx.Author,
 		Prefix: flags.String("prefix"),
 		DryRun: flags.Bool("dry-run"),
 	}

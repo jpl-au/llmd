@@ -28,6 +28,7 @@ type PullResult struct {
 
 // PushOpts configures a mirror push operation.
 type PushOpts struct {
+	Author string // Who the new versions and deletions are recorded under; required
 	Prefix string // Target path prefix in store
 }
 

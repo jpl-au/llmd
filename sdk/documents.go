@@ -83,6 +83,15 @@ type DocumentStore interface {
 	// and review views. Returns empty string if the path is empty or
 	// the document does not exist.
 	Preview(path string, lines int) (string, error)
+
+	// References returns the documents path's markdown links to and the documents whose markdown links to path. See [References].
+	References(path string) (*References, error)
+}
+
+// References are the documents one document's markdown refers to (Out) and the documents whose markdown refers to it (In), by path. A link refers to a document when it names that document's .md file relative to the folder of the document it is in. Only documents that exist are listed. Out is in the order the links first appear, In in path order.
+type References struct {
+	Out []string `json:"out"`
+	In  []string `json:"in"`
 }
 
 // Doc represents a document's metadata (not its content - use Read for
@@ -268,6 +277,7 @@ type VacuumOpts struct {
 
 // ImportOpts configures a bulk import operation.
 type ImportOpts struct {
+	Author string // Who the new versions are recorded under; required
 	Prefix string // Target path prefix in store
 	DryRun bool   // Show what would change without importing
 }

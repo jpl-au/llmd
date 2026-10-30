@@ -215,9 +215,11 @@ func TestMirrorPush(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
-				got, err := c.Mirror.Push(dir, step.opts)
+				opts := step.opts
+				opts.Author = "alice"
+				got, err := c.Mirror.Push(dir, opts)
 				if err != nil {
-					t.Fatalf("step %d: Push(%q, %+v) error = %v", i, dir, step.opts, err)
+					t.Fatalf("step %d: Push(%q, %+v) error = %v", i, dir, opts, err)
 				}
 				slices.Sort(got.Created)
 				slices.Sort(got.Updated)
@@ -233,6 +235,16 @@ func TestMirrorPush(t *testing.T) {
 				}
 				if string(data) != want {
 					t.Errorf("Read(%q) = %q, want %q", path, data, want)
+				}
+			}
+			// Every version is recorded under the author who pushed it.
+			docs, err := c.Documents.List("", sdk.ListOpts{})
+			if err != nil {
+				t.Fatalf("List error = %v", err)
+			}
+			for _, d := range docs {
+				if d.Author != "alice" {
+					t.Errorf("%s author = %q, want alice", d.Path, d.Author)
 				}
 			}
 		})

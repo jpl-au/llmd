@@ -85,6 +85,7 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	dir := ctx.Mirror.Directory()
 	r, err := ctx.Mirror.Push(dir, sdk.PushOpts{
+		Author: ctx.Author,
 		Prefix: prefix,
 	})
 	if err != nil {

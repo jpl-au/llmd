@@ -51,7 +51,7 @@ Global Flags:
 
 `)
 	cmds := h.Commands()
-	for _, g := range helpGroups {
+	for _, g := range append(helpGroups, extensionGroups(h.Extensions())...) {
 		fmt.Printf("%s:\n", g.label)
 		for _, name := range g.names {
 			c, ok := cmds[name]
@@ -68,6 +68,31 @@ Global Flags:
 	}
 
 	fmt.Println(`Use "llmd <command> --help" for more information about a command.`)
+}
+
+// extensionGroups returns a group for each extension whose commands are
+// in none of helpGroups, under the extension's name, so the commands a
+// build adds to llmd are listed beside llmd's own.
+func extensionGroups(exts []sdk.Extension) []commandGroup {
+	listed := make(map[string]bool)
+	for _, g := range helpGroups {
+		for _, name := range g.names {
+			listed[name] = true
+		}
+	}
+	var groups []commandGroup
+	for _, e := range exts {
+		var names []string
+		for _, c := range e.Commands() {
+			if !listed[c.Name] {
+				names = append(names, c.Name)
+			}
+		}
+		if len(names) > 0 {
+			groups = append(groups, commandGroup{e.Name(), names})
+		}
+	}
+	return groups
 }
 
 // printCmdHelp displays help for a single command: the full form for

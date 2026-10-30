@@ -57,7 +57,7 @@ func (a *mirrorAPI) Pull(prefix, dir string) (*sdk.PullResult, error) {
 // written.
 func (a *mirrorAPI) Push(dir string, opts sdk.PushOpts) (*sdk.PushResult, error) {
 	r, err := a.store.Bulk.MirrorPush(a.ctx, dir, bulk.MirrorPushOptions{
-		Origin: origin("mirror"),
+		Origin: origin(opts.Author),
 		Prefix: opts.Prefix,
 	})
 	if err != nil {

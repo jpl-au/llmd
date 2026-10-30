@@ -53,6 +53,10 @@ var notFoundCases = []notFoundCase{
 		_, err := c.Documents.Preview("missing", 5)
 		return err
 	}},
+	{"DocumentStore", "References", func(c sdk.Context) error {
+		_, err := c.Documents.References("missing")
+		return err
+	}},
 	{"DocumentStore", "Export", func(c sdk.Context) error {
 		_, err := c.Documents.Export("missing", "out", sdk.ExportOpts{})
 		return err

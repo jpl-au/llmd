@@ -11,6 +11,7 @@ require (
 	github.com/jpl-au/http-client v0.3.1
 	github.com/jpl-au/qwr v0.5.2
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/yuin/goldmark v1.8.6
 	github.com/zeebo/xxh3 v1.1.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.61.0
@@ -49,7 +50,6 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	github.com/yuin/goldmark v1.8.6 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
