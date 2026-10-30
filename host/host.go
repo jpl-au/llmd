@@ -50,6 +50,7 @@ type Host struct {
 	hookLimit    int           // most pending messages the session-start hook prints; see hookLimitSet
 	hookLimitSet bool          // hookLimit was set by an option, not the config
 	worktree     bool          // spawned agents get their own git worktree; from agent.worktree
+	harness      string        // the harness this computer runs agents under; from agent.harness
 	git          sdk.GitStore
 	commands     map[string]*cmdEntry
 	extensions   []sdk.Extension
@@ -194,7 +195,7 @@ func (h *Host) attach(store *engine.Store) {
 	// with pipeline configuration.
 	store.Bus().Subscribe(&pipelineHandler{
 		dir:   store.Dir(),
-		agent: newAgentAPI(store, h.git, h.worktree, context.Background()),
+		agent: newAgentAPI(store, h.git, h.worktree, h.harness, context.Background()),
 	})
 
 	// Wire extension event handlers to the internal bus so extensions
@@ -329,7 +330,7 @@ func (h *Host) Context(ctx context.Context, author string) sdk.Context {
 		sctx.Queue = newQueueAPI(store, ctx)
 		sctx.Activities = newActivityAPI(store, ctx)
 		sctx.Mirror = newMirrorAPI(store, ctx)
-		sctx.Agents = newAgentAPI(store, h.git, h.worktree, ctx)
+		sctx.Agents = newAgentAPI(store, h.git, h.worktree, h.harness, ctx)
 		sctx.Rules = newRuleAPI(store.Dir(), func(name string) error {
 			_, err := store.Agents.Agent(ctx, name)
 			return err
@@ -508,6 +509,7 @@ func setup(store *engine.Store, opts ...Option) *Host {
 		h.hookLimitSet = true
 	}
 	h.worktree = cfg.AgentWorktree()
+	h.harness = cfg.Agent.Harness
 
 	// Compiled extensions (e.g. cli package) registered at init() time.
 	for _, ext := range extension.All() {

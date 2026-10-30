@@ -8,11 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
-	"os/signal"
-	"path/filepath"
-	"syscall"
 
+	"github.com/jpl-au/llmd/ai/harness"
 	"github.com/jpl-au/llmd/engine/agents"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -46,65 +43,38 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("agent run: %w", err)
 	}
 
-	// Start the agent subprocess.
-	cmd := exec.Command(cfg.Command, cfg.Args...)
-	cmd.Dir = worktree
-	if cfg.Dir != "" {
-		cmd.Dir = cfg.Dir
+	// Run the agent under its harness. A harness that cannot run the
+	// agent fails the run like an agent that exits with 1, so the run
+	// is still recorded and the task still moves.
+	result := &sdk.RunResult{ExitCode: 1}
+	if h, ok := harness.Lookup(cfg.Harness); !ok {
+		slog.Error("this build of llmd has no such harness", "harness", cfg.Harness)
+	} else if r, err := h.Run(ctx.Context, cfg.Spec); err != nil {
+		slog.Error("running agent", "harness", cfg.Harness, "error", err)
+	} else {
+		result = r
 	}
-	cmd.Env = os.Environ()
-	setup(cmd)
-
-	logPath := filepath.Join(worktree, ".llmd-agent.log")
-	logFile, err := os.Create(logPath)
-	if err != nil {
-		return nil, fmt.Errorf("agent run: creating log file: %w", err)
-	}
-	defer logFile.Close()
-
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("agent run: starting agent: %w", err)
-	}
-
-	// Clear any signal handlers registered by the parent (cmd.Execute's
-	// signal.NotifyContext) so that forward() is the sole handler.
-	// Without this, an interrupt cancels the parent context and kills
-	// the runner before it can manage the child's shutdown.
-	signal.Reset(os.Interrupt, syscall.SIGTERM)
-	defer forward(cmd)()
-
-	// Wait for the agent to finish.
-	exitCode := 0
-	if err := cmd.Wait(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			slog.Error("waiting for agent process", "error", err)
-			exitCode = 1
-		}
-	}
+	exitCode := result.ExitCode
+	agent := cfg.Spec.Agent
 
 	// Record run completion before moving the task so pipeline
 	// handlers see this run as finished when the move triggers
 	// the next step.
-	if err := ctx.Agents.Complete(taskKey, exitCode); err != nil {
+	if err := ctx.Agents.Complete(taskKey, *result); err != nil {
 		slog.Error("recording agent completion", "task", taskKey, "error", err)
 	}
 
 	// On failure, capture the agent's last output as an audit note
 	// so the human reviewing the blocked task can see what went wrong.
 	if exitCode != 0 {
-		captureFailure(ctx, taskKey, cfg.Agent, logPath)
+		captureFailure(ctx, taskKey, agent, cfg.Spec.Log)
 	}
 
 	// Move the task based on exit code.
 	if exitCode == 0 {
-		moveTask(ctx, taskKey, cfg.Agent, cfg.OnSuccess)
+		moveTask(ctx, taskKey, agent, cfg.OnSuccess)
 	} else {
-		moveTask(ctx, taskKey, cfg.Agent, cfg.OnFailure)
+		moveTask(ctx, taskKey, agent, cfg.OnFailure)
 	}
 
 	// The runner's exit code is the agent's, for whoever started it.

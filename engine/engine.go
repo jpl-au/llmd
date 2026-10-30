@@ -47,6 +47,7 @@ import (
 	"github.com/jpl-au/llmd/engine/links"
 	"github.com/jpl-au/llmd/engine/messages"
 	"github.com/jpl-au/llmd/engine/search"
+	"github.com/jpl-au/llmd/engine/settings"
 	"github.com/jpl-au/llmd/engine/tags"
 	"github.com/jpl-au/llmd/engine/tasks"
 	docpath "github.com/jpl-au/llmd/path"
@@ -76,6 +77,7 @@ type Store struct {
 	Audits   *audits.Audits
 	Messages *messages.Messages
 	Agents   *agents.Agents
+	Settings *settings.Settings
 	Audit    *audit.Log
 
 	db       *qwr.Manager // llmd.db - always open
@@ -195,6 +197,7 @@ func (s *Store) wire() {
 	s.Audits = audits.New(s.WorkDB, s.bus)
 	s.Messages = messages.New(s.WorkDB, s.bus)
 	s.Agents = agents.New(s.WorkDB, filepath.Join(s.Dir(), "agents"), s.bus)
+	s.Settings = settings.New(s.WorkDB, s.bus)
 
 	// Bridge domain events into the message queue so consumers
 	// can poll for changes across all domains. The handler only
@@ -260,6 +263,7 @@ func createWorkSchema(db *qwr.Manager) error {
 		audits.Schema,
 		messages.Schema,
 		agents.Schema,
+		settings.Schema,
 	}
 	for _, ddl := range schemas {
 		if _, err := db.Query(ddl).Exec(); err != nil {

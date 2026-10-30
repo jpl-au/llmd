@@ -23,7 +23,7 @@ func (P) SettingsArgs(string) []string { return nil }
 func (P) BudgetArgs(float64) []string { return nil }
 
 // ResumeArgs returns nil; Gemini has no session resume mechanism.
-func (P) ResumeArgs(string, string) []string { return nil }
+func (P) ResumeArgs(string) []string { return nil }
 
 // Stats extracts metrics from Gemini CLI's JSON output.
 func (P) Stats(logPath string) (*platform.RunStats, error) {

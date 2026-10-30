@@ -10,6 +10,7 @@ llmd agent rm <name>                        Remove an agent
 llmd agent ls                               List registered agents
 llmd agent config <name>                    Show agent configuration
 llmd agent prompt <name> <role>             Show prompt template
+llmd agent harness <name> [harness]         Show or name the harness the agent runs under
 llmd agent spawn <task-key> <agent>         Spawn agent for a task [--no-worktree]
 llmd agent run <task-key> --worktree <path> Run agent lifecycle (internal)
 llmd agent runs [--status S] [--task K]     List agent runs
@@ -64,6 +65,7 @@ Built-in agents: `claude-code`, `gemini`, `aider`. `llmd task start
   share one) and are removed by `task finish`, not when a run ends.
 - Agent files are plain text under `.llmd/agents/<name>/`: edit them
   with any editor.
+- A harness runs the agent's program. llmd's own, `llmd`, runs the command in the agent's `config.json`. A build of llmd can bring its own harness. `agent harness <name> <harness>` names the harness for everyone who uses the store, and needs an author. `agent.harness` in the configuration file names the harness this computer runs, in place of the store's choice (`guide config`). An agent with neither runs under `llmd`. A spawn refuses a harness this build does not have.
 - Piped, `ls`, `config` and `runs` print tab-separated lines with a
   header line. `--json` gives the structured form.
 

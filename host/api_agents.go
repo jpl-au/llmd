@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jpl-au/llmd/ai/harness"
 	"github.com/jpl-au/llmd/assets"
 	"github.com/jpl-au/llmd/assets/platform"
 	"github.com/jpl-au/llmd/config"
@@ -34,11 +35,51 @@ type agentAPI struct {
 	ctx      context.Context
 	store    *engine.Store
 	git      sdk.GitStore
-	worktree bool // agents get their own worktree unless SpawnOpts says otherwise
+	worktree bool   // agents get their own worktree unless SpawnOpts says otherwise
+	harness  string // agent.harness: the harness this computer runs; empty leaves it to the store
 }
 
-func newAgentAPI(store *engine.Store, git sdk.GitStore, worktree bool, ctx context.Context) *agentAPI {
-	return &agentAPI{ctx: ctx, store: store, git: git, worktree: worktree}
+func newAgentAPI(store *engine.Store, git sdk.GitStore, worktree bool, harness string, ctx context.Context) *agentAPI {
+	return &agentAPI{ctx: ctx, store: store, git: git, worktree: worktree, harness: harness}
+}
+
+// harnessKey is the key of the setting that names the harness an agent runs under.
+func harnessKey(agent string) string {
+	return "agent." + agent + ".harness"
+}
+
+// Harness returns the harness an agent runs under on this computer.
+func (a *agentAPI) Harness(name string) (string, error) {
+	if _, err := a.store.Agents.Agent(a.ctx, name); err != nil {
+		return "", agentErr(err)
+	}
+	if a.harness != "" {
+		return a.harness, nil
+	}
+	value, ok, err := a.store.Settings.Value(a.ctx, harnessKey(name))
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return harness.Default, nil
+	}
+	return value, nil
+}
+
+// SetHarness names the harness an agent runs under, in the store.
+func (a *agentAPI) SetHarness(name, h, author string) error {
+	if _, err := a.store.Agents.Agent(a.ctx, name); err != nil {
+		return agentErr(err)
+	}
+	if _, ok := harness.Lookup(h); !ok {
+		return unknownHarness(h)
+	}
+	return a.store.Settings.Set(a.ctx, harnessKey(name), h, author)
+}
+
+// unknownHarness is the error for a harness this build of llmd does not have.
+func unknownHarness(name string) error {
+	return sdk.Errorf(sdk.ErrNotFound, "this build of llmd has no harness %s. Harnesses: %s.", name, strings.Join(harness.Names(), ", "))
 }
 
 func agentErr(err error) error {
@@ -180,6 +221,15 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, agentErr(agents.Running(taskKey))
 	}
 
+	// The harness must be in this build, since the run starts this same binary.
+	harnessName, err := a.Harness(agent)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := harness.Lookup(harnessName); !ok {
+		return nil, unknownHarness(harnessName)
+	}
+
 	// Resolve the command binary.
 	cmdPath, err := exec.LookPath(cfg.Command)
 	if err != nil {
@@ -282,7 +332,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// where the platform reads them. The main checkout's settings file
 	// is the person's own, so there they go under .llmd/runs/ and are
 	// passed to the agent by flag from the run directory.
-	var settingsArgs []string
+	var settingsPath string
 	if settings := a.store.Agents.Settings(a.ctx, agent); settings != "" && plat.SettingsPath() != "" {
 		templated := strings.ReplaceAll(settings, "{{.Agent}}", agent)
 		templated = strings.ReplaceAll(templated, "{{.TaskID}}", taskKey)
@@ -291,7 +341,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		if inPlace {
 			path := filepath.Join(runDir, "settings.json")
 			if writeSettings(path, templated) {
-				settingsArgs = plat.SettingsArgs(path)
+				settingsPath = path
 			}
 		} else {
 			writeSettings(filepath.Join(absWorktree, plat.SettingsPath()), templated)
@@ -306,8 +356,8 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// has no memory of its prior work. The attempt is guarded by
 	// several conditions: the previous run must exist, must have been
 	// by the same agent (a gemini session ID is meaningless to claude),
-	// must have produced a session ID, and the platform must support
-	// resume. If any condition fails, we fall through to a fresh prompt.
+	// and must have produced a session ID. The harness carries the
+	// session on where it can, and otherwise runs the fresh prompt.
 	//
 	// When resuming, the agent still needs direction about what to
 	// fix. We build a lightweight prompt from audit entries created
@@ -315,69 +365,55 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 	// auditor's rejection feedback). This prompt is passed alongside
 	// the session resume so the agent gets its old context plus the
 	// new instructions.
-	var cmdArgs []string
-	resumed := false
+	var resume *sdk.Resume
 	if opts.Resume || hasFlag(t.Flags, "resume") {
 		if prev, prevErr := a.store.Agents.RunByTask(a.ctx, taskKey); prevErr == nil {
 			if prev.Agent == agent && prev.SessionID != "" {
-				resumePrompt := a.buildResumePrompt(taskKey, prev.StartedAt)
-				if resumeArgs := plat.ResumeArgs(prev.SessionID, resumePrompt); resumeArgs != nil {
-					cmdArgs = resumeArgs
-					resumed = true
-					slog.Debug("resuming previous session", "task", taskKey, "session", prev.SessionID)
-				}
+				resume = &sdk.Resume{Session: prev.SessionID, Prompt: a.buildResumePrompt(taskKey, prev.StartedAt)}
+				slog.Debug("resuming previous session", "task", taskKey, "session", prev.SessionID)
 			}
 		}
 	}
 
-	if !resumed {
-		prompt := opts.Prompt
-		if prompt == "" {
-			prompt = a.store.Agents.BuildPrompt(a.ctx, cfg, agents.PromptData{
-				Key:        t.Key,
-				Title:      t.Title,
-				Branch:     branch,
-				AssignedTo: t.AssignedTo,
-				Agent:      agent,
-				URL:        llmdURL,
-				Auth:       auth,
-				SpecPath:   t.Path,
-				OnSuccess:  opts.OnSuccess,
-				OnFailure:  opts.OnFailure,
-			})
-		}
-
-		cmdArgs = make([]string, len(cfg.Args))
-		for i, arg := range cfg.Args {
-			cmdArgs[i] = strings.ReplaceAll(arg, "{{.Prompt}}", prompt)
-		}
+	prompt := opts.Prompt
+	if prompt == "" {
+		prompt = a.store.Agents.BuildPrompt(a.ctx, cfg, agents.PromptData{
+			Key:        t.Key,
+			Title:      t.Title,
+			Branch:     branch,
+			AssignedTo: t.AssignedTo,
+			Agent:      agent,
+			URL:        llmdURL,
+			Auth:       auth,
+			SpecPath:   t.Path,
+			OnSuccess:  opts.OnSuccess,
+			OnFailure:  opts.OnFailure,
+		})
 	}
 
-	// Apply budget.
 	budget := cfg.MaxBudget
 	if opts.MaxBudget > 0 {
 		budget = opts.MaxBudget
 	}
-	if budget > 0 {
-		cmdArgs = append(cmdArgs, plat.BudgetArgs(budget)...)
-	}
-	cmdArgs = append(cmdArgs, settingsArgs...)
 
-	// Write the resolved run config so agent run can read it. Dir is
-	// where the agent works when that is not the run directory.
-	dir := ""
-	if inPlace {
-		dir = absWorktree
-	}
+	// Write the resolved run config so agent run can read it.
 	if err := agents.WriteRunConfig(runDir, agents.RunConfig{
-		Dir:       dir,
 		TaskKey:   taskKey,
-		Agent:     agent,
 		Role:      cfg.Role,
-		Command:   cmdPath,
-		Args:      cmdArgs,
 		OnSuccess: opts.OnSuccess,
 		OnFailure: opts.OnFailure,
+		Harness:   harnessName,
+		Spec: sdk.RunSpec{
+			Agent:    agent,
+			Command:  cmdPath,
+			Args:     cfg.Args,
+			Prompt:   prompt,
+			Resume:   resume,
+			Settings: settingsPath,
+			Budget:   budget,
+			Dir:      absWorktree,
+			Log:      filepath.Join(runDir, agents.LogFile),
+		},
 	}); err != nil {
 		if created {
 			if rmErr := a.git.WorktreeRemove(absWorktree); rmErr != nil {
@@ -503,29 +539,22 @@ func (a *agentAPI) WritePrompt(name, role, content, author string) error {
 	return a.store.Agents.WritePrompt(a.ctx, name, role, content, author)
 }
 
-// Complete records an agent run as finished. It looks up the run,
-// extracts stats from the output log via the Platform, and updates
-// the database. The worktree is left intact for subsequent pipeline
-// steps (testing, auditing) and cleaned up by task finish.
-func (a *agentAPI) Complete(taskKey string, exitCode int) error {
+// Complete records an agent run as finished, with the usage its
+// harness reported. The worktree is left intact for subsequent
+// pipeline steps (testing, auditing) and cleaned up by task finish.
+func (a *agentAPI) Complete(taskKey string, result sdk.RunResult) error {
 	r, err := a.store.Agents.RunByTask(a.ctx, taskKey)
 	if err != nil {
 		return agentErr(err)
 	}
 
-	// Extract stats from the agent's output log.
-	plat := assets.Agent.Platform(r.Agent)
 	dir := r.Worktree
 	if dir == "" {
 		if dir, err = a.runDir(taskKey); err != nil {
 			return err
 		}
 	}
-	logPath := filepath.Join(dir, ".llmd-agent.log")
-	stats, err := plat.Stats(logPath)
-	if err != nil {
-		slog.Debug("extracting agent stats", "task", taskKey, "error", err)
-	}
+	logPath := filepath.Join(dir, agents.LogFile)
 
 	// Capture the raw JSON response for diagnostic telemetry. This
 	// preserves the full LLM output (token counts, model info, cost,
@@ -541,16 +570,14 @@ func (a *agentAPI) Complete(taskKey string, exitCode int) error {
 		})
 	}
 
-	opts := agents.CompleteOpts{ExitCode: exitCode}
-	if stats != nil {
-		opts.MonetaryCost = stats.MonetaryCost
-		opts.InputTokens = stats.InputTokens
-		opts.OutputTokens = stats.OutputTokens
-		opts.Model = stats.Model
-		opts.SessionID = stats.SessionID
-	}
-
-	return agentErr(a.store.Agents.Complete(a.ctx, taskKey, opts))
+	return agentErr(a.store.Agents.Complete(a.ctx, taskKey, agents.CompleteOpts{
+		ExitCode:     result.ExitCode,
+		MonetaryCost: result.Cost,
+		InputTokens:  result.InputTokens,
+		OutputTokens: result.OutputTokens,
+		Model:        result.Model,
+		SessionID:    result.Session,
+	}))
 }
 
 // Stop terminates a running agent process and cleans up its worktree.

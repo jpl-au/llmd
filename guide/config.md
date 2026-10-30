@@ -100,6 +100,7 @@ llmd config git deny "llmd-docs.db"
 | `database.busy_timeout` | How long a write waits for another process's write before failing (default `5s`). Raise it when several agents write to one store at once |
 | `database.cache_size` | Most page cache, in MB, each database connection may hold; used only as pages are read (default `64`) |
 | `agent.worktree` | Whether spawned agents get their own git worktree: `true` (default) or `false` for the main checkout. `task start --worktree`/`--no-worktree` override it |
+| `agent.harness` | The harness that runs agents on this computer, in place of the one the store names for each agent (`agent harness`). Empty, the default, leaves the choice to the store |
 | `display.theme` | Colours for markdown rendered at a terminal: `dark` (default) for a dark background, `light` for a light one |
 | `database.mmap_size` | How much of each database file, in MB, is memory-mapped (default `256`); `0` turns memory-mapping off |
 

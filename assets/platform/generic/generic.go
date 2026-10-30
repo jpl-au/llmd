@@ -23,7 +23,7 @@ func (P) SettingsArgs(string) []string { return nil }
 func (P) BudgetArgs(float64) []string { return nil }
 
 // ResumeArgs returns nil; unknown platforms have no resume mechanism.
-func (P) ResumeArgs(string, string) []string { return nil }
+func (P) ResumeArgs(string) []string { return nil }
 
 // Stats returns nil; unknown platforms have no stats extraction.
 func (P) Stats(string) (*platform.RunStats, error) { return nil, nil }

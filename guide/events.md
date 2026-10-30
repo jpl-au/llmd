@@ -37,6 +37,7 @@ All 25 event types across 8 domains:
 | Agent    | `agent.completed`   | Agent run finished successfully |
 | Agent    | `agent.failed`      | Agent run exited with an error  |
 | Agent    | `agent.stopped`     | Agent run stopped by hand       |
+| Setting  | `setting.changed`   | A setting of the store was set  |
 | Queue    | `message.sent`      | Queue message sent              |
 | Queue    | `message.acknowledged` | Queue message acknowledged   |
 | Store    | `store.changed`     | Another process changed a database (see below) |

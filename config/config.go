@@ -43,6 +43,10 @@ type AgentConfig struct {
 	// Worktree is whether a spawned agent works in its own git
 	// worktree (true, the default) or in the main checkout.
 	Worktree *bool `yaml:"worktree,omitempty"`
+	// Harness names the harness that runs agents on this computer, in
+	// place of the one the store names for each agent. Empty leaves the
+	// choice to the store.
+	Harness string `yaml:"harness,omitempty"`
 }
 
 // DisplayConfig holds settings for output at a terminal.
@@ -355,6 +359,7 @@ func Keys() []string {
 		"database.mmap_size",
 		"display.theme",
 		"agent.worktree",
+		"agent.harness",
 	}
 }
 
@@ -424,6 +429,8 @@ func (c Config) Field(key string) (string, bool) {
 			return "", false
 		}
 		return strconv.FormatBool(*c.Agent.Worktree), true
+	case "agent.harness":
+		return c.Agent.Harness, c.Agent.Harness != ""
 	default:
 		return "", false
 	}
@@ -506,6 +513,8 @@ func (c *Config) Set(key, value string) error {
 			return fmt.Errorf("agent.worktree must be true or false.")
 		}
 		c.Agent.Worktree = &b
+	case "agent.harness":
+		c.Agent.Harness = value
 	default:
 		return fmt.Errorf("there is no config key %s. Run llmd config to list them.", key)
 	}

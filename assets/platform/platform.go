@@ -33,10 +33,11 @@ type Platform interface {
 	// Returns nil when no stats are available.
 	Stats(logPath string) (*RunStats, error)
 
-	// ResumeArgs returns CLI arguments that restore the agent's prior
-	// conversation context and deliver a new prompt into that session.
+	// ResumeArgs returns the CLI arguments that carry a prior session on.
+	// They go beside the agent's own arguments, which deliver the new
+	// prompt, so the output format the agent is run with stays the same.
 	// Returns nil when the platform has no resume mechanism.
-	ResumeArgs(sessionID, prompt string) []string
+	ResumeArgs(sessionID string) []string
 
 	// ParseHook extracts a normalised HookEvent from a platform-specific
 	// hook payload. Each platform sends different JSON shapes; this

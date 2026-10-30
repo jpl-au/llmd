@@ -25,6 +25,7 @@ Subcommands:
   ls                               list registered agents
   config <name>                    show agent configuration
   prompt <name> <role>             show prompt template
+  harness <name> [harness]         show or name the harness the agent runs under
   spawn <task-key> <agent>         spawn agent for a task [--no-worktree] [--budget usd]
   runs [--status S] [--task K]     list agent runs
   complete <task-key> [--exit N]   record an agent's exit
@@ -33,7 +34,7 @@ Subcommands:
 
 Built-in agents: claude-code, gemini, aider
 See "llmd guide agent" for full documentation.`, Usage: "agent <subcommand> [options]", MCP: true, MCPName: "agent", Brief: `Run AI agents on tasks in isolated git worktrees. Built-in: claude-code, gemini, aider.
-Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <name> <role>, spawn <task> <agent> [--no-worktree], runs [--status s] [--task k], complete <task> --exit-code n, stop <task>. Or: task start <id> --agent <name>.`, Flags: []sdk.Flag{
+Subcommands: add <name> [--command bin], rm <name>, ls, config <name>, prompt <name> <role>, harness <name> [harness], spawn <task> <agent> [--no-worktree], runs [--status s] [--task k], complete <task> --exit-code n, stop <task>. Or: task start <id> --agent <name>.`, Flags: []sdk.Flag{
 		{Name: "command", Type: "string", Desc: "Command to run (for custom agents)"},
 		{Name: "status", Type: "string", Desc: "Filter runs by status"},
 		{Name: "task", Type: "string", Desc: "Filter runs by task key"},
@@ -72,6 +73,8 @@ func agentCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return agentConfig(ctx, args)
 	case "prompt":
 		return agentPrompt(ctx, args)
+	case "harness":
+		return agentHarness(ctx, args)
 	case "runs":
 		return agentRuns(ctx, args)
 	case "spawn":
@@ -272,7 +275,7 @@ func agentComplete(ctx sdk.Context, args []string) (sdk.Response, error) {
 	key := positional[0]
 	exitCode := flags.Int("exit-code")
 
-	if err := ctx.Agents.Complete(key, exitCode); err != nil {
+	if err := ctx.Agents.Complete(key, sdk.RunResult{ExitCode: exitCode}); err != nil {
 		return nil, fmt.Errorf("agent complete: %w", err)
 	}
 	return sdk.Text(fmt.Sprintf("Completed agent run for task %s (exit %d)", key, exitCode)), nil

@@ -5,25 +5,27 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/jpl-au/llmd/sdk"
 )
 
 const runConfigFile = ".llmd-run.json"
+
+// LogFile is the name of the log of a run, in the directory that holds its run config.
+const LogFile = ".llmd-agent.log"
 
 // RunConfig holds the resolved configuration for an agent run. Written
 // to the worktree by Spawn and read by the agent run command. This
 // replaces the bash wrapper template with a cross-platform JSON file.
 type RunConfig struct {
-	// Dir is where the agent works, when that is not the directory
-	// holding this file: an agent in the main checkout keeps its run
-	// files under .llmd/runs/<task>/. Empty means this directory.
-	Dir       string   `json:"dir,omitempty"`
-	TaskKey   string   `json:"task_key"`
-	Agent     string   `json:"agent"`
-	Role      string   `json:"role"`
-	Command   string   `json:"command"`
-	Args      []string `json:"args"`
-	OnSuccess string   `json:"on_success,omitempty"`
-	OnFailure string   `json:"on_failure,omitempty"`
+	TaskKey   string `json:"task_key"`
+	Role      string `json:"role"`
+	OnSuccess string `json:"on_success,omitempty"`
+	OnFailure string `json:"on_failure,omitempty"`
+
+	// Harness names the harness that runs the agent, and Spec is what it is given.
+	Harness string      `json:"harness"`
+	Spec    sdk.RunSpec `json:"spec"`
 }
 
 // WriteRunConfig serialises the config to .llmd-run.json in the given

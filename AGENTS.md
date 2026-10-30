@@ -35,6 +35,7 @@ sdk/                        API surface: interfaces, types, flag parsing, sentin
 app/                        Build-time metadata: version tag, commit, build time
 cli/                        Thin CLI dispatch: calls SDK, formats output
 extension/                  Caddy-style compile-time plugin registry
+ai/harness/                 Harness registry and llmd's own harness, which runs agent programs
 host/                       SDK bridge: translates SDK calls to the domain packages
 engine/                     Store: opens databases, coordinates sub-packages
 engine/documents/           Document CRUD, versioning, soft-delete
@@ -49,6 +50,7 @@ engine/events/              Internal synchronous event bus
 engine/entities/            Named entity extraction
 engine/audits/              Agent-to-agent and human-to-agent review threads
 engine/audit/               Change log
+engine/settings/            Key-value settings of the store, kept with their history
 engine/key/                 ID generation: 10-char base36 from ms timestamps
 engine/lazy/                One-time setup that retries after a failure (unlike sync.Once)
 engine/hash/                Content hashing (xxh3)
@@ -266,6 +268,8 @@ duplicate names to catch programmer errors early. Extensions implement
 themselves.
 
 A binary that adds extensions follows the Caddy model: its own root `main.go` blank-imports `cli` and its extension packages, then calls `cmd.Execute(os.Args[1:])`. The `cmd` package comment shows the full file.
+
+A build can also bring its own harness: an `sdk.Harness` that runs agent programs, registered with `harness.Register` from `ai/harness` in `init()`. `llmd agent run` gives the harness an `sdk.RunSpec` (prompt, session to resume, settings file, budget, folder, log) and records the `sdk.RunResult` it returns. The store names each agent's harness in its `settings` table (`agent.<name>.harness`); `agent.harness` in the configuration file overrides it for one computer. llmd's own harness is `llmd`.
 
 ## Event System
 

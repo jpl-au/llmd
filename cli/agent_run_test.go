@@ -2,9 +2,11 @@ package cli
 
 import (
 	"errors"
+	"path/filepath"
 	"runtime"
 	"testing"
 
+	"github.com/jpl-au/llmd/ai/harness"
 	"github.com/jpl-au/llmd/engine/agents"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -30,7 +32,12 @@ func TestAgentRunExitCode(t *testing.T) {
 			c := newCLI(t, "alice")
 			worktree := t.TempDir()
 			if err := agents.WriteRunConfig(worktree, agents.RunConfig{
-				TaskKey: "abcdefghij", Agent: "test", Command: "sh", Args: []string{"-c", tt.script},
+				TaskKey: "abcdefghij",
+				Harness: harness.Default,
+				Spec: sdk.RunSpec{
+					Agent: "test", Command: "sh", Args: []string{"-c", tt.script},
+					Dir: worktree, Log: filepath.Join(worktree, agents.LogFile),
+				},
 			}); err != nil {
 				t.Fatal(err)
 			}

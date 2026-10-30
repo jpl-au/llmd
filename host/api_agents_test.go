@@ -1,6 +1,7 @@
 package host
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jpl-au/llmd/ai/harness"
 	"github.com/jpl-au/llmd/engine/agents"
 	"github.com/jpl-au/llmd/sdk"
 )
@@ -22,11 +24,53 @@ func agentHost(t *testing.T) (*Host, sdk.Context) {
 	return h, h.Context(t.Context(), "alice")
 }
 
-// claudeLog is the final JSON line Claude Code prints; Complete reads
-// it from <worktree>/.llmd-agent.log to record the run's stats.
-const claudeLog = `thinking...
-{"total_cost_usd":0.42,"session_id":"sess-1","usage":{"input_tokens":10,"output_tokens":20},"modelUsage":{"claude-test":{}}}
-`
+// stubHarness stands in for a harness a build brings with it.
+type stubHarness struct{}
+
+func (stubHarness) Name() string { return "stub" }
+
+func (stubHarness) Run(context.Context, sdk.RunSpec) (*sdk.RunResult, error) {
+	return &sdk.RunResult{}, nil
+}
+
+func init() {
+	harness.Register(stubHarness{})
+}
+
+// TestAgentsHarness checks the harness an agent runs under: llmd's own
+// when nothing names one, the one the store names, and agent.harness
+// from the configuration file over both. A harness this build does not
+// have is refused.
+func TestAgentsHarness(t *testing.T) {
+	h, c := agentHost(t)
+	if err := c.Agents.Register(sdk.AgentConfig{Name: "claude-code", Command: "claude"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, err := c.Agents.Harness("claude-code"); err != nil || got != harness.Default {
+		t.Errorf("Harness before SetHarness = %q, %v, want %q", got, err, harness.Default)
+	}
+
+	if err := c.Agents.SetHarness("claude-code", "stub", "alice"); err != nil {
+		t.Fatalf("SetHarness(stub) error = %v", err)
+	}
+	if got, err := c.Agents.Harness("claude-code"); err != nil || got != "stub" {
+		t.Errorf("Harness after SetHarness = %q, %v, want stub", got, err)
+	}
+
+	// agent.harness on this computer wins over the store.
+	local := newAgentAPI(h.current(), h.git, true, harness.Default, t.Context())
+	if got, err := local.Harness("claude-code"); err != nil || got != harness.Default {
+		t.Errorf("Harness with agent.harness set = %q, %v, want %q", got, err, harness.Default)
+	}
+
+	if err := c.Agents.SetHarness("claude-code", "missing", "alice"); !errors.Is(err, sdk.ErrNotFound) || !strings.Contains(err.Error(), "no harness missing") {
+		t.Errorf("SetHarness(missing) error = %v, want ErrNotFound naming the harness", err)
+	}
+	if got, err := c.Agents.Harness("claude-code"); err != nil || got != "stub" {
+		t.Errorf("Harness after a refused SetHarness = %q, %v, want stub", got, err)
+	}
+}
 
 func TestAgentsRegister(t *testing.T) {
 	tests := []struct {
@@ -124,7 +168,7 @@ func TestAgentsRuns(t *testing.T) {
 			h, c := agentHost(t)
 			seedRun(t, h, agents.RecordOpts{TaskKey: "t-one", Agent: "claude-code", PID: 4242, Branch: "task/one"})
 			seedRun(t, h, agents.RecordOpts{TaskKey: "t-two", Agent: "gemini"})
-			if err := c.Agents.Complete("t-two", 0); err != nil {
+			if err := c.Agents.Complete("t-two", sdk.RunResult{ExitCode: 0}); err != nil {
 				t.Fatalf("Complete(t-two) error = %v", err)
 			}
 
@@ -230,40 +274,34 @@ func TestAgentsPrompt(t *testing.T) {
 }
 
 // TestAgentsComplete covers recording the outcome of a running run,
-// stats extracted from the agent's log, and the not-found and
-// not-running errors.
+// the usage its harness reported, and the not-found and not-running
+// errors.
 func TestAgentsComplete(t *testing.T) {
+	cost, in, out := 0.42, 10, 20
+	usage := sdk.RunResult{Cost: &cost, InputTokens: &in, OutputTokens: &out, Model: "claude-test", Session: "sess-1"}
 	tests := []struct {
 		name       string
 		seed       bool
-		agent      string
-		log        string                            // written to <worktree>/.llmd-agent.log when set
-		inPlace    bool                              // the run has no worktree
 		before     func(t *testing.T, c sdk.Context) // runs after seeding
-		exitCode   int
+		result     sdk.RunResult
 		wantErr    error
 		wantStatus string
-		wantStats  bool
 	}{
-		{name: "exit zero completes", seed: true, agent: "claude-code", exitCode: 0, wantStatus: sdk.AgentCompleted},
-		{name: "non-zero exit fails", seed: true, agent: "claude-code", exitCode: 3, wantStatus: sdk.AgentFailed},
-		{name: "stats from the log", seed: true, agent: "claude-code", log: claudeLog, exitCode: 0, wantStatus: sdk.AgentCompleted, wantStats: true},
-		{name: "platform without stats", seed: true, agent: "my-agent", log: claudeLog, exitCode: 0, wantStatus: sdk.AgentCompleted},
-		// A run in the main checkout records no worktree; its log is in
-		// .llmd/runs/<task>/.
-		{name: "stats from an in-place run", seed: true, inPlace: true, agent: "claude-code", log: claudeLog, exitCode: 0, wantStatus: sdk.AgentCompleted, wantStats: true},
+		{name: "exit zero completes", seed: true, wantStatus: sdk.AgentCompleted},
+		{name: "non-zero exit fails", seed: true, result: sdk.RunResult{ExitCode: 3}, wantStatus: sdk.AgentFailed},
+		{name: "usage from the harness", seed: true, result: usage, wantStatus: sdk.AgentCompleted},
 		{name: "no run", wantErr: sdk.ErrNotFound},
 		{
-			name: "already completed", seed: true, agent: "claude-code",
+			name: "already completed", seed: true,
 			before: func(t *testing.T, c sdk.Context) {
-				if err := c.Agents.Complete("task", 0); err != nil {
+				if err := c.Agents.Complete("task", sdk.RunResult{}); err != nil {
 					t.Fatalf("Complete: %v", err)
 				}
 			},
 			wantErr: sdk.ErrAgentNotRunning,
 		},
 		{
-			name: "stopped", seed: true, agent: "claude-code",
+			name: "stopped", seed: true,
 			before: func(t *testing.T, c sdk.Context) {
 				if err := c.Agents.Stop("task", "alice"); err != nil {
 					t.Fatalf("Stop: %v", err)
@@ -276,34 +314,16 @@ func TestAgentsComplete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h, c := agentHost(t)
-			worktree := t.TempDir()
-			logDir := worktree
-			if tt.inPlace {
-				worktree = ""
-				dir, err := newAgentAPI(h.current(), h.git, true, t.Context()).runDir("task")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if err := os.MkdirAll(dir, 0o755); err != nil {
-					t.Fatal(err)
-				}
-				logDir = dir
-			}
 			if tt.seed {
-				seedRun(t, h, agents.RecordOpts{TaskKey: "task", Agent: tt.agent, Worktree: worktree})
-			}
-			if tt.log != "" {
-				if err := os.WriteFile(filepath.Join(logDir, ".llmd-agent.log"), []byte(tt.log), 0o644); err != nil {
-					t.Fatal(err)
-				}
+				seedRun(t, h, agents.RecordOpts{TaskKey: "task", Agent: "claude-code", Worktree: t.TempDir()})
 			}
 			if tt.before != nil {
 				tt.before(t, c)
 			}
 
-			err := c.Agents.Complete("task", tt.exitCode)
+			err := c.Agents.Complete("task", tt.result)
 			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("Complete(task, %d) error = %v, want %v", tt.exitCode, err, tt.wantErr)
+				t.Fatalf("Complete(task, %+v) error = %v, want %v", tt.result, err, tt.wantErr)
 			}
 			if err != nil {
 				return
@@ -312,16 +332,12 @@ func TestAgentsComplete(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Run(task) error = %v", err)
 			}
-			if r.Status != tt.wantStatus || r.ExitCode != tt.exitCode || r.PID != 0 {
-				t.Errorf("Run(task) after Complete = status %q exit %d pid %d, want %q %d 0", r.Status, r.ExitCode, r.PID, tt.wantStatus, tt.exitCode)
+			if r.Status != tt.wantStatus || r.ExitCode != tt.result.ExitCode || r.PID != 0 {
+				t.Errorf("Run(task) after Complete = status %q exit %d pid %d, want %q %d 0", r.Status, r.ExitCode, r.PID, tt.wantStatus, tt.result.ExitCode)
 			}
-			gotStats := r.MonetaryCost != nil || r.Model != "" || r.SessionID != "" || r.InputTokens != nil
-			if gotStats != tt.wantStats {
-				t.Errorf("Run(task) stats present = %v, want %v (%+v)", gotStats, tt.wantStats, r)
-			}
-			if tt.wantStats && (*r.MonetaryCost != 0.42 || r.Model != "claude-test" || r.SessionID != "sess-1" || *r.InputTokens != 10 || *r.OutputTokens != 20) {
-				t.Errorf("Run(task) stats = cost %v model %q session %q in %v out %v, want 0.42 claude-test sess-1 10 20",
-					*r.MonetaryCost, r.Model, r.SessionID, *r.InputTokens, *r.OutputTokens)
+			got := sdk.RunResult{ExitCode: r.ExitCode, Session: r.SessionID, Model: r.Model, Cost: r.MonetaryCost, InputTokens: r.InputTokens, OutputTokens: r.OutputTokens}
+			if !reflect.DeepEqual(got, tt.result) {
+				t.Errorf("Run(task) usage = %+v, want %+v", got, tt.result)
 			}
 		})
 	}
@@ -358,7 +374,7 @@ func TestAgentsStop(t *testing.T) {
 		{
 			name: "already completed", seed: true,
 			before: func(t *testing.T, c sdk.Context) {
-				if err := c.Agents.Complete("task", 0); err != nil {
+				if err := c.Agents.Complete("task", sdk.RunResult{ExitCode: 0}); err != nil {
 					t.Fatalf("Complete: %v", err)
 				}
 			},
@@ -367,7 +383,7 @@ func TestAgentsStop(t *testing.T) {
 		{
 			name: "already completed maps to the SDK sentinel", seed: true,
 			before: func(t *testing.T, c sdk.Context) {
-				if err := c.Agents.Complete("task", 0); err != nil {
+				if err := c.Agents.Complete("task", sdk.RunResult{ExitCode: 0}); err != nil {
 					t.Fatalf("Complete: %v", err)
 				}
 			},
@@ -497,7 +513,7 @@ func TestBuildResumePrompt(t *testing.T) {
 				}
 			}
 
-			a := newAgentAPI(h.current(), h.git, true, t.Context())
+			a := newAgentAPI(h.current(), h.git, true, "", t.Context())
 			got := a.buildResumePrompt(task.Key, since)
 			generic := "Resume work on task " + task.Key + ". Review any recent feedback and address outstanding issues."
 			if tt.wantGeneric {

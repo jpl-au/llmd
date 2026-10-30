@@ -118,6 +118,10 @@ const (
 	// AgentStopped fires when an agent process is manually terminated.
 	AgentStopped = "agent.stopped"
 
+	// SettingChanged fires when a setting of the store is set. Key
+	// holds the setting's key and Metadata["value"] its new value.
+	SettingChanged = "setting.changed"
+
 	// StoreChanged fires when another process committed a change to
 	// one of the store's databases. It is raised by a watching runtime
 	// (llmd serve) for its subscribers, never on the internal bus, and

@@ -194,10 +194,17 @@ var notFoundCases = []notFoundCase{
 		return err
 	}},
 	{"AgentStore", "Complete", func(c sdk.Context) error {
-		return c.Agents.Complete("missing", 0)
+		return c.Agents.Complete("missing", sdk.RunResult{ExitCode: 0})
 	}},
 	{"AgentStore", "Stop", func(c sdk.Context) error {
 		return c.Agents.Stop("missing", "alice")
+	}},
+	{"AgentStore", "Harness", func(c sdk.Context) error {
+		_, err := c.Agents.Harness("missing")
+		return err
+	}},
+	{"AgentStore", "SetHarness", func(c sdk.Context) error {
+		return c.Agents.SetHarness("missing", "llmd", "alice")
 	}},
 	{"AgentStore", "Prompt", func(c sdk.Context) error {
 		_, _, err := c.Agents.Prompt("missing", "developer")

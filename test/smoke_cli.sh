@@ -391,10 +391,18 @@ MD
         log_fail "gitignore allows .gitignore through: got '$out'"
     fi
 
-    if echo "$out" | grep -q '!llmd\.db'; then
-        log_pass "gitignore allows llmd.db through"
+    # Documents travel through git as mirrored files under llmd/; the
+    # databases stay local.
+    if echo "$out" | grep -q '^!llmd/$'; then
+        log_pass "gitignore allows the mirrored documents through"
     else
-        log_fail "gitignore allows llmd.db through: got '$out'"
+        log_fail "gitignore allows the mirrored documents through: got '$out'"
+    fi
+
+    if echo "$out" | grep -q 'llmd\.db'; then
+        log_fail "gitignore keeps llmd.db local: got '$out'"
+    else
+        log_pass "gitignore keeps llmd.db local"
     fi
 
     # --- config git allow/deny/ls ---

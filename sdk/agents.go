@@ -33,10 +33,14 @@ type AgentStore interface {
 	// Runs returns agent runs matching the filter.
 	Runs(opts RunListOpts) ([]*AgentRun, error)
 
-	// Complete records an agent run as finished. Extracts stats
-	// (cost, tokens, model) from the agent's output log and
-	// cleans up the worktree.
-	Complete(taskKey string, exitCode int) error
+	// Complete records the run of a task as finished, with the exit code and the usage the harness reported. The worktree stays for the next step of the pipeline.
+	Complete(taskKey string, result RunResult) error
+
+	// Harness returns the name of the harness an agent runs under on this computer: agent.harness in the configuration file, then the harness the store names for the agent, then llmd's own.
+	Harness(name string) (string, error)
+
+	// SetHarness names the harness an agent runs under, for everyone who uses the store. The harness must be one this build of llmd has.
+	SetHarness(name, harness, author string) error
 
 	// Stop terminates a running agent process and cleans up its
 	// worktree.

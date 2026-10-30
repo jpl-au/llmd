@@ -69,6 +69,7 @@ func TestSet(t *testing.T) {
 		{key: "agent.worktree", value: "false"},
 		{key: "agent.worktree", value: "true"},
 		{key: "agent.worktree", value: "maybe", wantErr: "agent.worktree must be true or false."},
+		{key: "agent.harness", value: "harness"},
 		{key: "no.such.key", value: "x", wantErr: "there is no config key no.such.key. Run llmd config to list them."},
 	}
 	for _, tt := range tests {

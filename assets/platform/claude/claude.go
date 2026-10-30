@@ -29,9 +29,9 @@ func (P) BudgetArgs(budget float64) []string {
 	return []string{fmt.Sprintf("--max-budget-usd=%.2f", budget)}
 }
 
-// ResumeArgs returns --resume and -p flags to restore a prior session.
-func (P) ResumeArgs(id, prompt string) []string {
-	return []string{"--resume", id, "-p", prompt}
+// ResumeArgs returns the --resume flag to restore a prior session.
+func (P) ResumeArgs(id string) []string {
+	return []string{"--resume", id}
 }
 
 // Stats extracts metrics from Claude Code's JSON output.

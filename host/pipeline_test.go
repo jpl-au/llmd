@@ -178,7 +178,7 @@ func TestPipelineHandleEvent(t *testing.T) {
 				registerAgent(t, c, agent)
 				setRule(t, c, "review", agentRule)
 				seedRun(t, h, agents.RecordOpts{TaskKey: key, Agent: agent})
-				if err := c.Agents.Complete(key, 0); err != nil {
+				if err := c.Agents.Complete(key, sdk.RunResult{ExitCode: 0}); err != nil {
 					t.Fatalf("Agents.Complete(%q) error = %v", key, err)
 				}
 			},
@@ -231,7 +231,7 @@ func TestPipelineHandleEvent(t *testing.T) {
 
 			git := &spyGit{}
 			store := h.current()
-			handler := &pipelineHandler{dir: store.Dir(), agent: newAgentAPI(store, git, true, t.Context())}
+			handler := &pipelineHandler{dir: store.Dir(), agent: newAgentAPI(store, git, true, "", t.Context())}
 
 			e := tt.event(task.Key)
 			if err := handler.HandleEvent(t.Context(), e); err != nil {
