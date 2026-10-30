@@ -58,8 +58,8 @@ func TestServerURL(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("serverURL() error = %v, want %v", err, tt.wantErr)
 			}
-			if err != nil && !strings.Contains(err.Error(), "llmd serve") {
-				t.Errorf("serverURL() error = %q, want it to name llmd serve", err)
+			if err != nil && !strings.Contains(err.Error(), sdk.Program()+" serve") {
+				t.Errorf("serverURL() error = %q, want it to name %s serve", err, sdk.Program())
 			}
 			if got != tt.want || auth != tt.wantAuth {
 				t.Errorf("serverURL() = %q, %q, want %q, %q", got, auth, tt.want, tt.wantAuth)

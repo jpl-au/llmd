@@ -34,7 +34,7 @@ func write(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("write: reading stdin: %w", err)
 	}
 	if len(content) == 0 {
-		return nil, sdk.Errorf(sdk.ErrMissingArg, "write: no content. Pipe the document to llmd write %s.", path)
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "write: no content. Pipe the document to %s write %s.", sdk.Program(), path)
 	}
 
 	if err := ctx.Documents.Write(path, content, sdk.WriteOpts{

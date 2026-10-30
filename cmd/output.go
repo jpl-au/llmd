@@ -94,7 +94,7 @@ func writeJSON(v any) int {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(v); err != nil {
-		return errorf(false, "llmd: encoding JSON: %v", err)
+		return errorf(false, "%s: encoding JSON: %v", sdk.Program(), err)
 	}
 	return 0
 }
@@ -111,7 +111,7 @@ func errorf(jsonOut bool, format string, args ...any) int {
 		}
 	} else {
 		// lipgloss drops the colour when stderr is not a terminal.
-		if _, e := lipgloss.Fprintln(os.Stderr, highlightCommands(msg)); e != nil {
+		if _, e := lipgloss.Fprintln(os.Stderr, highlightCommands(msg, sdk.Program())); e != nil {
 			slog.Warn("writing error to stderr", "error", e)
 		}
 	}
@@ -122,15 +122,16 @@ func errorf(jsonOut bool, format string, args ...any) int {
 // run, in the terminal's own cyan.
 var commandStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
 
-// highlightCommands colours each "llmd <command>" an error message
-// names. A command runs from "llmd" to the first word that ends a
-// sentence or clause (".", ",", ";") or starts what follows it ("to",
-// "first", "then"), as in "Run llmd init to create one." The "llmd:"
-// prefix of the CLI's own errors is not a command and is left alone.
-func highlightCommands(msg string) string {
+// highlightCommands colours each "<program> <command>" an error
+// message names, program being the binary's name. A command runs from
+// the program to the first word that ends a sentence or clause (".",
+// ",", ";") or starts what follows it ("to", "first", "then"), as in
+// "Run llmd init to create one." The "llmd:" prefix of the CLI's own
+// errors is not a command and is left alone.
+func highlightCommands(msg, program string) string {
 	words := strings.Split(msg, " ")
 	for i := 0; i < len(words); i++ {
-		if words[i] != "llmd" {
+		if words[i] != program {
 			continue
 		}
 		end, trail := i+1, ""
@@ -147,7 +148,7 @@ func highlightCommands(msg string) string {
 			}
 		}
 		if end == i+1 {
-			continue // "llmd" alone names no command
+			continue // the program alone names no command
 		}
 		cmd := commandStyle.Render(strings.Join(words[i:end], " ")) + trail
 		words = slices.Replace(words, i, end, cmd)

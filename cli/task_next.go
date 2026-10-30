@@ -37,7 +37,7 @@ func taskNext(ctx sdk.Context, args []string) (sdk.Response, error) {
 	t, err := ctx.Tasks.Next(ctx.Author, opts)
 	if err != nil {
 		if errors.Is(err, sdk.ErrNoneReady) {
-			return nil, sdk.Errorf(sdk.ErrNoneReady, "task next: no task is ready in %s. Run llmd task list to see the board.", from)
+			return nil, sdk.Errorf(sdk.ErrNoneReady, "task next: no task is ready in %s. Run %s task list to see the board.", from, sdk.Program())
 		}
 		return nil, fmt.Errorf("task next: %w", err)
 	}

@@ -229,13 +229,13 @@ func (s *Server) local(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.token == "" {
 			if !s.allowedHost(r.Host) {
-				writeError(w, http.StatusForbidden, fmt.Errorf("requests to %s are refused. Without server.token, llmd answers only requests to localhost.", r.Host))
+				writeError(w, http.StatusForbidden, fmt.Errorf("requests to %s are refused. Without server.token, %s answers only requests to localhost.", r.Host, sdk.Program()))
 				return
 			}
 			if o := r.Header.Get("Origin"); o != "" {
 				u, err := url.Parse(o)
 				if err != nil || !s.allowedHost(u.Host) {
-					writeError(w, http.StatusForbidden, fmt.Errorf("requests from %s are refused. Without server.token, llmd answers only pages served from localhost.", o))
+					writeError(w, http.StatusForbidden, fmt.Errorf("requests from %s are refused. Without server.token, %s answers only pages served from localhost.", o, sdk.Program()))
 					return
 				}
 			}
@@ -280,7 +280,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	// only holds on loopback: anyone who can reach another address can
 	// send any Host they like.
 	if s.token == "" && !loopback(hostOnly(s.addr)) {
-		return fmt.Errorf("serve: %s is not a loopback address, so server.token must be set. Run llmd config server.token <secret>.", s.addr)
+		return fmt.Errorf("serve: %s is not a loopback address, so server.token must be set. Run %s config server.token <secret>.", s.addr, sdk.Program())
 	}
 
 	srv := &http.Server{
@@ -351,7 +351,7 @@ func (j *jsonRouterErrors) WriteHeader(code int) {
 	if !j.replaced && plain && (code == http.StatusNotFound || code == http.StatusMethodNotAllowed) {
 		j.replaced = true
 		j.Header().Del("X-Content-Type-Options")
-		msg := fmt.Errorf("there is no route %s. Run llmd guide serve to list them.", j.r.URL.Path)
+		msg := fmt.Errorf("there is no route %s. Run %s guide serve to list them.", j.r.URL.Path, sdk.Program())
 		if code == http.StatusMethodNotAllowed {
 			msg = fmt.Errorf("%s does not accept %s. It accepts %s.", j.r.URL.Path, j.r.Method, j.Header().Get("Allow"))
 		}

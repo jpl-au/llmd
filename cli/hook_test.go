@@ -50,7 +50,7 @@ func TestHookInit(t *testing.T) {
 			wantText: []string{
 				`"SessionStart"`, `"SessionEnd"`, `"TaskCompleted"`, `"PostToolUse"`,
 				`"matcher": "mcp__llmd.*"`, `"type": "command"`,
-				`"command": "llmd --author 'claude' hook"`,
+				`"command": "` + sdk.Program() + ` --author 'claude' hook"`,
 			},
 			wantAbsent: []string{"http"},
 			wantJSON:   true,
@@ -58,7 +58,7 @@ func TestHookInit(t *testing.T) {
 		{
 			name:     "claude-code matches claude",
 			args:     []string{"init", "claude-code"},
-			wantText: []string{`"PostToolUse"`, `"command": "llmd --author 'claude-code' hook"`},
+			wantText: []string{`"PostToolUse"`, `"command": "` + sdk.Program() + ` --author 'claude-code' hook"`},
 			wantJSON: true,
 		},
 		{
@@ -66,7 +66,7 @@ func TestHookInit(t *testing.T) {
 			args: []string{"init", "gemini"},
 			wantText: []string{
 				`"event": "SessionStart"`, `"event": "AfterTool"`, `"type": "command"`,
-				`"command": "llmd --author 'gemini' hook"`,
+				`"command": "` + sdk.Program() + ` --author 'gemini' hook"`,
 			},
 			wantAbsent: []string{"queue", "http"},
 			wantJSON:   true,
@@ -75,7 +75,7 @@ func TestHookInit(t *testing.T) {
 			name: "generic is a wrapper script around the hook command",
 			args: []string{"init", "generic"},
 			wantText: []string{
-				"#!/bin/sh", `llmd --author 'generic' hook --task "$TASK_ID"`,
+				"#!/bin/sh", sdk.Program() + ` --author 'generic' hook --task "$TASK_ID"`,
 				"emit session.start", "emit task.completed", "emit task.failed", "exit $EXIT",
 			},
 			wantAbsent: []string{"queue send", "task move"},
@@ -83,13 +83,13 @@ func TestHookInit(t *testing.T) {
 		{
 			name:     "unknown platform falls back to generic",
 			args:     []string{"init", "my-agent"},
-			wantText: []string{"#!/bin/sh", `llmd --author 'my-agent' hook`},
+			wantText: []string{"#!/bin/sh", sdk.Program() + ` --author 'my-agent' hook`},
 		},
 		{
 			name:       "configured author is used",
 			config:     "author: jake\n",
 			args:       []string{"init", "claude"},
-			wantText:   []string{`"command": "llmd --author 'jake' hook"`},
+			wantText:   []string{`"command": "` + sdk.Program() + ` --author 'jake' hook"`},
 			wantAbsent: []string{"'claude'"},
 			wantJSON:   true,
 		},
@@ -97,13 +97,13 @@ func TestHookInit(t *testing.T) {
 			name:     "configured author applies to the generic script",
 			config:   "author: jake\n",
 			args:     []string{"init", "generic"},
-			wantText: []string{`llmd --author 'jake' hook`},
+			wantText: []string{sdk.Program() + ` --author 'jake' hook`},
 		},
 		{
 			name:       "malformed config falls back to the platform name",
 			config:     "author: [unterminated\n",
 			args:       []string{"init", "claude"},
-			wantText:   []string{`"command": "llmd --author 'claude' hook"`},
+			wantText:   []string{`"command": "` + sdk.Program() + ` --author 'claude' hook"`},
 			wantAbsent: []string{"jake"},
 			wantJSON:   true,
 		},

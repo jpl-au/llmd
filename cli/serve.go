@@ -15,7 +15,7 @@ var serveSpec = sdk.Command{
 Listens on localhost:5563 by default. To change the address, set
 server.addr in your config:
 
-  llmd config server.addr "localhost:9090"
+  ` + sdk.Program() + ` config server.addr "localhost:9090"
 
 Every registered command becomes an HTTP route - reads are GET,
 mutations are POST. The /events endpoint streams real-time store
@@ -24,7 +24,7 @@ events via Server-Sent Events (SSE).
 Logs all requests to stderr. Shuts down gracefully on SIGINT or
 SIGTERM.
 
-See 'llmd guide serve' for the full route reference.`,
+See '` + sdk.Program() + ` guide serve' for the full route reference.`,
 	Usage:   "serve",
 	Streams: true,
 }

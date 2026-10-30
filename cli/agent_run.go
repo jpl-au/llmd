@@ -48,7 +48,7 @@ func agentRun(ctx sdk.Context, args []string) (sdk.Response, error) {
 	// is still recorded and the task still moves.
 	result := &sdk.RunResult{ExitCode: 1}
 	if h, ok := harness.Lookup(cfg.Harness); !ok {
-		slog.Error("this build of llmd has no such harness", "harness", cfg.Harness)
+		slog.Error("this build has no such harness", "program", sdk.Program(), "harness", cfg.Harness)
 	} else if r, err := h.Run(ctx.Context, cfg.Spec); err != nil {
 		slog.Error("running agent", "harness", cfg.Harness, "error", err)
 	} else {

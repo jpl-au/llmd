@@ -39,7 +39,7 @@ func (r *ruleAPI) Set(column string, rule sdk.ColumnRule) error {
 	// entered the column, and then fail with only a log line: refuse it
 	// now.
 	if rule.Agent != "" && r.agent != nil && r.agent(rule.Agent) != nil {
-		return sdk.Errorf(sdk.ErrNotFound, "there is no agent %s. Run llmd agent add %s first.", rule.Agent, rule.Agent)
+		return sdk.Errorf(sdk.ErrNotFound, "there is no agent %s. Run %s agent add %s first.", rule.Agent, sdk.Program(), rule.Agent)
 	}
 	rs, err := rules.Load(r.dir, "default")
 	if err != nil {

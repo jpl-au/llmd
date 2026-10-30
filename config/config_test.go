@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jpl-au/llmd/sdk"
 )
 
 // TestSaveIsPrivate checks that the config file is readable by its
@@ -72,7 +74,7 @@ func TestSet(t *testing.T) {
 		{key: "agent.worktree", value: "true"},
 		{key: "agent.worktree", value: "maybe", wantErr: "agent.worktree must be true or false."},
 		{key: "agent.harness", value: "harness"},
-		{key: "no.such.key", value: "x", wantErr: "there is no config key no.such.key. Run llmd config to list them."},
+		{key: "no.such.key", value: "x", wantErr: "there is no config key no.such.key. Run " + sdk.Program() + " config to list them."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.key+"="+tt.value, func(t *testing.T) {

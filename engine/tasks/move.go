@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/jpl-au/llmd/errs"
+	"github.com/jpl-au/llmd/sdk"
 
 	"github.com/jpl-au/llmd/clock"
 
@@ -36,7 +37,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 		return err
 	}
 	if !slices.Contains(cols, status) {
-		return errs.New(ErrInvalidCol, "there is no column %s. Run llmd task column list to see them.", status)
+		return errs.New(ErrInvalidCol, "there is no column %s. Run %s task column list to see them.", status, sdk.Program())
 	}
 
 	// Spec gating: a task cannot leave the backlog until its document
@@ -48,7 +49,7 @@ func (t *Tasks) Move(ctx context.Context, key, status, author string) error {
 			return err
 		}
 		if !specced {
-			return errs.New(ErrNoSpec, "%s has no spec, so it cannot leave the backlog.", key)
+			return errs.New(ErrNoSpec, "%q has no spec, so it cannot leave the backlog.", tsk.Title)
 		}
 	}
 

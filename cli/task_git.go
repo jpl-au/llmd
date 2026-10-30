@@ -116,7 +116,7 @@ func taskDiff(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task diff: %s has no branch. Give it one with llmd task start or llmd task set --branch.", t.Key)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task diff: %s has no branch. Give it one with %s task start or %s task set --branch.", t.Key, sdk.Program(), sdk.Program())
 	}
 
 	if base == "" {
@@ -168,7 +168,7 @@ func taskFiles(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task files: %s has no branch. Give it one with llmd task start or llmd task set --branch.", t.Key)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task files: %s has no branch. Give it one with %s task start or %s task set --branch.", t.Key, sdk.Program(), sdk.Program())
 	}
 
 	if base == "" {
@@ -291,7 +291,7 @@ func taskCommits(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, err
 	}
 	if t.Branch == "" {
-		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task commits: %s has no branch. Give it one with llmd task start or llmd task set --branch.", t.Key)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "task commits: %s has no branch. Give it one with %s task start or %s task set --branch.", t.Key, sdk.Program(), sdk.Program())
 	}
 
 	if base == "" {

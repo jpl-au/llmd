@@ -33,7 +33,7 @@ func exportCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	}
 
 	if len(positional) < 1 {
-		return nil, sdk.Errorf(sdk.ErrMissingArg, "export: a path is required. For example llmd export notes/todo, or llmd export notes/ ./backup.")
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "export: a path is required. For example %s export notes/todo, or %s export notes/ ./backup.", sdk.Program(), sdk.Program())
 	}
 
 	path := positional[0]

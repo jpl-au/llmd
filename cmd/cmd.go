@@ -104,7 +104,7 @@ func Execute(args []string) int {
 			printCmdHelp(c, program)
 			return 0
 		}
-		return errorf(g.JSON, "llmd: unknown command %s. Run llmd --help to list them.", g.Cmd)
+		return errorf(g.JSON, "%s: unknown command %s. Run %s --help to list them.", program, g.Cmd, program)
 	}
 
 	// Commands that take over the raw I/O streams (mcp, serve) manage
@@ -133,7 +133,7 @@ func Execute(args []string) int {
 		// Ctrl-C (or SIGTERM) cancels the command; say so plainly
 		// rather than show where the cancellation surfaced.
 		if ctx.Err() != nil && errors.Is(err, context.Canceled) {
-			return errorf(g.JSON, "llmd: interrupted.")
+			return errorf(g.JSON, "%s: interrupted.", program)
 		}
 		// A command missing an argument says which, then shows its
 		// usage. Under --json the error alone is the output.

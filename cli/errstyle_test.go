@@ -171,7 +171,12 @@ var (
 // styleProblems lists how msg departs from the error style.
 func styleProblems(msg string) []string {
 	var problems []string
+	// The binary's own errors lead with its name, which a test binary
+	// writes as cli.test.
 	prefix := errPrefix.FindString(msg)
+	if p := sdk.Program() + ": "; strings.HasPrefix(msg, p) {
+		prefix = p
+	}
 	if prefix == "" {
 		problems = append(problems, `does not start with "<command>: "`)
 	}

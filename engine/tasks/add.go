@@ -12,6 +12,7 @@ import (
 	"unicode"
 
 	"github.com/jpl-au/llmd/errs"
+	"github.com/jpl-au/llmd/sdk"
 
 	"github.com/jpl-au/llmd/clock"
 
@@ -47,7 +48,7 @@ func (t *Tasks) Add(ctx context.Context, title string, body []byte, opts AddOpti
 		return nil, err
 	}
 	if !slices.Contains(cols, status) {
-		return nil, errs.New(ErrInvalidCol, "there is no column %s. Run llmd task column list to see them.", status)
+		return nil, errs.New(ErrInvalidCol, "there is no column %s. Run %s task column list to see them.", status, sdk.Program())
 	}
 
 	// Determine document path.

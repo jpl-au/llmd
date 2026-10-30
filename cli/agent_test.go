@@ -114,7 +114,7 @@ func TestAgentAdd(t *testing.T) {
 				filepath.Join(".llmd", "agents", "claude-code", "config.json"),
 				filepath.Join(".llmd", "agents", "claude-code", "developer.md"),
 				filepath.Join(".llmd", "agents", "claude-code", "auditor.md"),
-				"llmd task start <task-id> --agent claude-code",
+				sdk.Program() + " task start <task-id> --agent claude-code",
 			},
 			wantCommand: "claude",
 			wantArgs:    "--output-format json",
@@ -254,7 +254,7 @@ func TestAgentLs(t *testing.T) {
 		{
 			name:     "none registered",
 			args:     []string{"ls"},
-			wantText: []string{"No agents registered", "llmd agent add claude-code"},
+			wantText: []string{"No agents registered", sdk.Program() + " agent add claude-code"},
 		},
 		{
 			name:     "one agent",

@@ -79,7 +79,7 @@ func (a *agentAPI) SetHarness(name, h, author string) error {
 
 // unknownHarness is the error for a harness this build of llmd does not have.
 func unknownHarness(name string) error {
-	return sdk.Errorf(sdk.ErrNotFound, "this build of llmd has no harness %s. Harnesses: %s.", name, strings.Join(harness.Names(), ", "))
+	return sdk.Errorf(sdk.ErrNotFound, "this build of %s has no harness %s. Harnesses: %s.", sdk.Program(), name, strings.Join(harness.Names(), ", "))
 }
 
 func agentErr(err error) error {
@@ -176,7 +176,7 @@ func (a *agentAPI) Spawn(taskKey, agent, author string, opts sdk.SpawnOpts) (*sd
 		return nil, fmt.Errorf("checking readiness: %w", err)
 	}
 	if !ready {
-		return nil, sdk.Errorf(sdk.ErrNotReady, "%s is waiting on other tasks. Run llmd task chain %s to see them.", taskKey, taskKey)
+		return nil, sdk.Errorf(sdk.ErrNotReady, "%s is waiting on other tasks. Run %s task chain %s to see them.", taskKey, sdk.Program(), taskKey)
 	}
 
 	// Look up agent configuration.
@@ -678,7 +678,7 @@ func serverURL() (url, auth string, err error) {
 	client := http.Client{Timeout: 2 * time.Second}
 	resp, err := client.Get(url + "/version")
 	if err != nil {
-		return "", "", sdk.Errorf(sdk.ErrUnavailable, "unable to spawn agents. Please run llmd serve.")
+		return "", "", sdk.Errorf(sdk.ErrUnavailable, "unable to spawn agents. Please run %s serve.", sdk.Program())
 	}
 	resp.Body.Close()
 	return url, auth, nil

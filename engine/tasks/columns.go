@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/jpl-au/llmd/errs"
+	"github.com/jpl-au/llmd/sdk"
 
 	"github.com/jpl-au/llmd/clock"
 )
@@ -49,7 +50,7 @@ func (t *Tasks) AddColumn(ctx context.Context, name, after, author string) error
 	} else {
 		idx := slices.Index(b.Columns, after)
 		if idx < 0 {
-			return errs.New(ErrColNotFound, "there is no column %s. Run llmd task column list to see them.", after)
+			return errs.New(ErrColNotFound, "there is no column %s. Run %s task column list to see them.", after, sdk.Program())
 		}
 		b.Columns = append(b.Columns[:idx+1], append([]string{name}, b.Columns[idx+1:]...)...)
 	}
@@ -69,7 +70,7 @@ func (t *Tasks) RemoveColumn(ctx context.Context, name, author string) error {
 	}
 
 	if !slices.Contains(b.Columns, name) {
-		return errs.New(ErrColNotFound, "there is no column %s. Run llmd task column list to see them.", name)
+		return errs.New(ErrColNotFound, "there is no column %s. Run %s task column list to see them.", name, sdk.Program())
 	}
 
 	var count int
@@ -112,10 +113,10 @@ func (t *Tasks) MoveColumn(ctx context.Context, name, after, author string) erro
 	}
 
 	if !slices.Contains(b.Columns, name) {
-		return errs.New(ErrColNotFound, "there is no column %s. Run llmd task column list to see them.", name)
+		return errs.New(ErrColNotFound, "there is no column %s. Run %s task column list to see them.", name, sdk.Program())
 	}
 	if !slices.Contains(b.Columns, after) {
-		return errs.New(ErrColNotFound, "there is no column %s. Run llmd task column list to see them.", after)
+		return errs.New(ErrColNotFound, "there is no column %s. Run %s task column list to see them.", after, sdk.Program())
 	}
 
 	var filtered []string

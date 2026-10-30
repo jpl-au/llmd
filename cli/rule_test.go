@@ -77,7 +77,7 @@ func TestRuleList(t *testing.T) {
 			name:       "no rules configured",
 			emptyRules: true,
 			args:       []string{"list"},
-			wantText:   []string{"No rules configured", "llmd rule set"},
+			wantText:   []string{"No rules configured", sdk.Program() + " rule set"},
 			wantAbsent: []string{"[manual]"},
 		},
 		{name: "unknown subcommand", args: []string{"bogus"}, wantErrText: "unknown subcommand"},

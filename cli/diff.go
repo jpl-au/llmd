@@ -38,10 +38,10 @@ do not burn context on large rewrites. Pass --all to see the whole
 diff, or --stat to see just the +/- counts.
 
 Examples:
-  llmd diff notes/meeting              Latest vs previous version
-  llmd diff notes/meeting:2 notes/meeting:5   Version 2 vs 5
-  llmd diff abc123def:2 abc123def:5    Same, using the document key
-  llmd diff notes/a notes/b            Two different documents`, Usage: "diff [flags] <source> [target]", MCP: true, Brief: `Diff a document against its previous version, or two documents or versions (path:N). Truncated past 500 lines unless --all; --stat for counts only.`, Flags: []sdk.Flag{
+  ` + sdk.Program() + ` diff notes/meeting              Latest vs previous version
+  ` + sdk.Program() + ` diff notes/meeting:2 notes/meeting:5   Version 2 vs 5
+  ` + sdk.Program() + ` diff abc123def:2 abc123def:5    Same, using the document key
+  ` + sdk.Program() + ` diff notes/a notes/b            Two different documents`, Usage: "diff [flags] <source> [target]", MCP: true, Brief: `Diff a document against its previous version, or two documents or versions (path:N). Truncated past 500 lines unless --all; --stat for counts only.`, Flags: []sdk.Flag{
 		{Name: "C", Type: "int", Desc: "Lines of context"},
 		{Name: "stat", Type: "bool", Desc: "Show stats only"},
 		{Name: "all", Type: "bool", Desc: "Show full diff, no line cap"},

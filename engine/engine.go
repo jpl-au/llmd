@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/jpl-au/llmd/errs"
+	"github.com/jpl-au/llmd/sdk"
 
 	"github.com/jpl-au/llmd/sqlite"
 
@@ -146,7 +147,7 @@ func Open(path string, opts ...Option) (*Store, error) {
 
 	// Check exists
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, errs.New(ErrNoStore, "there is no store at %s. Run llmd init to create one.", path)
+		return nil, errs.New(ErrNoStore, "there is no store at %s. Run %s init to create one.", path, sdk.Program())
 	}
 
 	return open(path, opts)

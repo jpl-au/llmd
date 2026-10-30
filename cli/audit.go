@@ -36,7 +36,7 @@ Subcommands: add <target> [text] (body via content; --assign who, -s/--status s)
 // auditCmd dispatches to audit subcommands.
 func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit: a subcommand is required. Run llmd audit --help to list them.")
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "audit: a subcommand is required. Run %s audit --help to list them.", sdk.Program())
 	}
 
 	sub := args[0]
@@ -72,7 +72,7 @@ func auditCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "status":
 		return auditStatus(ctx, args)
 	default:
-		return nil, sdk.Errorf(sdk.ErrInvalidArg, "audit: unknown subcommand %s. Run llmd audit --help to list them.", sub)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "audit: unknown subcommand %s. Run %s audit --help to list them.", sub, sdk.Program())
 	}
 }
 

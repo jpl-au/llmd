@@ -27,7 +27,7 @@ func TestHighlightCommands(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := highlightCommands(tt.msg); got != tt.want {
+			if got := highlightCommands(tt.msg, "llmd"); got != tt.want {
 				t.Errorf("highlightCommands(%q) = %q, want %q", tt.msg, got, tt.want)
 			}
 		})

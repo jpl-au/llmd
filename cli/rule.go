@@ -26,7 +26,7 @@ Subcommands:
   unset <column>              remove agent (keep transitions)
 
 Rules are stored in .llmd/rules/default.yaml.
-See "llmd guide rule" for full documentation.`, Usage: "rule <subcommand> [options]", MCP: true, Brief: `Column rules: where a task goes on success or failure, and which agent, if any, runs it when it enters the column.
+See "` + sdk.Program() + ` guide rule" for full documentation.`, Usage: "rule <subcommand> [options]", MCP: true, Brief: `Column rules: where a task goes on success or failure, and which agent, if any, runs it when it enters the column.
 Subcommands: list, set <column> [--success c] [--failure c] [--agent a] [--role r], unset <column>. --resume keeps the previous agent session.`, Flags: []sdk.Flag{
 		{Name: "agent", Type: "string", Desc: "Agent to auto-spawn"},
 		{Name: "role", Type: "string", Desc: "Agent role (developer, tester, auditor)"},
@@ -52,7 +52,7 @@ func ruleCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "unset":
 		return ruleUnset(ctx, args)
 	default:
-		return nil, sdk.Errorf(sdk.ErrInvalidArg, "rule: unknown subcommand %s. Run llmd rule --help to list them.", sub)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "rule: unknown subcommand %s. Run %s rule --help to list them.", sub, sdk.Program())
 	}
 }
 
@@ -62,7 +62,7 @@ func ruleList(ctx sdk.Context, _ []string) (sdk.Response, error) {
 		return nil, fmt.Errorf("rule list: %w", err)
 	}
 	if len(rs) == 0 {
-		return sdk.Text("No rules configured\n\nSet one with: llmd rule set code --agent claude-code --role developer"), nil
+		return sdk.Text("No rules configured\n\nSet one with: " + sdk.Program() + " rule set code --agent claude-code --role developer"), nil
 	}
 
 	views := ui.NewRuleViews(rs)

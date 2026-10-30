@@ -43,7 +43,7 @@ scripts must use --author on each command instead.`, Usage: "config [key] [value
 	},
 }
 
-var errConfigUsage = sdk.Errorf(sdk.ErrInvalidArg, "config: too many arguments. Use llmd config [--global] [key] [value].")
+var errConfigUsage = sdk.Errorf(sdk.ErrInvalidArg, "config: too many arguments. Use %s config [--global] [key] [value].", sdk.Program())
 
 // configCmd handles show-all, show-key, and set-key operations.
 func configCmd(ctx sdk.Context, args []string) (sdk.Response, error) {

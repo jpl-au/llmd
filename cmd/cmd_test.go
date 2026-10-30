@@ -103,12 +103,12 @@ func TestParseGlobal(t *testing.T) {
 			// dropped: it once ran ls as if it were not there.
 			name:    "unknown leading flag is refused",
 			args:    []string{"--bogus", "ls"},
-			wantErr: "llmd: unknown flag --bogus. The global flags are --author, --json, --db, --verbose and --help.",
+			wantErr: sdk.Program() + ": unknown flag --bogus. The global flags are --author, --json, --db, --verbose and --help.",
 		},
-		{name: "db without a value", args: []string{"--db"}, wantErr: "llmd: --db needs a path."},
-		{name: "author without a value", args: []string{"--author"}, wantErr: "llmd: --author needs a name."},
-		{name: "trailing author without a value", args: []string{"ls", "--author"}, wantErr: "llmd: --author needs a name."},
-		{name: "db with an empty inline value", args: []string{"--db=", "ls"}, wantErr: "llmd: --db needs a path."},
+		{name: "db without a value", args: []string{"--db"}, wantErr: sdk.Program() + ": --db needs a path."},
+		{name: "author without a value", args: []string{"--author"}, wantErr: sdk.Program() + ": --author needs a name."},
+		{name: "trailing author without a value", args: []string{"ls", "--author"}, wantErr: sdk.Program() + ": --author needs a name."},
+		{name: "db with an empty inline value", args: []string{"--db=", "ls"}, wantErr: sdk.Program() + ": --db needs a path."},
 		{
 			// --db=x was once ignored, so the command read the
 			// default store.
@@ -409,9 +409,9 @@ func TestRun(t *testing.T) {
 		{name: "no arguments shows help", args: nil, wantOut: []string{"Usage:", "Reading:"}},
 		{name: "version", args: []string{"version"}, wantOut: []string{"Build Tag:", "Go Version:"}},
 		{name: "command help", args: []string{"cat", "--help"}, wantOut: []string{"Usage: " + sdk.Program() + " cat", "Details: guide cat"}},
-		{name: "help for an unknown command", args: []string{"nope", "--help"}, wantCode: 1, wantErr: []string{"llmd: unknown command nope."}},
-		{name: "bad global flag", args: []string{"--db"}, wantCode: 1, wantErr: []string{"llmd: --db needs a path."}},
-		{name: "store missing", args: []string{"ls"}, wantCode: 1, wantErr: []string{"ls: there is no store at " + filepath.Join(".llmd", "llmd.db") + ". Run llmd init to create one."}},
+		{name: "help for an unknown command", args: []string{"nope", "--help"}, wantCode: 1, wantErr: []string{sdk.Program() + ": unknown command nope."}},
+		{name: "bad global flag", args: []string{"--db"}, wantCode: 1, wantErr: []string{sdk.Program() + ": --db needs a path."}},
+		{name: "store missing", args: []string{"ls"}, wantCode: 1, wantErr: []string{"ls: there is no store at " + filepath.Join(".llmd", "llmd.db") + ". Run " + sdk.Program() + " init to create one."}},
 		{name: "init", args: []string{"init"}, wantOut: []string{"Initialised llmd store"}},
 		{name: "write from stdin", args: []string{"--author", "alice", "write", "docs/a"}, stdin: "# A\n", wantOut: []string{"Wrote docs/a"}},
 		{name: "cat", args: []string{"cat", "docs/a"}, wantOut: []string{"# A"}},

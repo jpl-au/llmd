@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jpl-au/llmd/errs"
+	"github.com/jpl-au/llmd/sdk"
 )
 
 // Check reports the state of the document at path: nil when it is
@@ -61,12 +62,12 @@ func NotFound(name string) error {
 
 // Deleted is ErrDeleted for a named document, with the way back.
 func Deleted(name string) error {
-	return errs.New(ErrDeleted, "%s is deleted. Run llmd restore %s to bring it back.", name, name)
+	return errs.New(ErrDeleted, "%s is deleted. Run %s restore %s to bring it back.", name, sdk.Program(), name)
 }
 
 // NoVersion is the error for a version a document does not have, of
 // the given kind: ErrNotFound when reading, history.ErrVersionInvalid
 // when reverting. The wording is the same either way.
 func NoVersion(kind error, name string, version int) error {
-	return errs.New(kind, "%s has no version %d. Run llmd history %s to list them.", name, version, name)
+	return errs.New(kind, "%s has no version %d. Run %s history %s to list them.", name, version, sdk.Program(), name)
 }

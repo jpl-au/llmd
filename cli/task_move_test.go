@@ -35,7 +35,7 @@ func TestTaskMove(t *testing.T) {
 			name:        "title-only document is rejected with guidance",
 			seedBody:    []byte("# Alpha"),
 			args:        []string{"move", "{key}", "in-progress"},
-			wantErrText: []string{"has no spec, so it cannot leave the backlog.", "llmd write tasks/alpha", "llmd task link {key}"},
+			wantErrText: []string{"has no spec, so it cannot leave the backlog.", sdk.Program() + " write tasks/alpha", sdk.Program() + " task link {key}"},
 		},
 		{
 			name:        "no document is rejected",
@@ -356,7 +356,7 @@ func TestTaskRm(t *testing.T) {
 			name:     "with a document reminds that it survives",
 			seedBody: taskBody("Alpha"),
 			args:     []string{"rm", "{key}"},
-			wantText: []string{`Removed task {key} "Alpha"`, "Note: the document at tasks/alpha still exists", "llmd rm tasks/alpha"},
+			wantText: []string{`Removed task {key} "Alpha"`, "Note: the document at tasks/alpha still exists", sdk.Program() + " rm tasks/alpha"},
 		},
 		{
 			name:       "without a document",

@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/jpl-au/llmd/sdk"
 )
 
 // Config holds all configuration values. Fields map directly to
@@ -529,7 +531,7 @@ func (c *Config) Set(key, value string) error {
 	case "agent.harness":
 		c.Agent.Harness = value
 	default:
-		return fmt.Errorf("there is no config key %s. Run llmd config to list them.", key)
+		return fmt.Errorf("there is no config key %s. Run %s config to list them.", key, sdk.Program())
 	}
 	return nil
 }

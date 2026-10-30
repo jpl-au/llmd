@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jpl-au/llmd/errs"
+	"github.com/jpl-au/llmd/sdk"
 
 	"github.com/jpl-au/llmd/clock"
 
@@ -53,7 +54,7 @@ type RecordOpts struct {
 
 // Running is ErrRunning for a task, with the way to end the run.
 func Running(taskKey string) error {
-	return errs.New(ErrRunning, "%s already has a running agent. Run llmd agent stop %s to end it.", taskKey, taskKey)
+	return errs.New(ErrRunning, "%s already has a running agent. Run %s agent stop %s to end it.", taskKey, sdk.Program(), taskKey)
 }
 
 // Record inserts a new agent run and a "spawned" event, then emits

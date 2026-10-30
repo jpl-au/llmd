@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/jpl-au/llmd/errs"
+	"github.com/jpl-au/llmd/sdk"
 
 	"github.com/jpl-au/llmd/clock"
 	"github.com/jpl-au/llmd/pkg/events"
@@ -62,7 +63,7 @@ func (t *Tasks) Claim(ctx context.Context, author string, opts ClaimOptions) (*t
 	}
 	for _, c := range []string{from, to} {
 		if !slices.Contains(cols, c) {
-			return nil, errs.New(ErrInvalidCol, "there is no column %s. Run llmd task column list to see them.", c)
+			return nil, errs.New(ErrInvalidCol, "there is no column %s. Run %s task column list to see them.", c, sdk.Program())
 		}
 	}
 	if from == to {

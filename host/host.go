@@ -385,7 +385,7 @@ func (h *Host) Run(ctx context.Context, opts RunOpts) (sdk.Response, error) {
 
 	c := h.commands[opts.Cmd]
 	if c == nil {
-		err := sdk.Errorf(sdk.ErrUnknownCmd, "llmd: unknown command %s. Run llmd --help to list them.", opts.Cmd)
+		err := sdk.Errorf(sdk.ErrUnknownCmd, "%s: unknown command %s. Run %s --help to list them.", sdk.Program(), opts.Cmd, sdk.Program())
 		emit(err)
 		return nil, err
 	}
@@ -478,7 +478,7 @@ func (h *Host) resolveAuthor(cmd, flag string, required bool) (string, error) {
 
 	// Author is required but missing - return a helpful error.
 	if term.Interactive() {
-		return "", sdk.Errorf(sdk.ErrMissingArg, "%s: no author is set. Run llmd config author \"Your Name\", or pass --author.", cmd)
+		return "", sdk.Errorf(sdk.ErrMissingArg, "%s: no author is set. Run %s config author \"Your Name\", or pass --author.", cmd, sdk.Program())
 	}
 	return "", sdk.AuthorRequired(cmd)
 }
@@ -563,7 +563,7 @@ func (h *Host) Exec(ctx context.Context, cmd string, args []string, author strin
 func (h *Host) exec(ctx context.Context, cmd string, args []string, author string, stdin io.Reader, dbPath string, tty bool) (sdk.Response, error) {
 	entry, ok := h.commands[cmd]
 	if !ok {
-		return nil, sdk.Errorf(sdk.ErrUnknownCmd, "llmd: unknown command %s. Run llmd --help to list them.", cmd)
+		return nil, sdk.Errorf(sdk.ErrUnknownCmd, "%s: unknown command %s. Run %s --help to list them.", sdk.Program(), cmd, sdk.Program())
 	}
 
 	if entry.cmd.NeedsAuthor && author == "" {
@@ -575,7 +575,7 @@ func (h *Host) exec(ctx context.Context, cmd string, args []string, author strin
 	// server (mcp, serve) started without a .llmd directory and a
 	// tool call arrives.
 	if h.current() == nil && !h.storeless(cmd) && !entry.cmd.Streams {
-		return nil, fmt.Errorf("%s: there is no store here. Run llmd init to create one.", cmd)
+		return nil, fmt.Errorf("%s: there is no store here. Run %s init to create one.", cmd, sdk.Program())
 	}
 
 	sctx := h.Context(ctx, author)

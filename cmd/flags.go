@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"strings"
+
+	"github.com/jpl-au/llmd/sdk"
 )
 
 // globalFlags holds the result of parsing global flags from the
@@ -49,7 +51,7 @@ func parseGlobal(args []string) (globalFlags, error) {
 			return g, err
 		}
 		if n == 0 {
-			return g, fmt.Errorf("llmd: unknown flag %s. The global flags are --author, --json, --db, --verbose and --help.", arg)
+			return g, fmt.Errorf("%s: unknown flag %s. The global flags are --author, --json, --db, --verbose and --help.", sdk.Program(), arg)
 		}
 		i += n - 1
 	}
@@ -109,13 +111,13 @@ func (g *globalFlags) take(args []string, i int) (int, error) {
 	}
 	if inline {
 		if value == "" {
-			return 0, fmt.Errorf("llmd: %s needs %s.", name, what)
+			return 0, fmt.Errorf("%s: %s needs %s.", sdk.Program(), name, what)
 		}
 		*dst = value
 		return 1, nil
 	}
 	if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
-		return 0, fmt.Errorf("llmd: %s needs %s.", name, what)
+		return 0, fmt.Errorf("%s: %s needs %s.", sdk.Program(), name, what)
 	}
 	*dst = args[i+1]
 	return 2, nil

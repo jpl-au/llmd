@@ -267,7 +267,7 @@ duplicate names to catch programmer errors early. Extensions implement
 `sdk.Plugin` (Name, Commands, Exec) and receive raw args, parsing flags
 themselves.
 
-A binary that adds extensions follows the Caddy model: its own root `main.go` blank-imports `cli` and its extension packages, then calls `cmd.Execute(os.Args[1:])`. The `cmd` package comment shows the full file. Help names the binary as it was started (`sdk.Program()`), so a `gdd` build shows `gdd <command>`.
+A binary that adds extensions follows the Caddy model: its own root `main.go` blank-imports `cli` and its extension packages, then calls `cmd.Execute(os.Args[1:])`. The `cmd` package comment shows the full file. Help names the binary as it was started (`sdk.Program()`), so a `gdd` build shows `gdd <command>`. Every message that tells the reader to run a command names it the same way: `"Run %s init to create one.", sdk.Program()`, never a literal `llmd`. The hook commands written for agents do too, so a `gdd` build's agents report to `gdd`. Tests expect `sdk.Program()`, which is the test binary's name, such as `cli.test`.
 
 An extension documents its commands with its own guide pages: it embeds the markdown files and calls `guide.Add` in `init()`. `llmd guide <page>` then shows them, and a command's help can point to them through `Command.Guide`. A page name llmd or another extension already has panics.
 

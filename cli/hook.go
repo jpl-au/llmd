@@ -68,7 +68,7 @@ func hookEvent(ctx sdk.Context, args []string) (sdk.Response, error) {
 		return nil, sdk.Errorf(sdk.ErrMissingArg, "hook: an author is required. --author names the agent and selects its payload format.")
 	}
 	if ctx.Hooks == nil {
-		return nil, sdk.Errorf(sdk.ErrNotFound, "hook: there is no store here. Run llmd init to create one.")
+		return nil, sdk.Errorf(sdk.ErrNotFound, "hook: there is no store here. Run %s init to create one.", sdk.Program())
 	}
 	payload, err := ctx.Input()
 	if err != nil {

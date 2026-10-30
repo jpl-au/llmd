@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/jpl-au/llmd/sdk"
 )
 
 // Platform describes platform-specific behaviour for an agent tool.
@@ -75,9 +77,10 @@ type HookEvent struct {
 
 // HookCommand returns the shell command a platform's hook runs so that
 // llmd handles the event: "llmd --author <author> hook", with the
-// author quoted for the shell.
+// author quoted for the shell. It names the binary that is running
+// ([sdk.Program]), so a build such as gdd hooks into itself.
 func HookCommand(author string) string {
-	return "llmd --author " + ShellQuote(author) + " hook"
+	return sdk.Program() + " --author " + ShellQuote(author) + " hook"
 }
 
 // ShellQuote wraps s in single quotes for a POSIX shell.

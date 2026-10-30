@@ -90,7 +90,7 @@ func mirrorPush(ctx sdk.Context, args []string) (sdk.Response, error) {
 	})
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, sdk.Errorf(sdk.ErrNotFound, "mirror push: %v Run llmd mirror pull first.", err)
+			return nil, sdk.Errorf(sdk.ErrNotFound, "mirror push: %v Run %s mirror pull first.", err, sdk.Program())
 		}
 		return nil, fmt.Errorf("mirror push: %w", err)
 	}

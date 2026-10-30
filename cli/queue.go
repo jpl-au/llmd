@@ -30,7 +30,7 @@ Subcommands: send <text> [--assign who], ls [--limit n], peek, ack <key>, histor
 // --author so the queue can bind acks to an identity.
 func queueCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	if len(args) == 0 {
-		return nil, sdk.Errorf(sdk.ErrMissingArg, "queue: a subcommand is required. Run llmd queue --help to list them.")
+		return nil, sdk.Errorf(sdk.ErrMissingArg, "queue: a subcommand is required. Run %s queue --help to list them.", sdk.Program())
 	}
 	if ctx.Author == "" {
 		return nil, sdk.AuthorRequired("queue " + args[0])
@@ -51,7 +51,7 @@ func queueCmd(ctx sdk.Context, args []string) (sdk.Response, error) {
 	case "history":
 		return queueHistory(ctx, args)
 	default:
-		return nil, sdk.Errorf(sdk.ErrInvalidArg, "queue: unknown subcommand %s. Run llmd queue --help to list them.", sub)
+		return nil, sdk.Errorf(sdk.ErrInvalidArg, "queue: unknown subcommand %s. Run %s queue --help to list them.", sub, sdk.Program())
 	}
 }
 

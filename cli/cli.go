@@ -102,7 +102,7 @@ var handlers = map[string]handler{
 func (c *CLI) Exec(ctx sdk.Context, cmd string, args []string) (sdk.Response, error) {
 	h, ok := handlers[cmd]
 	if !ok {
-		return nil, sdk.Errorf(sdk.ErrUnknownCmd, "llmd: unknown command %s. Run llmd --help to list them.", cmd)
+		return nil, sdk.Errorf(sdk.ErrUnknownCmd, "%s: unknown command %s. Run %s --help to list them.", sdk.Program(), cmd, sdk.Program())
 	}
 	return h(ctx, args)
 }

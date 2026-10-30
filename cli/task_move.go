@@ -22,7 +22,7 @@ func taskMove(ctx sdk.Context, args []string) (sdk.Response, error) {
 		if errors.Is(err, sdk.ErrNoSpec) {
 			tsk, rerr := ctx.Tasks.Read(args[0])
 			if rerr == nil {
-				return nil, sdk.Errorf(sdk.ErrNoSpec, "task move: %s has no spec, so it cannot leave the backlog. Write one with llmd write %s, or link a document with llmd task link %s <path>.", args[0], tsk.Path, args[0])
+				return nil, sdk.Errorf(sdk.ErrNoSpec, "task move: %q has no spec, so it cannot leave the backlog. Write one with %s write %s, or link a document with %s task link %s <path>.", tsk.Title, sdk.Program(), tsk.Path, sdk.Program(), args[0])
 			}
 		}
 		return nil, fmt.Errorf("task move: %w", err)
@@ -106,7 +106,7 @@ func taskRm(ctx sdk.Context, args []string) (sdk.Response, error) {
 
 	text := fmt.Sprintf("Removed task %s \"%s\"", t.Key, t.Title)
 	if ok, _ := ctx.Documents.Exists(t.Path); ok {
-		text += fmt.Sprintf("\nNote: the document at %s still exists. To remove it: llmd rm %s", t.Path, t.Path)
+		text += fmt.Sprintf("\nNote: the document at %s still exists. To remove it: %s rm %s", t.Path, sdk.Program(), t.Path)
 	}
 	return sdk.Text(text), nil
 }
