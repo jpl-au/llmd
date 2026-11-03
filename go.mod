@@ -11,7 +11,7 @@ require (
 	github.com/jpl-au/http-client v0.3.1
 	github.com/jpl-au/qwr v0.5.2
 	github.com/modelcontextprotocol/go-sdk v1.8.0
-	github.com/yuin/goldmark v1.8.6
+	github.com/yuin/goldmark v1.8.7
 	github.com/zeebo/xxh3 v1.1.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.61.0
